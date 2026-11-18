@@ -20,6 +20,7 @@
 #include "Expr/Sha256.h"
 #include "Reader/Datafield/Grid.h"
 #include "Reader/Scripting/DataTable.h"
+#include "Setup.h"
 
 #include <algorithm>
 #include <array>
@@ -33,6 +34,7 @@
 #include <limits>
 #include <map>
 #include <set>
+#include <sstream>
 #include <string>
 #include <unistd.h>
 #include <utility>
@@ -102,6 +104,35 @@ def t3 = 2600 + t2
 def t4 = select(t0, t1, t3)
 out rho = t4
 )";
+
+/// `text` without its first line, the header: a module of the full language.
+std::string withoutHeader(const std::string& text) { return text.substr(text.find('\n') + 1); }
+
+/// `text` without its `meta line`s: the full language gives the positions in the file itself,
+/// where a core file without them has none.
+std::string withoutLines(const std::string& text) {
+  std::string out;
+  std::istringstream lines(text);
+  for (std::string line; std::getline(lines, line);) {
+    if (line.rfind("meta line", 0) != 0) {
+      out += line + "\n";
+    }
+  }
+  return out;
+}
+
+/// That the core text `text` of the file `file` is, without its header, a module of the full
+/// language, of the same program: the same normal form but for the positions, and the same
+/// fingerprint.
+void sameInFullLanguage(const std::string& text, const std::string& file = "") {
+  CAPTURE(text);
+  SderivOptions options;
+  options.file = file;
+  const Program core = loadCore(text, file);
+  const Program full = compileSderivModule(withoutHeader(text), options);
+  CHECK(full.fingerprint() == core.fingerprint());
+  CHECK(withoutLines(printCore(full)) == withoutLines(printCore(core)));
+}
 
 /// The derived output of the specification: the peak ground velocity.
 constexpr auto PeakVelocity = R"(#!sderiv 1
@@ -868,6 +899,120 @@ out rho = t4
     CHECK(program.outputs()[0].name == "pgv");
     REQUIRE(program.state().size() == 1);
     CHECK(program.inputs().size() == 3);
+  }
+
+  TEST_CASE("every core file is, without its header, a module of the full language") {
+    // the examples of the specification, and the golden files of the conformance tests
+    sameInFullLanguage(Material, "/data/run/material.sderiv");
+    sameInFullLanguage(PeakVelocity);
+    const auto golden =
+        std::filesystem::path(unit_test::TestSetup::SourcePath) / "Expr" / "Conformance";
+    std::size_t files = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(golden)) {
+      if (entry.path().extension() == ".sderiv") {
+        std::ifstream stream(entry.path());
+        sameInFullLanguage(std::string(std::istreambuf_iterator<char>(stream), {}),
+                           entry.path().string());
+        ++files;
+      }
+    }
+    CHECK(files >= 6);
+    // names the full language has otherwise, or reserves: constants, functions, conversions,
+    // `material`, words in backquotes; an input nothing reads, the inputs in another order than
+    // read; states of their own type and their next values; outputs of the names of inputs; a
+    // check, a percentile, numbers of every spelling; and where they come from
+    sameInFullLanguage(R"(#!sderiv 1
+meta generator = "test"
+in z, g, pi, max, material, f64, `if`, `type`, `for`, `x y`, unused
+state sum = 1
+state f32 `let` = -2
+def t0 = max(max, g) + pi * f64 + `if` - `type` / `for`
+def len = `x y` + material
+next sum = sum + t0
+next `let` = `let` * 2
+out max = t0 + len
+out g = sum
+out `then` = real(f64(z)) + real(`let`)
+check le(z, 0), "below the surface"
+out p = percentile(50, z, g, pi)
+out h = 0x1.8p+1 + inf - nan * 2. + .5 + 1e-3 - -2.5
+)");
+  }
+
+  TEST_CASE("the full language reads the declarations of the core format") {
+    reader::datafield::GridStore store;
+    // a module that declares its inputs has those, in their order, and no others
+    const Program declared = compileSderivModule("in b, a, unused\nout u = a - b\n");
+    REQUIRE(declared.inputs().size() == 3);
+    CHECK(declared.inputs()[0].name == "b");
+    CHECK(declared.inputs()[2].name == "unused");
+    CHECK(interpretValues(declared, store, {1.0, 3.0, 0.0}, 1) == std::vector<double>{2.0});
+    const auto errorOf = [](const std::string& source) {
+      try {
+        static_cast<void>(compileSderivModule(source));
+      } catch (const SderivError& error) {
+        return std::string(error.what());
+      }
+      return std::string();
+    };
+    CHECK(errorOf("in x\nout u = x + y\n").find("`y` is not declared") != std::string::npos);
+    CHECK(errorOf("in x, x\nout u = x\n").find("declared twice") != std::string::npos);
+    CHECK(errorOf("in x\ndef x = 1\nout u = x\n").find("as an input and as a definition") !=
+          std::string::npos);
+    // an input the module declares is the input, not the constant of its name
+    CHECK(interpretValues(compileSderivModule("in g\nout u = 2 * g\n"), store, {3.0}, 1) ==
+          std::vector<double>{6.0});
+    // next: the next value of a state, and of nothing else
+    const Program counter = compileSderivModule("state n = 0\nnext n = n + 1\nout u = n\n");
+    REQUIRE(counter.state().size() == 1);
+    CHECK(counter.fingerprint() ==
+          compileSderivModule("state n = 0\ndef n = n + 1\nout def u = n\n").fingerprint());
+    CHECK(errorOf("next n = 1\nout u = 1\n").find("`next` gives the next value of a state") !=
+          std::string::npos);
+    CHECK(errorOf("state n = 0\nnext n = 1\ndef n = 2\nout u = n\n").find("duplicate") !=
+          std::string::npos);
+    // a definition `pi` of the module leaves the constant to the library, which reads it
+    const std::string am = "import stress\nout stress.str_dip_slip_am({mu_d = 0.2, mu_s = 0.6, "
+                           "strike = x, dip = 60, s_zz = -1e8, cohesion = 0, R = 0.7, "
+                           "DipSlipFaulting = 0, s2ratio = 0.5})\n";
+    const Program hidden = compileSderivModule("def pi = y\n" + am);
+    CHECK(hidden.inputs().size() == 1);
+    CHECK(hidden.fingerprint() == compileSderivModule(am).fingerprint());
+    // an output of `out v = e` is no definition: its name reads the input
+    CHECK(interpretValues(compileSderivModule("out rho = 1.1 * rho\n"), store, {2.0}, 1) ==
+          std::vector<double>{1.1 * 2.0});
+    // meta before the declarations, and a meta line that names what the module has
+    const Program meta = compileSderivModule(
+        "meta generator = \"test\", 1\nmeta line = \"u\", \"a.yaml\", 3, 4\nout u = x\n");
+    REQUIRE(meta.meta().size() == 1);
+    CHECK(meta.meta()[0].values[1].text == "1");
+    REQUIRE(meta.sources().size() == 1);
+    CHECK(meta.sources()[0].position == SourcePosition{"a.yaml", 3, 4});
+    CHECK(errorOf("out u = x\nmeta generator = \"test\"\n").find("meta lines come before") !=
+          std::string::npos);
+    CHECK(errorOf("meta line = \"v\", \"a.yaml\", 3, 4\nout u = x\n").find("no definition") !=
+          std::string::npos);
+    // `meta`, `next` and `in` are words of the full language, which backquotes make names
+    CHECK(!errorOf("def next = 1\nout u = next\n").empty());
+    CHECK(interpretValues(compileSderivModule("in `in`, `meta`\nout `next` = `in` - `meta`\n"),
+                          store,
+                          {5.0, 2.0},
+                          1) == std::vector<double>{3.0});
+    // and the words of the full language are reserved in the core format, which escapes them
+    CHECK(failureOf("#!sderiv 1\nin type\nout u = type\n").message.find("reserved word") !=
+          std::string::npos);
+    CHECK(failureOf("#!sderiv 1\nin x\nlet u = x\n").message.find("a declaration starts with") !=
+          std::string::npos);
+    Program words;
+    words.addInput("type", reader::scripting::DataType::F64);
+    words.addInput("for", reader::scripting::DataType::F64);
+    words.addOutput(
+        "u",
+        reader::scripting::DataType::F64,
+        words.arena().pw(Fn::Add, words.arena().field("type"), words.arena().field("for")));
+    const std::string printed = printCore(words);
+    CHECK(printed.find("in `type`, `for`") != std::string::npos);
+    sameInFullLanguage(printed);
   }
 }
 

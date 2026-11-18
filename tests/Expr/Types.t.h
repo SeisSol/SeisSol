@@ -159,7 +159,9 @@ TEST_SUITE("ExprTypes") {
           std::string::npos);
     CHECK(errorOf("state f16 s = 0.0\nout def s = s\n").find("no type of a state") !=
           std::string::npos);
-    CHECK(errorOf("def f64 = x\nout def u = f64\n").find("function") != std::string::npos);
+    // a definition of the name of a conversion is read where the name is, the conversion called
+    CHECK(errorOf("def f64 = x\nout def u = real(f64(f64))\n").empty());
+    CHECK(errorOf("def f64(v) = v\nout def u = f64(x)\n").find("function") != std::string::npos);
     CHECK(errorOf("out def u = f64(x, x)\n").find("takes 1 argument") != std::string::npos);
   }
 

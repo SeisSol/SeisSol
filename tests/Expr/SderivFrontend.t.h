@@ -783,7 +783,7 @@ TEST_SUITE("SderivFrontend") {
            "the module is imported as `bad` twice");
     reject("def f(v) = v\n",
            "import \"bad.sderiv\" as bad\nimport motion\ndef motion = 1\nout def r = bad.f(1)\n",
-           "the module is imported as `motion`, the name of a definition");
+           "the module is imported as `motion`, the name of an input, a definition");
     reject("def f(v) = v\n",
            "import \"bad.sderiv\" as bad\nout def r = bad.g(1)\n",
            "the module `bad` has no definition `g`");
@@ -985,13 +985,27 @@ out def b = y
                     SderivError);
   }
 
-  TEST_CASE("a definition may not take the name of a constant or function") {
-    // a read of `g` would be the constant, and the definition ignored
-    CHECK_THROWS_AS(static_cast<void>(compileSderivModule("def g = 2.0 * x\nout def u = g\n")),
+  TEST_CASE("a definition without parameters may take the name of a constant or function") {
+    // where the name is read, it is the definition; where it is called, the function -- as in the
+    // core format, whose names of operations are no reserved words
+    reader::datafield::GridStore store;
+    CHECK(
+        interpretValues(compileSderivModule("def g = 2.0 * x\nout def u = g\n"), store, {3.0}, 1) ==
+        std::vector<double>{6.0});
+    CHECK(interpretValues(
+              compileSderivModule("def exp = x\nout def u = exp + exp(0.0)\n"), store, {3.0}, 1) ==
+          std::vector<double>{4.0});
+    CHECK(
+        interpretValues(compileSderivModule("out def pi = x\nout def u = pi\n"), store, {3.0}, 1) ==
+        std::vector<double>{3.0, 3.0});
+    CHECK(interpretValues(
+              compileSderivModule("def max = x\nout def u = max(max, 2.0)\n"), store, {3.0}, 1) ==
+          std::vector<double>{3.0});
+    // one with parameters may not: a call would no longer reach the function
+    CHECK_THROWS_AS(static_cast<void>(compileSderivModule("def exp(v) = v\nout def u = exp(x)\n")),
                     SderivError);
-    CHECK_THROWS_AS(static_cast<void>(compileSderivModule("def exp = x\nout def u = exp\n")),
+    CHECK_THROWS_AS(static_cast<void>(compileSderivModule("def pi(v) = v\nout def u = pi(x)\n")),
                     SderivError);
-    CHECK_THROWS_AS(static_cast<void>(compileSderivModule("out def pi = x\n")), SderivError);
   }
 
   TEST_CASE("a definition that reads itself is an error, not a recursion") {

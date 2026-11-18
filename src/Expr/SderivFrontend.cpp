@@ -63,6 +63,8 @@ enum class TokenKind : std::uint8_t {
   And,
   Or,
   Not,
+  Meta,
+  Next,
   Eof
 };
 
@@ -70,6 +72,8 @@ struct Token {
   TokenKind kind{};
   std::string value;
   int position{0};
+  /// a name in backquotes, which is never a keyword
+  bool escaped{false};
 };
 
 const char* describe(TokenKind kind) {
@@ -143,6 +147,27 @@ std::vector<Token> tokenize(const std::string& source) {
         throw SderivError("lex", "unterminated string", static_cast<int>(start));
       }
       tokens.push_back({TokenKind::Str, std::move(value), static_cast<int>(start)});
+      continue;
+    }
+
+    // A name in backquotes, as the core format escapes it: any character but a backquote and a line
+    // end, never a keyword -- `in` is a name there.
+    if (c == '`') {
+      ++i;
+      const std::size_t begin = i;
+      while (i < n && source[i] != '`' && source[i] != '\n' && source[i] != '\r') {
+        ++i;
+      }
+      if (i >= n || source[i] != '`') {
+        throw SderivError(
+            "lex", "an escaped name ends with ` on its line", static_cast<int>(start));
+      }
+      if (i == begin) {
+        throw SderivError("lex", "an escaped name is not empty", static_cast<int>(start));
+      }
+      tokens.push_back(
+          {TokenKind::Name, source.substr(begin, i - begin), static_cast<int>(start), true});
+      ++i;
       continue;
     }
 
@@ -263,6 +288,10 @@ std::vector<Token> tokenize(const std::string& source) {
         kind = TokenKind::Or;
       } else if (value == "not") {
         kind = TokenKind::Not;
+      } else if (value == "meta") {
+        kind = TokenKind::Meta;
+      } else if (value == "next") {
+        kind = TokenKind::Next;
       }
       tokens.push_back({kind, std::move(value), static_cast<int>(start)});
       continue;
@@ -438,6 +467,28 @@ struct StateDeclaration {
   ValueType type{ValueType::Real};
 };
 
+// `in x, y`: an input, declared as the core format declares it.
+struct InputDeclaration {
+  std::string name;
+  int position{0};
+};
+
+// `out v = e`: an output of the name v, which is no definition, as the core format has it.
+struct NamedOutput {
+  std::string name;
+  SurfaceId value{-1};
+  int position{0};
+};
+
+// `meta key = "text", 12`: a line of provenance, as the core format has it.
+struct MetaDeclaration {
+  MetaEntry entry;
+  int position{0};
+};
+
+// What an output of the source is: an `out def`, an `out e` of a record, or an `out v = e`.
+enum class OutputKind : std::uint8_t { Definition, Spread, Named };
+
 struct ParsedProgram {
   std::vector<StateDeclaration> states;
   std::vector<SurfaceId> defs;
@@ -449,9 +500,18 @@ struct ParsedProgram {
   std::vector<SurfaceId> exports;
   // `out e`: expressions whose records give an output per field
   std::vector<SurfaceId> spreads;
-  // the outputs in the order of the source: an `out def` (an index of `exports`) or an `out e`
-  // (one of `spreads`)
-  std::vector<std::pair<bool, std::size_t>> outputOrder;
+  // `out v = e`
+  std::vector<NamedOutput> named;
+  // the outputs in the order of the source: an `out def` (an index of `exports`), an `out e` (one
+  // of `spreads`) or an `out v = e` (one of `named`)
+  std::vector<std::pair<OutputKind, std::size_t>> outputOrder;
+  // `in x, y`: the inputs the module declares, in their order; a module that declares any has no
+  // others
+  std::vector<InputDeclaration> inputs;
+  // `next s = e`, which is `def s = e` of a state s: the names, and where
+  std::vector<std::pair<std::string, int>> nexts;
+  // `meta`, the lines of provenance before the declarations
+  std::vector<MetaDeclaration> meta;
   std::vector<GridDeclaration> grids;
   std::vector<TypeDeclaration> types;
   std::vector<ImportDeclaration> imports;
@@ -519,16 +579,53 @@ class Parser {
     // def and grid interleave freely and need no separator, for the same reason
     // def already needed none: each starts with its own token kind, so the
     // greedy expression in a def body stops cleanly at the next declaration.
+    bool metaAllowed = true;
     while (peek().kind == TokenKind::Def || peek().kind == TokenKind::Grid ||
            peek().kind == TokenKind::Out || peek().kind == TokenKind::State ||
            peek().kind == TokenKind::Check || peek().kind == TokenKind::Type ||
-           peek().kind == TokenKind::Import) {
+           peek().kind == TokenKind::Import || peek().kind == TokenKind::In ||
+           peek().kind == TokenKind::Next || peek().kind == TokenKind::Meta) {
       if (!qualifier_.empty() && peek().kind != TokenKind::Def && peek().kind != TokenKind::Type &&
           peek().kind != TokenKind::Import) {
         throw SderivError("parse",
                           "a library declares definitions, types and imports, not `" +
                               peek().value + "`",
                           peek().position);
+      }
+      // the declarations of the core format: `meta` before the others, `in`, `next`
+      if (peek().kind == TokenKind::Meta) {
+        if (!metaAllowed) {
+          throw SderivError("parse", "meta lines come before the declarations", peek().position);
+        }
+        parsed.meta.push_back(metaDeclaration());
+        continue;
+      }
+      metaAllowed = false;
+      if (peek().kind == TokenKind::In) {
+        // `in x, y`
+        eat(TokenKind::In);
+        while (true) {
+          const Token& input = eat(TokenKind::Name);
+          parsed.inputs.push_back(InputDeclaration{input.value, input.position});
+          if (!(peek().kind == TokenKind::Op && valueIs(","))) {
+            break;
+          }
+          eat(TokenKind::Op, ",");
+        }
+        continue;
+      }
+      if (peek().kind == TokenKind::Next) {
+        // `next s = e`: the next value of the state s, as `def s = e`
+        SurfaceNode node;
+        node.kind = SurfaceKind::Def;
+        node.position = peek().position;
+        eat(TokenKind::Next);
+        node.text = eat(TokenKind::Name).value;
+        eat(TokenKind::Op, "=");
+        node.a = expression();
+        parsed.nexts.emplace_back(node.text, node.position);
+        parsed.defs.push_back(arena_.add(std::move(node)));
+        continue;
       }
       if (peek().kind == TokenKind::Import) {
         // `import stress`, `import "lib.sderiv" as lib`
@@ -539,7 +636,7 @@ class Parser {
           declaration.file = true;
           declaration.path = eat(TokenKind::Str).value;
           const Token& as = eat(TokenKind::Name);
-          if (as.value != "as") {
+          if (as.value != "as" || as.escaped) {
             throw SderivError("parse",
                               "a file is imported as a name: import \"" + declaration.path +
                                   "\" as lib",
@@ -550,7 +647,7 @@ class Parser {
           // `import stress`, or `import stress as s`
           declaration.path = eat(TokenKind::Name).value;
           declaration.name = declaration.path;
-          if (peek().kind == TokenKind::Name && valueIs("as")) {
+          if (peek().kind == TokenKind::Name && valueIs("as") && !peek().escaped) {
             next();
             declaration.name = eat(TokenKind::Name).value;
           }
@@ -588,9 +685,18 @@ class Parser {
       const bool exported = peek().kind == TokenKind::Out;
       if (exported) {
         eat(TokenKind::Out);
+        // `out v = e`: the output v, which is no definition (`=` is no operator of an expression)
+        if (peek().kind == TokenKind::Name && peekAt(1).kind == TokenKind::Op &&
+            peekAt(1).value == "=") {
+          const Token& output = next();
+          eat(TokenKind::Op, "=");
+          parsed.outputOrder.emplace_back(OutputKind::Named, parsed.named.size());
+          parsed.named.push_back(NamedOutput{output.value, expression(), output.position});
+          continue;
+        }
         // `out e`: the fields of a record, each an output of its name
         if (peek().kind != TokenKind::Def) {
-          parsed.outputOrder.emplace_back(true, parsed.spreads.size());
+          parsed.outputOrder.emplace_back(OutputKind::Spread, parsed.spreads.size());
           parsed.spreads.push_back(expression());
           continue;
         }
@@ -598,7 +704,7 @@ class Parser {
       const SurfaceId id = definition(exported);
       parsed.defs.push_back(id);
       if (exported) {
-        parsed.outputOrder.emplace_back(false, parsed.exports.size());
+        parsed.outputOrder.emplace_back(OutputKind::Definition, parsed.exports.size());
         parsed.exports.push_back(id);
       }
     }
@@ -607,7 +713,8 @@ class Parser {
     // OR a set of `out def`s that name themselves. Allowing both would leave it
     // open which one is "the" output, and a file that grew an `out def` while
     // keeping its trailing expression would silently gain a second one.
-    if (parsed.exports.empty() && parsed.spreads.empty() && qualifier_.empty()) {
+    if (parsed.exports.empty() && parsed.spreads.empty() && parsed.named.empty() &&
+        qualifier_.empty()) {
       parsed.expression = expression();
     }
     if (!qualifier_.empty() && peek().kind != TokenKind::Eof) {
@@ -644,10 +751,45 @@ class Parser {
     if (token.kind != kind || (value != nullptr && token.value != value)) {
       const std::string expected =
           value != nullptr ? std::string("'") + value + "'" : std::string(describe(kind));
-      throw SderivError(
-          "parse", "expected " + expected + ", got '" + token.value + "'", token.position);
+      const bool word = token.kind != TokenKind::Num && token.kind != TokenKind::Str &&
+                        token.kind != TokenKind::Pow && token.kind != TokenKind::Op &&
+                        token.kind != TokenKind::Name && token.kind != TokenKind::Eof;
+      throw SderivError("parse",
+                        "expected " + expected + ", got '" + token.value + "'" +
+                            (kind == TokenKind::Name && word
+                                 ? "; `" + token.value +
+                                       "` is a reserved word, which an escaped name, `" +
+                                       token.value + "`, avoids"
+                                 : std::string()),
+                        token.position);
     }
     return next();
+  }
+
+  /// `meta key = "text", 12`: a line of provenance, its values strings or whole numbers.
+  MetaDeclaration metaDeclaration() {
+    MetaDeclaration declaration;
+    declaration.position = peek().position;
+    eat(TokenKind::Meta);
+    declaration.entry.key = eat(TokenKind::Name).value;
+    eat(TokenKind::Op, "=");
+    while (true) {
+      const Token& value = peek();
+      const bool whole = value.kind == TokenKind::Num && !value.value.empty() &&
+                         std::all_of(value.value.begin(), value.value.end(), [](char c) {
+                           return std::isdigit(static_cast<unsigned char>(c)) != 0;
+                         });
+      if (value.kind != TokenKind::Str && !whole) {
+        throw SderivError(
+            "parse", "the value of a meta line is a string or a whole number", value.position);
+      }
+      declaration.entry.values.push_back(MetaValue{next().value, value.kind == TokenKind::Str});
+      if (!(peek().kind == TokenKind::Op && valueIs(","))) {
+        break;
+      }
+      eat(TokenKind::Op, ",");
+    }
+    return declaration;
   }
 
   // 'grid' NAME '(' ATTRIBUTE {',' ATTRIBUTE} ')', with ATTRIBUTE = NAME '=' (STRING | NUMBER |
@@ -1558,6 +1700,13 @@ const std::map<std::string, std::size_t> Intrinsics = {{"sum", 1},
                                                        {"len", 1},
                                                        {"range", 1}};
 
+/// Whether a call of `name` is a function of the language: a builtin, a conversion, an intrinsic
+/// of arrays, a comparison it swaps, `lnot`, `percentile` or `median`.
+bool isCalledFunction(const std::string& name) {
+  return isFunction(name) || Intrinsics.count(name) != 0 || SwappedComparisons.count(name) != 0 ||
+         name == "lnot" || name == "percentile" || name == "median";
+}
+
 /// The material of the point: `material.rho` reads the input `rho`, and `material : elastic` the
 /// inputs of the fields of the type, as the consumer supplies the parameters of the material.
 constexpr const char* MaterialName = "material";
@@ -1589,6 +1738,9 @@ class Lowering {
     }
     for (const auto& state : parsed_.states) {
       states_.insert(state.name);
+    }
+    for (const auto& input : parsed_.inputs) {
+      declared_.insert(input.name);
     }
     builtinTypes_ = recordTypes();
   }
@@ -1730,8 +1882,10 @@ class Lowering {
   using Environment = std::map<std::string, Value>;
 
   /// What a name resolves to where it is read, besides a binding of a let or a parameter (which
-  /// comes first): an input the consumer names, a state, a constant, a definition, or else (where
-  /// it is not called) a channel. The order is that of lower().
+  /// comes first): an input the module declares or the consumer names, a state, a definition, a
+  /// constant, or else (where it is not called) a channel. The order is that of lower(): what the
+  /// module declares comes before what the language has, so that `in g` is an input, not the
+  /// constant, as in the core format.
   enum class Resolution : std::uint8_t { Input, State, Constant, Definition, Other };
 
   /// The name the name `text` of a node of the module `module` reads, as definitions and types are
@@ -1781,19 +1935,38 @@ class Lowering {
   }
 
   [[nodiscard]] Resolution resolve(const std::string& name) const {
-    if (inputs_.count(name) != 0) {
+    if (declared_.count(name) != 0 || inputs_.count(name) != 0) {
       return Resolution::Input;
     }
     if (states_.count(name) != 0) {
       return Resolution::State;
     }
-    if (Constants.count(name) != 0) {
-      return Resolution::Constant;
-    }
     if (defs_.count(name) != 0) {
       return Resolution::Definition;
     }
+    if (Constants.count(name) != 0) {
+      return Resolution::Constant;
+    }
     return Resolution::Other;
+  }
+
+  /// What the name `name` of `node` resolves to: in a library, a constant before a definition of
+  /// the module compiled, as lower() reads it there.
+  [[nodiscard]] Resolution resolveAt(const SurfaceNode& node, const std::string& name) const {
+    if (node.module != 0 && Constants.count(node.text) != 0) {
+      return Resolution::Constant;
+    }
+    return resolve(name);
+  }
+
+  /// Whether a call of `name` reaches a definition of that name: one with parameters, or one
+  /// without where the language has no function of the name. A definition without parameters is
+  /// read where its name is, and a call of the name is the function, as in the core format, where a
+  /// program may have a definition `max` and call `max(a, b)`.
+  [[nodiscard]] bool callsDefinition(const std::string& name, const std::string& text) const {
+    const auto definition = defs_.find(name);
+    return definition != defs_.end() &&
+           (!surface_[definition->second].params.empty() || !isCalledFunction(text));
   }
 
   /// The names of the definitions the expression `root` reads directly, where the names `bound`
@@ -1825,7 +1998,7 @@ class Lowering {
       }
       case SurfaceKind::Name: {
         const std::string name = qualifiedName(node.module, node.text);
-        if (scope->count(node.text) == 0 && resolve(name) == Resolution::Definition) {
+        if (scope->count(node.text) == 0 && resolveAt(node, name) == Resolution::Definition) {
           found.push_back(name);
         }
         break;
@@ -1836,7 +2009,7 @@ class Lowering {
         }
         const std::string name = qualifiedName(node.module, node.text);
         if (scope->count(node.text) == 0 && components_.count(node.text) == 0 &&
-            defs_.count(name) != 0) {
+            callsDefinition(name, node.text)) {
           found.push_back(name);
         }
         break;
@@ -1948,7 +2121,7 @@ class Lowering {
           break;
         }
         const std::string name = qualifiedName(node.module, node.text);
-        const auto resolution = resolve(name);
+        const auto resolution = resolveAt(node, name);
         if ((resolution == Resolution::Input || resolution == Resolution::Other) &&
             node.module == 0) {
           add(node.text);
@@ -1961,7 +2134,8 @@ class Lowering {
         const std::string name = qualifiedName(node.module, node.text);
         const auto definition = defs_.find(name);
         const bool callsDefinition = scope->count(node.text) == 0 &&
-                                     components_.count(node.text) == 0 && definition != defs_.end();
+                                     components_.count(node.text) == 0 &&
+                                     this->callsDefinition(name, node.text);
         // the body of a definition after its arguments, which lower() binds first; the body of one
         // with parameters once per call of other arguments
         if (callsDefinition && calls.emplace(name, node.args).second) {
@@ -2068,6 +2242,15 @@ private:
   };
 
   NodeId channel(const SurfaceNode& node) { return program_.arena().field(node.text); }
+
+  /// Fails for the input `node` reads where the module declares its inputs and not this one.
+  void undeclared(const SurfaceNode& node) const {
+    if (!declared_.empty()) {
+      fail(node,
+           "`" + node.text + "` is not declared; the module declares its inputs, as `in " +
+               node.text + "`");
+    }
+  }
 
   [[nodiscard]] static bool isComparisonOrLogic(const std::string& op) {
     return op == "<" || op == "<=" || op == ">" || op == ">=" || op == "==" || op == "!=" ||
@@ -3048,8 +3231,14 @@ private:
              "constants, and `" +
                  node.text + "` is none of them");
       }
-      // An input the consumer names reads the input, as a state reads its previous value.
+      // An input the module declares is the input, whatever else its name could be.
+      if (declared_.count(node.text) != 0) {
+        return Value::number(channel(node));
+      }
+      // An input the consumer names reads the input, as a state reads its previous value; a module
+      // that declares its inputs declares it as well.
       if (inputs_.count(node.text) != 0) {
+        undeclared(node);
         return Value::number(channel(node));
       }
       // A state reads its value from the previous call -- also where the definition of the same
@@ -3061,12 +3250,13 @@ private:
         }
         return stateValue(shape->second, node.text);
       }
+      // a definition of the module before a constant of the language: `def g = ...` hides g
+      if (defs_.count(node.text) != 0) {
+        return definitionNamed(node, node.text);
+      }
       const auto constant = Constants.find(node.text);
       if (constant != Constants.end()) {
         return Value::number(program_.arena().konst(constant->second));
-      }
-      if (defs_.count(node.text) != 0) {
-        return definitionNamed(node, node.text);
       }
       if (importsAs(node.module, node.text)) {
         fail(node,
@@ -3086,7 +3276,9 @@ private:
       if (isFunction(node.text)) {
         fail(node, "`" + node.text + "` is a function and must be called");
       }
-      // Everything left is an input channel. No declaration, no catalogue.
+      // Everything left is an input channel. No declaration, no catalogue -- unless the module
+      // declares its inputs.
+      undeclared(node);
       return Value::number(channel(node));
     }
 
@@ -3125,7 +3317,7 @@ private:
       }
 
       const auto def = defs_.find(name);
-      if (def != defs_.end()) {
+      if (def != defs_.end() && callsDefinition(name, node.text)) {
         const SurfaceNode& definition = surface_[def->second];
         if (node.args.size() != definition.params.size()) {
           fail(node,
@@ -3277,6 +3469,8 @@ private:
   Program& program_;
   std::map<std::string, SurfaceId> defs_;
   std::set<std::string> states_;
+  /// the inputs the module declares (`in x`); where it declares any, it has no others
+  std::set<std::string> declared_;
   /// the initial value of every state, which gives its shape (initializeStates())
   std::map<std::string, InitialValue> stateShapes_;
   /// the types SeisSol offers by name (recordTypes())
@@ -3466,9 +3660,29 @@ void compileModules(const std::string& source,
                           "`, but this module declares its own outputs with `out def`",
                       0);
   }
-  if (externalName == nullptr && parsed.exports.empty() && parsed.spreads.empty()) {
+  if (externalName == nullptr && parsed.exports.empty() && parsed.spreads.empty() &&
+      parsed.named.empty()) {
     throw SderivError(
         "parse", "the module declares no outputs; mark at least one definition `out def`", 0);
+  }
+
+  // `meta`: the provenance first, as in the core format, so that a stale source is the error;
+  // `meta line`, where a construct comes from, once the module is compiled. Of this module only,
+  // where the program has those of other sources already.
+  {
+    Program provenance;
+    std::vector<CorePosition> positions;
+    for (const auto& declaration : parsed.meta) {
+      if (declaration.entry.key != "line") {
+        provenance.addMeta(declaration.entry);
+        positions.push_back(positionOf(
+            source, static_cast<std::size_t>(std::max(declaration.position, 0)), options.file));
+      }
+    }
+    checkProvenance(provenance, positions, source, options.file);
+    for (const auto& entry : provenance.meta()) {
+      program.addMeta(entry);
+    }
   }
 
   std::set<std::string> defNames;
@@ -3480,17 +3694,15 @@ void compileModules(const std::string& source,
       throw SderivError(
           "parse", "duplicate definition `" + surface[id].text + "`", surface[id].position);
     }
-    // Neither may a definition take the name of a constant or a function: a read of the name
-    // would resolve to that instead, and the definition be ignored without a word. (That of a
-    // state is reported for the state, below.)
-    const bool ofState =
-        std::any_of(parsed.states.begin(), parsed.states.end(), [&](const auto& state) {
-          return state.name == surface[id].text;
-        });
-    if (!ofState && (Constants.count(surface[id].text) != 0 || isFunction(surface[id].text))) {
+    // A definition without parameters may take the name of a constant or a function: where the
+    // name is read, it is the definition, and where it is called, the function -- as in the core
+    // format, whose names of operations are no reserved words. One with parameters may not, as a
+    // call of the name would be the definition, and the function out of reach.
+    if (!surface[id].params.empty() &&
+        (Constants.count(surface[id].text) != 0 || isFunction(surface[id].text))) {
       throw SderivError("parse",
                         "the definition `" + surface[id].text +
-                            "` has the name of a constant or function",
+                            "` takes parameters and has the name of a constant or function",
                         surface[id].position);
     }
   }
@@ -3521,12 +3733,9 @@ void compileModules(const std::string& source,
     if (!stateNames.insert(state.name).second) {
       throw SderivError("state", "duplicate state `" + state.name + "`", state.position);
     }
-    if (Constants.count(state.name) != 0 || isFunction(state.name) ||
-        components.count(state.name) != 0) {
+    if (components.count(state.name) != 0) {
       throw SderivError("state",
-                        "the state `" + state.name +
-                            "` has the name of a constant, function or "
-                            "grid component",
+                        "the state `" + state.name + "` has the name of a grid component",
                         state.position);
     }
     if (defNames.count(state.name) == 0) {
@@ -3544,6 +3753,34 @@ void compileModules(const std::string& source,
                         "the next value of the state `" + surface[id].text +
                             "` cannot take parameters",
                         surface[id].position);
+    }
+  }
+  for (const auto& [name, position] : parsed.nexts) {
+    if (stateNames.count(name) == 0) {
+      throw SderivError(
+          "state", "`next` gives the next value of a state, and `" + name + "` is none", position);
+    }
+  }
+
+  // the inputs the module declares: each once, and of a name nothing else of it has (one namespace
+  // of inputs, states, definitions and grids, as in the core format)
+  {
+    std::set<std::string> inputNames;
+    for (const auto& input : parsed.inputs) {
+      if (!inputNames.insert(input.name).second) {
+        throw SderivError(
+            "parse", "the input `" + input.name + "` is declared twice", input.position);
+      }
+      const bool taken = defNames.count(input.name) != 0 || stateNames.count(input.name) != 0 ||
+                         std::any_of(parsed.grids.begin(),
+                                     parsed.grids.end(),
+                                     [&](const auto& grid) { return grid.name == input.name; });
+      if (taken) {
+        throw SderivError("parse",
+                          "`" + input.name +
+                              "` is declared as an input and as a definition, a state or a grid",
+                          input.position);
+      }
     }
   }
 
@@ -3578,15 +3815,18 @@ void compileModules(const std::string& source,
 
   // the names modules are imported as are no other names of the module
   for (const auto& declaration : parsed.imports) {
-    const bool taken = defNames.count(declaration.name) != 0 ||
-                       stateNames.count(declaration.name) != 0 ||
-                       std::any_of(parsed.grids.begin(), parsed.grids.end(), [&](const auto& grid) {
-                         return grid.name == declaration.name;
-                       });
+    const bool taken =
+        defNames.count(declaration.name) != 0 || stateNames.count(declaration.name) != 0 ||
+        std::any_of(parsed.inputs.begin(),
+                    parsed.inputs.end(),
+                    [&](const auto& input) { return input.name == declaration.name; }) ||
+        std::any_of(parsed.grids.begin(), parsed.grids.end(), [&](const auto& grid) {
+          return grid.name == declaration.name;
+        });
     if (taken) {
       throw SderivError("import",
                         "the module is imported as `" + declaration.name +
-                            "`, the name of a definition, a state or a grid",
+                            "`, the name of an input, a definition, a state or a grid",
                         declaration.position);
     }
   }
@@ -3606,6 +3846,9 @@ void compileModules(const std::string& source,
     }
     for (const SurfaceId id : parsed.spreads) {
       rootExpressions.push_back(id);
+    }
+    for (const auto& output : parsed.named) {
+      rootExpressions.push_back(output.value);
     }
   }
   for (const auto& state : parsed.states) {
@@ -3629,8 +3872,16 @@ void compileModules(const std::string& source,
     roots.emplace_back(*externalName,
                        lowering.lower(parsed.expression, "the expression of the module"));
   } else {
-    for (const auto& [spread, index] : parsed.outputOrder) {
-      if (!spread) {
+    for (const auto& [kind, index] : parsed.outputOrder) {
+      if (kind == OutputKind::Named) {
+        // `out v = e`: an output, no definition
+        const NamedOutput& output = parsed.named[index];
+        roots.emplace_back(output.name,
+                           lowering.lower(output.value, "the output `" + output.name + "`"));
+        rootPositions.push_back(output.position);
+        continue;
+      }
+      if (kind == OutputKind::Definition) {
         // Lowered through the ordinary Name path, so an `out def` reads exactly
         // like any other definition -- including from a later output that names
         // it. Interning makes the shared subexpression one node either way.
@@ -3704,6 +3955,13 @@ void compileModules(const std::string& source,
     checkRoots.push_back(lowering.lower(check.first, "the condition of a check"));
   }
 
+  // the inputs the module declares, in their order, those it does not read too -- the program of a
+  // core file, which reads the same here -- and then the others in the order of their first read
+  for (const auto& input : parsed.inputs) {
+    if (std::find(channelOrder.begin(), channelOrder.end(), input.name) == channelOrder.end()) {
+      channelOrder.push_back(input.name);
+    }
+  }
   for (const auto& name : lowering.channels()) {
     if (std::find(channelOrder.begin(), channelOrder.end(), name) == channelOrder.end()) {
       channelOrder.push_back(name);
@@ -3729,8 +3987,52 @@ void compileModules(const std::string& source,
                    module.base == 0 ? options.file : module.file);
     return SourcePosition{position.file, position.line, position.column};
   };
+  // a `meta line` gives where a definition, a state or an output comes from in place of its
+  // position in this file, which a generated file is not the source of: a definition of the name,
+  // else a state, else an output, as the core format resolves it
+  std::vector<SourceOf> lines;
+  std::set<std::pair<SourceOf::What, std::string>> lined;
+  for (const auto& declaration : parsed.meta) {
+    const auto& values = declaration.entry.values;
+    if (declaration.entry.key != "line") {
+      continue;
+    }
+    if (values.size() != 4 || !values[0].quoted || !values[1].quoted || values[2].quoted ||
+        values[3].quoted) {
+      throw SderivError(
+          "parse",
+          "`meta line` names a definition, state or output, then the file, the line "
+          "and the column it comes from: `meta line = \"t4\", \"model.sderiv\", 12, 9`",
+          declaration.position);
+    }
+    const std::string& name = values[0].text;
+    const SourcePosition position{
+        values[1].text, std::stoi(values[2].text), std::stoi(values[3].text)};
+    if (defNames.count(name) != 0) {
+      // of a definition the program does not read, nothing
+      if (const auto node = lowering.definition(name); node.has_value()) {
+        lines.push_back(SourceOf{SourceOf::What::Node, *node, std::string(), position});
+      }
+      lined.emplace(SourceOf::What::Node, name);
+    } else if (std::any_of(stateLeaves.begin(), stateLeaves.end(), [&](const auto& leaf) {
+                 return leaf.name == name;
+               })) {
+      lines.push_back(SourceOf{SourceOf::What::State, NoNode, name, position});
+      lined.emplace(SourceOf::What::State, name);
+    } else if (std::any_of(roots.begin(), roots.end(), [&](const auto& root) {
+                 return root.first == name;
+               })) {
+      lines.push_back(SourceOf{SourceOf::What::Output, NoNode, name, position});
+      lined.emplace(SourceOf::What::Output, name);
+    } else {
+      throw SderivError("parse",
+                        "`meta line` names `" + name +
+                            "`, which is no definition, state or output of the module",
+                        declaration.position);
+    }
+  }
   for (const SurfaceId id : parsed.defs) {
-    if (!surface[id].params.empty()) {
+    if (!surface[id].params.empty() || lined.count({SourceOf::What::Node, surface[id].text}) != 0) {
       continue;
     }
     if (const auto node = lowering.definition(surface[id].text); node.has_value()) {
@@ -3740,12 +4042,19 @@ void compileModules(const std::string& source,
   }
   if (externalName == nullptr) {
     for (std::size_t i = 0; i < roots.size(); ++i) {
-      program.addSource(
-          SourceOf{SourceOf::What::Output, NoNode, roots[i].first, at(rootPositions[i])});
+      if (lined.count({SourceOf::What::Output, roots[i].first}) == 0) {
+        program.addSource(
+            SourceOf{SourceOf::What::Output, NoNode, roots[i].first, at(rootPositions[i])});
+      }
     }
   }
   for (const auto& leaf : stateLeaves) {
-    program.addSource(SourceOf{SourceOf::What::State, NoNode, leaf.name, at(leaf.position)});
+    if (lined.count({SourceOf::What::State, leaf.name}) == 0) {
+      program.addSource(SourceOf{SourceOf::What::State, NoNode, leaf.name, at(leaf.position)});
+    }
+  }
+  for (auto& line : lines) {
+    program.addSource(std::move(line));
   }
   for (std::size_t i = 0; i < parsed.checks.size(); ++i) {
     program.addSource(SourceOf{SourceOf::What::Node,

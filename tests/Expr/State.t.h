@@ -85,7 +85,9 @@ TEST_SUITE("ExprState") {
     rejects("state a = 0.0\nout def b = a\n", "never updated");
     rejects("state a = 0.0\nstate a = 1.0\nout def a = a\n", "duplicate state");
     rejects("state a = 0.0\ndef a(x) = x\nout def b = a(1.0)\n", "cannot take parameters");
-    rejects("state sqrt = 0.0\nout def sqrt = 1.0\n", "name of a constant, function");
+    // a state may have the name of a function, which a call of the name still is
+    CHECK_NOTHROW(
+        static_cast<void>(compileSderivModule("state sqrt = 0.0\nout def sqrt = sqrt(4.0)\n")));
   }
 
   TEST_CASE("a maximum over time is a state per point") {

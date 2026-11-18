@@ -39,7 +39,9 @@
 //                interpolation = "previous", boundary = "clamp")
 //
 // A loader declares every name before it is used, and once: inputs, states, definitions and grids
-// share one namespace, outputs have their own. There are no implicit inputs and no constants; a
+// share one namespace, outputs have their own. The reserved words are those of the full language
+// as well, so that every core file is, without its header, a module of the full language of the
+// same program. There are no implicit inputs and no constants; a
 // number is read with correct rounding, and no operation on numbers is evaluated, except negation.
 // Every error names the file, the line and the column (CoreError).
 
@@ -48,6 +50,7 @@
 
 #include <cstddef>
 #include <string>
+#include <vector>
 
 namespace seissol::expr {
 
@@ -88,6 +91,18 @@ class CoreError : public SderivError {
 /// The program of the core text `text`. `file` names it in errors, and a relative grid path is
 /// relative to its directory. Throws CoreError.
 [[nodiscard]] Program loadCore(const std::string& text, const std::string& file = "");
+
+/// The checks of the provenance that `program` records in its `meta` (the specification's
+/// "Provenance"), read from the text `text` of the file `file`, core text or a module of the full
+/// language: a source or a dependency whose hash changed is an error that gives the `meta command`
+/// which generates the file again (a warning with SEISSOL_SDERIV_STALE=warn), one that is not there
+/// a note, and a body of another hash than `meta body` records a warning. `at` is the position of
+/// every entry of `program.meta()`, for an error. Relative paths are relative to the file. Throws
+/// CoreError.
+void checkProvenance(const Program& program,
+                     const std::vector<CorePosition>& at,
+                     const std::string& text,
+                     const std::string& file);
 
 /// `program` in the normal form of the core format: one text per program, its inputs, grids, states
 /// and outputs in the order of the program, which loadCore() reads back into the same program, of

@@ -29,8 +29,8 @@
 //
 // GRAMMAR (deltas against the derived-output frontend marked +):
 //
-//   + program    := { definition | spread | typedecl | importdecl | griddecl | statedecl |
-//                     check } ( expr | ) EOF
+//   + program    := { metadecl } { definition | spread | named | typedecl | importdecl | griddecl |
+//                     statedecl | nextdecl | inputdecl | check } ( expr | ) EOF
 //   + importdecl := 'import' NAME [ 'as' NAME ] | 'import' STR 'as' NAME
 //   + definition := [ 'out' ] 'def' NAME [ '(' param { ',' param } ')' ] [ ':' type ] '=' expr
 //   + param      := NAME [ ':' type ]
@@ -44,6 +44,11 @@
 //                    // defaults ("z", "clamp")
 //   + statedecl  := 'state' [ TYPE ] NAME '=' expr    // numbers the program fixes
 //   + check      := 'check' expr ',' STR    // a condition every point meets (Program::checks())
+//   + inputdecl  := 'in' NAME { ',' NAME }   // the inputs, in their order; then there are no
+//   others
+//   + nextdecl   := 'next' NAME '=' expr     // the next value of a state, as 'def' NAME '=' expr
+//   + named      := 'out' NAME '=' expr      // an output, which is no definition
+//   + metadecl   := 'meta' NAME '=' ( STR | WHOLE ) { ',' ( STR | WHOLE ) }
 //   + comment    := '#' { any } NEWLINE
 //
 //     expr       := 'let' NAME '=' expr 'in' expr | add [ ':' type ]
@@ -138,6 +143,19 @@
 // A module is EITHER a trailing expression, whose name the caller supplies via
 // compileSderiv(source, name), OR one or more `out def`s -- never both, because
 // then it would be open which one is "the" output.
+//
+// EVERY CORE FILE IS A MODULE TOO (Core.h): without its header, it reads here as the same program.
+// So this language has the declarations of the core format -- `in`, `next`, `out v = e`, `meta`
+// and names in backquotes, which are never keywords -- and the same reserved words. A module that
+// declares its inputs with `in` has those, in their order, whether it reads them or not, and no
+// others: a name it does not declare is an error, not an input. What a module declares comes before
+// what the language has: an input `g` or a definition `pi` is read where its name is, not the
+// constant; a definition without parameters is read where its name is, and a call of its name is
+// the function of that name -- `def max = x` and `max(max, 2)`, as the core format, whose names of
+// operations are no reserved words, has them. A definition with parameters may not take the name of
+// a constant or a function. `out v = e` makes no definition: a later `v` reads what a name reads.
+// A `meta line` takes the place of the position in the module of what it names, and the other meta
+// lines record the provenance, which is checked as that of a core file.
 //
 // STRINGS ARE CONFINED TO griddecl. They are lexed everywhere but primary() has
 // no string case, so a string in an expression is a parse error that names the

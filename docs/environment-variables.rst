@@ -231,8 +231,8 @@ percentile ``p`` (0 to 100) of the elements of ``a`` (up to 1024 of them, or num
 one), and ``median(a)`` the percentile 50: what ``numpy.percentile(a, p)`` gives (its method
 ``linear``), to the bit in binary64, but for the sign of a zero; at an infinity the limit of the
 interpolation, and NaN where a value is NaN or ``p`` lies outside [0, 100]. It is one operation of the
-program, on every backend the same bits. A definition may take the name of one of these functions,
-which it then hides. The traction on a plane, as a derived output:
+program, on every backend the same bits. A definition with parameters may take the name of one of
+these functions, which it then hides. The traction on a plane, as a derived output:
 
 .. code-block:: text
 
@@ -442,6 +442,15 @@ its initial value (``state s = 0``) and given its value for the next call (``nex
 grid states all of its attributes, as above. There are no
 implicit inputs and no constants such as ``pi``; a relative grid path is relative to the file, and
 an error names its line and column.
+
+Every core file is also a module of the full language: without its header, it reads as the same
+program. The full language has the declarations of the core format for that -- ``in``, ``next``,
+``out u = ...``, ``meta`` and names in backquotes -- and both reserve the same words, which only a
+name in backquotes may be. A module that declares its inputs with ``in`` has those, in
+their order, and no others: a name it does not declare is an error, which catches a misspelt one.
+What a module declares comes before what the language has: with ``in g``, ``g`` is the input, not
+the constant, and a definition ``max`` without parameters is read where ``max`` is, while
+``max(a, b)`` stays the function.
 
 A program keeps where its definitions, states and outputs come from. The full language writes it
 into the normal form as ``meta line = "t4", "model.sderiv", 12, 9``: the name of a definition,

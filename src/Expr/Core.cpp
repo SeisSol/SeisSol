@@ -49,18 +49,12 @@ std::string located(const CorePosition& position) {
 /// error rather than running out of stack.
 constexpr int MaxNesting = 1024;
 
-/// The reserved words of the core format; `inf` and `nan` are numbers.
-const std::set<std::string>& coreWords() {
+/// The reserved words, the same in the core format and in the full language, so that every core
+/// file is a module of the full language as well; `inf` and `nan` are numbers.
+const std::set<std::string>& reservedWords() {
   static const std::set<std::string> Words = {
-      "meta", "in", "grid", "def", "state", "next", "out", "check", "inf", "nan"};
-  return Words;
-}
-
-/// The words the full language reserves besides: a printer escapes them as well, so that a core
-/// file reads there too.
-const std::set<std::string>& fullWords() {
-  static const std::set<std::string> Words = {
-      "let", "if", "then", "else", "and", "or", "not", "import"};
+      "meta", "in",   "grid", "def",    "state", "next", "out",  "check", "inf", "nan",
+      "let",  "type", "for",  "import", "if",    "then", "else", "and",   "or",  "not"};
   return Words;
 }
 
@@ -179,7 +173,7 @@ std::string spellString(const std::string& text) {
 std::string spellName(const std::string& name) {
   const bool plain = !name.empty() && nameStart(name.front()) &&
                      std::all_of(name.begin(), name.end(), nameContinues) &&
-                     coreWords().count(name) == 0 && fullWords().count(name) == 0;
+                     reservedWords().count(name) == 0;
   if (plain) {
     return name;
   }
@@ -197,11 +191,11 @@ const char* spellKind(reader::datafield::GridKind kind) {
 }
 
 /// The body of core text, whose hash `meta body` records: every line but the header and the meta
-/// lines, each ended by LF.
+/// lines, each ended by LF. A module of the full language has no header.
 std::string bodyOf(const std::string& text) {
   std::string body;
   std::size_t start = 0;
-  bool header = true;
+  bool header = isCoreText(text);
   while (start < text.size()) {
     std::size_t end = text.find('\n', start);
     if (end == std::string::npos) {
@@ -331,7 +325,7 @@ class Lexer {
           advance();
         }
         token.text = text_.substr(start, pos_ - start);
-        token.kind = coreWords().count(token.text) != 0 ? Tok::Word : Tok::Name;
+        token.kind = reservedWords().count(token.text) != 0 ? Tok::Word : Tok::Name;
         if (token.text == "inf" || token.text == "nan") {
           token.kind = Tok::Number;
           token.number = token.text == "inf" ? std::numeric_limits<double>::infinity()
@@ -558,8 +552,12 @@ class Loader {
         nextValue();
       } else if (at.text == "out") {
         output();
-      } else {
+      } else if (at.text == "check") {
         check();
+      } else {
+        fail(at,
+             "a declaration starts with meta, in, grid, def, state, next, out or check; `" +
+                 at.text + "` is a word of the full language");
       }
     }
     for (const auto& state : states_) {
@@ -656,67 +654,14 @@ class Loader {
     names_.emplace(name, entry);
   }
 
-  /// The checks of the provenance of the file (the specification's "Provenance"): a source or a
-  /// dependency it was generated from that has another hash now is an error that gives the command
-  /// which regenerates the file (a warning with SEISSOL_SDERIV_STALE=warn); one that is not there
-  /// is a note, since a generated file may be copied without its sources; a body with another
-  /// hash, a file edited after it was generated, a warning.
+  /// The checks of the provenance of the file (checkProvenance()).
   void provenance() {
-    std::string command;
-    for (const auto& entry : program_.meta()) {
-      if (entry.key == "command" && !entry.values.empty()) {
-        command = entry.values.front().text;
-      }
+    std::vector<CorePosition> at;
+    at.reserve(metaAt_.size());
+    for (const Token& token : metaAt_) {
+      at.push_back(CorePosition{file_, token.line, token.column});
     }
-    const char* stale = std::getenv("SEISSOL_SDERIV_STALE");
-    const bool warn = stale != nullptr && std::string(stale) == "warn";
-    const std::string where = file_.empty() ? std::string("the core file") : file_;
-    for (std::size_t i = 0; i < program_.meta().size(); ++i) {
-      const MetaEntry& entry = program_.meta()[i];
-      const Token& at = metaAt_[i];
-      if (entry.key == "body") {
-        if (entry.values.size() != 1 || !isHash(entry.values[0].text)) {
-          fail(at, "`meta body` is the hash of the body, \"sha256:\" and 64 hexadecimal digits");
-        }
-        if (entry.values[0].text != "sha256:" + sha256(bodyOf(text_))) {
-          logWarning() << "sderiv:" << where
-                       << "was edited after it was generated: its body has another hash than its "
-                          "`meta body` records.";
-        }
-        continue;
-      }
-      if (entry.key != "source" && entry.key != "depends") {
-        continue;
-      }
-      if (entry.values.size() != 2 || !isHash(entry.values[1].text)) {
-        fail(at,
-             "`meta " + entry.key +
-                 "` names a file and its hash, \"sha256:\" and 64 hexadecimal digits");
-      }
-      std::filesystem::path path(entry.values[0].text);
-      if (path.is_relative() && !file_.empty()) {
-        path = (std::filesystem::path(file_).parent_path() / path).lexically_normal();
-      }
-      std::ifstream stream(path, std::ios::binary);
-      if (!stream) {
-        logInfo() << "sderiv: the" << entry.key.c_str() << path.string() << "of" << where
-                  << "is not there to compare with its hash.";
-        continue;
-      }
-      const std::string content((std::istreambuf_iterator<char>(stream)),
-                                std::istreambuf_iterator<char>());
-      if ("sha256:" + sha256(content) != entry.values[1].text) {
-        const std::string what =
-            "the " + entry.key + " " + path.string() + " changed since " + where +
-            " was generated from it" +
-            (command.empty() ? std::string() : "; regenerate it with: " + command);
-        if (warn) {
-          logWarning() << "sderiv:" << what;
-        } else {
-          fail(at, what);
-        }
-      }
-    }
+    checkProvenance(program_, at, text_, file_);
   }
 
   void meta() {
@@ -1765,6 +1710,68 @@ CorePosition positionOf(const std::string& text, std::size_t offset, const std::
     }
   }
   return position;
+}
+
+void checkProvenance(const Program& program,
+                     const std::vector<CorePosition>& at,
+                     const std::string& text,
+                     const std::string& file) {
+  std::string command;
+  for (const auto& entry : program.meta()) {
+    if (entry.key == "command" && !entry.values.empty()) {
+      command = entry.values.front().text;
+    }
+  }
+  const char* stale = std::getenv("SEISSOL_SDERIV_STALE");
+  const bool warn = stale != nullptr && std::string(stale) == "warn";
+  const std::string where = file.empty() ? std::string("the core file") : file;
+  for (std::size_t i = 0; i < program.meta().size(); ++i) {
+    const MetaEntry& entry = program.meta()[i];
+    const CorePosition position = i < at.size() ? at[i] : CorePosition{file, 1, 1};
+    if (entry.key == "body") {
+      if (entry.values.size() != 1 || !isHash(entry.values[0].text)) {
+        throw CoreError(
+            position, "`meta body` is the hash of the body, \"sha256:\" and 64 hexadecimal digits");
+      }
+      if (entry.values[0].text != "sha256:" + sha256(bodyOf(text))) {
+        logWarning() << "sderiv:" << where
+                     << "was edited after it was generated: its body has another hash than its "
+                        "`meta body` records.";
+      }
+      continue;
+    }
+    if (entry.key != "source" && entry.key != "depends") {
+      continue;
+    }
+    if (entry.values.size() != 2 || !isHash(entry.values[1].text)) {
+      throw CoreError(position,
+                      "`meta " + entry.key +
+                          "` names a file and its hash, \"sha256:\" and 64 hexadecimal digits");
+    }
+    std::filesystem::path path(entry.values[0].text);
+    if (path.is_relative() && !file.empty()) {
+      path = (std::filesystem::path(file).parent_path() / path).lexically_normal();
+    }
+    std::ifstream stream(path, std::ios::binary);
+    if (!stream) {
+      logInfo() << "sderiv: the" << entry.key.c_str() << path.string() << "of" << where
+                << "is not there to compare with its hash.";
+      continue;
+    }
+    const std::string content((std::istreambuf_iterator<char>(stream)),
+                              std::istreambuf_iterator<char>());
+    if ("sha256:" + sha256(content) != entry.values[1].text) {
+      const std::string what =
+          "the " + entry.key + " " + path.string() + " changed since " + where +
+          " was generated from it" +
+          (command.empty() ? std::string() : "; regenerate it with: " + command);
+      if (warn) {
+        logWarning() << "sderiv:" << what;
+      } else {
+        throw CoreError(position, what);
+      }
+    }
+  }
 }
 
 Program loadCore(const std::string& text, const std::string& file) {
