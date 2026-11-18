@@ -81,7 +81,7 @@ set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
 # before any target is defined, so that every C and C++ translation unit of the build is instrumented
 include(cmake/sanitizers.cmake)
 
-if(PROXY_PYBINDING)
+if(PROXY_PYBINDING OR SDERIV_PYTHON)
   find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 else()
   find_package(Python3 REQUIRED COMPONENTS Interpreter)

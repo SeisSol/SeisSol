@@ -572,24 +572,25 @@ double gridField(const df::ArrayView& view, GridField field, std::int32_t axis) 
   return 0.0;
 }
 
-void reportCheck(CheckKind kind, const std::string& path) {
+std::string checkMessage(CheckKind kind, const std::string& path) {
   switch (kind) {
   case CheckKind::Outside:
-    logError() << "expr: a point sampled the grid" << path
-               << "beyond its volume, where its boundary mode is to fail.";
-    return;
+    return "expr: a point sampled the grid " + path +
+           " beyond its volume, where its boundary mode is to fail.";
   case CheckKind::User:
-    logError() << "expr: a point does not meet a check of the program on the grid" << path;
-    return;
+    return "expr: a point does not meet a check of the program on the grid " + path;
   case CheckKind::Window:
-    logError() << "expr: a point sampled the time-dependent grid" << path
-               << "at a time its window does not hold, where the file goes on. The window holds"
-               << "the slices of the times from one synchronization point to the next: a script"
-               << "that samples the grid at other times (t + 1, say) needs all slices of the file"
-               << "resident (residentslices in &datafield); otherwise, SeisSol did not move the"
-               << "window in time.";
-    return;
+    return "expr: a point sampled the time-dependent grid " + path +
+           " at a time its window does not hold, where the file goes on. The window holds the "
+           "slices of the times from one synchronization point to the next: a script that samples "
+           "the grid at other times (t + 1, say) needs all slices of the file resident "
+           "(residentslices in &datafield); otherwise, SeisSol did not move the window in time.";
   }
+  return "expr: a check of the grid " + path + " failed";
+}
+
+void reportCheck(CheckKind kind, const std::string& path) {
+  logError() << checkMessage(kind, path).c_str();
 }
 
 } // namespace seissol::expr

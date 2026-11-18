@@ -42,8 +42,8 @@
 // boundary, time}, `file` its path and `parameters` its components, the values nested in tables as
 // sderiv nests them -- which `fields.<name>:sample(<coordinates>)` samples, one value per
 // parameter. `ssol` holds the vocabulary of the earlier tracer (lt, le, gt, ge, eq, land, lor,
-// lnot, select) and the builtins of sderiv that Lua spells differently (sign, mod, atan2, pow, pi,
-// g).
+// lnot, select), the builtins of sderiv that Lua spells differently (sign, mod, atan2, pow,
+// pi), and `g`, the input of the gravitational acceleration, which the run gives every script.
 
 #include "Expr/Program.h"
 #include "Reader/Scripting/LuaSyntax.h"

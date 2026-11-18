@@ -101,8 +101,11 @@ struct ExpandedProgram {
 [[nodiscard]] double
     gridField(const reader::datafield::ArrayView& view, GridField field, std::int32_t axis);
 
-/// Raises what a check of `kind` found for the lookups of the grid at `path` (logError()), which
-/// every backend reports alike.
+/// What a check of `kind` found for the lookups of the grid at `path`, as every backend says it.
+[[nodiscard]] std::string checkMessage(CheckKind kind, const std::string& path);
+
+/// Raises what a check of `kind` found for the lookups of the grid at `path` (logError(), with
+/// checkMessage()), which every backend reports alike.
 void reportCheck(CheckKind kind, const std::string& path);
 
 } // namespace seissol::expr

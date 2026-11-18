@@ -349,13 +349,26 @@ void scanValues(const Program& program,
 /// `states` ([state][point]), with the next states after the outputs. For a program without
 /// contractions, of which the inputs and the states of a point are all it reads: what a record
 /// holds of a point.
+///
+/// A point that does not meet a check of the program, or a sample a check of a grid refuses, ends
+/// the run as in every consumer (logError()); with `raise`, it throws EvaluationError instead, for
+/// a caller that goes on, such as the Python module.
 [[nodiscard]] std::vector<double>
     interpretValues(const Program& program,
                     reader::datafield::GridStore& grids,
                     const std::vector<double>& inputs,
                     std::size_t points,
                     std::map<std::size_t, std::vector<std::uint8_t>>* branches = nullptr,
-                    const std::vector<double>* states = nullptr);
+                    const std::vector<double>* states = nullptr,
+                    bool raise = false);
+
+/// A point that does not meet a check of a program, or a sample that a check of a grid refuses (a
+/// sample beyond a grid that fails there, at a time its window does not hold): what
+/// interpretValues() throws where it is asked to, rather than end the run.
+class EvaluationError : public std::runtime_error {
+  public:
+  using std::runtime_error::runtime_error;
+};
 
 /// The pool of a call on a device, whose values are copied one by one: its 1024 points of the
 /// smallest hash of their identity, and their identities; the groups and the extreme values are

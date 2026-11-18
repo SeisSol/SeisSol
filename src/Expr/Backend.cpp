@@ -62,8 +62,12 @@ using reader::scripting::DataTable;
 /// lies.
 class StoreArrays final : public GridArrays {
   public:
-  StoreArrays(const Program& program, std::vector<std::size_t> storeIds, GridStore& store)
-      : program_(&program), store_(&store), storeIds_(std::move(storeIds)) {}
+  /// `raise`: a failed check throws EvaluationError, rather than ending the run.
+  StoreArrays(const Program& program,
+              std::vector<std::size_t> storeIds,
+              GridStore& store,
+              bool raise = false)
+      : program_(&program), store_(&store), storeIds_(std::move(storeIds)), raise_(raise) {}
 
   [[nodiscard]] const reader::datafield::ArrayView& array(GridId grid) const override {
     const reader::datafield::ArrayView* view =
@@ -74,7 +78,12 @@ class StoreArrays final : public GridArrays {
     return *view;
   }
 
-  void report(GridId grid, CheckKind kind) const override { reportCheck(kind, pathOf(grid)); }
+  void report(GridId grid, CheckKind kind) const override {
+    if (raise_) {
+      throw EvaluationError(checkMessage(kind, pathOf(grid)));
+    }
+    reportCheck(kind, pathOf(grid));
+  }
 
   void failed(std::int32_t check,
               std::size_t point,
@@ -85,11 +94,14 @@ class StoreArrays final : public GridArrays {
           (i == 0 ? "" : ", ") + program_->inputs()[i].name + " = " + std::to_string(inputs[i]);
     }
     const auto& spec = program_->checks().at(static_cast<std::size_t>(check));
-    logError() << "expr:" << spec.message << "-- point" << point
-               << ("of the call does not meet the check of the program" +
-                   fromText(program_->sourcesOfNode(spec.root)))
-                      .c_str()
-               << (where.empty() ? std::string() : "(" + where + ")");
+    const std::string text = "expr: " + spec.message + " -- point " + std::to_string(point) +
+                             " of the call does not meet the check of the program" +
+                             fromText(program_->sourcesOfNode(spec.root)) +
+                             (where.empty() ? std::string() : " (" + where + ")");
+    if (raise_) {
+      throw EvaluationError(text);
+    }
+    logError() << text.c_str();
   }
 
   private:
@@ -100,6 +112,7 @@ class StoreArrays final : public GridArrays {
   const Program* program_;
   GridStore* store_;
   std::vector<std::size_t> storeIds_; // GridId -> GridStore index
+  bool raise_{false};
 };
 
 // --- table seam -------------------------------------------------------------
@@ -1946,11 +1959,13 @@ std::vector<double> interpretValues(const Program& program,
                                     const std::vector<double>& inputs,
                                     std::size_t points,
                                     std::map<std::size_t, std::vector<std::uint8_t>>* branches,
-                                    const std::vector<double>* states) {
+                                    const std::vector<double>* states,
+                                    bool raise) {
   const std::size_t outputs = program.outputs().size();
   const auto ids = internGrids(program, grids);
-  const StoreArrays arrays(program, ids, grids);
-  const GridArrays* sampled = ids.empty() ? nullptr : &arrays;
+  const StoreArrays arrays(program, ids, grids, raise);
+  // the checks of the program report through the arrays too, where it samples no grid
+  const GridArrays* sampled = ids.empty() && program.checks().empty() ? nullptr : &arrays;
   const LoweredProgram lowered = lower(program, LowerOptions{});
   InterpreterOptions options;
   options.branches = branches;

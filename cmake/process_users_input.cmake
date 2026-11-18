@@ -155,6 +155,8 @@ option(DEVICE_SHARED "Build the device kernel libraries as shared libraries" ON)
 
 option(PROXY_PYBINDING "Enable pybind11 for proxy (everything will be compiled with -fPIC)" OFF)
 
+option(SDERIV_PYTHON "Build the Python module of sderiv (import sderiv): load, print, validate and evaluate programs" OFF)
+
 option(BUILD_DOCS "Build the SeisSol Documentation" OFF)
 
 option(BUILD_DOXYGEN "Build the SeisSol Doxygen docs" OFF)

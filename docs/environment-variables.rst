@@ -552,6 +552,29 @@ runs, at the points they share. It also checks a program (``sderiv check``), pri
 normal form of the core format (``sderiv print``), evaluates it at points (``sderiv eval``) and
 compares two programs (``sderiv compare``).
 
+The same from Python: a build with ``-DSDERIV_PYTHON=ON`` (which needs pybind11) makes the module
+``sderiv`` next to the binaries. ``sderiv.load(path)`` reads a program of sderiv or a Lua model,
+``sderiv.compile(text)`` one of text, and ``sderiv.load_easi(path, parameters)`` the program the
+easi walker makes of an easi file. A program has its ``inputs``, ``outputs``, ``states``,
+``fingerprint`` and ``meta``; ``core()`` gives it in the normal form, ``validate()`` checks it, and
+``evaluate`` computes its outputs with the interpreter, at points given as NumPy arrays (a number
+at every point), by the bits of SeisSol's CPU backends:
+
+.. code-block:: python
+
+   import numpy as np
+   import sderiv
+
+   program = sderiv.load("material.sderiv")
+   values = program.evaluate(x=np.zeros(3), y=0.0, z=np.array([-3000.0, -1000.0, 0.0]))
+   print(program.fingerprint, values["rho"])
+
+A program with state is called with ``step(inputs, states)``, which gives the outputs and the next
+states. An error of a source raises ``sderiv.Error``, a ``ValueError`` with the ``file``, the
+``line`` and the ``column``; a point that does not meet a check of the program raises
+``sderiv.EvaluationError``. A program that samples a grid starts MPI, unless the process has (as
+``mpi4py`` does), and ends it with Python.
+
 The compiled CPU kernels are built at run time by ``SEISSOL_EXPR_CXX`` (by default ``c++``) with
 ``SEISSOL_EXPR_CXXFLAGS`` (by default ``-O3 -ffp-contract=off -fno-math-errno -march=native``). They
 are kept across runs in the directory ``SEISSOL_EXPR_CACHE`` names, by default ``seissol/expr`` in
