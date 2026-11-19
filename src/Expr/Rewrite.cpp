@@ -788,23 +788,12 @@ Program stateOf(const Program& program) {
   return part;
 }
 
-std::optional<Program> stagedOutputs(const Program& program, const std::string& stage) {
-  const auto named = [&](const std::vector<VarSpec>& specs) {
-    return std::any_of(
-        specs.begin(), specs.end(), [&](const VarSpec& spec) { return spec.name == stage; });
-  };
-  if (named(program.inputs()) || named(program.outputs()) ||
-      std::any_of(program.state().begin(), program.state().end(), [&](const StateSpec& state) {
-        return state.name == stage;
-      })) {
-    throw std::invalid_argument("expr: the stage of a program, " + stage +
-                                ", is the name of one of its channels");
-  }
+std::optional<Program> outputsOfStates(const Program& program) {
   if (program.state().empty() || program.outputs().empty()) {
     return std::nullopt;
   }
 
-  // the staged nodes are made in a copy, whose nodes are then imported into the result
+  // the nodes are made in a copy, whose nodes are then imported into the result
   Program work = program;
   Arena& arena = work.arena();
   // the next value of every state, and what holds it after a step: the state
@@ -834,49 +823,45 @@ std::optional<Program> stagedOutputs(const Program& program, const std::string& 
     stack.insert(stack.end(), kids.begin(), kids.end());
   }
 
-  const NodeId chosen = arena.field(arena.channel(stage));
-  // the outputs at stage 1, each next value read as its state
+  // the outputs, each next value read as its state
   std::unordered_map<NodeId, NodeId> memo = held;
   std::vector<NodeId> outputs;
   outputs.reserve(program.roots().size());
   for (const NodeId root : program.roots()) {
-    const NodeId computed = replaceChannels(arena, root, {}, memo);
-    const ValueType type = arena[computed].type;
-    outputs.push_back(arena.pw(Fn::Select, chosen, computed, arena.konst(0.0, type), type));
+    outputs.push_back(replaceChannels(arena, root, {}, memo));
   }
-  // the states at stage 0 only
-  std::vector<NodeId> states;
-  states.reserve(program.state().size());
+  std::vector<NodeId> read = outputs;
+  for (const auto& check : program.checks()) {
+    read.push_back(check.root);
+  }
+  const auto channels = channelsRead(work, read);
+
+  Program written;
+  written.setComputeType(program.computeType());
+  for (const auto& input : program.inputs()) {
+    if (channels.count(input.name) != 0) {
+      written.addInput(input.name, input.type);
+    }
+  }
+  Imports imports(work);
   for (const auto& state : program.state()) {
     const NodeId kept = arena.field(arena.channel(state.name), state.type);
-    states.push_back(arena.pw(Fn::Select, chosen, kept, state.root, state.type));
-  }
-
-  Program staged;
-  staged.setComputeType(program.computeType());
-  for (const auto& input : program.inputs()) {
-    staged.addInput(input.name, input.type);
-  }
-  staged.addInput(stage, reader::scripting::DataType::F64);
-  Imports imports(work);
-  for (std::size_t i = 0; i < program.state().size(); ++i) {
-    const auto& state = program.state()[i];
-    staged.addState(state.name, state.initial, importNode(staged, states[i], imports), state.type);
+    written.addState(state.name, state.initial, importNode(written, kept, imports), state.type);
   }
   for (std::size_t i = 0; i < program.outputs().size(); ++i) {
-    staged.addOutput(program.outputs()[i].name,
-                     program.outputs()[i].type,
-                     importNode(staged, outputs[i], imports));
+    written.addOutput(program.outputs()[i].name,
+                      program.outputs()[i].type,
+                      importNode(written, outputs[i], imports));
   }
   for (const auto& check : program.checks()) {
-    staged.addCheck(importNode(staged, check.root, imports), check.message);
+    written.addCheck(importNode(written, check.root, imports), check.message);
   }
   for (const auto& entry : program.meta()) {
-    staged.addMeta(entry);
+    written.addMeta(entry);
   }
-  carrySources(work, staged, imports);
-  validate(staged);
-  return staged;
+  carrySources(work, written, imports);
+  validate(written);
+  return written;
 }
 
 } // namespace seissol::expr

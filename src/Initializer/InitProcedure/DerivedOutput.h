@@ -58,11 +58,12 @@
 // the checkpoints are written: no synchronization point of its own, and a checkpoint holds the
 // state of its time. `dt` is the time since the last evaluation.
 //
-// A program with state whose outputs read the states only through their next values runs in two
-// stages (expr::stagedOutputs, the input `@stage`): a step updates the states and computes no
-// output; the outputs are computed when written, at every layer, from the states the last step
-// left and with its time and time step -- the values the last step would have given them, without
-// computing them at every step (a median over the peaks along 180 angles, say).
+// A program with state whose outputs read the states only through their next values runs as two
+// kernels: a step updates the states (expr::stateOf) and computes no output; the outputs are
+// computed when written, at every layer, from the states the last step left and with its time and
+// time step (expr::outputsOfStates) -- the values the last step would have given them, without
+// computing them at every step (a median over the peaks along 180 angles, say), and without what
+// they need in the kernel of the steps (the arrays of a median, which a GPU spills).
 //
 // STATE. The state of the configured program lives with the elements, in the storage of the
 // cells (LTS::DerivedState) or of the faces (SurfaceLTS::DerivedState): per element, a value per
