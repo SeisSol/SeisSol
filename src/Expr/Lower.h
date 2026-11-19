@@ -111,10 +111,17 @@ struct Instruction {
   bool strict{false};
 };
 
+// A write of a transient into an output or a persistent slot. It runs before the instruction at
+// `position` (at the end of the code where that is its size), outside every branch, so at every
+// point: as soon as its value is computed, and the value it would overwrite loaded -- the old value
+// of a state, an input of the same name as an output --, so that a value that is written lives no
+// longer than needed (see THE ORDER in Branches.h). The writes of a position run in the order of
+// their lists, outputs first.
 struct Store {
   std::int32_t target{0}; // output index, or persistent slot
   std::int32_t source{0}; // transient slot
   Space space{Space::Point};
+  std::int32_t position{0};
 };
 
 /// A part of the code of a stage that only the points where the condition is `side` need: the
@@ -138,10 +145,14 @@ struct CheckStore {
 
 struct StageCode {
   std::vector<Instruction> code;
-  std::vector<Store> outputs;    // Run only: scatter targets, by output index
-  std::vector<Store> persistent; // Precompute: hoisted values. Run: state writeback.
+  // Run only: scatter targets, by output index
+  std::vector<Store> outputs;
+  // Precompute: hoisted values. Run: state writeback, none for a state whose next value is its
+  // value.
+  std::vector<Store> persistent;
   // Run only: the checks of the written-out lookups (GridCheck), each of a grid and a kind, read
-  // from a transient of type Bool that is true where the check finds what its kind says.
+  // from a transient of type Bool that is true where the check finds what its kind says; after the
+  // code.
   std::vector<CheckStore> checks;
   // By `begin`; of two that start at one instruction, the one that holds the other first.
   std::vector<Branch> branches;

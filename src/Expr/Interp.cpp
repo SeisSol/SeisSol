@@ -365,6 +365,18 @@ TileInterpreter<T>::TileInterpreter(const Program& program,
   inputTile_.assign(static_cast<std::size_t>(std::max(numInputs_, 1)) * tileSize_, T(0));
   outputTile_.assign(static_cast<std::size_t>(std::max(numOutputs_, 1)) * tileSize_, T(0));
   stateTile_.assign(static_cast<std::size_t>(std::max(stateSlots_, 1)) * tileSize_, T(0));
+  for (const auto& [stage, writes] : {std::make_pair(&lowered.precompute(), &precomputeWrites_),
+                                      std::make_pair(&lowered.run(), &runWrites_)}) {
+    for (const Store& store : stage->outputs) {
+      writes->push_back(Write{store.position, &store, false});
+    }
+    for (const Store& store : stage->persistent) {
+      writes->push_back(Write{store.position, &store, true});
+    }
+    std::stable_sort(writes->begin(), writes->end(), [](const Write& x, const Write& y) {
+      return x.position < y.position;
+    });
+  }
 }
 
 // One switch per instruction, amortised over `count` lanes. The lane loops are
@@ -777,6 +789,28 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
     return true;
   };
 
+  // The writes of a position run before its instruction (Store::position), and never in a branch:
+  // as early as they may, so that a value that is written lives no longer than needed. Stores into
+  // the tiles of the outputs and the states, which the caller scatters, and the persistent values.
+  const auto& writes = &stage == &lowered_->precompute() ? precomputeWrites_ : runWrites_;
+  std::size_t nextWrite = 0;
+  const auto writesBefore = [&](std::size_t position) {
+    for (; nextWrite < writes.size() &&
+           writes[nextWrite].position == static_cast<std::int32_t>(position);
+         ++nextWrite) {
+      const Store& st = *writes[nextWrite].store;
+      if (!writes[nextWrite].persistent) {
+        store(st.source, outputTile + static_cast<std::size_t>(st.target) * count);
+      } else {
+        store(st.source,
+              st.target < stateSlots_
+                  ? stateTile + static_cast<std::size_t>(st.target) * count
+                  : persistent + static_cast<std::size_t>(st.target - stateSlots_) * numPoints +
+                        first);
+      }
+    }
+  };
+
   // A branch that no point of the tile takes is skipped, with the branches in it; one that some
   // take runs for all. Where the decisions of the selects are recorded, every select decides at
   // every point, as without branches.
@@ -784,6 +818,7 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
   const bool skips = !branches.empty() && decisions_ == nullptr && branches_ == nullptr;
   std::size_t next = 0;
   for (std::size_t i = 0; i < stage.code.size();) {
+    writesBefore(i);
     if (skips && next < branches.size() && branches[next].begin == static_cast<std::int32_t>(i)) {
       const Branch& branch = branches[next];
       ++next;
@@ -828,16 +863,11 @@ void TileInterpreter<T>::runStage(const StageCode& stage,
     }
   }
 
-  // Stores run after every instruction, which is what makes state updates a
-  // parallel assignment rather than a sequential one.
-  for (const Store& st : stage.outputs) {
-    store(st.source, outputTile + static_cast<std::size_t>(st.target) * count);
-  }
-  for (const Store& st : stage.persistent) {
-    store(st.source,
-          st.target < stateSlots_
-              ? stateTile + static_cast<std::size_t>(st.target) * count
-              : persistent + static_cast<std::size_t>(st.target - stateSlots_) * numPoints + first);
+  // the writes after the last instruction; a state is written after its old value is loaded,
+  // which keeps the update of the states a parallel assignment rather than a sequential one
+  writesBefore(stage.code.size());
+  if (nextWrite != writes.size()) {
+    fail("a write of a stage lies beyond its code");
   }
 }
 

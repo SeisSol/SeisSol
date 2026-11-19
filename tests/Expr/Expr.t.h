@@ -18,6 +18,7 @@
 #include <random>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace seissol::expr::test {
@@ -526,10 +527,60 @@ TEST_SUITE("Expr::Lower") {
     CHECK(lowered.run().persistent[0].target == 0);
     REQUIRE(lowered.run().outputs.size() == 1);
 
-    // Parallel assignment: the output reads `acc` from before the update, so the
-    // output store and the state store must not share a source slot with a value
-    // that has already been overwritten.
-    CHECK(lowered.run().outputs[0].source != lowered.run().persistent[0].source);
+    // Parallel assignment: the output reads `acc` from before the update, so it is written before
+    // the slot it reads from takes another value -- right after the load, while the state is
+    // written after its next value is computed, which follows the load.
+    const Store& output = lowered.run().outputs[0];
+    const Store& state = lowered.run().persistent[0];
+    CHECK(output.position < state.position);
+    for (std::int32_t i = 0; i < output.position; ++i) {
+      const Instruction& inst = lowered.run().code[static_cast<std::size_t>(i)];
+      if (inst.dst == output.source) {
+        CHECK(inst.op == Opcode::LoadPersistent);
+      }
+    }
+  }
+
+  TEST_CASE("independent state updates live one after the other") {
+    // the peaks of RotD50 along n angles, as rotd.sderiv declares them: each the maximum of its old
+    // value and the velocity along its angle, first those of the velocity, then those of the
+    // filtered one, which share the cosine and the sine of the angle. Each written as soon as it is
+    // computed, after its old value is loaded, and the two of an angle one after the other, they
+    // need a number of live slots that does not grow with n -- written at the end, n of them.
+    const auto lowered = [](int n) {
+      Program p;
+      for (const char* input : {"v1", "v2", "y1", "y2"}) {
+        p.addInput(input, DT::F64);
+      }
+      Arena& a = p.arena();
+      for (const auto& [prefix, x, y] :
+           {std::make_tuple("peak", "v1", "v2"), std::make_tuple("peak_hp", "y1", "y2")}) {
+        for (int i = 0; i < n; ++i) {
+          const NodeId angle = a.konst(3.141592653589793 * i / n);
+          const NodeId along = a.pw(Fn::Add,
+                                    a.pw(Fn::Mul, a.field(x), a.pw(Fn::Cos, angle)),
+                                    a.pw(Fn::Mul, a.field(y), a.pw(Fn::Sin, angle)));
+          const std::string name = std::string(prefix) + std::to_string(i);
+          p.addState(name, 0.0, a.pw(Fn::Max, a.field(name), a.pw(Fn::Abs, along)));
+        }
+      }
+      validate(p);
+      return lower(p);
+    };
+    const LoweredProgram few = lowered(8);
+    const LoweredProgram many = lowered(180);
+    CHECK(many.peakSlotCount() == few.peakSlotCount());
+    CHECK(many.peakSlotCount() <= 12);
+    // every state written once, each after the load of its old value
+    REQUIRE(many.run().persistent.size() == 360);
+    for (const Store& store : many.run().persistent) {
+      bool loaded = false;
+      for (std::int32_t i = 0; i < store.position; ++i) {
+        const Instruction& inst = many.run().code[static_cast<std::size_t>(i)];
+        loaded = loaded || (inst.op == Opcode::LoadPersistent && inst.imm == store.target);
+      }
+      CHECK(loaded);
+    }
   }
 
   TEST_CASE("a value feeding two outputs is computed once") {

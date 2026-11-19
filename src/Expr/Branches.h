@@ -39,11 +39,19 @@
 // is a truth value (ValueType::Bool): those of a written-out lookup, between the cases of a
 // coordinate at the ends of an axis, and those of where a sample is used (Reach). Nearly every
 // point takes the same side of them, so a branch would cost its test and the order of the values
-// around it, and save nothing. In a region, the values that can be computed come first, by NodeId,
-// then the branches in it, so that a branch starts once, with what it needs of the values around it
+// around it, and save nothing. In a region, the values that can be computed come first, then the
+// branches in it, so that a branch starts once, with what it needs of the values around it
 // computed, and holds its values together, as far as they do not need a value that needs the
 // branch -- another branch of the same condition then follows that value. The two sides of a
 // condition follow each other, which a backend makes an `if` and its `else`.
+//
+// Of the values that can be computed, the first in a depth-first order from the roots in their
+// order comes first: every root right after what it needs, so that a value is computed close to
+// where it is used. With the writes of the lowering, which run as soon as their values are computed
+// (Store::position), the values of roots that need little of each other -- the peaks of RotD50
+// along 180 angles, each the maximum of its old value and the velocity along its angle -- live one
+// after the other, not all at once: the live values, which a GPU keeps in its registers and spills
+// beyond them, are those that roots share (the velocities) and few more.
 //
 // A backend that runs a branch only for the points that take it computes the same values as one
 // that runs it for all, and its loads are as safe: every offset of a load is clamped into its array
@@ -174,7 +182,7 @@ struct Step {
 
 /// `values`, as Regions takes them with `roots` and `leaves`, in an order to compute them in, with
 /// a branch around each region whose values weigh `threshold` or more by `weight` (see THE ORDER
-/// above); in ascending order where no region does.
+/// above); in the depth-first order from `roots` where no region does.
 [[nodiscard]] std::vector<Step> branchedOrder(const Arena& arena,
                                               const std::vector<NodeId>& values,
                                               const std::vector<NodeId>& roots,

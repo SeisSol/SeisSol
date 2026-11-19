@@ -427,14 +427,54 @@ void emitStageBody(std::ostringstream& out,
     out << indent << "(void)" << slotName(0) << ";\n";
   }
 
+  // The writes run before the instruction at their positions, never in a branch (Store::position).
+  const auto value = [&](const Store& store) {
+    return converted(slotName(store.source), slotType(stage, store.source), dataType);
+  };
+  const auto writesAt = [&](std::size_t index) {
+    return std::any_of(stage.outputs.begin(),
+                       stage.outputs.end(),
+                       [&](const Store& store) {
+                         return store.position == static_cast<std::int32_t>(index);
+                       }) ||
+           std::any_of(stage.persistent.begin(), stage.persistent.end(), [&](const Store& store) {
+             return store.position == static_cast<std::int32_t>(index);
+           });
+  };
+  const auto writeAt = [&](std::size_t index) {
+    for (const Store& store : stage.outputs) {
+      if (store.position == static_cast<std::int32_t>(index)) {
+        out << indent << addressing.storeOutput(store.target, value(store)) << ";\n";
+      }
+    }
+    for (const Store& store : stage.persistent) {
+      if (store.position != static_cast<std::int32_t>(index)) {
+        continue;
+      }
+      if (store.target < addressing.stateSlots) {
+        if (addressing.storeState == nullptr) {
+          throw std::invalid_argument(
+              "expr: a state reached a code generator that cannot address states");
+        }
+        out << indent << addressing.storeState(store.target, value(store)) << ";\n";
+      } else {
+        out << indent
+            << addressing.storePersistent(store.target - addressing.stateSlots, value(store))
+            << ";\n";
+      }
+    }
+  };
+
   // A branch is an `if` around its part of the code: the points of a GPU warp that do not take it
   // wait, those that do run it, and a CPU skips it where the point does not take it. Two parts of
-  // the same condition, one for either side, become an `if` and its `else`.
+  // the same condition, one for either side, become an `if` and its `else`, where no write lies
+  // between them.
   std::string current = indent;
   std::vector<Branch> open;
   std::size_t nextBranch = 0;
   const auto& branches = stage.branches;
   for (std::size_t index = 0; index < stage.code.size(); ++index) {
+    writeAt(index);
     while (nextBranch < branches.size() &&
            branches[nextBranch].begin == static_cast<std::int32_t>(index)) {
       const Branch& branch = branches[nextBranch++];
@@ -520,7 +560,7 @@ void emitStageBody(std::ostringstream& out,
       const bool outermost = open.empty() || open.back().end != after;
       if (outermost && nextBranch < branches.size() && branches[nextBranch].begin == after &&
           branches[nextBranch].end > after && branches[nextBranch].condition == closed.condition &&
-          branches[nextBranch].side != closed.side) {
+          branches[nextBranch].side != closed.side && !writesAt(static_cast<std::size_t>(after))) {
         out << current << "} else {\n";
         current += "  ";
         open.push_back(branches[nextBranch++]);
@@ -530,25 +570,7 @@ void emitStageBody(std::ostringstream& out,
     }
   }
 
-  const auto value = [&](const Store& store) {
-    return converted(slotName(store.source), slotType(stage, store.source), dataType);
-  };
-  for (const Store& store : stage.outputs) {
-    out << indent << addressing.storeOutput(store.target, value(store)) << ";\n";
-  }
-  for (const Store& store : stage.persistent) {
-    if (store.target < addressing.stateSlots) {
-      if (addressing.storeState == nullptr) {
-        throw std::invalid_argument(
-            "expr: a state reached a code generator that cannot address states");
-      }
-      out << indent << addressing.storeState(store.target, value(store)) << ";\n";
-    } else {
-      out << indent
-          << addressing.storePersistent(store.target - addressing.stateSlots, value(store))
-          << ";\n";
-    }
-  }
+  writeAt(stage.code.size());
   for (const CheckStore& store : stage.checks) {
     if (addressing.storeCheck == nullptr) {
       throw std::invalid_argument(
@@ -600,10 +622,38 @@ void emitStageBodyTiled(std::ostringstream& out,
     }
   }
 
+  // The writes run before the instruction at their positions, never in a branch (Store::position).
+  const auto value = [&](const Store& store) {
+    return converted(slot(store.source), slotType(stage, store.source), dataType);
+  };
+  const auto writeAt = [&](std::size_t index) {
+    for (const Store& store : stage.outputs) {
+      if (store.position == static_cast<std::int32_t>(index)) {
+        laneLoop(addressing.storeOutput(store.target, value(store)), true);
+      }
+    }
+    for (const Store& store : stage.persistent) {
+      if (store.position != static_cast<std::int32_t>(index)) {
+        continue;
+      }
+      if (store.target < addressing.stateSlots) {
+        if (addressing.storeState == nullptr) {
+          throw std::invalid_argument(
+              "expr: a state reached a code generator that cannot address states");
+        }
+        laneLoop(addressing.storeState(store.target, value(store)), true);
+      } else {
+        laneLoop(addressing.storePersistent(store.target - addressing.stateSlots, value(store)),
+                 true);
+      }
+    }
+  };
+
   // A branch runs for the block where a lane of it takes the branch.
   std::vector<std::int32_t> ends;
   std::size_t nextBranch = 0;
   for (std::size_t index = 0; index < stage.code.size(); ++index) {
+    writeAt(index);
     while (nextBranch < branches.size() &&
            branches[nextBranch].begin == static_cast<std::int32_t>(index)) {
       const std::string flag = "b" + std::to_string(nextBranch);
@@ -688,24 +738,7 @@ void emitStageBodyTiled(std::ostringstream& out,
     }
   }
 
-  const auto value = [&](const Store& store) {
-    return converted(slot(store.source), slotType(stage, store.source), dataType);
-  };
-  for (const Store& store : stage.outputs) {
-    laneLoop(addressing.storeOutput(store.target, value(store)), true);
-  }
-  for (const Store& store : stage.persistent) {
-    if (store.target < addressing.stateSlots) {
-      if (addressing.storeState == nullptr) {
-        throw std::invalid_argument(
-            "expr: a state reached a code generator that cannot address states");
-      }
-      laneLoop(addressing.storeState(store.target, value(store)), true);
-    } else {
-      laneLoop(addressing.storePersistent(store.target - addressing.stateSlots, value(store)),
-               true);
-    }
-  }
+  writeAt(stage.code.size());
   for (const CheckStore& store : stage.checks) {
     if (addressing.storeCheck == nullptr) {
       throw std::invalid_argument(

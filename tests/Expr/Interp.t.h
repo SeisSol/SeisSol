@@ -824,7 +824,12 @@ TEST_SUITE("Expr::Interp") {
     const std::vector<double> inputs = {
         1.0 + std::ldexp(1.0, -27), 1.0 - std::ldexp(1.0, -27), 0.25};
     const LoweredProgram lowered = lower(program);
-    REQUIRE(lowered.dump().find("t0:f64 = pw select t0") != std::string::npos);
+    const auto& code = lowered.run().code;
+    const auto select = std::find_if(code.begin(), code.end(), [](const Instruction& inst) {
+      return inst.op == Opcode::Pw && inst.fn == Fn::Select;
+    });
+    REQUIRE(select != code.end());
+    REQUIRE(select->dst == lowered.operands()[static_cast<std::size_t>(select->operandBegin)]);
     const auto evaluate = [&](const Perturbation& perturbation,
                               std::vector<std::uint64_t>& decisions,
                               std::map<std::size_t, std::vector<std::uint8_t>>* branches) {

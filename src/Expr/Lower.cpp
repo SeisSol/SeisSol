@@ -288,6 +288,17 @@ class SlotAllocator {
   std::vector<ComputeType> types_;
 };
 
+/// A value a stage writes: an output (`persistent` false) or a persistent slot -- a state or a
+/// hoisted value --, with the value whose load the write has to follow where there is one
+/// (`after`): the old value of a state, or the input of the same name as an output, which the write
+/// would change.
+struct Write {
+  NodeId value{NoNode};
+  bool persistent{false};
+  std::int32_t target{0};
+  NodeId after{NoNode};
+};
+
 class Emitter {
   public:
   Emitter(const Program& program,
@@ -300,24 +311,38 @@ class Emitter {
   // except at the imported-value boundary. The values of a branch come between its If and EndIf;
   // the liveness is that of the straight-line order, which holds for any part skipped as well: a
   // value is only read where the part that computes it ran, or by a select that does not choose it.
-  void emit(const std::vector<Step>& steps, const std::vector<NodeId>& liveOut, StageCode& stage) {
+  //
+  // A write runs as early as it can (Store::position): before the first instruction after its value
+  // and the load it follows, where no branch is open. Its value dies there unless read later, and
+  // the values of `liveToEnd` (the checks) live to the end of the stage.
+  void emit(const std::vector<Step>& steps,
+            const std::vector<Write>& writes,
+            const std::vector<NodeId>& liveToEnd,
+            StageCode& stage) {
     const Arena& arena = program_.arena();
     SlotAllocator alloc(arena.size());
 
-    // Last use of each value inside this stage. Imported values contribute no
-    // uses — their operands belong to the stage that produced them. Anything in
-    // liveOut survives to the stores at the end and must not be recycled before.
-    // A branch reads its condition before its first instruction.
+    // The instruction of each value, and the least depth of the branches between an instruction
+    // and the one before it (the gap a write may run in); last use of each value inside this stage.
+    // Imported values contribute no uses -- their operands belong to the stage that produced them.
+    // A branch reads its condition before its first instruction, a write its value before the
+    // instruction it precedes.
+    std::unordered_map<NodeId, std::size_t> defined;
+    std::vector<std::int32_t> leastDepth{0};
     std::unordered_map<NodeId, std::size_t> lastUse;
     std::vector<NodeId> kids;
     std::size_t position = 0;
+    std::int32_t depth = 0;
     for (const Step& step : steps) {
       if (step.kind == Step::Kind::If) {
         auto& last = lastUse[step.node];
         last = std::max(last, position);
+        ++depth;
         continue;
       }
-      if (step.kind != Step::Kind::Value) {
+      if (step.kind == Step::Kind::EndIf) {
+        --depth;
+        leastDepth.back() = std::min(leastDepth.back(), depth);
         continue;
       }
       if (!isImported(step.node)) {
@@ -326,13 +351,49 @@ class Emitter {
           lastUse[k] = position;
         }
       }
+      defined.emplace(step.node, position);
       ++position;
+      leastDepth.push_back(depth);
     }
-    for (const NodeId id : liveOut) {
+    const std::size_t end = position;
+    std::vector<std::size_t> writeAt(writes.size(), end);
+    for (std::size_t w = 0; w < writes.size(); ++w) {
+      const auto found = defined.find(writes[w].value);
+      if (found == defined.end()) {
+        fail("the value " + std::to_string(writes[w].value) + " a stage writes is not in it");
+      }
+      std::size_t at = found->second + 1;
+      if (writes[w].after != NoNode) {
+        const auto load = defined.find(writes[w].after);
+        if (load != defined.end()) {
+          at = std::max(at, load->second + 1);
+        }
+      }
+      while (leastDepth[at] != 0) {
+        ++at;
+      }
+      writeAt[w] = at;
+      auto& last = lastUse[writes[w].value];
+      last = std::max(last, at);
+    }
+    for (const NodeId id : liveToEnd) {
       lastUse[id] = std::numeric_limits<std::size_t>::max();
+    }
+    // freed before the instruction of their last use computes, which may then write over them:
+    // every instruction is elementwise -- one lane reads and writes the same index -- now that a
+    // lookup is written out
+    std::vector<std::vector<NodeId>> dying(end);
+    for (const auto& [id, last] : lastUse) {
+      if (last < end) {
+        dying[last].push_back(id);
+      }
+    }
+    for (auto& ids : dying) {
+      std::sort(ids.begin(), ids.end());
     }
 
     std::vector<Branch> open;
+    std::unordered_map<NodeId, std::int32_t> slotOf;
     std::size_t i = 0;
     for (const Step& step : steps) {
       if (step.kind == Step::Kind::If) {
@@ -430,17 +491,11 @@ class Emitter {
         }
       }
 
-      // Freeing dead operands before allocating the destination lets an op write
-      // over an operand it just consumed: every instruction is elementwise -- one
-      // lane reads and writes the same index -- now that a lookup is written out.
-      const bool inPlaceSafe = true;
-      if (inPlaceSafe) {
-        releaseDead(alloc, id, lastUse, i);
+      for (const NodeId dead : dying[i]) {
+        alloc.release(dead);
       }
       inst.dst = alloc.allocate(id, inst.type);
-      if (!inPlaceSafe) {
-        releaseDead(alloc, id, lastUse, i);
-      }
+      slotOf.emplace(id, inst.dst);
 
       stage.code.push_back(inst);
       ++i;
@@ -454,8 +509,16 @@ class Emitter {
 
     stage.slotCount = alloc.high();
     stage.slotTypes = alloc.types();
+    for (std::size_t w = 0; w < writes.size(); ++w) {
+      const Write& write = writes[w];
+      const Store store{write.target,
+                        slotOf.at(write.value),
+                        analysis_.space[write.value],
+                        static_cast<std::int32_t>(writeAt[w])};
+      (write.persistent ? stage.persistent : stage.outputs).push_back(store);
+    }
     slotOfLiveOut_.clear();
-    for (const NodeId id : liveOut) {
+    for (const NodeId id : liveToEnd) {
       slotOfLiveOut_.emplace(id, alloc.slotOf(id));
     }
   }
@@ -473,23 +536,6 @@ class Emitter {
     return it == boundary_.end() ? -1 : it->second;
   }
   [[nodiscard]] bool isImported(NodeId id) const { return boundary_.count(id) != 0; }
-
-  void releaseDead(SlotAllocator& alloc,
-                   NodeId id,
-                   const std::unordered_map<NodeId, std::size_t>& lastUse,
-                   std::size_t i) {
-    if (isImported(id)) {
-      return; // imported values have no operands in this stage
-    }
-    std::vector<NodeId> kids;
-    program_.arena().children(id, kids);
-    for (const NodeId k : kids) {
-      const auto it = lastUse.find(k);
-      if (it != lastUse.end() && it->second == i) {
-        alloc.release(k);
-      }
-    }
-  }
 
   const Program& program_;
   const Analysis& analysis_;
@@ -595,8 +641,24 @@ std::string LoweredProgram::dump() const {
     out += " (slots=" + std::to_string(s.slotCount) + ")\n";
     std::string indent = "  ";
     std::vector<std::int32_t> ends;
+    // the writes before the instruction at `index`, where they run
+    const auto writes = [&](std::size_t index) {
+      for (const Store& st : s.outputs) {
+        if (st.position == static_cast<std::int32_t>(index)) {
+          out += indent + "out[" + std::to_string(st.target) + "] <- t" +
+                 std::to_string(st.source) + "\n";
+        }
+      }
+      for (const Store& st : s.persistent) {
+        if (st.position == static_cast<std::int32_t>(index)) {
+          out += indent + "p[" + std::to_string(st.target) + "] <- t" + std::to_string(st.source) +
+                 "\n";
+        }
+      }
+    };
     for (std::size_t index = 0; index < s.code.size(); ++index) {
       const Instruction& i = s.code[index];
+      writes(index);
       for (const Branch& b : s.branches) {
         if (b.begin == static_cast<std::int32_t>(index)) {
           out +=
@@ -643,12 +705,6 @@ std::string LoweredProgram::dump() const {
         out += indent + "}\n";
       }
     }
-    for (const Store& st : s.outputs) {
-      out += "  out[" + std::to_string(st.target) + "] <- t" + std::to_string(st.source) + "\n";
-    }
-    for (const Store& st : s.persistent) {
-      out += "  p[" + std::to_string(st.target) + "] <- t" + std::to_string(st.source) + "\n";
-    }
     for (const CheckStore& st : s.checks) {
       out += st.kind == CheckKind::User
                  ? "  check " + std::to_string(st.index)
@@ -656,6 +712,7 @@ std::string LoweredProgram::dump() const {
                        (st.kind == CheckKind::Window ? " window" : " outside");
       out += " <- t" + std::to_string(st.source) + "\n";
     }
+    writes(s.code.size());
   };
   stage("precompute", precompute_);
   stage("run", run_);
@@ -813,15 +870,16 @@ LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
       }
     }
     const std::vector<char> none(arena.size(), 0);
+    std::vector<Write> writes;
+    for (const NodeId id : hoistedOrder) {
+      writes.push_back(Write{id, true, persistentSlot.at(id), NoNode});
+    }
     emitter.setBoundary({});
     emitter.emit(
         branchedOrder(arena, values, hoistedOrder, none, weightIn(none), options.branchThreshold),
-        hoistedOrder,
+        writes,
+        {},
         out.precompute_);
-    for (const NodeId id : hoistedOrder) {
-      out.precompute_.persistent.push_back(
-          Store{persistentSlot.at(id), emitter.liveOutSlot(id), an.space[id]});
-    }
   }
 
   {
@@ -831,32 +889,50 @@ LoweredProgram lower(const Program& untyped, const LowerOptions& options) {
         values.push_back(id);
       }
     }
-    std::vector<NodeId> liveOut;
-    for (const NodeId r : program.roots()) {
-      liveOut.push_back(r);
+    // the value a channel holds where the stage reads it: what a write of the same name follows
+    std::unordered_map<int, NodeId> read;
+    for (const NodeId id : values) {
+      if (arena[id].kind == Kind::Field && hoisted[id] == 0) {
+        read.emplace(arena[id].ch, id);
+      }
     }
-    for (const StateSpec& s : program.state()) {
-      liveOut.push_back(s.root);
-    }
-    for (const GridCheck& check : expanded.checks) {
-      liveOut.push_back(check.root);
-    }
-    emitter.setBoundary(persistentSlot);
-    emitter.emit(
-        branchedOrder(arena, values, liveOut, hoisted, weightIn(hoisted), options.branchThreshold),
-        liveOut,
-        out.run_);
-
+    const auto readOf = [&](const std::string& name) {
+      const int ch = arena.findChannel(name);
+      const auto found = read.find(ch);
+      return ch < 0 || found == read.end() ? NoNode : found->second;
+    };
+    std::vector<NodeId> roots;
+    std::vector<Write> writes;
     for (std::size_t i = 0; i < program.roots().size(); ++i) {
       const NodeId r = program.roots()[i];
-      out.run_.outputs.push_back(
-          Store{static_cast<std::int32_t>(i), emitter.liveOutSlot(r), an.space[r]});
+      roots.push_back(r);
+      // an input of the same name may be the column the output is written into
+      const std::string& output = program.outputs()[i].name;
+      const NodeId input =
+          channels.input.count(arena.findChannel(output)) != 0 ? readOf(output) : NoNode;
+      writes.push_back(Write{r, false, static_cast<std::int32_t>(i), input});
     }
     for (std::size_t i = 0; i < program.state().size(); ++i) {
       const NodeId r = program.state()[i].root;
-      out.run_.persistent.push_back(
-          Store{static_cast<std::int32_t>(i), emitter.liveOutSlot(r), an.space[r]});
+      roots.push_back(r);
+      // a state whose next value is its value keeps it without a write
+      const NodeId old = readOf(program.state()[i].name);
+      if (r != old) {
+        writes.push_back(Write{r, true, static_cast<std::int32_t>(i), old});
+      }
     }
+    std::vector<NodeId> checks;
+    for (const GridCheck& check : expanded.checks) {
+      roots.push_back(check.root);
+      checks.push_back(check.root);
+    }
+    emitter.setBoundary(persistentSlot);
+    emitter.emit(
+        branchedOrder(arena, values, roots, hoisted, weightIn(hoisted), options.branchThreshold),
+        writes,
+        checks,
+        out.run_);
+
     for (const GridCheck& check : expanded.checks) {
       out.run_.checks.push_back(
           CheckStore{check.grid, check.kind, emitter.liveOutSlot(check.root), check.index});

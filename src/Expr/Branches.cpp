@@ -296,6 +296,203 @@ NodeId Reach::withinFromUses(NodeId node) {
   return result;
 }
 
+namespace {
+
+/// How many roots a value may be shared by and still keep them together (rootsByAffinity()): the
+/// rotation of one angle of RotD50 by two (the peak of the velocity and that of the filtered one),
+/// the velocities by all of them.
+constexpr std::size_t FewRoots = 8;
+
+/// `roots` without repetitions, in an order that keeps roots which share a value that few roots
+/// share next to each other: after a root, those that share such a value with it, before the next
+/// in the given order -- so that the value lives from the one to the other, not across the roots in
+/// between. Of the peaks of RotD50 declared as `peak` along 180 angles and then `peak_hp`, the two
+/// of an angle share the cosine and the sine of the angle, and follow each other. A value shared by
+/// more roots (the velocities) lives across many of them anyway, and does not order them.
+std::vector<NodeId> rootsByAffinity(const Arena& arena,
+                                    const std::vector<char>& member,
+                                    const std::vector<NodeId>& roots,
+                                    const std::vector<char>& leaves) {
+  std::vector<NodeId> unique;
+  {
+    std::vector<char> seen(arena.size(), 0);
+    for (const NodeId root : roots) {
+      if (root != NoNode && member[static_cast<std::size_t>(root)] != 0 &&
+          seen[static_cast<std::size_t>(root)] == 0) {
+        seen[static_cast<std::size_t>(root)] = 1;
+        unique.push_back(root);
+      }
+    }
+  }
+  // the roots of each value, as far as they are few, and the values of each root few roots share;
+  // the operands of a value many roots share are shared by as many, and not visited
+  std::vector<std::vector<std::int32_t>> rootsOf(arena.size());
+  std::vector<char> many(arena.size(), 0);
+  std::vector<std::vector<NodeId>> sharedOf(unique.size());
+  std::vector<std::int32_t> stamp(arena.size(), -1);
+  std::vector<NodeId> stack;
+  std::vector<NodeId> kids;
+  for (std::size_t r = 0; r < unique.size(); ++r) {
+    const auto index = static_cast<std::int32_t>(r);
+    stack.assign(1, unique[r]);
+    stamp[static_cast<std::size_t>(unique[r])] = index;
+    while (!stack.empty()) {
+      const NodeId value = stack.back();
+      stack.pop_back();
+      const auto v = static_cast<std::size_t>(value);
+      if (many[v] != 0) {
+        continue;
+      }
+      if (rootsOf[v].size() == FewRoots) {
+        many[v] = 1;
+        rootsOf[v].clear();
+        continue;
+      }
+      rootsOf[v].push_back(index);
+      sharedOf[r].push_back(value);
+      if (leaves[v] != 0) {
+        continue;
+      }
+      arena.children(value, kids);
+      for (const NodeId kid : kids) {
+        const auto k = static_cast<std::size_t>(kid);
+        if (member[k] != 0 && stamp[k] != index) {
+          stamp[k] = index;
+          stack.push_back(kid);
+        }
+      }
+    }
+  }
+  // what a value many roots share needs is shared by as many: also where a root reached it before
+  // the value was found to be shared by many
+  for (NodeId id = 0; id < static_cast<NodeId>(arena.size()); ++id) {
+    if (many[static_cast<std::size_t>(id)] != 0) {
+      stack.push_back(id);
+    }
+  }
+  while (!stack.empty()) {
+    const NodeId value = stack.back();
+    stack.pop_back();
+    if (leaves[static_cast<std::size_t>(value)] != 0) {
+      continue;
+    }
+    arena.children(value, kids);
+    for (const NodeId kid : kids) {
+      const auto k = static_cast<std::size_t>(kid);
+      if (member[k] != 0 && many[k] == 0) {
+        many[k] = 1;
+        stack.push_back(kid);
+      }
+    }
+  }
+
+  std::vector<NodeId> order;
+  order.reserve(unique.size());
+  std::vector<char> placed(unique.size(), 0);
+  // the next root to place: of those that share a value with the ones placed, one that shares the
+  // value the fewest roots share, the first in the given order of them -- the two peaks of an
+  // angle, which share its cosine, before the other peaks of the velocities, which share these
+  constexpr auto None = std::numeric_limits<std::size_t>::max();
+  std::vector<std::size_t> affinity(unique.size(), None);
+  std::set<std::pair<std::size_t, std::size_t>> pending;
+  const auto propose = [&](std::size_t root, std::size_t sharers) {
+    if (placed[root] != 0 || sharers >= affinity[root]) {
+      return;
+    }
+    if (affinity[root] != None) {
+      pending.erase({affinity[root], root});
+    }
+    affinity[root] = sharers;
+    pending.emplace(sharers, root);
+  };
+  for (std::size_t start = 0; start < unique.size(); ++start) {
+    propose(start, 0);
+    while (!pending.empty()) {
+      const std::size_t r = pending.begin()->second;
+      pending.erase(pending.begin());
+      placed[r] = 1;
+      order.push_back(unique[r]);
+      for (const NodeId value : sharedOf[r]) {
+        const auto v = static_cast<std::size_t>(value);
+        if (many[v] != 0) {
+          continue;
+        }
+        for (const std::int32_t other : rootsOf[v]) {
+          propose(static_cast<std::size_t>(other), rootsOf[v].size());
+        }
+      }
+    }
+  }
+  return order;
+}
+
+/// The place of each of `values` (by NodeId) in a depth-first order from `roots`, in the order of
+/// rootsByAffinity(): every operand of a value before it, those of the first operand first, and
+/// every root right after what it needs and is not computed yet -- so that a value is computed
+/// close to its uses, and the written values of independent roots (the peaks along 180 angles,
+/// say) live one after the other, not all at once. A leaf has no operands here; a value no root
+/// reaches comes last.
+std::vector<std::int64_t> depthFirst(const Arena& arena,
+                                     const std::vector<NodeId>& values,
+                                     const std::vector<NodeId>& given,
+                                     const std::vector<char>& leaves) {
+  constexpr std::int64_t Unplaced = -1;
+  std::vector<std::int64_t> place(arena.size(), std::numeric_limits<std::int64_t>::max());
+  std::vector<char> member(arena.size(), 0);
+  for (const NodeId value : values) {
+    member[static_cast<std::size_t>(value)] = 1;
+    place[static_cast<std::size_t>(value)] = Unplaced;
+  }
+  const std::vector<NodeId> roots = rootsByAffinity(arena, member, given, leaves);
+  std::int64_t next = 0;
+  // a value, and the operand of it to visit next
+  std::vector<std::pair<NodeId, std::size_t>> stack;
+  std::vector<std::vector<NodeId>> operands;
+  std::vector<NodeId> kids;
+  for (const NodeId root : roots) {
+    if (root == NoNode || member[static_cast<std::size_t>(root)] == 0 ||
+        place[static_cast<std::size_t>(root)] != Unplaced) {
+      continue;
+    }
+    // placed once it is left: Unplaced -2 while on the stack
+    place[static_cast<std::size_t>(root)] = Unplaced - 1;
+    stack.emplace_back(root, 0);
+    operands.emplace_back();
+    if (leaves[static_cast<std::size_t>(root)] == 0) {
+      arena.children(root, operands.back());
+    }
+    while (!stack.empty()) {
+      auto& [value, operand] = stack.back();
+      if (operand < operands.back().size()) {
+        const NodeId kid = operands.back()[operand++];
+        if (member[static_cast<std::size_t>(kid)] == 0 ||
+            place[static_cast<std::size_t>(kid)] != Unplaced) {
+          continue;
+        }
+        place[static_cast<std::size_t>(kid)] = Unplaced - 1;
+        kids.clear();
+        if (leaves[static_cast<std::size_t>(kid)] == 0) {
+          arena.children(kid, kids);
+        }
+        stack.emplace_back(kid, 0);
+        operands.push_back(kids);
+        continue;
+      }
+      place[static_cast<std::size_t>(value)] = next++;
+      stack.pop_back();
+      operands.pop_back();
+    }
+  }
+  for (const NodeId value : values) {
+    if (place[static_cast<std::size_t>(value)] < 0) {
+      place[static_cast<std::size_t>(value)] = next++;
+    }
+  }
+  return place;
+}
+
+} // namespace
+
 std::vector<Step> branchedOrder(const Arena& arena,
                                 const std::vector<NodeId>& values,
                                 const std::vector<NodeId>& roots,
@@ -304,9 +501,18 @@ std::vector<Step> branchedOrder(const Arena& arena,
                                 std::int64_t threshold) {
   std::vector<Step> steps;
   steps.reserve(values.size());
+  // the values by their places in the depth-first order, which is one of their operands
+  const std::vector<std::int64_t> place = depthFirst(arena, values, roots, leaves);
+  const auto before = [&](NodeId x, NodeId y) {
+    const auto px = place[static_cast<std::size_t>(x)];
+    const auto py = place[static_cast<std::size_t>(y)];
+    return px != py ? px < py : x < y;
+  };
   const auto straight = [&] {
     steps.clear();
-    for (const NodeId value : values) {
+    std::vector<NodeId> ordered = values;
+    std::sort(ordered.begin(), ordered.end(), before);
+    for (const NodeId value : ordered) {
       steps.push_back(Step{Step::Kind::Value, value, true});
     }
     return steps;
@@ -372,7 +578,8 @@ std::vector<Step> branchedOrder(const Arena& arena,
       users[static_cast<std::size_t>(kid)].push_back(value);
     }
   }
-  std::vector<std::set<NodeId>> ready(count);
+  std::vector<std::set<NodeId, decltype(before)>> ready(count,
+                                                        std::set<NodeId, decltype(before)>(before));
   std::vector<std::int64_t> readyWithin(count, 0);
   std::vector<char> computed(arena.size(), 0);
   const auto mark = [&](NodeId value, std::int64_t delta) {
@@ -405,7 +612,7 @@ std::vector<Step> branchedOrder(const Arena& arena,
         continue;
       }
       const NodeId candidate = first(branch);
-      if (candidate != NoNode && (best == NoNode || candidate < best)) {
+      if (candidate != NoNode && (best == NoNode || before(candidate, best))) {
         best = candidate;
       }
     }
@@ -448,7 +655,7 @@ std::vector<Step> branchedOrder(const Arena& arena,
           continue;
         }
         const NodeId candidate = first(branch);
-        if (candidate != NoNode && (next == NoNode || candidate < next)) {
+        if (candidate != NoNode && (next == NoNode || before(candidate, next))) {
           next = candidate;
           into = branch;
         }

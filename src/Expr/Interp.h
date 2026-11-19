@@ -372,6 +372,15 @@ class TileInterpreter {
   std::vector<double> scratch_;
   std::vector<std::size_t> precomputeOffsets_;
   std::vector<std::size_t> runOffsets_;
+  // the writes of each stage by their positions (Store::position): the outputs, then the
+  // persistent slots, each list in its order
+  struct Write {
+    std::int32_t position{0};
+    const Store* store{nullptr};
+    bool persistent{false};
+  };
+  std::vector<Write> precomputeWrites_;
+  std::vector<Write> runWrites_;
   std::vector<T> inputTile_;
   std::vector<T> outputTile_;
   std::vector<T> stateTile_;
