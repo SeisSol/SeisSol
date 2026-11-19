@@ -51,6 +51,12 @@
 // last write (at the start) is evaluated when the output is written; so is every layer on a device
 // in a build without the runtime compiler of the device (derivedStateOnDevice()).
 //
+// A program with state whose outputs read the states only through their next values runs in two
+// stages (expr::stagedOutputs, the input `@stage`): a step updates the states and computes no
+// output; the outputs are computed when written, at every layer, from the states the last step
+// left and with its time and time step -- the values the last step would have given them, without
+// computing them at every step (a median over the peaks along 180 angles, say).
+//
 // STATE. The state of the configured program lives with the elements, in the storage of the
 // cells (LTS::DerivedState) or of the faces (SurfaceLTS::DerivedState): per element, a value per
 // declared state, output point and fused simulation. It is set to the initial values before a

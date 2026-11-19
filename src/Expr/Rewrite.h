@@ -20,6 +20,7 @@
 
 #include <functional>
 #include <map>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -136,6 +137,22 @@ struct Restriction {
 /// and their updates, and the inputs (in their order), grids and contractions these read; no
 /// output and no check. Without state, a program that computes nothing.
 [[nodiscard]] Program stateOf(const Program& program);
+
+/// `program` in two stages, which the input `stage` chooses (0 or 1; a new input, after the
+/// others): at stage 0 -- after a time step -- it updates its states and computes no output (each
+/// is 0); at stage 1 -- when the output is written -- it keeps its states and computes its outputs
+/// from them, the next value of every state read as the state, which holds it after the step. So a
+/// consumer that writes the outputs only now and then computes them only then, with the values the
+/// last step gave them (to the bit, with the inputs of that step): a median over the peaks along
+/// 180 angles once per write, not after every step.
+///
+/// Empty for a program without state or output, and for one with an output that reads a state
+/// other than through its next value (`peak + x`, of the previous value of `peak`), whose value
+/// would differ after the step.
+///
+/// Throws std::invalid_argument if `stage` names an input, a state or an output of `program`.
+[[nodiscard]] std::optional<Program> stagedOutputs(const Program& program,
+                                                   const std::string& stage);
 
 } // namespace seissol::expr
 

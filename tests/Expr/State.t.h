@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -369,6 +370,97 @@ TEST_SUITE("ExprState") {
     CHECK(read.outputs().empty());
     REQUIRE(read.state().size() == 1);
     CHECK(stateFingerprintText(read) == stateFingerprintText(program));
+  }
+
+  TEST_CASE("in two stages: the states after every step, the outputs when written") {
+    // peaks along angles, their median and maximum, and a sum over time: the outputs read the
+    // states only through their next values
+    const Program program =
+        compileSderivModule("import motion\n"
+                            "def angles = motion.angles(8)\n"
+                            "state peak = [0 for k in angles]\n"
+                            "def now = max(peak, motion.rotated(v1, v2, angles))\n"
+                            "def peak = now\n"
+                            "state f = 0.0\n"
+                            "def g = f + v1 * dt\n"
+                            "def f = g\n"
+                            "out def rotd50 = motion.rotd50(now)\n"
+                            "out def rotd100 = max(now)\n"
+                            "out def sum = 2.0 * g + v2\n");
+    const auto staged = stagedOutputs(program, "@stage");
+    REQUIRE(staged.has_value());
+    CHECK(staged->inputs().back().name == "@stage");
+    CHECK(staged->state().size() == program.state().size());
+    CHECK(staged->outputs().size() == program.outputs().size());
+
+    constexpr std::size_t NumPoints = 5;
+    constexpr std::size_t Calls = 7;
+    for (const auto backend : {BackendKind::Interpreter, BackendKind::RtcCpu}) {
+      CAPTURE(name(backend));
+      std::vector<double> v1(NumPoints);
+      std::vector<double> v2(NumPoints);
+      double dt = 0.0;
+      double stage = 0.0;
+      std::vector<double> once(3 * NumPoints);
+      std::vector<double> twice(3 * NumPoints);
+      const auto bind = [&](DataTable& table, std::vector<double>& out, bool withStage) {
+        table.bindViewConst<double>("v1", Direction::In, v1.data());
+        table.bindViewConst<double>("v2", Direction::In, v2.data());
+        table.bindViewConst<double>("dt", Direction::In, &dt, 0);
+        if (withStage) {
+          table.bindViewConst<double>("@stage", Direction::In, &stage, 0);
+        }
+        table.bindView<double>("rotd50", Direction::Out, out.data());
+        table.bindView<double>("rotd100", Direction::Out, out.data() + NumPoints);
+        table.bindView<double>("sum", Direction::Out, out.data() + 2 * NumPoints);
+      };
+      DataTable plainTable(NumPoints);
+      bind(plainTable, once, false);
+      DataTable stagedTable(NumPoints);
+      bind(stagedTable, twice, true);
+      Binding plainBinding = Binding::bind(program, plainTable);
+      Binding stagedBinding = Binding::bind(*staged, stagedTable);
+      df::GridStore store;
+      BackendOptions options;
+      options.preferred = backend;
+      const auto plain = makeKernel(program, plainBinding, store, options);
+      const auto split = makeKernel(*staged, stagedBinding, store, options);
+      plain->precompute(plainTable);
+      split->precompute(stagedTable);
+
+      for (std::size_t call = 0; call < Calls; ++call) {
+        CAPTURE(call);
+        dt = 0.01 * static_cast<double>(call + 1);
+        for (std::size_t p = 0; p < NumPoints; ++p) {
+          const double phase = 0.7 * static_cast<double>(call) + 0.3 * static_cast<double>(p);
+          v1[p] = std::sin(phase) * static_cast<double>(p + 1);
+          v2[p] = std::cos(1.3 * phase) - 0.25;
+        }
+        plain->run(plainTable);
+        stage = 0.0;
+        split->run(stagedTable);
+        // a step computes no output
+        CHECK(std::all_of(twice.begin(), twice.end(), [](double v) { return v == 0.0; }));
+        if (call % 3 == 2 || call + 1 == Calls) {
+          // written now and then: the outputs of the last step, to the bit, and twice the same
+          stage = 1.0;
+          for (int write = 0; write < 2; ++write) {
+            split->run(stagedTable);
+            CHECK(unit_test::bitwiseEqual(once.data(), twice.data(), once.size()));
+          }
+        }
+      }
+    }
+
+    // an output that reads the previous value of a state cannot wait for the write
+    CHECK_FALSE(stagedOutputs(compileSderivModule("state s = 0.0\nout def s = s + v1\n"
+                                                  "out def before = 2.0 * s\n"),
+                              "@stage")
+                    .has_value());
+    // without state, there is nothing to stage
+    CHECK_FALSE(stagedOutputs(compileSderivModule("out def u = 2.0 * v1\n"), "@stage").has_value());
+    // the stage is a channel of its own
+    CHECK_THROWS_AS(static_cast<void>(stagedOutputs(program, "v1")), std::invalid_argument);
   }
 
 } // TEST_SUITE

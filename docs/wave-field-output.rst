@@ -228,7 +228,11 @@ configuration does not have (``s_xx`` of a solid in the cells of a fluid, say) i
 
 A program without state is evaluated when the output is written. A program with state follows
 every time step of the cells, on the CPU and on a GPU, where it runs with its state in the memory
-of the GPU, so that e.g. a maximum over time does not miss what happens between two outputs:
+of the GPU, so that e.g. a maximum over time does not miss what happens between two outputs. Where
+its outputs read the states only through their next values -- as ``rotd50 = motion.rotd50(now)``
+does, of ``def peak = now`` --, a step only updates the states, and the outputs are computed when
+they are written, from the states the last step left: the same values, without the cost of a median
+over the angles at every step:
 
 .. code-block:: text
 

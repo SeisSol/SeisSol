@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -785,6 +786,97 @@ Program stateOf(const Program& program) {
     validate(part);
   }
   return part;
+}
+
+std::optional<Program> stagedOutputs(const Program& program, const std::string& stage) {
+  const auto named = [&](const std::vector<VarSpec>& specs) {
+    return std::any_of(
+        specs.begin(), specs.end(), [&](const VarSpec& spec) { return spec.name == stage; });
+  };
+  if (named(program.inputs()) || named(program.outputs()) ||
+      std::any_of(program.state().begin(), program.state().end(), [&](const StateSpec& state) {
+        return state.name == stage;
+      })) {
+    throw std::invalid_argument("expr: the stage of a program, " + stage +
+                                ", is the name of one of its channels");
+  }
+  if (program.state().empty() || program.outputs().empty()) {
+    return std::nullopt;
+  }
+
+  // the staged nodes are made in a copy, whose nodes are then imported into the result
+  Program work = program;
+  Arena& arena = work.arena();
+  // the next value of every state, and what holds it after a step: the state
+  std::unordered_map<NodeId, NodeId> held;
+  std::unordered_set<int> stateChannels;
+  for (const auto& state : program.state()) {
+    const int channel = arena.channel(state.name);
+    stateChannels.insert(channel);
+    held.emplace(state.root, arena.field(channel, state.type));
+  }
+
+  // an output reads a state only through its next value: below a next value, it is the update
+  // that reads the previous value, which the step has done
+  std::vector<NodeId> stack(program.roots().begin(), program.roots().end());
+  std::vector<NodeId> kids;
+  std::unordered_set<NodeId> seen;
+  while (!stack.empty()) {
+    const NodeId id = stack.back();
+    stack.pop_back();
+    if (id == NoNode || !seen.insert(id).second || held.count(id) != 0) {
+      continue;
+    }
+    if (arena[id].kind == Kind::Field && stateChannels.count(arena[id].ch) != 0) {
+      return std::nullopt;
+    }
+    arena.children(id, kids);
+    stack.insert(stack.end(), kids.begin(), kids.end());
+  }
+
+  const NodeId chosen = arena.field(arena.channel(stage));
+  // the outputs at stage 1, each next value read as its state
+  std::unordered_map<NodeId, NodeId> memo = held;
+  std::vector<NodeId> outputs;
+  outputs.reserve(program.roots().size());
+  for (const NodeId root : program.roots()) {
+    const NodeId computed = replaceChannels(arena, root, {}, memo);
+    const ValueType type = arena[computed].type;
+    outputs.push_back(arena.pw(Fn::Select, chosen, computed, arena.konst(0.0, type), type));
+  }
+  // the states at stage 0 only
+  std::vector<NodeId> states;
+  states.reserve(program.state().size());
+  for (const auto& state : program.state()) {
+    const NodeId kept = arena.field(arena.channel(state.name), state.type);
+    states.push_back(arena.pw(Fn::Select, chosen, kept, state.root, state.type));
+  }
+
+  Program staged;
+  staged.setComputeType(program.computeType());
+  for (const auto& input : program.inputs()) {
+    staged.addInput(input.name, input.type);
+  }
+  staged.addInput(stage, reader::scripting::DataType::F64);
+  Imports imports(work);
+  for (std::size_t i = 0; i < program.state().size(); ++i) {
+    const auto& state = program.state()[i];
+    staged.addState(state.name, state.initial, importNode(staged, states[i], imports), state.type);
+  }
+  for (std::size_t i = 0; i < program.outputs().size(); ++i) {
+    staged.addOutput(program.outputs()[i].name,
+                     program.outputs()[i].type,
+                     importNode(staged, outputs[i], imports));
+  }
+  for (const auto& check : program.checks()) {
+    staged.addCheck(importNode(staged, check.root, imports), check.message);
+  }
+  for (const auto& entry : program.meta()) {
+    staged.addMeta(entry);
+  }
+  carrySources(work, staged, imports);
+  validate(staged);
+  return staged;
 }
 
 } // namespace seissol::expr

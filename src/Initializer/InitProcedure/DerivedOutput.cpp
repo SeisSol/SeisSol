@@ -102,6 +102,10 @@ std::string physicalName(std::size_t axis, const std::string& quantity) {
 }
 
 /// What an input channel of a derived program reads.
+/// The input that chooses the stage of a program with state whose outputs are computed only when
+/// written (expr::stagedOutputs): a name no module can give a channel.
+constexpr const char* StageInput = "@stage";
+
 struct Channel {
   enum class Kind : std::uint8_t {
     Value,
@@ -110,7 +114,9 @@ struct Channel {
     Jacobian,
     Coordinate,
     Time,
-    TimeStep
+    TimeStep,
+    /// whether a call steps the states or computes the outputs (expr::stagedOutputs)
+    Stage
   };
   Kind kind{Kind::Value};
   std::size_t source{0};
@@ -167,6 +173,9 @@ std::optional<Channel> classify(const std::string& name,
   }
   if (name == "dt") {
     return Channel{Kind::TimeStep, 0, 0};
+  }
+  if (name == StageInput) {
+    return Channel{Kind::Stage, 0, 0};
   }
   if (name.size() == 6 && name.compare(0, 4, "jinv") == 0) {
     const auto row = directionOf(name[4]);
@@ -505,6 +514,8 @@ DerivedProgram::DerivedProgram(expr::Program program,
       break;
     case Kind::TimeStep:
       readsTimeStep_ = true;
+      break;
+    case Kind::Stage:
       break;
     }
     channels.emplace_back(input.name, *channel);
@@ -1181,17 +1192,31 @@ class DerivedElementOutput final : public DerivedOutput {
     const std::lock_guard lock(mutex_);
     std::vector<std::size_t> pending;
     std::vector<std::size_t> pendingOnDevice;
+    // a program in two stages computes its outputs now, at every run (expr::stagedOutputs)
+    std::vector<std::size_t> all;
+    std::vector<std::size_t> allOnDevice;
     for (std::size_t i = 0; i < runs_.size(); ++i) {
       if (!accumulates() || !runs_[i].stepped) {
         (runs_[i].onDevice ? pendingOnDevice : pending).push_back(i);
       }
+      (runs_[i].onDevice ? allOnDevice : all).push_back(i);
       runs_[i].stepped = false;
     }
     if (device_ != nullptr) {
       evaluateOnDevice(pendingOnDevice, time, nullptr);
+      if (stageInput_.has_value() && !allOnDevice.empty()) {
+#ifdef ACL_DEVICE
+        // after the steps, which ran on the streams of their clusters
+        device::DeviceInstance::instance().api().syncDevice();
+#endif
+        evaluateOnDevice(allOnDevice, time, nullptr, true);
+      }
       fetchFromDevice();
     }
     evaluate(pending, time);
+    if (stageInput_.has_value() && !all.empty()) {
+      evaluate(all, time, true);
+    }
   }
 
   void step(std::size_t layerId, double time, void* stream) override {
@@ -1316,14 +1341,19 @@ class DerivedElementOutput final : public DerivedOutput {
                   std::size_t simulation,
                   initializer::AllocationPlace place = initializer::AllocationPlace::Host) const;
 
-  void evaluate(const std::vector<std::size_t>& runs, double time);
+  /// Steps the states of `runs` to `time` -- or, `writing`, computes the outputs of a program in
+  /// two stages from the states the last step left, with that step's time and time step.
+  void evaluate(const std::vector<std::size_t>& runs, double time, bool writing = false);
 
   /// Prepares the evaluation on the device for the runs whose clusters run there, where a program
   /// with state is evaluated there (derivedStateOnDevice()) and keeps its state in the storage.
   void makeDevice(const std::shared_ptr<std::vector<std::uint64_t>>& identities);
 
   /// Evaluates `runs` on the device, on `stream` (the default stream where null).
-  void evaluateOnDevice(const std::vector<std::size_t>& runs, double time, void* stream);
+  void evaluateOnDevice(const std::vector<std::size_t>& runs,
+                        double time,
+                        void* stream,
+                        bool writing = false);
 
   /// Copies the values of the runs on the device into those of the host, once the evaluations of
   /// all streams are done.
@@ -1357,9 +1387,13 @@ class DerivedElementOutput final : public DerivedOutput {
   std::vector<Simulation> simulations_;
   std::optional<std::size_t> timeInput_;
   std::optional<std::size_t> timeStepInput_;
-  // the bases the time columns are bound with; every call moves them to its run
+  /// The input that chooses the stage of a program in two stages (expr::stagedOutputs): the
+  /// states after every step, the outputs when written.
+  std::optional<std::size_t> stageInput_;
+  // the bases the time and stage columns are bound with; every call moves them to its run
   double boundTime_{0};
   double boundTimeStep_{0};
+  double boundStage_{0};
   std::unique_ptr<Device> device_;
   std::mutex mutex_;
 };
@@ -1664,6 +1698,9 @@ DerivedElementOutput<Cfg>::DerivedElementOutput(seissol::SeisSol& seissolInstanc
     if (inputs[i].name == "dt") {
       timeStepInput_ = i;
     }
+    if (inputs[i].name == StageInput) {
+      stageInput_ = i;
+    }
   }
 
   // One table, binding and set of kernels per simulation: the state of a point is its own in
@@ -1725,6 +1762,9 @@ DerivedElementOutput<Cfg>::DerivedElementOutput(seissol::SeisSol& seissolInstanc
     }
     if (timeStepInput_.has_value()) {
       table.bindViewConst<double>("dt", Direction::In, &boundTimeStep_, 0);
+    }
+    if (stageInput_.has_value()) {
+      table.bindViewConst<double>(StageInput, Direction::In, &boundStage_, 0);
     }
     for (std::size_t j = 0; j < outputCount_; ++j) {
       table.bindView<double>(derived_.program().outputs()[j].name,
@@ -1874,6 +1914,9 @@ void DerivedElementOutput<Cfg>::makeDevice(
     if (timeStepInput_.has_value()) {
       table.bindConstant<double>("dt", 0.0);
     }
+    if (stageInput_.has_value()) {
+      table.bindConstant<double>(StageInput, 0.0);
+    }
     for (std::size_t j = 0; j < outputCount_; ++j) {
       table.bindView<double>(derived_.program().outputs()[j].name,
                              Direction::Out,
@@ -1902,7 +1945,8 @@ void DerivedElementOutput<Cfg>::makeDevice(
 template <typename Cfg>
 void DerivedElementOutput<Cfg>::evaluateOnDevice(const std::vector<std::size_t>& runs,
                                                  double time,
-                                                 void* stream) {
+                                                 void* stream,
+                                                 bool writing) {
 #ifdef ACL_DEVICE
   if (runs.empty()) {
     return;
@@ -1910,17 +1954,23 @@ void DerivedElementOutput<Cfg>::evaluateOnDevice(const std::vector<std::size_t>&
   void* queue =
       stream != nullptr ? stream : device::DeviceInstance::instance().api().getDefaultStream();
   const std::size_t pointsPerElement = derived_.pointsPerElement();
+  const double stage = writing ? 1.0 : 0.0;
   std::vector<const void*> inputs(derived_.program().inputs().size(), nullptr);
   for (const auto r : runs) {
     auto& run = runs_[r];
-    run.time = time;
-    run.timeStep = time - run.lastTime;
-    run.lastTime = time;
+    if (!writing) {
+      run.time = time;
+      run.timeStep = time - run.lastTime;
+      run.lastTime = time;
+    }
     if (timeInput_.has_value()) {
       inputs[*timeInput_] = &run.time;
     }
     if (timeStepInput_.has_value()) {
       inputs[*timeStepInput_] = &run.timeStep;
+    }
+    if (stageInput_.has_value()) {
+      inputs[*stageInput_] = &stage;
     }
     for (std::size_t sim = 0; sim < device_->simulations.size(); ++sim) {
       expr::KernelArgs args;
@@ -1942,6 +1992,7 @@ void DerivedElementOutput<Cfg>::evaluateOnDevice(const std::vector<std::size_t>&
   static_cast<void>(runs);
   static_cast<void>(time);
   static_cast<void>(stream);
+  static_cast<void>(writing);
 #endif
 }
 
@@ -1974,19 +2025,24 @@ void DerivedElementOutput<Cfg>::fetchFromDevice() {
 }
 
 template <typename Cfg>
-void DerivedElementOutput<Cfg>::evaluate(const std::vector<std::size_t>& runs, double time) {
+void DerivedElementOutput<Cfg>::evaluate(const std::vector<std::size_t>& runs,
+                                         double time,
+                                         bool writing) {
   struct WorkItem {
     std::size_t run;
     std::size_t simulation;
     std::size_t firstElement;
     std::size_t elementCount;
   };
+  const double stage = writing ? 1.0 : 0.0;
   std::vector<WorkItem> items;
   for (const auto r : runs) {
     auto& run = runs_[r];
-    run.time = time;
-    run.timeStep = time - run.lastTime;
-    run.lastTime = time;
+    if (!writing) {
+      run.time = time;
+      run.timeStep = time - run.lastTime;
+      run.lastTime = time;
+    }
     for (std::size_t sim = 0; sim < simulations_.size(); ++sim) {
       for (std::size_t element = 0; element < run.elementCount; element += ChunkElements) {
         items.push_back(WorkItem{r,
@@ -2015,6 +2071,9 @@ void DerivedElementOutput<Cfg>::evaluate(const std::vector<std::size_t>& runs, d
       }
       if (timeStepInput_.has_value()) {
         inputs[*timeStepInput_] = &run.timeStep;
+      }
+      if (stageInput_.has_value()) {
+        inputs[*stageInput_] = &stage;
       }
       expr::KernelArgs args;
       args.inputs = inputs.data();
@@ -2051,12 +2110,19 @@ std::shared_ptr<DerivedOutput> makeDerivedOutput(seissol::SeisSol& seissolInstan
     // with state keeps it in binary64 (DerivedStateLayout, and the checkpoints), and computes in
     // binary64 then
     auto inPrecision = program;
-    if (program.state().empty()) {
-      inPrecision.setComputeType(expr::stepComputeType<Real<Cfg>>());
-    }
     // the program as written, by the fingerprint the files of the output name it with
     const std::string source = "program " + expr::fingerprintText(program) + " of the " +
                                (faces ? "free surface" : "wave field") + " output";
+    if (program.state().empty()) {
+      inPrecision.setComputeType(expr::stepComputeType<Real<Cfg>>());
+    } else if (auto staged = expr::stagedOutputs(program, StageInput)) {
+      // the states after every step, the outputs only when written: they read the states only
+      // through their next values, which the states hold after the step
+      inPrecision = std::move(*staged);
+      logInfo() << "derived output: the" << source.c_str()
+                << "steps its states after every time step and computes its outputs when they are "
+                   "written.";
+    }
     return std::make_shared<DerivedElementOutput<Cfg>>(
         seissolInstance, writtenCount, std::move(written), points, inPrecision, faces, source);
   } catch (const std::invalid_argument& error) {
