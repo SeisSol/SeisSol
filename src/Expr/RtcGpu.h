@@ -167,6 +167,11 @@ struct GpuLayout {
   /// The declared states, each read and written through its base, its cell and point strides,
   /// its points per cell and its cell index -- in the compute type.
   std::size_t states{0};
+  /// Where the states lie alike (uniformStateStride()): the bytes from one state to the next. The
+  /// kernel then takes one descriptor for them all, finds the place of a point in them once, and
+  /// each state at a constant offset from there -- not five fields, a division and a load of the
+  /// cell index per state and access, which hundreds of states pay many times over. 0 otherwise.
+  std::uint64_t stateStride{0};
   /// Per grid of the program (by GridId), the type of the elements of its array; the kernel reads
   /// it through a codegen::GridDescriptor. Its scheme, boundary mode and dimensions are those of
   /// the program. Empty for a program that samples none; gpuLayoutOf() leaves it so, since a
@@ -184,6 +189,13 @@ struct GpuLayout {
 };
 
 [[nodiscard]] GpuLayout gpuLayoutOf(const Binding& binding);
+
+/// The bytes from one state of `binding` to the next where they lie alike, 0 otherwise: two or more
+/// states, all kept in the table, of one type, with the same points per cell, cell and point
+/// strides and cell index, each the same number of bytes after the one before -- as the derived
+/// outputs keep theirs, one block per element (DerivedStateLayout). A call then passes the bases
+/// of its states at that distance as well (GpuArguments).
+[[nodiscard]] std::uint64_t uniformStateStride(const Binding& binding);
 
 /// The bytes of the argument image of a kernel of `layout` (SeissolExprArgs): 8 per field.
 [[nodiscard]] std::size_t gpuArgumentBytes(const GpuLayout& layout);

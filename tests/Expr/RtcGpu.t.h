@@ -1402,6 +1402,25 @@ TEST_SUITE("ExprRtcGpu") {
 
     const GpuLayout layout = gpuLayoutOf(binding);
     CHECK(layout.states == 2);
+    // the two states lie alike, Rows values apart: one descriptor for both, which every target
+    // takes, by value and through memory
+    CHECK(layout.stateStride == Rows * sizeof(double));
+    for (const bool indirect : {false, true}) {
+      CAPTURE(indirect);
+      GpuLayout variant = layout;
+      variant.indirect = indirect;
+      bool ran = false;
+      std::string log;
+      const std::string opencl = emitGpuSource(program, lower(program), variant, GpuTarget::OpenCl);
+      CHECK(opencl.find("seissol_state_point") != std::string::npos);
+      const bool accepted = openclAccepts(opencl, ran, log);
+      if (ran) {
+        INFO(log);
+        CHECK(accepted);
+      }
+      const std::string cuda = emitGpuSource(program, lower(program), variant, GpuTarget::Cuda);
+      CHECK_MESSAGE(nvrtcAccepts(cuda, ran, log), log);
+    }
     const std::string generated = std::string(HostShim) +
                                   emitGpuSource(program, lower(program), layout, GpuTarget::Cuda) +
                                   emitGpuHostTrampoline(layout, "double");
@@ -1433,12 +1452,22 @@ TEST_SUITE("ExprRtcGpu") {
       args.count = NumPoints;
       GpuArguments packed(binding, args, nullptr);
       invoke(packed.data());
-      // five fields per state in the argument block
-      CHECK(packed.fieldCount() == 3 * (2 + 2) + 5 * 2 + 4);
+      // five fields for the two states in the argument block
+      CHECK(packed.fieldCount() == 3 * (2 + 2) + 5 + 4);
 
       CHECK(unit_test::bitwiseEqual(interpreted.data(), emitted.data(), interpreted.size()));
       CHECK(unit_test::bitwiseEqual(
           interpretedStates.data(), emittedStates.data(), interpretedStates.size()));
+    }
+
+    // a call whose states do not lie as those of the binding
+    {
+      KernelArgs args{};
+      std::vector<void*> states = {emittedStates.data(), emittedStates.data() + Rows + 1};
+      args.states = states.data();
+      args.stateCount = states.size();
+      args.count = NumPoints;
+      CHECK_THROWS_AS(GpuArguments(binding, args, nullptr), std::invalid_argument);
     }
 
     // a state with a non-zero initial value that the kernel had to keep itself

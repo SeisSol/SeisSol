@@ -238,6 +238,15 @@ void emitPrologue(std::ostringstream& out, GpuTarget target) {
   out << "#endif\n\n";
 }
 
+/// The descriptors of the states in the argument block: one for all where they lie alike
+/// (GpuLayout::stateStride), one per state otherwise.
+std::size_t stateDescriptors(const GpuLayout& layout) {
+  return layout.stateStride != 0 ? 1 : layout.states;
+}
+
+/// The name of the pointer at the place of the point in the states, where they lie alike.
+constexpr const char* StatePoint = "seissol_state_point";
+
 /// Whether input `i` is passed by value (see GpuLayout::inputUniform).
 bool isUniform(const GpuLayout& layout, std::size_t i) {
   return i < layout.inputUniform.size() && layout.inputUniform[i];
@@ -429,6 +438,12 @@ void emitAccessors(std::ostringstream& out,
         << "}\n";
     for (std::size_t i = 0; i < layout.states; ++i) {
       const std::string n = std::to_string(i);
+      if (layout.stateStride != 0) {
+        // at a constant offset from the place of the point, which the point function finds once
+        out << "#define STATE_AT" << n << "(a, p) ((" << global << computeType << "*)("
+            << StatePoint << " + " << i * layout.stateStride << "ull))\n";
+        continue;
+      }
       out << "#define STATE_AT" << n << "(a, p) state_at((a)->state" << n << ", (a)->ppc_state" << n
           << ", (a)->cellStride_state" << n << ", (a)->pointStride_state" << n
           << ", (a)->cellIndex_state" << n << ", p)\n";
@@ -498,7 +513,7 @@ void emitArgumentStruct(std::ostringstream& out,
         << "  SeissolU64 modeStride_block" << i << ";\n"
         << "  " << global << "const unsigned int* cellIndex_block" << i << ";\n";
   }
-  for (std::size_t i = 0; i < layout.states; ++i) {
+  for (std::size_t i = 0; i < stateDescriptors(layout); ++i) {
     out << "  " << global << "void* state" << i << ";\n"
         << "  SeissolU64 ppc_state" << i << ";\n"
         << "  SeissolU64 cellStride_state" << i << ";\n"
@@ -567,7 +582,7 @@ void emitFlatParameters(std::ostringstream& out,
         << ", SeissolU64 modeStride_block" << i << ", __global const unsigned int* cellIndex_block"
         << i << ",\n";
   }
-  for (std::size_t i = 0; i < layout.states; ++i) {
+  for (std::size_t i = 0; i < stateDescriptors(layout); ++i) {
     out << "    __global void* state" << i << ", SeissolU64 ppc_state" << i
         << ", SeissolU64 cellStride_state" << i << ", SeissolU64 pointStride_state" << i
         << ", __global const unsigned int* cellIndex_state" << i << ",\n";
@@ -612,7 +627,7 @@ void emitFlatGather(std::ostringstream& out, const GpuLayout& layout) {
         << " = cellStride_block" << i << "; a.modeStride_block" << i << " = modeStride_block" << i
         << "; a.cellIndex_block" << i << " = cellIndex_block" << i << ";\n";
   }
-  for (std::size_t i = 0; i < layout.states; ++i) {
+  for (std::size_t i = 0; i < stateDescriptors(layout); ++i) {
     out << "  a.state" << i << " = state" << i << "; a.ppc_state" << i << " = ppc_state" << i
         << "; a.cellStride_state" << i << " = cellStride_state" << i << "; a.pointStride_state" << i
         << " = pointStride_state" << i << "; a.cellIndex_state" << i << " = cellIndex_state" << i
@@ -664,6 +679,23 @@ void emitStage(std::ostringstream& out,
   addressing.gridParam = gpuGridParam;
   addressing.gridLoad = gpuGridLoad;
   addressing.storeCheck = gpuStoreCheck;
+
+  // where the states lie alike, the place of the point in them, once for all of them
+  const bool readsStates =
+      std::any_of(stage.code.begin(),
+                  stage.code.end(),
+                  [&](const Instruction& inst) {
+                    return inst.op == Opcode::LoadPersistent && inst.imm < addressing.stateSlots;
+                  }) ||
+      std::any_of(stage.persistent.begin(), stage.persistent.end(), [&](const Store& store) {
+        return store.target < addressing.stateSlots;
+      });
+  if (layout.stateStride != 0 && readsStates) {
+    const std::string global = globalQualifier(target);
+    out << "  " << global << "char* const " << StatePoint << " = (" << global
+        << "char*)state_at(a->state0, a->ppc_state0, a->cellStride_state0, a->pointStride_state0, "
+           "a->cellIndex_state0, p);\n";
+  }
 
   // OpenCL C overloads its built-ins; CUDA and HIP get the names of the compute type
   const auto style =
@@ -833,6 +865,7 @@ std::uint64_t GpuLayout::fingerprint() const {
   for (const auto type : matrices) {
     hash = mix(hash, static_cast<std::uint64_t>(type));
   }
+  hash = mix(hash, stateStride);
   hash = mix(hash, blocks.size());
   for (const auto type : blocks) {
     hash = mix(hash, static_cast<std::uint64_t>(type));
@@ -859,7 +892,7 @@ std::size_t gpuArgumentBytes(const GpuLayout& layout) {
   for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
     fields += isPerCell(layout.outputPerCell, i) ? 6 : 3;
   }
-  fields += layout.matrices.size() + 4 * layout.blocks.size() + 5 * layout.states +
+  fields += layout.matrices.size() + 4 * layout.blocks.size() + 5 * stateDescriptors(layout) +
             layout.grids.size() + 4;
   return fields * sizeof(std::uint64_t);
 }
@@ -891,7 +924,31 @@ GpuLayout gpuLayoutOf(const Binding& binding) {
     layout.blocks.push_back(block.type);
   }
   layout.states = binding.states().size();
+  layout.stateStride = uniformStateStride(binding);
   return layout;
+}
+
+std::uint64_t uniformStateStride(const Binding& binding) {
+  const auto& states = binding.states();
+  if (states.size() < 2) {
+    return 0;
+  }
+  const auto& first = states.front();
+  const auto address = [](const void* base) { return reinterpret_cast<std::uintptr_t>(base); };
+  if (address(states[1].base) <= address(first.base)) {
+    return 0;
+  }
+  const std::uint64_t stride = address(states[1].base) - address(first.base);
+  for (std::size_t i = 0; i < states.size(); ++i) {
+    const auto& state = states[i];
+    if (!binding.stateKept(i) || state.type != first.type ||
+        state.pointsPerCell != first.pointsPerCell || state.cellStride != first.cellStride ||
+        state.pointStride != first.pointStride || state.cellIndex != first.cellIndex ||
+        address(state.base) != address(first.base) + i * stride) {
+      return 0;
+    }
+  }
+  return stride;
 }
 
 std::string emitGpuHostTrampoline(const GpuLayout& layout, const std::string& /*computeType*/) {
@@ -973,7 +1030,7 @@ std::string emitGpuHostTrampolineFlat(const GpuLayout& layout, const std::string
     arg("const unsigned int* const");
     out << ",\n";
   }
-  for (std::size_t i = 0; i < layout.states; ++i) {
+  for (std::size_t i = 0; i < stateDescriptors(layout); ++i) {
     arg("void* const");
     out << ", ";
     arg("const SeissolU64");
@@ -1018,10 +1075,13 @@ GpuArguments::GpuArguments(const Binding& binding,
   for (const auto& column : binding.outputs()) {
     perCellColumns += column.view->pointwise() ? 0 : 1;
   }
+  // one descriptor for the states where they lie alike (GpuLayout::stateStride)
+  const std::uint64_t stateStride = uniformStateStride(binding);
+  const std::size_t stateDescriptors = stateStride != 0 ? 1 : binding.states().size();
   const std::size_t fields =
       3 * (binding.inputs().size() - uniformInputs + binding.outputs().size()) + uniformInputs +
       3 * perCellColumns + binding.matrices().size() + 4 * binding.blocks().size() +
-      5 * binding.states().size() + grids.size() + 4;
+      5 * stateDescriptors + grids.size() + 4;
   image_.reserve(fields * sizeof(std::uint64_t));
 
   const auto appendPointer = [this](const void* value) { append(&value, sizeof(value)); };
@@ -1087,11 +1147,31 @@ GpuArguments::GpuArguments(const Binding& binding,
       binding.states().empty() || binding.states().front().type == reader::scripting::DataType::F64
           ? sizeof(double)
           : sizeof(float);
-  for (std::size_t i = 0; i < binding.states().size(); ++i) {
+  const auto baseOf = [&](std::size_t i) -> const void* {
+    const bool moved = i < args.stateCount && args.states != nullptr && args.states[i] != nullptr;
+    return moved ? args.states[i] : binding.states()[i].base;
+  };
+  if (stateStride != 0) {
+    // the bases of the call lie as those of the binding: at the same distance
+    const auto first = reinterpret_cast<std::uintptr_t>(baseOf(0));
+    for (std::size_t i = 1; i < binding.states().size(); ++i) {
+      if (reinterpret_cast<std::uintptr_t>(baseOf(i)) != first + i * stateStride) {
+        throw std::invalid_argument("expr: the states of a call do not lie " +
+                                    std::to_string(stateStride) +
+                                    " bytes apart, as those the kernel was made for");
+      }
+    }
+    const auto& state = binding.states().front();
+    appendPointer(baseOf(0));
+    appendScalar(state.pointsPerCell);
+    appendScalar(state.cellStride);
+    appendScalar(state.pointStride);
+    appendPointer(state.cellIndex);
+  }
+  for (std::size_t i = 0; stateStride == 0 && i < binding.states().size(); ++i) {
     const auto& state = binding.states()[i];
     if (binding.stateKept(i)) {
-      const bool moved = i < args.stateCount && args.states != nullptr && args.states[i] != nullptr;
-      appendPointer(moved ? args.states[i] : state.base);
+      appendPointer(baseOf(i));
     } else {
       appendPointer(ownState == nullptr
                         ? nullptr
