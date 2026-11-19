@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "EasiWalker.h"
 
+#include "Expr/Backend.h"
 #include "Expr/Core.h"
 #include "Expr/Ir.h"
 #include "Expr/Program.h"
@@ -1291,6 +1292,16 @@ EasiProgramReader::EasiProgramReader(std::string path,
 }
 
 EasiProgramReader::~EasiProgramReader() = default;
+
+void EasiProgramReader::loadGrids() {
+  // the program of a table is made at its first points, which a rank without any never has; a grid
+  // is the same for any parameters asked for (all components of the node, cf. Walker::grid()), so a
+  // table finds open what the whole model opens here
+  EasiQuery query;
+  query.dimensions = dimensions_;
+  query.parameters = parameters_;
+  static_cast<void>(expr::internGrids(easiProgram(path_, query), datafield::sharedGridStore()));
+}
 
 void EasiProgramReader::prepare(const DataTable& table) {
   if (table.numPoints() == 0) {

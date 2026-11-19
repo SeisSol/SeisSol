@@ -61,6 +61,12 @@ CompiledReader::CompiledReader(expr::Program program,
 
 CompiledReader::~CompiledReader() = default;
 
+void CompiledReader::loadGrids() {
+  // all of the program's, of which a call binds a part (withOutputsOf): opened here, a later call
+  // finds them open, and touches neither the files nor the communicator
+  static_cast<void>(expr::internGrids(program_, *grids_));
+}
+
 std::vector<datafield::GridDesc> CompiledReader::cellDatasets() {
   std::vector<datafield::GridDesc> datasets;
   for (const auto& desc : program_.grids()) {

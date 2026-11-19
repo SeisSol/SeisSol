@@ -184,6 +184,13 @@ void rotateStressToFaultCS(DynamicRupture::Layer& layer,
 
 void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
   logQuadratureRules(drStorage);
+  // the grids the fault parameters sample, on all ranks, whether one has faces or not: opening
+  // them is collective (expr::internGrids()), and a layer without faces evaluates nothing
+  for (const auto& file : drParameters_->faultFileNames) {
+    if (file.has_value() && !file->empty()) {
+      seissol::initializer::ParameterDB::loadModel(*file)->loadGrids();
+    }
+  }
   bool sourcesDescribed = false;
   for (auto& layer : drStorage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {

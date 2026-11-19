@@ -29,6 +29,13 @@ class DataReader {
   /// (datafield::CellDataStore); none by default.
   virtual std::vector<datafield::GridDesc> cellDatasets() { return {}; }
 
+  /// Opens the grids the reader samples, collectively over the ranks (expr::internGrids()). A
+  /// consumer that evaluates the reader on some ranks only -- the layers of a fault that have
+  /// faces, say -- calls this on all ranks beforehand, so that a rank without points, which
+  /// evaluates nothing, does not leave the others waiting in the collective opening of a grid.
+  /// Nothing by default.
+  virtual void loadGrids() {}
+
   /// Resolve everything that depends on `table` but not on its values: column
   /// lookup, direction and type checks, and for a compiled reader the binding,
   /// the kernel and its precompute stage.

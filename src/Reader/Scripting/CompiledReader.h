@@ -73,6 +73,7 @@ class CompiledReader : public DataReader {
   const std::vector<std::string>& inputVars() override { return inputs_; }
   const std::vector<std::string>& outputVars() override { return outputs_; }
   std::vector<datafield::GridDesc> cellDatasets() override;
+  void loadGrids() override;
 
   void prepare(const DataTable& table) override;
   void call(const DataTable& table) override;

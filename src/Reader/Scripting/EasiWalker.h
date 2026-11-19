@@ -100,6 +100,9 @@ class EasiProgramReader : public DataReader {
   const std::vector<std::string>& inputVars() override { return dimensions_; }
   const std::vector<std::string>& outputVars() override { return parameters_; }
 
+  /// The grids of the program of all the parameters of the model, of which the program of a table
+  /// samples a part: those are open then, whichever parameters a table asks for.
+  void loadGrids() override;
   void prepare(const DataTable& table) override;
   void call(const DataTable& table) override;
 
