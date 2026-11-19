@@ -985,6 +985,18 @@ TEST_SUITE("ExprRtcGpu") {
         CHECK(accepted);
       }
     }
+    // and at the width of a sub-group the driver sets where the compiler's does not build
+    CHECK(opencl.find(std::string("#ifdef ") + OpenClSubGroupSize) != std::string::npos);
+    {
+      bool ran = false;
+      std::string log;
+      const bool accepted =
+          openclAccepts("#define " + std::string(OpenClSubGroupSize) + " 16\n" + opencl, ran, log);
+      if (ran) {
+        INFO(log);
+        CHECK(accepted);
+      }
+    }
 
     // the element type of the array is part of the kernel
     GpuLayout wide = layout;

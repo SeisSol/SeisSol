@@ -407,6 +407,34 @@ bool deviceAccessibleHip(const void* pointer) {
 
 namespace syclex = sycl::ext::oneapi::experimental;
 
+using OpenClExecutable = sycl::kernel_bundle<sycl::bundle_state::executable>;
+
+/// `source` built on the context of `queue`; none, with the diagnostics of the compiler in
+/// `failure`, where it does not build.
+std::optional<OpenClExecutable>
+    buildOpenCl(sycl::queue& queue, const std::string& source, bool strict, std::string& failure) {
+  // the log of the compiler, which the exception of a failed build does not carry
+  std::string log;
+  try {
+    // as written: no contraction (in the source), and division and square root in binary32
+    // correctly rounded, which OpenCL leaves to an option of the build
+    auto bundle = syclex::create_kernel_bundle_from_source(
+        queue.get_context(),
+        syclex::source_language::opencl,
+        strict ? "#pragma OPENCL FP_CONTRACT OFF\n" + source : source);
+    const std::vector<std::string> options{"-cl-fp32-correctly-rounded-divide-sqrt"};
+    return strict ? syclex::build(
+                        bundle,
+                        syclex::properties{syclex::build_options{options}, syclex::save_log{&log}})
+                  : syclex::build(bundle, syclex::properties{syclex::save_log{&log}});
+  } catch (const sycl::exception& error) {
+    // The diagnostics of the compiler, which for generated source are the only thing that makes a
+    // failure actionable.
+    failure = log.empty() ? std::string(error.what()) : std::string(error.what()) + "\n" + log;
+    return std::nullopt;
+  }
+}
+
 /// Build the OpenCL C source into a sycl::kernel on `queue`'s context.
 ///
 /// WHY THE SOURCE IS OpenCL C AND THE ENQUEUE IS SYCL. Raw OpenCL would need
@@ -437,29 +465,43 @@ DeviceFunction compileOpenCl(const std::string& source, void* queuePointer, bool
                       "backend.";
       return loaded;
     }
-    // as written: no contraction (in the source), and division and square root in binary32
-    // correctly rounded, which OpenCL leaves to an option of the build
-    auto bundle = syclex::create_kernel_bundle_from_source(
-        queue->get_context(),
-        syclex::source_language::opencl,
-        strict ? "#pragma OPENCL FP_CONTRACT OFF\n" + source : source);
-    const std::vector<std::string> options{"-cl-fp32-correctly-rounded-divide-sqrt"};
-    auto executable =
-        strict ? syclex::build(bundle, syclex::properties{syclex::build_options{options}})
-               : syclex::build(bundle);
-    if (!executable.ext_oneapi_has_kernel("seissol_expr_run")) {
+    std::string failure;
+    auto executable = buildOpenCl(*queue, source, strict, failure);
+    if (!executable.has_value()) {
+      // the private memory of all lanes of a thread in its scratch space, at the width the compiler
+      // chose (OpenClSubGroupSize): once more, at the smallest width of the device
+      const auto widths = queue->get_device().get_info<sycl::info::device::sub_group_sizes>();
+      if (!widths.empty()) {
+        const auto width = *std::min_element(widths.begin(), widths.end());
+        std::string again;
+        executable = buildOpenCl(*queue,
+                                 "#define " + std::string(OpenClSubGroupSize) + " " +
+                                     std::to_string(width) + "\n" + source,
+                                 strict,
+                                 again);
+        if (executable.has_value()) {
+          logInfo() << "expr: the OpenCL kernel builds with sub-groups of" << width
+                    << "lanes; at the width the compiler chose, it did not:" << failure;
+        } else {
+          failure += "\n(with sub-groups of " + std::to_string(width) + " lanes: " + again + ")";
+        }
+      }
+    }
+    if (!executable.has_value()) {
+      logWarning() << "expr: the OpenCL kernel did not build:" << failure;
+      return DeviceFunction{};
+    }
+    if (!executable->ext_oneapi_has_kernel("seissol_expr_run")) {
       logWarning() << "expr: the generated OpenCL module has no seissol_expr_run.";
       return loaded;
     }
-    loaded.module = new sycl::kernel_bundle<sycl::bundle_state::executable>(executable);
-    loaded.function = new sycl::kernel(executable.ext_oneapi_get_kernel("seissol_expr_run"));
-    if (executable.ext_oneapi_has_kernel("seissol_expr_precompute")) {
+    loaded.module = new OpenClExecutable(*executable);
+    loaded.function = new sycl::kernel(executable->ext_oneapi_get_kernel("seissol_expr_run"));
+    if (executable->ext_oneapi_has_kernel("seissol_expr_precompute")) {
       loaded.precompute =
-          new sycl::kernel(executable.ext_oneapi_get_kernel("seissol_expr_precompute"));
+          new sycl::kernel(executable->ext_oneapi_get_kernel("seissol_expr_precompute"));
     }
   } catch (const sycl::exception& error) {
-    // The message carries the compiler's own diagnostics, which for generated
-    // source is the only thing that makes a failure actionable.
     logWarning() << "expr: the OpenCL kernel did not build:" << error.what();
     return DeviceFunction{};
   }

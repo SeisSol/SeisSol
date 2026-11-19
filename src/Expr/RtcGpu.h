@@ -55,6 +55,13 @@ namespace seissol::expr {
 /// warps of NVIDIA or one wavefront of AMD, so that a block is never a fraction of one.
 inline constexpr unsigned GpuBlockSize = 64;
 
+/// The macro whose value an OpenCL kernel takes as the width of its sub-groups, where it is defined
+/// (intel_reqd_sub_group_size). The driver defines it, as the smallest width of the device, for a
+/// kernel that does not build at the width the compiler chose: on an Intel GPU, the scratch space
+/// of a thread holds the private memory of all its lanes, which a kernel with large arrays (the
+/// medians over 180 angles of RotD50) exceeds at SIMD32 with an older compiler.
+inline constexpr const char* OpenClSubGroupSize = "SEISSOL_EXPR_SUB_GROUP_SIZE";
+
 enum class GpuTarget : std::uint8_t {
   Cuda,
   Hip,
