@@ -83,7 +83,18 @@ endif()
 # The Intel path: OpenCL C source enqueued through SYCL's kernel_compiler
 # extension. Whether a given DEVICE accepts OpenCL C source is queried at run
 # time, so this only says the compiler and headers are present.
+#
+# The driver calls the SYCL runtime from host code that is no device library, so it links the
+# runtime itself: the executable has it only through the device libraries, and ld takes no symbol
+# from a library that is no direct dependency ("DSO missing from command line").
 if (WITH_GPU AND DEVICE_BACKEND STREQUAL "oneapi")
-    target_compile_definitions(seissol-expr PRIVATE SEISSOL_EXPR_HAVE_SYCL)
-    message(STATUS "seissol-expr: OpenCL-through-SYCL backend enabled")
+    get_filename_component(SEISSOL_CXX_COMPILER_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
+    find_library(SEISSOL_SYCL_LIBRARY sycl HINTS ${SEISSOL_CXX_COMPILER_DIR}/../lib)
+    if (SEISSOL_SYCL_LIBRARY)
+        target_link_libraries(seissol-expr PUBLIC ${SEISSOL_SYCL_LIBRARY})
+        target_compile_definitions(seissol-expr PRIVATE SEISSOL_EXPR_HAVE_SYCL)
+        message(STATUS "seissol-expr: OpenCL-through-SYCL backend enabled (${SEISSOL_SYCL_LIBRARY})")
+    else()
+        message(STATUS "seissol-expr: no SYCL runtime library; device programs fall back")
+    endif()
 endif()

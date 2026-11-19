@@ -339,22 +339,21 @@ std::string substitute(const std::string& text,
       // than keeping a second expression table is the entire point of routing
       // both backends through one substitution.
       i += 2;
-      if (style == MathStyle::CNames) {
-        // the function after the qualifier, by its C name for the compute type
-        std::size_t end = i;
-        while (end < text.size() && identifierChar(text[end])) {
-          ++end;
-        }
-        std::string function = text.substr(i, end - i);
-        if (function == "abs") {
-          function = "fabs";
-        }
-        if (computeType == "float") {
-          function += "f";
-        }
-        out += function;
-        i = end;
+      // the function after the qualifier: the absolute value of a floating-point number is fabs,
+      // in C, and in OpenCL C, whose abs takes integers only; by its C name for the compute type
+      std::size_t end = i;
+      while (end < text.size() && identifierChar(text[end])) {
+        ++end;
       }
+      std::string function = text.substr(i, end - i);
+      if (function == "abs") {
+        function = "fabs";
+      }
+      if (style == MathStyle::CNames && computeType == "float") {
+        function += 'f';
+      }
+      out += function;
+      i = end;
       continue;
     }
     if (token == "x") {

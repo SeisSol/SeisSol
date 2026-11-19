@@ -105,6 +105,65 @@ void* compileForHost(const std::string& source) {
   return dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
 }
 
+/// Whether clang, if this machine has it, takes `source` as OpenCL C (set `ran` accordingly; `log`
+/// gets its diagnostics): a check of the syntax and the types, with the declarations of the
+/// built-ins, in the OpenCL C 1.2 that ocloc compiles by default for the kernel_compiler of the
+/// driver. So the OpenCL C dialect of the emitted source is checked without a device of Intel's --
+/// such as `abs` of a double, which OpenCL C does not have.
+bool openclAccepts(const std::string& source, bool& ran, std::string& log) {
+  ran = false;
+  const int input = memfd_create("seissol-expr-opencl", 0);
+  const int errors = memfd_create("seissol-expr-opencl-log", 0);
+  if (input < 0 || errors < 0) {
+    close(input);
+    close(errors);
+    return true;
+  }
+  const ssize_t written = write(input, source.data(), source.size());
+  static_cast<void>(written);
+  lseek(input, 0, SEEK_SET);
+  const pid_t pid = fork();
+  if (pid < 0) {
+    close(input);
+    close(errors);
+    return true;
+  }
+  if (pid == 0) {
+    dup2(input, STDIN_FILENO);
+    dup2(errors, STDERR_FILENO);
+    execlp("clang",
+           "clang",
+           "-x",
+           "cl",
+           "-cl-std=CL1.2",
+           "-target",
+           "spir64",
+           "-Xclang",
+           "-finclude-default-header",
+           "-fsyntax-only",
+           "-",
+           static_cast<char*>(nullptr));
+    _exit(127);
+  }
+  int status = 0;
+  waitpid(pid, &status, 0);
+  log.clear();
+  lseek(errors, 0, SEEK_SET);
+  char buffer[4096];
+  for (ssize_t got = read(errors, buffer, sizeof(buffer)); got > 0;
+       got = read(errors, buffer, sizeof(buffer))) {
+    log.append(buffer, static_cast<std::size_t>(got));
+  }
+  close(input);
+  close(errors);
+  if (!WIFEXITED(status) || WEXITSTATUS(status) == 127) {
+    // no clang here
+    return true;
+  }
+  ran = true;
+  return WEXITSTATUS(status) == 0;
+}
+
 /// Whether NVRTC, if this machine has it, compiles `source` as the driver does (set `ran`
 /// accordingly; `log` gets its diagnostics). Loaded at run time, so the test needs no toolkit to
 /// build and is skipped where there is none -- where there is one, the CUDA dialect of the
@@ -899,6 +958,15 @@ TEST_SUITE("ExprRtcGpu") {
     CHECK(opencl.find("#pragma OPENCL FP_CONTRACT OFF") != std::string::npos);
     CHECK(opencl.find("__global SeissolExprGrid* grid0,") != std::string::npos);
     CHECK(opencl.find("llround") == std::string::npos);
+    {
+      bool ran = false;
+      std::string log;
+      const bool accepted = openclAccepts(opencl, ran, log);
+      if (ran) {
+        INFO(log);
+        CHECK(accepted);
+      }
+    }
 
     // the element type of the array is part of the kernel
     GpuLayout wide = layout;
@@ -948,9 +1016,18 @@ TEST_SUITE("ExprRtcGpu") {
       CHECK(hip.find("#pragma clang fp contract(off)") != std::string::npos);
       const std::string opencl = emitGpuSource(program, lowered, layout, GpuTarget::OpenCl);
       CHECK(opencl.find("#pragma OPENCL FP_CONTRACT OFF") != std::string::npos);
+      // abs of a floating-point number is fabs in OpenCL C, whose abs takes integers only
+      CHECK(opencl.find("fabs(") != std::string::npos);
 
       bool ran = false;
       std::string log;
+      {
+        const bool accepted = openclAccepts(opencl, ran, log);
+        if (ran) {
+          INFO(log);
+          CHECK(accepted);
+        }
+      }
       const bool accepted = nvrtcAccepts(cuda, ran, log);
       if (ran) {
         INFO(log);
