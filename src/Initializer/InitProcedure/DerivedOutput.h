@@ -51,6 +51,13 @@
 // last write (at the start) is evaluated when the output is written; so is every layer on a device
 // in a build without the runtime compiler of the device (derivedStateOnDevice()).
 //
+// With a sampling interval (`surfacescriptinterval`, `wavefieldscriptinterval`), a layer is
+// evaluated after the step at which the next one would end later than the interval after its last
+// evaluation -- every k-th step of its cluster, k steps the most that fit into the interval, at
+// least one --, and after the step that ends at a synchronization point, where the outputs and
+// the checkpoints are written: no synchronization point of its own, and a checkpoint holds the
+// state of its time. `dt` is the time since the last evaluation.
+//
 // A program with state whose outputs read the states only through their next values runs in two
 // stages (expr::stagedOutputs, the input `@stage`): a step updates the states and computes no
 // output; the outputs are computed when written, at every layer, from the states the last step
@@ -379,6 +386,13 @@ void registerDerivedStateCheckpoints(io::instance::checkpoint::CheckpointManager
 /// step of the clusters that run there: in a device build with the runtime compiler of the device.
 [[nodiscard]] bool derivedStateOnDevice();
 
+/// Whether a program with state is evaluated after a time step, with the sampling interval
+/// `interval` (0: after every step): where the next step, which ends at `next` (infinite after a
+/// synchronization point), would end later than the interval after the last evaluation, at
+/// `last` -- up to a relative tolerance, so that steps that fill the interval exactly do, whatever
+/// the rounding of their sum.
+[[nodiscard]] bool sampledAfter(double last, double next, double interval);
+
 /// Whether the configured outputs of the wave field and of the free surface read the time
 /// integral of the solution, which then has to be kept.
 [[nodiscard]] bool derivedOutputsReadIntegrals(seissol::SeisSol& seissolInstance);
@@ -404,9 +418,11 @@ class DerivedOutput {
   virtual void write(double time) = 0;
 
   /// Evaluates the written points of the layer `layerId` after a time step of its cluster to time
-  /// `time`: on the host, or on the stream `stream` of the cluster where it runs on a device. Only
-  /// for a program that accumulates.
-  virtual void step(std::size_t layerId, double time, void* stream) = 0;
+  /// `time`, whose next step ends at `next` (infinite after a synchronization point): on the host,
+  /// or on the stream `stream` of the cluster where it runs on a device. With a sampling interval,
+  /// only where the next step would end later than the interval after the last evaluation, and at
+  /// a synchronization point. Only for a program that accumulates.
+  virtual void step(std::size_t layerId, double time, double next, void* stream) = 0;
 
   /// Copies the values of output `output` at the points of `subcell` of the written element
   /// `index`.

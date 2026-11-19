@@ -412,7 +412,7 @@ std::vector<expr::Program> programsOf(expr::Program builtIn,
 }
 
 /// All outputs of a program are computed at once, before `writer` pulls them name by name; a
-/// program with state follows every time step of the cells instead.
+/// program with state follows the time steps of the cells instead.
 void evaluateDerived(seissol::SeisSol& seissolInstance,
                      io::instance::geometry::GeometryWriter& writer,
                      const std::vector<std::shared_ptr<initializer::DerivedOutput>>& derived) {
@@ -424,8 +424,8 @@ void evaluateDerived(seissol::SeisSol& seissolInstance,
   for (const auto& output : derived) {
     if (output->accumulates()) {
       seissolInstance.timeManager().addCorrectionHook(
-          [output](std::size_t layer, double time, void* stream) {
-            output->step(layer, time, stream);
+          [output](std::size_t layer, double time, double next, void* stream) {
+            output->step(layer, time, next, stream);
           });
     }
   }
@@ -671,6 +671,12 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance,
     derivedScope(configs, false, seissolParams.model.plasticity)
         .checkKept(*setup.script, parameters.script);
   }
+  if (parameters.scriptInterval > 0 && (setup.script == nullptr || setup.script->state().empty())) {
+    logWarning() << "wavefieldscriptinterval bounds the time between two evaluations of a program "
+                    "with state;"
+                 << (setup.script == nullptr ? "without a program," : "the program keeps none,")
+                 << "it does nothing.";
+  }
 
   std::vector<std::shared_ptr<initializer::DerivedOutput>> derived;
   std::vector<NamedOutputs> outputs(builtConfigCount());
@@ -894,6 +900,12 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance,
         std::make_shared<const expr::Program>(initializer::loadDerivedProgram(parameters.script));
     derivedScope(configs, true, seissolParams.model.plasticity)
         .checkKept(*setup.script, parameters.script);
+  }
+  if (parameters.scriptInterval > 0 && (setup.script == nullptr || setup.script->state().empty())) {
+    logWarning()
+        << "surfacescriptinterval bounds the time between two evaluations of a program with state;"
+        << (setup.script == nullptr ? "without a program," : "the program keeps none,")
+        << "it does nothing.";
   }
 
   std::vector<std::shared_ptr<initializer::DerivedOutput>> derived;

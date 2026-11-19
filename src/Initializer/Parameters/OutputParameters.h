@@ -101,6 +101,9 @@ struct FreeSurfaceOutputParameters {
   std::optional<TimeSeriesMode> timeSeries;
   // a derived-output program (sderiv or Lua) whose outputs are written along
   std::string script;
+  // the longest time between two evaluations of a program with state, which follows every
+  // k-th time step of a cluster then; 0 for every step (see initializer::DerivedOutput)
+  double scriptInterval{0};
 };
 
 enum class ReceiverOutputFormat { Csv, Hdf5 };
@@ -187,6 +190,9 @@ struct WaveFieldOutputParameters {
   std::optional<TimeSeriesMode> timeSeries;
   // a derived-output program (sderiv or Lua) whose outputs are written along
   std::string script;
+  // the longest time between two evaluations of a program with state, which follows every
+  // k-th time step of a cluster then; 0 for every step (see initializer::DerivedOutput)
+  double scriptInterval{0};
 };
 
 struct OutputParameters {

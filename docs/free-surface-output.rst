@@ -87,7 +87,9 @@ outputs are computed the same way, in one program with those of a script without
 output of a script needs a name of its own, as for the wavefield. The state of a program lives
 with the faces and is written to the checkpoints as for the wavefield, with the fingerprint of what
 it depends on, its points (``surfacevtkorder``, ``surfaceoutputrefinement`` and
-``surfaceprojection``) and the cadence of the calls.
+``surfaceprojection``) and the cadence of the calls. ``surfacescriptinterval`` bounds the time
+between two evaluations of a program with state, as ``wavefieldscriptinterval`` does for the
+wavefield.
 
 .. code-block:: text
 

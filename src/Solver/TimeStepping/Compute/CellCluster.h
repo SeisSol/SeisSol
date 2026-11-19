@@ -68,9 +68,12 @@ class CellClusterInterface : public AbstractTimeCluster {
   virtual void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) = 0;
 
   /// What runs after every correction of a cluster: called with the id of its layer, the time its
-  /// cells have reached, and the stream of the cluster where it runs on a device (null on the
-  /// host), on which what the hook computes there follows the correction.
-  using CorrectionHook = std::function<void(std::size_t, double, void*)>;
+  /// cells have reached, the time its next step ends -- infinite where this one ends at a
+  /// synchronization point, after which the next is not set yet --, and the stream of the cluster
+  /// where it runs on a device (null on the host), on which what the hook computes there follows
+  /// the correction. A hook that need not run after every step looks ahead with the third: the
+  /// outputs and the checkpoints are written at the synchronization points.
+  using CorrectionHook = std::function<void(std::size_t, double, double, void*)>;
 
   virtual void addCorrectionHook(const CorrectionHook& hook) = 0;
 

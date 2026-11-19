@@ -784,6 +784,71 @@ TEST_CASE("DerivedOutput: a maximum over time follows a hand-kept reference") {
   }
 }
 
+TEST_CASE("DerivedOutput: a sampling interval takes every k-th step, and the synchronization "
+          "points") {
+  // the steps of a cluster of step `dt` as the time manager takes them, the last one before a
+  // synchronization point ending there, and the times after which a program with state is
+  // evaluated
+  const auto evaluated = [](double dt, const std::vector<double>& syncs, double interval) {
+    std::vector<double> times;
+    double time = 0;
+    double last = 0;
+    double previous = 0;
+    for (const double sync : syncs) {
+      const auto steps = static_cast<long>(std::ceil((sync - previous) / dt - 1e-5));
+      for (long step = 0; step < steps; ++step) {
+        const double end = step + 1 == steps ? time + (sync - time) : time + dt;
+        const double next = step + 1 == steps   ? std::numeric_limits<double>::infinity()
+                            : step + 2 == steps ? end + (sync - end)
+                                                : end + dt;
+        time = end;
+        if (sampledAfter(last, next, interval)) {
+          times.push_back(time);
+          last = time;
+        }
+      }
+      previous = sync;
+    }
+    return times;
+  };
+
+  // without an interval, and with one shorter than a step: every step
+  CHECK(evaluated(0.01, {0.5, 1.0}, 0).size() == 100);
+  CHECK(evaluated(0.01, {0.5, 1.0}, 0.004).size() == 100);
+
+  // steps that fill the interval exactly: every fifth, whatever the rounding of their sum
+  const auto fifth = evaluated(0.01, {1.0}, 0.05);
+  REQUIRE(fifth.size() == 20);
+  for (std::size_t i = 0; i < fifth.size(); ++i) {
+    CHECK(fifth[i] == doctest::Approx(0.05 * static_cast<double>(i + 1)).epsilon(1e-12));
+  }
+
+  // the most steps that fit, and the step that ends at a synchronization point, whose shortened
+  // last step (0.225 to 0.23) ends at the second
+  const auto times = evaluated(0.025, {0.1, 0.23}, 0.06);
+  const std::vector<double> expected{0.05, 0.1, 0.15, 0.2, 0.23};
+  REQUIRE(times.size() == expected.size());
+  for (std::size_t i = 0; i < times.size(); ++i) {
+    CHECK(times[i] == doctest::Approx(expected[i]).epsilon(1e-12));
+  }
+
+  // never longer than the interval between two evaluations, and every synchronization point
+  const std::vector<double> syncs{0.37, 0.5, 1.13};
+  for (const double interval : {0.01, 0.033, 0.1, 0.25}) {
+    const auto sampled = evaluated(0.007, syncs, interval);
+    double last = 0;
+    for (const double time : sampled) {
+      CHECK(time - last <= interval * (1 + 1e-9));
+      last = time;
+    }
+    for (const double sync : syncs) {
+      CHECK(std::any_of(sampled.begin(), sampled.end(), [&](double time) {
+        return time == doctest::Approx(sync).epsilon(1e-12);
+      }));
+    }
+  }
+}
+
 TEST_CASE("DerivedOutput: a Lua program computes what its sderiv counterpart does") {
   constexpr std::size_t Degree = 1;
   const auto geometry = refinedGeometry(Degree);

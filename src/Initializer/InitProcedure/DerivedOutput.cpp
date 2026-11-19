@@ -932,11 +932,12 @@ namespace {
 constexpr const char* StateDataset = "derivedstate";
 
 /// When the program of a derived output is called (see CADENCE), the same on all ranks, in a format
-/// that a checkpoint compares: `step`, after every time step of every cell. In a device build that
-/// cannot evaluate the state on its device (derivedStateOnDevice()), the cells there are evaluated
-/// at every write of the output: `device=write interval=<interval>`, after `host=step` where there
-/// are cells on the host as well. Collective.
-std::string stateCadence(seissol::SeisSol& seissolInstance, double interval) {
+/// that a checkpoint compares: `step`, after every time step of every cell, and with a sampling
+/// interval `step interval<=<sampling>`. In a device build that cannot evaluate the state on its
+/// device (derivedStateOnDevice()), the cells there are evaluated at every write of the output:
+/// `device=write interval=<interval>`, after `host=<steps>` where there are cells on the host as
+/// well. Collective.
+std::string stateCadence(seissol::SeisSol& seissolInstance, double interval, double sampling) {
   // per layer, as the cell clusters choose where they run (CellCluster)
   std::array<int, 2> places{0, 0};
   for (auto& layer : seissolInstance.memoryManager().ltsStorage().leaves(LayerMask(Ghost))) {
@@ -945,17 +946,21 @@ std::string stateCadence(seissol::SeisSol& seissolInstance, double interval) {
     }
   }
   MPI_Allreduce(MPI_IN_PLACE, places.data(), 2, MPI_INT, MPI_MAX, seissol::Mpi::mpi.comm());
-  // the shortest digits that give the interval back
-  std::array<char, 32> digits{};
-  const auto written = std::to_chars(digits.data(), digits.data() + digits.size(), interval);
-  const std::string writes = "device=write interval=" + std::string(digits.data(), written.ptr);
+  // the shortest digits that give a time back
+  const auto digitsOf = [](double time) {
+    std::array<char, 32> digits{};
+    const auto written = std::to_chars(digits.data(), digits.data() + digits.size(), time);
+    return std::string(digits.data(), written.ptr);
+  };
+  const std::string writes = "device=write interval=" + digitsOf(interval);
+  const std::string steps = sampling > 0 ? "step interval<=" + digitsOf(sampling) : "step";
   if (places[1] == 0 || derivedStateOnDevice()) {
-    return "step";
+    return steps;
   }
   if (places[0] == 0) {
     return writes;
   }
-  return "host=step " + writes;
+  return "host=" + steps + " " + writes;
 }
 
 /// Registers the state of `layout` of the output `output` with the checkpoints, as in
@@ -1027,6 +1032,11 @@ void registerState(io::instance::checkpoint::CheckpointManager& checkpoint,
 
 bool derivedStateOnDevice() { return isDeviceOn() && expr::deviceRuntimeAvailable(); }
 
+bool sampledAfter(double last, double next, double interval) {
+  constexpr double Tolerance = 1e-9;
+  return interval <= 0 || next - last > interval * (1 + Tolerance);
+}
+
 void registerDerivedStateCheckpoints(io::instance::checkpoint::CheckpointManager& checkpoint,
                                      seissol::SeisSol& seissolInstance) {
   auto& memoryManager = seissolInstance.memoryManager();
@@ -1042,7 +1052,9 @@ void registerDerivedStateCheckpoints(io::instance::checkpoint::CheckpointManager
                   storage.var<LTS::DerivedState>(),
                   waveField,
                   output.waveFieldParameters.script,
-                  stateCadence(seissolInstance, output.waveFieldParameters.interval),
+                  stateCadence(seissolInstance,
+                               output.waveFieldParameters.interval,
+                               output.waveFieldParameters.scriptInterval),
                   "wave field",
                   accept);
   }
@@ -1054,7 +1066,9 @@ void registerDerivedStateCheckpoints(io::instance::checkpoint::CheckpointManager
                   storage.var<SurfaceLTS::DerivedState>(),
                   surface,
                   output.freeSurfaceParameters.script,
-                  stateCadence(seissolInstance, output.freeSurfaceParameters.interval),
+                  stateCadence(seissolInstance,
+                               output.freeSurfaceParameters.interval,
+                               output.freeSurfaceParameters.scriptInterval),
                   "free surface",
                   accept);
   }
@@ -1157,7 +1171,7 @@ class NamedOutputsOnly final : public DerivedOutput {
   [[nodiscard]] const std::vector<std::string>& names() const override { return names_; }
   [[nodiscard]] bool accumulates() const override { return false; }
   void write(double /*time*/) override {}
-  void step(std::size_t /*layerId*/, double /*time*/, void* /*stream*/) override {}
+  void step(std::size_t /*layerId*/, double /*time*/, double /*next*/, void* /*stream*/) override {}
   void copy(std::size_t /*output*/,
             double* /*target*/,
             std::size_t /*index*/,
@@ -1196,11 +1210,16 @@ class DerivedElementOutput final : public DerivedOutput {
     std::vector<std::size_t> all;
     std::vector<std::size_t> allOnDevice;
     for (std::size_t i = 0; i < runs_.size(); ++i) {
-      if (!accumulates() || !runs_[i].stepped) {
+      // without state, every run; with state, one whose cluster did not step since the last write
+      // (at the start), and one whose last step was not evaluated (sampling interval) -- none, as
+      // the outputs are written at synchronization points, after whose steps every run is
+      // (sampledAfter())
+      if (!accumulates() || !runs_[i].stepped || runs_[i].skipped) {
         (runs_[i].onDevice ? pendingOnDevice : pending).push_back(i);
       }
       (runs_[i].onDevice ? allOnDevice : all).push_back(i);
       runs_[i].stepped = false;
+      runs_[i].skipped = false;
     }
     if (device_ != nullptr) {
       evaluateOnDevice(pendingOnDevice, time, nullptr);
@@ -1219,7 +1238,7 @@ class DerivedElementOutput final : public DerivedOutput {
     }
   }
 
-  void step(std::size_t layerId, double time, void* stream) override {
+  void step(std::size_t layerId, double time, double next, void* stream) override {
     const std::lock_guard lock(mutex_);
     const auto found = runsOfLayer_.find(layerId);
     if (found == runsOfLayer_.end()) {
@@ -1229,8 +1248,14 @@ class DerivedElementOutput final : public DerivedOutput {
     if (stream != nullptr && device_ == nullptr) {
       return;
     }
+    // the runs of a layer step together, with the time of their last evaluation
+    const bool due = sampledAfter(runs_[found->second.front()].lastTime, next, samplingInterval_);
     for (const auto run : found->second) {
       runs_[run].stepped = true;
+      runs_[run].skipped = !due;
+    }
+    if (!due) {
+      return;
     }
     if (stream != nullptr) {
       evaluateOnDevice(found->second, time, stream);
@@ -1274,7 +1299,10 @@ class DerivedElementOutput final : public DerivedOutput {
     double lastTime{0};
     double time{0};
     double timeStep{0};
+    /// Whether its cluster stepped since the last write, and whether it was not evaluated after
+    /// the last step (sampling interval).
     bool stepped{false};
+    bool skipped{false};
     /// Whether it is evaluated on the device its cluster runs on (see Device), with the bases of
     /// the blocks and of the states there.
     bool onDevice{false};
@@ -1390,6 +1418,8 @@ class DerivedElementOutput final : public DerivedOutput {
   /// The input that chooses the stage of a program in two stages (expr::stagedOutputs): the
   /// states after every step, the outputs when written.
   std::optional<std::size_t> stageInput_;
+  /// The longest time between two evaluations of a program with state; 0 for after every step.
+  double samplingInterval_{0};
   // the bases the time and stage columns are bound with; every call moves them to its run
   double boundTime_{0};
   double boundTimeStep_{0};
@@ -1616,7 +1646,10 @@ DerivedElementOutput<Cfg>::DerivedElementOutput(seissol::SeisSol& seissolInstanc
                          locations_),
                points),
       source_(std::move(source)), names_(outputNames<Cfg>(derived_.program())),
-      outputCount_(derived_.program().outputs().size()) {
+      outputCount_(derived_.program().outputs().size()),
+      samplingInterval_(
+          faces ? seissolInstance.parameters().output.freeSurfaceParameters.scriptInterval
+                : seissolInstance.parameters().output.waveFieldParameters.scriptInterval) {
   constexpr std::size_t Simulations = Cfg::NumSimulations;
   const std::size_t pointsPerElement = derived_.pointsPerElement();
 
@@ -2113,6 +2146,9 @@ std::shared_ptr<DerivedOutput> makeDerivedOutput(seissol::SeisSol& seissolInstan
     // the program as written, by the fingerprint the files of the output name it with
     const std::string source = "program " + expr::fingerprintText(program) + " of the " +
                                (faces ? "free surface" : "wave field") + " output";
+    const auto& output = seissolInstance.parameters().output;
+    const double sampling = faces ? output.freeSurfaceParameters.scriptInterval
+                                  : output.waveFieldParameters.scriptInterval;
     if (program.state().empty()) {
       inPrecision.setComputeType(expr::stepComputeType<Real<Cfg>>());
     } else if (auto staged = expr::stagedOutputs(program, StageInput)) {
@@ -2120,8 +2156,14 @@ std::shared_ptr<DerivedOutput> makeDerivedOutput(seissol::SeisSol& seissolInstan
       // through their next values, which the states hold after the step
       inPrecision = std::move(*staged);
       logInfo() << "derived output: the" << source.c_str()
-                << "steps its states after every time step and computes its outputs when they are "
+                << "updates its states with the time steps and computes its outputs when they are "
                    "written.";
+    }
+    if (!program.state().empty() && sampling > 0) {
+      logInfo() << "derived output: the" << source.c_str() << "follows the time steps at most"
+                << sampling
+                << "s apart: every k-th step of a time cluster, and the step that ends at a "
+                   "synchronization point.";
     }
     return std::make_shared<DerivedElementOutput<Cfg>>(
         seissolInstance, writtenCount, std::move(written), points, inPrecision, faces, source);

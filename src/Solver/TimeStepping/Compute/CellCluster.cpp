@@ -59,6 +59,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -777,21 +778,30 @@ void CellCluster<Cfg>::correct() {
     return;
   }
 
+  // the end of the step, and of the next one: none after the synchronization point, which is not
+  // set yet (CorrectionHook); the step count is that of the start of this step still
+  const double end = params.time + params.timeStepSize;
+  const double next =
+      ct_.isLastStep(ct_.stepsSinceLastSync)
+          ? std::numeric_limits<double>::infinity()
+          : end + ct_.timeStepSize(end, ct_.stepsSinceLastSync + ct_.timeStepRate, syncTime_);
+
   if (executor_ == Executor::Device) {
     computeNeighboringIntegrationDevice(params);
     // what follows the correction (the derived outputs with state), on the stream of the cluster
     for (const auto& hook : correctionHooks_) {
-      hook(layerId(), params.time + params.timeStepSize, streamRuntime_.stream());
+      hook(layerId(), end, next, streamRuntime_.stream());
     }
   } else {
     // the correction reads what the neighbors share, and changes the DOFs only; what follows it
     // (the derived outputs with state) reads the DOFs of the cells at the end of the step
-    hostRuntime_.action({/*readsNeighbors=*/true, /*writesShared=*/false}, [this, params] {
-      computeNeighboringIntegration(params);
-      for (const auto& hook : correctionHooks_) {
-        hook(layerId(), params.time + params.timeStepSize, nullptr);
-      }
-    });
+    hostRuntime_.action({/*readsNeighbors=*/true, /*writesShared=*/false},
+                        [this, params, end, next] {
+                          computeNeighboringIntegration(params);
+                          for (const auto& hook : correctionHooks_) {
+                            hook(layerId(), end, next, nullptr);
+                          }
+                        });
   }
 
   // the time of the cluster advances by the same step after the correction

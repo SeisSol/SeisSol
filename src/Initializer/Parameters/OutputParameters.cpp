@@ -68,6 +68,17 @@ std::optional<TimeSeriesMode> readTimeSeriesMode(ParameterReader* reader,
           {"monolith", TimeSeriesMode::Monolith},
       });
 }
+
+// the longest time between two evaluations of a program with state (`field`); 0, after every
+// time step, by default
+double readScriptInterval(ParameterReader* reader, const std::string& field) {
+  const auto interval = reader->readWithDefault(field, 0.0);
+  if (!(interval >= 0)) {
+    logError() << field << "is the longest time between two evaluations of a program with state, "
+               << "and must not be negative, but is" << interval;
+  }
+  return interval;
+}
 } // namespace
 
 void warnIntervalAndDisable(bool& enabled,
@@ -209,6 +220,7 @@ FreeSurfaceOutputParameters
   const auto timeSeries = readTimeSeriesMode(reader, "surfacetimeseries", defaultTimeSeries);
 
   const auto script = reader->readPath("surfacescript").value_or("");
+  const auto scriptInterval = readScriptInterval(reader, "surfacescriptinterval");
 
   return FreeSurfaceOutputParameters{.enabled = enabled,
                                      .refinement = refinement,
@@ -217,7 +229,8 @@ FreeSurfaceOutputParameters
                                      .outputMask = surfaceOutputMask,
                                      .projection = projection,
                                      .timeSeries = timeSeries,
-                                     .script = script};
+                                     .script = script,
+                                     .scriptInterval = scriptInterval};
 }
 
 PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
@@ -384,6 +397,7 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
   const auto timeSeries = readTimeSeriesMode(reader, "wavefieldtimeseries", defaultTimeSeries);
 
   const auto script = reader->readPath("wavefieldscript").value_or("");
+  const auto scriptInterval = readScriptInterval(reader, "wavefieldscriptinterval");
 
   if (enabledPre.has_value()) {
     reader->warnDeprecated({"format"});
@@ -402,7 +416,8 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
                                    .computeStrain = computeStrain,
                                    .projection = projection,
                                    .timeSeries = timeSeries,
-                                   .script = script};
+                                   .script = script,
+                                   .scriptInterval = scriptInterval};
 }
 
 OutputParameters readOutputParameters(ParameterReader* baseReader,

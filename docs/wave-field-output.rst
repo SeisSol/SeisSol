@@ -246,6 +246,20 @@ over the angles at every step:
    out def u1int = int_v1
    out def divv = dx_v1 + dy_v2 + dz_v3
 
+Where following every time step costs too much, ``wavefieldscriptinterval`` in ``&Output`` bounds
+the time between two evaluations instead: a cell is then evaluated after every k-th time step of its
+time cluster, k steps the most that fit into the interval (at least one), and always after the step
+that ends where the outputs or the checkpoints are written. The time steps stay what they are;
+``dt`` is the time since the previous evaluation, which a maximum then takes at fewer times, and a
+state that sums ``v1 * dt`` sums over longer steps:
+
+.. code-block:: Fortran
+
+   &Output
+   wavefieldscript = 'sderiv:pgv.sderiv'
+   wavefieldscriptinterval = 0.01   ! at most 0.01 s between two evaluations; 0, the default: every step
+   /
+
 A time integral can be taken either way. A state sums a value per time step, ``u1 + v1 * dt``: of
 first order in time, but of any expression, such as the energy ``(v1*v1 + v2*v2 + v3*v3) * dt``.
 ``int_q`` is the time integral of a quantity that the solver adds up (see ``IntegrationMask``): as
@@ -273,8 +287,9 @@ written to the checkpoints, so that a restarted run continues it. The checkpoint
 its values mean: the fingerprint of what the states depend on (their updates and what these read, by
 name; not an output that no state reads, and not a comment), the output points
 (``wavefieldvtkorder``, ``refinement``, ``wavefieldprojection`` and the number of fused
-simulations), and when the program is called (after every time step; on a GPU of a build without the
-runtime compiler of the GPU, at every write). A restart continues the state only if all three are
+simulations), and when the program is called (after every time step, or with
+``wavefieldscriptinterval``; on a GPU of a build without the runtime compiler of the GPU, at every
+write). A restart continues the state only if all three are
 those of the run; otherwise the state starts over from its initial values, with a warning that names
 both. ``acceptderivedstate = 1`` in ``&Output`` continues a state written by another program or at
 another cadence all the same, but not one of other points. The dataset ``derivedstate`` of the

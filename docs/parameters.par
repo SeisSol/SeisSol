@@ -199,6 +199,8 @@ wavefieldvtkorder = -1 ! positive values enable the VTKHDF high-order output for
 wavefieldcomputerotation = 0 ! compute rotation for the volume output
 wavefieldcomputestrain = 0 ! compute strain for the volume output
 ! wavefieldscript = 'sderiv:pgv.sderiv' ! (optional) further outputs, computed by a program
+! wavefieldscriptinterval = 0.01 ! (optional) the longest time between two evaluations of a program
+! with state, which follows every k-th time step of a cluster then; 0 (default): every step
 
 wavefieldprojection = 'pointwise' ! how the solution is transferred onto the output points:
 ! 'pointwise' evaluates it there, 'l2' projects onto the output space (conservative per subcell)
@@ -233,6 +235,7 @@ surfacevtkorder = -1 ! positive values enable the VTKHDF high-order output for t
 
 surfaceprojection = 'l2' ! as wavefieldprojection, for the free-surface output
 ! surfacescript = 'sderiv:surface.sderiv' ! (optional) further outputs, computed by a program
+! surfacescriptinterval = 0.01 ! (optional) as wavefieldscriptinterval
 
 surfacetimeseries = 'snapshot' ! overrides outputtimeseries for the free-surface output
 
