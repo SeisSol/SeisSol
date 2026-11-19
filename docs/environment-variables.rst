@@ -659,6 +659,15 @@ is the kernel and all it was compiled from: the source, the flags, the compiler,
 ``SEISSOL_EXPR_DUMP`` naming a directory, SeisSol writes the sources it generates there, and for
 CUDA the PTX that NVRTC makes of them.
 
+The device kernels are compiled at run time as well: by NVRTC (CUDA), HIPRTC (HIP), or through the
+experimental ``kernel_compiler`` extension of SYCL as OpenCL C (oneAPI, with ``ocloc``). A kernel
+takes its arguments by value up to what the target allows: 4096 bytes for CUDA and HIP, 1024 for
+OpenCL; beyond that -- a program with a few hundred states, which take five fields each, say -- it
+takes them through device memory, copied there once per layer, with the values that change from
+call to call (the time, say) by value. ``SEISSOL_EXPR_GPU_ARGUMENT_LIMIT`` sets that limit in bytes;
+``0`` sends the arguments of every kernel through device memory, which tests that way on any
+device.
+
 GPU-Specific Environment Variables
 ----------------------------------
 

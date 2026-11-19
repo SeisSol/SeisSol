@@ -165,11 +165,28 @@ struct GpuLayout {
   /// the program. Empty for a program that samples none; gpuLayoutOf() leaves it so, since a
   /// binding does not know the grids -- whoever resolves them in the store fills it in.
   std::vector<reader::datafield::ElementType> grids;
+  /// Whether the kernel takes its arguments through device memory: a pointer at the image of the
+  /// fields that stay from call to call (GpuArguments::staticImage()), and those that change by
+  /// value (SeissolExprDynamic: the values of the uniform inputs, first and count). For an image
+  /// larger than the target passes by value (gpuArgumentLimit()) -- 5 fields per state make a
+  /// program with a few hundred states 15 KB, where OpenCL on Intel takes 2 KB. Decided where the
+  /// kernel is made; gpuLayoutOf() leaves it false.
+  bool indirect{false};
 
   [[nodiscard]] std::uint64_t fingerprint() const;
 };
 
 [[nodiscard]] GpuLayout gpuLayoutOf(const Binding& binding);
+
+/// The bytes of the argument image of a kernel of `layout` (SeissolExprArgs): 8 per field.
+[[nodiscard]] std::size_t gpuArgumentBytes(const GpuLayout& layout);
+
+/// The largest argument image a kernel of `target` takes by value; a larger one goes through
+/// device memory (GpuLayout::indirect). 4096 bytes for CUDA and HIP, as every version of either
+/// takes, and 1024 for OpenCL, the least a device has to take (Intel's GPUs take 2048). The
+/// variable SEISSOL_EXPR_GPU_ARGUMENT_LIMIT overrides it, in bytes: 0 sends every kernel's
+/// arguments through device memory, which tests the path on any device.
+[[nodiscard]] std::size_t gpuArgumentLimit(GpuTarget target);
 
 /// Kernel parameters, packed in the order emitGpuSource declares them.
 ///
@@ -208,6 +225,26 @@ class GpuArguments {
   }
   [[nodiscard]] std::size_t fieldSize(std::size_t index) const { return fields_[index].size; }
 
+  /// For a kernel that takes its arguments through device memory (GpuLayout::indirect): the image
+  /// with the fields that change from call to call zeroed (the values of the uniform inputs, first
+  /// and count), so that equal images mean equal fields for the device copy; and those fields, in
+  /// their order, as SeissolExprDynamic lays them out (8 bytes each).
+  [[nodiscard]] std::vector<unsigned char> staticImage() const;
+  [[nodiscard]] std::vector<unsigned char> dynamicImage() const;
+
+  /// The arguments of such a kernel: the address of the static image where the kernel runs, and
+  /// the dynamic fields by value -- two parameters, in both views.
+  struct Indirect {};
+  GpuArguments(Indirect /*tag*/,
+               const void* staticImage,
+               const std::vector<unsigned char>& dynamic);
+
+  GpuArguments(const GpuArguments&) = delete;
+  GpuArguments& operator=(const GpuArguments&) = delete;
+  GpuArguments(GpuArguments&&) = delete;
+  GpuArguments& operator=(GpuArguments&&) = delete;
+  ~GpuArguments() = default;
+
   private:
   void append(const void* value, std::size_t bytes);
 
@@ -216,6 +253,8 @@ class GpuArguments {
   struct Field {
     std::size_t offset{0};
     std::size_t size{0};
+    /// changes from call to call: the value of a uniform input, first or count
+    bool dynamic{false};
   };
 
   std::vector<unsigned char> image_;

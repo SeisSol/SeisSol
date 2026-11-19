@@ -23,6 +23,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
 #include <limits>
@@ -573,7 +574,11 @@ void insidePoints(std::vector<double>& x, std::vector<double>& y) {
 /// Evaluate `source` on the interpreter and through the emitted device kernel
 /// compiled for the host, and report whether every output is bitwise equal.
 /// `ran` is false when no compiler was available.
-bool deviceCodeAgrees(const std::string& source, bool& ran) {
+/// Whether the CUDA source emitted for `source`, compiled for the host, gives the interpreter's
+/// bits at a ladder of points; with `indirect`, the kernel takes its arguments through memory
+/// (GpuLayout::indirect), here host memory, as a device copy of GpuArguments::staticImage() and
+/// the dynamic fields by value. A program that reads `t` gets it as a uniform input.
+bool deviceCodeAgrees(const std::string& source, bool& ran, bool indirect = false) {
   ran = false;
   const Program program = compileSderivModule(source);
   const std::size_t numPoints = 14;
@@ -593,6 +598,12 @@ bool deviceCodeAgrees(const std::string& source, bool& ran) {
   DataTable table(numPoints);
   table.bindViewConst<double>("x", Direction::In, x.data());
   table.bindViewConst<double>("y", Direction::In, y.data());
+  if (std::any_of(program.inputs().begin(), program.inputs().end(), [](const auto& input) {
+        return input.name == "t";
+      })) {
+    // uniform: a device kernel takes it by value
+    table.bindConstant<double>("t", 0.375);
+  }
   for (std::size_t i = 0; i < outputs; ++i) {
     table.bindView<double>(program.outputs()[i].name, Direction::Out, &interpreted[i * numPoints]);
   }
@@ -605,7 +616,8 @@ bool deviceCodeAgrees(const std::string& source, bool& ran) {
   kernel->precompute(table);
   kernel->run(table);
 
-  const GpuLayout layout = gpuLayoutOf(binding);
+  GpuLayout layout = gpuLayoutOf(binding);
+  layout.indirect = indirect;
   const std::string generated = std::string(HostShim) +
                                 emitGpuSource(program, lower(program), layout, GpuTarget::Cuda) +
                                 emitGpuHostTrampoline(layout, "double");
@@ -630,7 +642,13 @@ bool deviceCodeAgrees(const std::string& source, bool& ran) {
   args.count = numPoints;
 
   GpuArguments packed(binding, args, nullptr);
-  invoke(packed.data());
+  if (indirect) {
+    const std::vector<unsigned char> image = packed.staticImage();
+    GpuArguments throughMemory(GpuArguments::Indirect{}, image.data(), packed.dynamicImage());
+    invoke(throughMemory.data());
+  } else {
+    invoke(packed.data());
+  }
 
   return std::memcmp(interpreted.data(), emitted.data(), interpreted.size() * sizeof(double)) == 0;
 }
@@ -1180,6 +1198,7 @@ TEST_SUITE("ExprRtcGpu") {
          "def a = exp(x / 1e6) * sin(y) + log(abs(y) + 1.0) * cos(x)\n"
          "def b = select(lt(y, 1.0), sqrt(abs(y)) * exp(y / 1e6) + atan(x), x * y)\n"
          "out def u = select(c, a, b)\nout def v = select(c, a * a, x - y)\n"},
+        {"a uniform input", "out def u = x * t + y\nout def v = t - y\n"},
     };
 
     bool ran = false;
@@ -1188,12 +1207,140 @@ TEST_SUITE("ExprRtcGpu") {
       const char* const label = program.first;
       const char* const source = program.second;
       CAPTURE(label);
-      const bool same = deviceCodeAgrees(source, ran);
+      // with the arguments by value, and through memory (GpuLayout::indirect)
+      for (const bool indirect : {false, true}) {
+        CAPTURE(indirect);
+        const bool same = deviceCodeAgrees(source, ran, indirect);
+        if (!ran) {
+          break;
+        }
+        CHECK(same);
+      }
       if (!ran) {
         WARN_MESSAGE(ran, "no usable C++ compiler; the device code generator was not executed");
         break;
       }
-      CHECK(same);
+    }
+  }
+
+  TEST_CASE(
+      "the emitted device kernel takes its arguments through memory as it takes them by value") {
+    // GpuLayout::indirect: the image of the fields that stay from call to call where the kernel
+    // runs (host memory here), and the values of the uniform inputs, first and count by value --
+    // with a state, outputs and a uniform input, over three calls
+    const Program program = compileSderivModule("state peak = -1.0\n"
+                                                "out def peak = max(peak, x * t)\n"
+                                                "out def u = y - t\n");
+    constexpr std::size_t NumPoints = 6;
+    std::vector<double> x(NumPoints);
+    std::vector<double> y(NumPoints);
+    std::vector<double> interpretedState(NumPoints, -1.0);
+    std::vector<double> emittedState(NumPoints, -1.0);
+    std::vector<double> interpreted(2 * NumPoints, 0.0);
+    DataTable table(NumPoints);
+    table.bindViewConst<double>("x", Direction::In, x.data());
+    table.bindViewConst<double>("y", Direction::In, y.data());
+    // uniform, so that it comes by value (in SeissolExprDynamic where the arguments lie in memory)
+    table.bindConstant<double>("t", 0.75);
+    table.bindView<double>("peak", Direction::Out, interpreted.data());
+    table.bindView<double>("u", Direction::Out, interpreted.data() + NumPoints);
+    // two points per cell, contiguous
+    table.bindState<double>("peak", interpretedState.data(), 2, 2, 1, nullptr);
+    Binding binding = Binding::bind(program, table);
+    REQUIRE(gpuRejection(program, lower(program), binding, nullptr) == GpuRejection::None);
+    df::GridStore store;
+    const auto kernel = makeKernel(program, binding, store, {});
+    kernel->precompute(table);
+
+    GpuLayout layout = gpuLayoutOf(binding);
+    layout.indirect = true;
+    // the image as gpuArgumentBytes() counts it, and the dynamic fields: t, first and count
+    {
+      KernelArgs args{};
+      args.first = 0;
+      args.count = NumPoints;
+      GpuArguments packed(binding, args, nullptr);
+      CHECK(packed.staticImage().size() == gpuArgumentBytes(layout));
+      CHECK(packed.dynamicImage().size() == 3 * sizeof(double));
+      // another time, as a caller passes it for a call (KernelArgs::inputs), and another range
+      const double later = 2.5;
+      std::vector<const void*> inputs(program.inputs().size(), nullptr);
+      for (std::size_t i = 0; i < program.inputs().size(); ++i) {
+        if (program.inputs()[i].name == "t") {
+          inputs[i] = &later;
+        }
+      }
+      args.inputs = inputs.data();
+      args.inputCount = inputs.size();
+      args.first = 1;
+      args.count = 4;
+      GpuArguments other(binding, args, nullptr);
+      CHECK(other.staticImage() == packed.staticImage());
+      CHECK(other.dynamicImage() != packed.dynamicImage());
+    }
+
+    // valid on every target
+    const std::string opencl = emitGpuSource(program, lower(program), layout, GpuTarget::OpenCl);
+    CHECK(opencl.find("__global const SeissolExprArgs* a, SeissolExprDynamic d") !=
+          std::string::npos);
+    {
+      bool ran = false;
+      std::string log;
+      const bool accepted = openclAccepts(opencl, ran, log);
+      if (ran) {
+        INFO(log);
+        CHECK(accepted);
+      }
+    }
+    const std::string cuda = emitGpuSource(program, lower(program), layout, GpuTarget::Cuda);
+    CHECK(cuda.find("const SeissolExprArgs* a, SeissolExprDynamic d") != std::string::npos);
+    {
+      bool ran = false;
+      std::string log;
+      CHECK_MESSAGE(nvrtcAccepts(cuda, ran, log), log);
+    }
+
+    // the limit, and its override
+    CHECK(gpuArgumentLimit(GpuTarget::OpenCl) == 1024);
+    CHECK(gpuArgumentLimit(GpuTarget::Cuda) == 4096);
+    setenv("SEISSOL_EXPR_GPU_ARGUMENT_LIMIT", "0", 1);
+    CHECK(gpuArgumentLimit(GpuTarget::Hip) == 0);
+    unsetenv("SEISSOL_EXPR_GPU_ARGUMENT_LIMIT");
+
+    void* handle =
+        compileForHost(std::string(HostShim) + cuda + emitGpuHostTrampoline(layout, "double"));
+    if (handle == nullptr) {
+      WARN_MESSAGE(false, "no usable C++ compiler; the device code generator was not executed");
+      return;
+    }
+    auto* invoke = reinterpret_cast<void (*)(void**)>(dlsym(handle, "seissol_expr_invoke"));
+    REQUIRE(invoke != nullptr);
+    std::vector<double> emitted(2 * NumPoints, 0.0);
+    for (std::size_t call = 0; call < 3; ++call) {
+      CAPTURE(call);
+      for (std::size_t p = 0; p < NumPoints; ++p) {
+        x[p] = std::sin(1.3 * static_cast<double>(call + p)) * static_cast<double>(p);
+        y[p] = 0.25 * static_cast<double>(call) - 0.5 * static_cast<double>(p);
+      }
+      kernel->run(table);
+
+      KernelArgs args{};
+      std::vector<void*> outputs = {emitted.data(), emitted.data() + NumPoints};
+      std::vector<void*> states = {emittedState.data()};
+      args.outputs = outputs.data();
+      args.outputCount = outputs.size();
+      args.states = states.data();
+      args.stateCount = states.size();
+      args.first = 0;
+      args.count = NumPoints;
+      GpuArguments packed(binding, args, nullptr);
+      const std::vector<unsigned char> image = packed.staticImage();
+      GpuArguments throughMemory(GpuArguments::Indirect{}, image.data(), packed.dynamicImage());
+      invoke(throughMemory.data());
+
+      CHECK(unit_test::bitwiseEqual(interpreted.data(), emitted.data(), interpreted.size()));
+      CHECK(unit_test::bitwiseEqual(
+          interpretedState.data(), emittedState.data(), interpretedState.size()));
     }
   }
 

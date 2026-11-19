@@ -577,6 +577,11 @@ DeviceFunction compileFor(GpuTarget target,
 }
 
 bool launchFor(GpuTarget target, void* entry, GpuArguments& args, std::size_t count, void* stream) {
+#if defined(SEISSOL_EXPR_HAVE_SYCL)
+  if (target == GpuTarget::OpenCl) {
+    return launchOpenCl(entry, args, count, stream);
+  }
+#endif
 #if defined(SEISSOL_EXPR_HAVE_NVRTC)
   if (target == GpuTarget::Cuda) {
     return launchCuda(entry, args, count, stream);
@@ -993,9 +998,11 @@ class RtcGpuKernel final : public Kernel {
                std::size_t elementWidth,
                void* queue,
                std::vector<void*> grids,
-               df::GridStore& store)
+               df::GridStore& store,
+               bool indirect)
       : program_(program), binding_(&binding), lowered_(std::move(lowered)), function_(function),
-        target_(target), queue_(queue), grids_(std::move(grids)), store_(&store) {
+        target_(target), queue_(queue), grids_(std::move(grids)), store_(&store),
+        indirect_(indirect) {
     // The hoisted values, and the states the table does not keep; both zeroed by allocFor, which
     // is all a zero-initialised state needs (gpuRejection refuses the others).
     const auto stateSlots = static_cast<std::size_t>(lowered_.stateSlotCount());
@@ -1013,6 +1020,9 @@ class RtcGpuKernel final : public Kernel {
   ~RtcGpuKernel() override {
     freeFor(target_, persistent_, queue_);
     freeFor(target_, ownState_, queue_);
+    for (const auto& [image, device] : images_) {
+      freeFor(target_, device, queue_);
+    }
   }
 
   RtcGpuKernel(const RtcGpuKernel&) = delete;
@@ -1032,8 +1042,7 @@ class RtcGpuKernel final : public Kernel {
     KernelArgs args{};
     args.first = 0;
     args.count = binding_->numPoints();
-    GpuArguments packed(*binding_, args, persistent_, ownState_, grids_);
-    if (!launchFor(target_, function_.precompute, packed, args.count, streamFor(args))) {
+    if (!launch(function_.precompute, args)) {
       logError() << "expr: launching the device precompute stage failed.";
     }
     precomputed_ = true;
@@ -1057,8 +1066,7 @@ class RtcGpuKernel final : public Kernel {
       logError() << "expr: the kernel has a precompute stage that was never run; call "
                     "Kernel::precompute() from prepare().";
     }
-    GpuArguments packed(*binding_, args, persistent_, ownState_, grids_);
-    if (!launchFor(target_, function_.function, packed, args.count, streamFor(args))) {
+    if (!launch(function_.function, args)) {
       logError() << "expr: launching the compiled device kernel failed.";
     }
     if (!checked_) {
@@ -1301,15 +1309,75 @@ class RtcGpuKernel final : public Kernel {
     return pointer;
   }
 
-  /// The OpenCL path enqueues on the queue it was BUILT against -- the kernel
-  /// bundle belongs to that queue's context -- so a per-call stream would have
-  /// to come from the same context anyway. Everywhere else the per-call stream
-  /// wins, which is what lets a caller overlap two evaluations.
+  /// The per-call stream wins, which is what lets a caller overlap two evaluations -- and what
+  /// orders an evaluation after the work it reads on that stream (the derived outputs after the
+  /// correction of their cluster). The OpenCL kernel bundle belongs to the context of the queue it
+  /// was BUILT against, so a per-call queue of another context falls back to that queue, which
+  /// then orders nothing: the queues of SeisSol share the default context of their device.
   [[nodiscard]] void* streamFor(const KernelArgs& args) const {
+#if defined(SEISSOL_EXPR_HAVE_SYCL)
     if (target_ == GpuTarget::OpenCl) {
-      return queue_;
+      if (args.stream == nullptr || queue_ == nullptr) {
+        return queue_;
+      }
+      if (static_cast<sycl::queue*>(args.stream)->get_context() !=
+          static_cast<sycl::queue*>(queue_)->get_context()) {
+        static bool warned = false;
+        if (!warned) {
+          warned = true;
+          logWarning() << "expr: a queue of another SYCL context than the one the OpenCL kernel "
+                          "was built in; enqueuing on that one instead.";
+        }
+        return queue_;
+      }
+      return args.stream;
     }
+#endif
     return args.stream;
+  }
+
+  /// Launches `entry` for the call `args`: with its arguments by value, or through device memory
+  /// (GpuLayout::indirect) -- the image of the fields that stay from call to call, copied there
+  /// once per distinct image (its bases change with the layer, not with the call), and the fields
+  /// that change by value.
+  bool launch(void* entry, const KernelArgs& args) {
+    GpuArguments packed(*binding_, args, persistent_, ownState_, grids_);
+    if (!indirect_) {
+      return launchFor(target_, entry, packed, args.count, streamFor(args));
+    }
+    const void* image = deviceImage(packed.staticImage());
+    if (image == nullptr) {
+      return false;
+    }
+    GpuArguments indirect(GpuArguments::Indirect{}, image, packed.dynamicImage());
+    return launchFor(target_, entry, indirect, args.count, streamFor(args));
+  }
+
+  /// The device copy of a static argument image, made the first time the image is seen. The copy
+  /// waits for it, so the image is complete before any launch reads it; and the image is never
+  /// rewritten, so no launch in flight sees it change.
+  const void* deviceImage(const std::vector<unsigned char>& image) {
+    const std::lock_guard<std::mutex> lock(imagesMutex_);
+    const auto found = images_.find(image);
+    if (found != images_.end()) {
+      return found->second;
+    }
+    void* device = allocFor(target_, image.size(), queue_);
+    if (device == nullptr ||
+        !copyToDeviceFor(target_, device, image.data(), image.size(), queue_)) {
+      freeFor(target_, device, queue_);
+      logWarning() << "expr: the arguments of a device kernel could not be copied to the device.";
+      return nullptr;
+    }
+    if (images_.size() == 4096) {
+      // the bases of a call change from call to call, not from layer to layer: every call then
+      // copies its arguments once more, and keeps the copy
+      logWarning()
+          << "expr: a device kernel got 4096 distinct argument images; their device copies "
+             "are kept until the kernel goes.";
+    }
+    images_.emplace(image, device);
+    return device;
   }
 
   Program program_;
@@ -1325,6 +1393,11 @@ class RtcGpuKernel final : public Kernel {
   void* ownState_{nullptr};
   bool precomputed_{false};
   bool checked_{false};
+  /// the arguments through device memory (GpuLayout::indirect), and the device copies of their
+  /// static images
+  bool indirect_{false};
+  std::mutex imagesMutex_;
+  std::map<std::vector<unsigned char>, void*> images_;
 };
 
 } // namespace
@@ -1403,6 +1476,8 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
   }
   // as written where the kernel or the run asks for it
   const bool strict = options.strict || scriptSettings().strict;
+  // arguments beyond what the target takes by value go through device memory
+  layout.indirect = gpuArgumentBytes(layout) > gpuArgumentLimit(target);
   const CacheKey key{program.fingerprint(),
                      options.lowering.fingerprint(),
                      layout.fingerprint(),
@@ -1440,7 +1515,7 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
     logInfo()
         << "expr: compiled device kernel --" << lowered.summary().c_str() << "--"
         << cost(program, lowered, program.computeType()).summary(program.computeType()).c_str()
-        << "-- for" << arch;
+        << "-- for" << arch << (layout.indirect ? "-- its arguments through device memory" : "");
   }
   // the hoisted values and the states the kernel keeps, in the type the data moves in
   const std::size_t width = lowered.dataType() == ComputeType::F32 ? 4 : 8;
@@ -1452,7 +1527,8 @@ std::unique_ptr<Kernel> makeRtcGpuKernel(const Program& program,
                                         width,
                                         options.deviceQueue,
                                         std::move(gridPointers),
-                                        grids);
+                                        grids,
+                                        layout.indirect);
 }
 
 } // namespace seissol::expr

@@ -16,9 +16,11 @@
 #include "Reader/Datafield/Interpolation.h"
 #include "Reader/Scripting/DataTable.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <sstream>
 #include <stdexcept>
@@ -352,8 +354,10 @@ void emitAccessors(std::ostringstream& out,
 
   for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
     if (isUniform(layout, i)) {
-      // the value itself, already in the compute type
-      out << "#define LOAD_IN" << i << "(a, p) ((a)->value_in" << i << ")\n";
+      // the value itself, already in the compute type; with the arguments in device memory, it
+      // changes from call to call and comes by value (SeissolExprDynamic `d` of the point function)
+      out << "#define LOAD_IN" << i << "(a, p) (" << (layout.indirect ? "(d)" : "(a)")
+          << "->value_in" << i << ")\n";
       continue;
     }
     const char* element = elementType(layout.inputs[i]);
@@ -503,6 +507,26 @@ void emitArgumentStruct(std::ostringstream& out,
       << "} SeissolExprArgs;\n\n";
 }
 
+/// With the arguments in device memory (GpuLayout::indirect), the fields that change from call to
+/// call, by value: the values of the uniform inputs, first and count, as
+/// GpuArguments::dynamicImage() packs them. No pointers, so a kernel parameter on every target.
+void emitDynamicStruct(std::ostringstream& out,
+                       const GpuLayout& layout,
+                       const std::string& computeType) {
+  out << "typedef struct {\n";
+  for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
+    if (isUniform(layout, i)) {
+      out << "  " << computeType << " value_in" << i << ";\n";
+      if (computeType == "float") {
+        out << "  unsigned int pad_in" << i << ";\n";
+      }
+    }
+  }
+  out << "  SeissolU64 first;\n"
+      << "  SeissolU64 count;\n"
+      << "} SeissolExprDynamic;\n\n";
+}
+
 /// The flat parameter list, in the same order as the struct's fields.
 void emitFlatParameters(std::ostringstream& out,
                         const GpuLayout& layout,
@@ -610,9 +634,15 @@ void emitStage(std::ostringstream& out,
   // learning what a GEMM is.
   //
   // The WRAPPER is the standalone form, and it is what the driver layer loads.
-  out << deviceFunction(target) << " void " << name << "_point(\n"
-      << "    " << (target == GpuTarget::OpenCl ? "" : "const ")
-      << "SeissolExprArgs* a, SeissolU64 p) {\n";
+  // With the arguments in device memory, the point function reads them where they lie -- in
+  // OpenCL's global address space -- and the values that change from call to call from `d`.
+  out << deviceFunction(target) << " void " << name << "_point(\n    ";
+  if (layout.indirect) {
+    out << globalQualifier(target) << "const SeissolExprArgs* a, const SeissolExprDynamic* d, ";
+  } else {
+    out << (target == GpuTarget::OpenCl ? "" : "const ") << "SeissolExprArgs* a, ";
+  }
+  out << "SeissolU64 p) {\n";
 
   codegen::StageAddressing addressing;
   addressing.loadInput = gpuLoadInput;
@@ -640,6 +670,14 @@ void emitStage(std::ostringstream& out,
   out << "}\n\n";
 
   out << "SEISSOL_EXPR_KERNEL void " << name << "(";
+  if (layout.indirect) {
+    // two parameters on every target: the image in device memory, and the dynamic fields
+    out << globalQualifier(target) << "const SeissolExprArgs* a, SeissolExprDynamic d) {\n";
+    out << "  for (SeissolU64 l = SEISSOL_EXPR_TID; l < d.count; l += SEISSOL_EXPR_NTHREADS) {\n"
+        << "    " << name << "_point(a, &d, d.first + l);\n"
+        << "  }\n}\n\n";
+    return;
+  }
   if (target == GpuTarget::OpenCl) {
     out << "\n";
     emitFlatParameters(out, layout, computeType);
@@ -796,7 +834,33 @@ std::uint64_t GpuLayout::fingerprint() const {
   for (const auto type : grids) {
     hash = mix(hash, static_cast<std::uint64_t>(type) + 4);
   }
+  hash = mix(hash, indirect ? 5 : 0);
   return hash;
+}
+
+std::size_t gpuArgumentBytes(const GpuLayout& layout) {
+  // the fields of emitArgumentStruct(), 8 bytes each
+  std::size_t fields = 0;
+  for (std::size_t i = 0; i < layout.inputs.size(); ++i) {
+    if (isUniform(layout, i)) {
+      fields += 1;
+    } else {
+      fields += isPerCell(layout.inputPerCell, i) ? 6 : 3;
+    }
+  }
+  for (std::size_t i = 0; i < layout.outputs.size(); ++i) {
+    fields += isPerCell(layout.outputPerCell, i) ? 6 : 3;
+  }
+  fields += layout.matrices.size() + 4 * layout.blocks.size() + 5 * layout.states +
+            layout.grids.size() + 4;
+  return fields * sizeof(std::uint64_t);
+}
+
+std::size_t gpuArgumentLimit(GpuTarget target) {
+  if (const char* env = std::getenv("SEISSOL_EXPR_GPU_ARGUMENT_LIMIT"); env != nullptr) {
+    return static_cast<std::size_t>(std::strtoull(env, nullptr, 10));
+  }
+  return target == GpuTarget::OpenCl ? 1024 : 4096;
 }
 
 GpuLayout gpuLayoutOf(const Binding& binding) {
@@ -822,16 +886,28 @@ GpuLayout gpuLayoutOf(const Binding& binding) {
   return layout;
 }
 
-std::string emitGpuHostTrampoline(const GpuLayout& /*layout*/, const std::string& /*computeType*/) {
+std::string emitGpuHostTrampoline(const GpuLayout& layout, const std::string& /*computeType*/) {
   // One line, and independent of the program: the struct is what carries the
   // shape now. That is the point of the change -- a caller of the kernel has
   // nothing left to get wrong about arity or order.
+  if (layout.indirect) {
+    // the two parameters of GpuArguments' indirect form: the address of the image, and the
+    // dynamic fields
+    return "extern \"C\" void seissol_expr_invoke(void** a) {\n"
+           "  seissol_expr_run(*(const SeissolExprArgs* const*)a[0], "
+           "*(SeissolExprDynamic*)a[1]);\n"
+           "}\n";
+  }
   return "extern \"C\" void seissol_expr_invoke(void** a) {\n"
          "  seissol_expr_run(*(SeissolExprArgs*)a[0]);\n"
          "}\n";
 }
 
 std::string emitGpuHostTrampolineFlat(const GpuLayout& layout, const std::string& computeType) {
+  if (layout.indirect) {
+    // the same two parameters as on the other targets
+    return emitGpuHostTrampoline(layout, computeType);
+  }
   // Generated from the layout because the flat form IS arity-dependent -- which
   // is exactly why the other targets do not use it.
   std::ostringstream out;
@@ -959,6 +1035,8 @@ GpuArguments::GpuArguments(const Binding& binding,
       } else {
         append(&value, sizeof(value));
       }
+      // it changes from call to call (a time, say): by value where the image lies on the device
+      fields_.back().dynamic = true;
       continue;
     }
     appendPointer(base);
@@ -1022,11 +1100,49 @@ GpuArguments::GpuArguments(const Binding& binding,
   appendPointer(persistent);
   appendScalar(binding.numPoints());
   appendScalar(args.first);
+  fields_.back().dynamic = true;
   appendScalar(args.count);
+  fields_.back().dynamic = true;
 
   // cuLaunchKernel wants an array of pointers TO the arguments. There is now
   // exactly one argument, so exactly one entry.
   pointers_.push_back(image_.data());
+}
+
+GpuArguments::GpuArguments(Indirect /*tag*/,
+                           const void* staticImage,
+                           const std::vector<unsigned char>& dynamic) {
+  // two parameters: the address of the image where the kernel runs, and the dynamic fields
+  image_.reserve(sizeof(staticImage) + dynamic.size());
+  append(&staticImage, sizeof(staticImage));
+  append(dynamic.data(), dynamic.size());
+  pointers_.push_back(image_.data() + fields_[0].offset);
+  pointers_.push_back(image_.data() + fields_[1].offset);
+}
+
+std::vector<unsigned char> GpuArguments::staticImage() const {
+  std::vector<unsigned char> image = image_;
+  for (const auto& field : fields_) {
+    if (field.dynamic) {
+      // a float value keeps its padding to the eight bytes of a field, which is zero anyway
+      std::fill_n(image.begin() + static_cast<std::ptrdiff_t>(field.offset),
+                  sizeof(std::uint64_t),
+                  static_cast<unsigned char>(0));
+    }
+  }
+  return image;
+}
+
+std::vector<unsigned char> GpuArguments::dynamicImage() const {
+  std::vector<unsigned char> dynamic;
+  for (const auto& field : fields_) {
+    if (field.dynamic) {
+      // eight bytes per field, as SeissolExprDynamic declares them (a float with its padding)
+      const auto* begin = image_.data() + field.offset;
+      dynamic.insert(dynamic.end(), begin, begin + sizeof(std::uint64_t));
+    }
+  }
+  return dynamic;
 }
 
 void GpuArguments::append(const void* value, std::size_t bytes) {
@@ -1070,6 +1186,9 @@ std::string emitGpuSource(const Program& program,
   emitGridSampling(out, lowered, layout, target);
   emitPercentiles(out, lowered, target);
   emitArgumentStruct(out, layout, computeType, target);
+  if (layout.indirect) {
+    emitDynamicStruct(out, layout, computeType);
+  }
   if (lowered.hasPrecompute()) {
     emitStage(out,
               "seissol_expr_precompute",
