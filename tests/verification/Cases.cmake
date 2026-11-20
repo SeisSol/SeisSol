@@ -1344,6 +1344,21 @@ foreach (turn dip60 flat)
                       LABELS "convergence;turned")
 endforeach()
 
+# Local time stepping, on fault1d with thin cells along the fault (see
+# minimesh.py, fault1d-lts): the rupture steps in their cluster, at its CFL
+# limit, and its waves cross into the next cluster, of the volume receivers.
+# Every output of the energies is a time all clusters step to, by a shorter
+# step where it falls between theirs; only the one at the end is left.
+set(SEISSOL_ENERGY_AT_END "Output.EnergyOutputInterval=1.0e100")
+seissol_add_fault1d(NAME fault1d-lsw-lts FL 16 FAULT fault1d-lsw.yaml MESH fault1d-lts LTS
+                    SET ${SEISSOL_ENERGY_AT_END}
+                    LABELS "convergence;lts")
+seissol_add_fault1d(NAME fault1d-rs-fvw-tp-lts FL 103 FAULT fault1d-rs-fvw-tp.yaml
+                    MESH fault1d-lts LTS STEPS 2048
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
+                        ${SEISSOL_ENERGY_AT_END}
+                    LABELS "convergence;lts")
+
 # the outputs of rupture1d.par and the rupture velocity Vr, which the fault
 # receivers take from the gradient of the rupture times of the Gauss points of
 # their face (see docs/fault-output.rst)

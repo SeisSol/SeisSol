@@ -111,6 +111,10 @@ class Spec:
     # rotations of the whole mesh about the origin, applied in turn, each a
     # pair of an axis and an angle in degrees
     rotation: tuple = ()
+    # the coordinates of the planes of the lattice along an axis, cells + 1 of
+    # them from the origin to the far end, in place of equal spacing: pairs of
+    # an axis and the coordinates
+    planes: tuple = ()
 
     def resolved_origin(self):
         if self.origin is not None:
@@ -272,6 +276,18 @@ for _name, _seed in RELABELLED.items():
     )
 del _name, _seed
 
+# fault1d with thin cells along the fault, whose time step is less than half
+# that of the cells beyond: local time stepping at the rate 2 puts them in a
+# cluster of their own, with the rupture, and the cells beyond, with the volume
+# receivers, in the next. The fault radiates as on fault1d, and its waves cross
+# from one cluster to the other.
+PRESETS["fault1d-lts"] = replace(
+    PRESETS["fault1d"],
+    name="fault1d-lts",
+    size=(96.0, 100.0, 100.0),
+    planes=(("x", (-48.0, -8.0, 0.0, 8.0, 48.0)),),
+)
+
 # fault1d turned in space, for a fault that dips by 60 or 30 degrees and a
 # horizontal one, each of which strikes along no axis. A turn about x first
 # turns the lattice within the fault plane, so that the strike and the dip of
@@ -380,6 +396,20 @@ def _vertices(spec):
         dtype=np.int64,
     )
     coords = origin + lattice * spacing
+    for axis, planes in spec.planes:
+        index = AXES.index(axis)
+        planes = np.asarray(planes, dtype=np.float64)
+        ends = (origin[index], origin[index] + size[index])
+        if planes.size != spec.cells[index] + 1 or not np.all(np.diff(planes) > 0.0):
+            raise ValueError(
+                f"{spec.name}: the planes along {axis} have to be "
+                f"{spec.cells[index] + 1} increasing coordinates"
+            )
+        if not np.allclose((planes[0], planes[-1]), ends, rtol=0.0, atol=1e-9):
+            raise ValueError(
+                f"{spec.name}: the planes along {axis} have to span the size from the origin"
+            )
+        coords[:, index] = planes[lattice[:, index]]
 
     if spec.skew != 0.0:
         preserved = _preserved_planes(spec)
@@ -1194,6 +1224,10 @@ def _command_list(args):
             details.append("groups")
         if spec.relabel:
             details.append(f"vertex ids at random (seed {spec.relabel})")
+        for axis, planes in spec.planes:
+            details.append(
+                f"planes along {axis} at {', '.join(f'{p:g}' for p in planes)}"
+            )
         if spec.rotation:
             details.append(
                 "rotated "

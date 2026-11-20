@@ -964,8 +964,12 @@ SI_PREFIXES = {
 }
 
 
-def check_log(log, timestep):
-    """Check what only the log can tell: the parameters and the time step."""
+CLUSTER_LINE = re.compile(r"info \d+ : (\d+) : (\d+) , (\d+) *$", re.M)
+
+
+def check_log(log, timestep, lts=False):
+    """Check what only the log can tell: the parameters and the time step, or
+    with local time stepping, that the cells fall into more than one cluster."""
     problems = []
 
     unknown = sorted(
@@ -977,7 +981,23 @@ def check_log(log, timestep):
     if unknown:
         problems.append(f"parameters unknown to SeisSol: {', '.join(unknown)}")
 
-    if timestep is not None:
+    if lts:
+        # the histogram of the clusters, a line "cluster : cells , rupture
+        # faces" each, follows its heading
+        _, _, histogram = log.partition("Cluster histogram (cells, DR faces):")
+        clusters = [
+            int(cluster)
+            for cluster, cells, _ in CLUSTER_LINE.findall(
+                histogram.split("Simulations:")[0]
+            )
+            if int(cells) > 0
+        ]
+        if len(clusters) < 2:
+            problems.append(
+                "local time stepping put the cells in a single cluster, so that "
+                "the case steps as with global time stepping"
+            )
+    elif timestep is not None:
         matches = TIMESTEP_LINE.findall(log)
         if not matches:
             problems.append(
@@ -1126,8 +1146,16 @@ def _command_run(args):
                 f"the time step {args.timestep!r} is not a power of two; "
                 f"use e.g. {2.0 ** round(math.log2(abs(args.timestep) or 1.0))!r}"
             )
-        parameters.set("Discretization", "FixTimeStep", repr(args.timestep))
-        # one receiver sample per step, at exactly the step times
+        if args.lts:
+            # the cells step as their CFL limit lets them, in clusters at the
+            # rate 2, which SeisSol's default of FixTimeStep leaves alone; the
+            # time step samples the volume receivers, and with the steps, the
+            # end time
+            parameters.set("Discretization", "ClusteredLTS", "2")
+            parameters.set("Discretization", "FixTimeStep", "5000.0")
+        else:
+            parameters.set("Discretization", "FixTimeStep", repr(args.timestep))
+        # one receiver sample per time step, at exactly its times
         parameters.set("Output", "pickdt", repr(args.timestep))
         if args.steps is not None:
             parameters.set("AbortCriteria", "EndTime", repr(args.steps * args.timestep))
@@ -1326,7 +1354,7 @@ def _command_run(args):
     if completed.returncode != 0:
         problems.append(f"exit code {completed.returncode}")
     else:
-        problems += check_log(log, args.timestep)
+        problems += check_log(log, args.timestep, args.lts)
         problems += check_outputs(
             work,
             prefix,
@@ -2137,9 +2165,20 @@ def _volume_deviations(names, rows, step, radiated, end=None):
     if end is not None:
         recorded = recorded[recorded[:, names.index("Time")] <= end]
     # the volume receivers sample on their own, up to a step before the end
-    samples = np.rint(recorded[:, names.index("Time")] / step).astype(int)
+    position = recorded[:, names.index("Time")] / step
+    samples = np.rint(position).astype(int)
     velocity, stress = radiated
-    velocity, stress = velocity[samples], stress[samples]
+    if np.all(np.abs(position - samples) <= 1e-6):
+        velocity, stress = velocity[samples], stress[samples]
+    else:
+        # stepping locally, the rupture steps at its CFL limit, and the volume
+        # receivers sample between the points of the integration
+        grid = np.arange(velocity.shape[0]) * step
+        times = recorded[:, names.index("Time")]
+        velocity, stress = (
+            np.column_stack([np.interp(times, grid, column) for column in field.T])
+            for field in (velocity, stress)
+        )
     deviations = {}
     index = [names.index(name) for name in ("v1", "v2", "v3")]
     error = np.linalg.norm(recorded[:, index] - velocity, axis=1)
@@ -2818,6 +2857,18 @@ def _command_exact(args):
         raise SystemExit("the case wrote no fault receivers")
     times = [row[0] for row in fault_receivers[0][1]]
     interval = times[1] - times[0]
+    stepping = parameters.get("Discretization", "ClusteredLTS") or "1"
+    if (
+        stepping != "1"
+        and abs(times[-1] - (len(times) - 1) * interval) > 1e-9 * interval
+    ):
+        # stepping locally, the cluster of the rupture takes the steps of its
+        # CFL limit, and a shorter one at the end, to end at the end time; the
+        # sample after that one is left out
+        fault_receivers = [
+            (names, rows[:-1], header) for names, rows, header in fault_receivers
+        ]
+        times = times[:-1]
     if any(abs(t - k * interval) > 1e-9 * interval for k, t in enumerate(times)):
         raise SystemExit(
             "the fault receivers do not sample at a fixed interval from zero"
@@ -3049,6 +3100,12 @@ def main(argv=None):
     run.add_argument("--threads", type=int, default=1)
     run.add_argument("--steps", type=int)
     run.add_argument("--timestep", type=float)
+    run.add_argument(
+        "--lts",
+        action="store_true",
+        help="step locally, at the rate 2; the time step then only samples the "
+        "volume receivers and sets the end time with the steps",
+    )
     run.add_argument("--mpiexec", default="")
     # these are passed as --flag=value because their values start with a dash,
     # which argparse would otherwise read as the next option

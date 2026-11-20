@@ -84,6 +84,12 @@ The meshes
    strike and the dip of the turned fault, which on the horizontal one are
    those of :doc:`left-lateral-right-lateral-normal-reverse`.
 
+``fault1d-lts``
+   ``fault1d`` with thin cells along the fault, whose time step is less than
+   half that of the cells beyond: local time stepping at the rate 2 puts the
+   fault in a cluster of its own, and its waves cross into the next cluster,
+   of the volume receivers.
+
 ``fault1d-relabel``, ``fault2d-periodic-relabel``
    The meshes with their vertices numbered at random, which puts their fault
    faces on 11 and on all 14 pairs of the faces of their cells (see
@@ -140,6 +146,7 @@ Case                                                   What it adds
 ``fault1d-lsw-oblique-*``                              a turned fault (``fault1d-dip60``, ``-dip30``, ``-flat``)
 ``fault1d-rs-fvw-tp-dip30``                            rate and state with thermal pressurization on it
 ``fault1d-lsw-traction``, ``-traction-*``              the stresses as tractions along the strike and the dip
+``fault1d-lsw-lts``, ``fault1d-rs-fvw-tp-lts``         local time stepping (``fault1d-lts``)
 ``fault1d-lsw-relabel``, ``fault1d-rs-fvw-tp-relabel`` other faces of the cells (``fault1d-relabel``)
 ====================================================== =========================================================
 

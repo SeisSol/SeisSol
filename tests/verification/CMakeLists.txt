@@ -136,7 +136,7 @@ endfunction()
 foreach (preset box6 box48 skew48 fault48 faultskew48 fault1d fault1d-bimaterial fault2d
                 fault2d-periodic mat48 periodicx72 periodic162 open96
                 box48-relabel fault48-relabel fault1d-relabel fault2d-periodic-relabel
-                fault1d-dip60 fault1d-dip30 fault1d-flat)
+                fault1d-dip60 fault1d-dip30 fault1d-flat fault1d-lts)
   seissol_add_minimesh(NAME ${preset} PRESET ${preset})
 endforeach()
 
@@ -247,7 +247,7 @@ set_tests_properties(verification.faultreceivers2d-periodic PROPERTIES
 #                      [MATERIAL file] [RANKS n] [THREADS n] [STEPS n]
 #                      [TIMESTEP dt] [THRESHOLDS file] [EXPECT_ZERO]
 #                      [EXPECT_FAILURE regex] [NO_SNAPSHOT] [SNAPSHOT_KEY key]
-#                      [SNAPSHOT_EVERYWHERE]
+#                      [SNAPSHOT_EVERYWHERE] [LTS]
 #                      [REQUIRE key=value ...] [SET Section.Key=Value ...]
 #                      [ENV NAME=VALUE ...] [FILES name ...]
 #                      [ACTIVITY column:threshold ...]
@@ -269,11 +269,15 @@ set_tests_properties(verification.faultreceivers2d-periodic PROPERTIES
 # end, and then restarts from it for the rest of its steps, with RESTART_SET
 # on top of SET; EXPECT_FAILURE then concerns the restart. Its identity with
 # the case run without a restart is tested directly, so it gets no snapshot.
+#
+# A case with LTS steps locally, at the rate 2, as its cells' CFL limits let
+# them: TIMESTEP then samples the volume receivers and, with STEPS, sets the
+# end time, and the run has to put the cells in more than one cluster.
 # ---------------------------------------------------------------------------
 
 function(seissol_add_minitest)
   cmake_parse_arguments(MT
-      "EXPECT_ZERO;NO_SNAPSHOT;SNAPSHOT_EVERYWHERE"
+      "EXPECT_ZERO;NO_SNAPSHOT;SNAPSHOT_EVERYWHERE;LTS"
       "NAME;MESH;PARAMETERS;MATERIAL;RANKS;THREADS;STEPS;TIMESTEP;THRESHOLDS;EXPECT_FAILURE;SNAPSHOT_KEY;RESTART"
       "REQUIRE;SET;ENV;FILES;ACTIVITY;RESTART_SET;LABELS"
       ${ARGN})
@@ -334,6 +338,9 @@ function(seissol_add_minitest)
   endif()
   if (MT_EXPECT_ZERO)
     list(APPEND arguments --expect-zero)
+  endif()
+  if (MT_LTS)
+    list(APPEND arguments --lts)
   endif()
   if (MT_EXPECT_FAILURE)
     list(APPEND arguments "--expect-failure=${MT_EXPECT_FAILURE}")
@@ -587,7 +594,7 @@ endfunction()
 
 # ---------------------------------------------------------------------------
 # seissol_add_fault1d(NAME <name> FL <law> FAULT <file> [MESH mesh] [STEPS n]
-#                     [MATERIAL file] [REQUIRE capability ...]
+#                     [MATERIAL file] [REQUIRE capability ...] [LTS]
 #                     [FILES file ...] [SET ...] [LABELS label ...])
 #
 # A friction law on a fault1d mesh, held against the exact solution of the
@@ -600,7 +607,8 @@ endfunction()
 # its own, so that it can be repeated, and its thresholds recorded, without
 # running SeisSol again. Without MATERIAL, the case takes the material of its
 # build, and without REQUIRE, it runs in elastic and anisotropic builds. FILES
-# are further inputs, such as receivers that SET names.
+# are further inputs, such as receivers that SET names. LTS steps locally (see
+# seissol_add_minitest).
 #
 # A case on fault2d-periodic takes minutes, many times what the others take,
 # in every configuration it runs in. It runs where scipy is there to compare it
@@ -621,7 +629,7 @@ endfunction()
 set(SEISSOL_SPECTRAL_DIR ${CMAKE_CURRENT_BINARY_DIR}/solutions)
 
 function(seissol_add_fault1d)
-  cmake_parse_arguments(F1D "" "NAME;FL;FAULT;MESH;STEPS;MATERIAL" "SET;LABELS;REQUIRE;FILES"
+  cmake_parse_arguments(F1D "LTS" "NAME;FL;FAULT;MESH;STEPS;MATERIAL" "SET;LABELS;REQUIRE;FILES"
                         ${ARGN})
   if (NOT F1D_MESH)
     set(F1D_MESH fault1d)
@@ -641,10 +649,15 @@ function(seissol_add_fault1d)
   if (F1D_MATERIAL)
     set(F1D_MATERIAL MATERIAL ${F1D_MATERIAL})
   endif()
+  set(F1D_OPTIONS "")
+  if (F1D_LTS)
+    set(F1D_OPTIONS LTS)
+  endif()
   seissol_add_minitest(
       NAME ${F1D_NAME}
       MESH ${F1D_MESH}
       PARAMETERS rupture1d.par
+      ${F1D_OPTIONS}
       ${F1D_MATERIAL}
       FILES ${F1D_FAULT} faultreceiver.dat ${F1D_FILES}
       STEPS ${F1D_STEPS}
