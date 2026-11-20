@@ -35,7 +35,8 @@ are skipped, their runs as well as their comparisons. The cases run in the
 configurations of the elastic and the anisotropic equations, the latter with an
 anisotropic material that is isotropic in effect, and with media with tilted
 axes of their own; those on ``fault1d-long`` run in the configurations of
-the viscoelastic and the poroelastic equations. With fused simulations, each
+the viscoelastic and the poroelastic equations, and, with plasticity, of the
+elastic ones. With fused simulations, each
 simulation runs the case, and
 each is compared. The cases on ``fault2d-periodic``, which take minutes each,
 run in double precision, in order 6, without fused simulations only, and carry
@@ -96,12 +97,14 @@ The meshes
 
 ``fault1d-long``, ``fault1d-long-bimaterial``
    ``fault1d`` drawn out to 400 m across the fault, for anelastic and porous
-   media. The outflow planes absorb the shear wave of the unrelaxed impedance
-   :math:`Z_U`, and reflect :math:`(Z_U - Z) / (Z_U + Z)` of one whose
-   impedance relaxes to :math:`Z`: 3 to 6 per cent below 50 Hz with the
-   quality factors of the cases, 2.5 per cent below the frequency of Biot in
-   their porous medium. Six cells on either side keep what they reflect away
-   from the fault and the receivers for the time of the cases.
+   media, and for plasticity without a yield. The outflow planes absorb the
+   shear wave of the unrelaxed impedance :math:`Z_U`, and reflect
+   :math:`(Z_U - Z) / (Z_U + Z)` of one whose impedance relaxes to :math:`Z`:
+   3 to 6 per cent below 50 Hz with the quality factors of the cases, 2.5 per
+   cent below the frequency of Biot in their porous medium, and nearly all of
+   what arrives well below :math:`1 / T_v` under plasticity, whose impedance
+   relaxes to zero. Six cells on either side keep what they reflect away from
+   the fault and the receivers for the time of the cases.
 
 ``fault1d-lts``
    ``fault1d`` with thin cells along the fault, whose time step is less than
@@ -154,6 +157,17 @@ The exact solutions
    which the same quadrature and inversion take. The integration takes steps
    that resolve the frequency of Biot.
 
+   Under plasticity whose Drucker-Prager parameters have no cohesion, friction
+   or initial stress, the yield is zero, and every deviatoric stress relaxes
+   towards zero with the time :math:`T_v` (Wollherr et al., 2018), as in a
+   Maxwell body: the shear modulus relaxes as :math:`\mu s / (s + 1 / T_v)`,
+   the anelastic one of a single mechanism with the coefficient 1, to zero,
+   and the same quadrature and inversion take its impedance. SeisSol splits
+   each step into an elastic one and the relaxation, which leaves its
+   stresses by about :math:`\Delta t / (2 T_v)` from those of the Maxwell
+   body; a yield that is not zero makes the relaxation nonlinear, and has no
+   exact solution here.
+
 ``fault1d.Front``
    A forced rupture front that runs faster than the shear waves outruns all it
    sends out: behind it, every point of the fault solves the problem of
@@ -199,6 +213,8 @@ Case                                                   What it adds
                                                        pressurization, with the frequency of Biot within the
                                                        band of the rupture, and slip weakening with it at
                                                        17 kHz (``-stiff``)
+``fault1d-plastic-*``                                  plasticity without a yield (``fault1d-long``), with
+                                                       :math:`T_v` = 1/16 s: slip weakening and rate and state
 ====================================================== =========================================================
 
 On ``fault2d``, ``fault2d-supershear`` holds a forced supershear front. On
@@ -285,8 +301,9 @@ time, the static frictional work :math:`A V \cdot H u / 2` with the slip
 the waves within the column, which leave it through its ends. The momentum is
 compared relative to the integral of :math:`\rho |v|`, as the momenta of the
 two sides cancel where their media are alike. The cases in anelastic and
-porous media switch the energy output off: what it books for the anelastic
-variables and the pore fluid has no exact solution there.
+porous media and under plasticity switch the energy output off: what it books
+for the anelastic variables, the pore fluid and the plastic strain has no
+exact solution there.
 
 Thresholds
 ----------

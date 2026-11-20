@@ -10,7 +10,7 @@
 # that every deviatoric stress exceeds it and relaxes towards zero with the
 # time Tv, and the solid is a Maxwell body in shear. Its waves are linear and
 # disperse; run_case.py plastic holds a planar wave through it against its
-# exact solution.
+# exact solution, and fault1d.py a rupture in it (see fault1d.Yieldless).
 !Any
 components:
   - !GroupFilter

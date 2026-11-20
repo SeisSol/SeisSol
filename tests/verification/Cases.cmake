@@ -1398,6 +1398,28 @@ seissol_add_fault1d(NAME fault1d-poroelastic-lsw-stiff FL 16 FAULT fault1d-lsw-p
                     SET "Output.EnergyOutput=0"
                     LABELS convergence)
 
+# Plasticity without a yield (plasticity-maxwell.yaml) relaxes every deviatoric
+# stress with the time Tv, here a sixteenth of a second, as a Maxwell body does:
+# the shear modulus relaxes to zero, and the radiation damping with it, so that
+# the fault slips faster than in the elastic solid, by a third at the peak of
+# fault1d-plastic-lsw, and on under the stress it leaves (see fault1d.Yieldless).
+# The outflow planes reflect what has relaxed, at low frequencies nearly all of
+# it, hence fault1d-long. SeisSol splits each step into an elastic one and the
+# relaxation, which leaves its stresses by about dt / (2 Tv), 5e-4 here. The
+# energy output is off, as above.
+set(SEISSOL_FAULT1D_YIELDLESS "equations.Plasticity=1" "equations.Tv=0.0625"
+    "equations.PlasticityFileName='plasticity-maxwell.yaml'")
+seissol_add_fault1d(NAME fault1d-plastic-lsw FL 16 FAULT fault1d-lsw.yaml
+                    MESH fault1d-long REQUIRE equations=elastic FILES plasticity-maxwell.yaml
+                    SET "Output.EnergyOutput=0" ${SEISSOL_FAULT1D_YIELDLESS}
+                        ${SEISSOL_FAULT1D_ELEMENTWISE} ${SEISSOL_FAULT1D_ELEMENTWISE_MASK}
+                    LABELS "convergence;plasticity")
+seissol_add_fault1d(NAME fault1d-plastic-rs-fvw FL 103 FAULT fault1d-rs-fvw.yaml
+                    MESH fault1d-long STEPS 2048 REQUIRE equations=elastic
+                    FILES plasticity-maxwell.yaml
+                    SET "Output.EnergyOutput=0" ${SEISSOL_FAULT1D_YIELDLESS} ${SEISSOL_RS_FVW}
+                    LABELS "convergence;plasticity")
+
 # The same on fault1d with its vertices numbered at random, which puts its
 # faces on eleven pairs of the faces of their cells (see the faces of a fault,
 # Stage 1): with a rule that is not fully symmetric, the points of its faces lie

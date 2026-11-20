@@ -2971,8 +2971,23 @@ def _command_exact(args):
             int(capabilities["mechanisms"]),
         )
     try:
+        groups = (left, right)
         left = fault1d.medium_of(materials, left, attenuation)
         right = fault1d.medium_of(materials, right, attenuation)
+        if (parameters.get("equations", "Plasticity") or "0").strip() != "0":
+            # SeisSol relaxes with Tv = 0.1 where the parameters leave it out
+            relaxation = float(parameters.get("equations", "Tv") or 0.1)
+            plasticity = fault1d.read_constant_maps(
+                work
+                / (
+                    parameters.get("equations", "PlasticityFileName")
+                    or parameters.get("equations", "MaterialFileName")
+                )
+            )
+            left, right = (
+                fault1d.yieldless(medium, plasticity, group, relaxation)
+                for medium, group in zip((left, right), groups)
+            )
     except fault1d.Unsupported as reason:
         raise SystemExit(f"the case has no exact solution here: {reason}") from reason
 

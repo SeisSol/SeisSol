@@ -31,10 +31,11 @@ waves, polarized and as fast as the Christoffel matrix of the direction x
 makes them (see Medium and Problem). The receivers are compared with all of
 this in the fault frame that the documentation defines.
 
-In an anelastic medium, the shear modulus relaxes (see Anelasticity); in a
-porous one, the pore fluid, which the shear wave first leaves behind, follows
-the skeleton as Darcy's friction drags it along, so that the density the wave
-moves relaxes (see Porosity). Either way, so does the impedance. The fault
+In an anelastic medium, the shear modulus relaxes (see Anelasticity), and so
+it does, to zero, in a medium whose plasticity has no yield (see Yieldless);
+in a porous one, the pore fluid, which the shear wave first leaves behind,
+follows the skeleton as Darcy's friction drags it along, so that the density
+the wave moves relaxes (see Porosity). Either way, so does the impedance. The fault
 sees the impedance of the unrelaxed medium at once, and the rest of the
 radiation damping as it relaxes:
 
@@ -72,7 +73,10 @@ are meant to check:
 * the mechanisms of an anelastic medium are those of docs/attenuation.rst,
   fitted to the quality factors as Emmerich and Korn (1987) fit them;
 * a porous medium follows the equations of Biot as de la Puente et al. (2008)
-  pose them.
+  pose them;
+* the plasticity is the viscoplastic relaxation of Drucker-Prager of Wollherr
+  et al. (2018), without the split of each step into an elastic one and the
+  relaxation, which leaves its stresses by about dt / (2 T_v).
 
 The delta pulse (FL=35), whose output is a single impulse, is not covered.
 """
@@ -254,6 +258,27 @@ def medium_of(maps, group, attenuation=None):
         raise Unsupported(f"the material of group {group} lacks {error}") from error
 
 
+def yieldless(medium, maps, group, relaxation):
+    """The medium `medium` of the group `group` under the plasticity of the
+    parameters `maps` (constant maps, see read_constant_maps) with the
+    relaxation time `relaxation`: one without a yield and initial stress,
+    which relaxes as Yieldless does."""
+    values = dict(maps.get(None, {}))
+    values.update(maps.get(group, {}))
+    names = ("plastCo", "bulkFriction") + tuple(
+        f"s_{pair}" for pair in ("xx", "yy", "zz", "xy", "yz", "xz")
+    )
+    for name in names:
+        if float(values.get(name, 0.0)) != 0.0:
+            raise Unsupported(
+                f"plasticity with a yield or an initial stress ({name}) has no "
+                "exact solution here"
+            )
+    if medium.dispersion is not None or not medium.is_isotropic():
+        raise Unsupported("plasticity takes an isotropic elastic medium here")
+    return Medium(medium.rho, medium.stiffness, Yieldless(relaxation))
+
+
 # --------------------------------------------------------------------------
 # anelastic media
 # --------------------------------------------------------------------------
@@ -376,6 +401,54 @@ class Anelasticity:
             cuts.append((high, float(omega)))
             below = float(omega)
         return cuts
+
+
+class Yieldless:
+    """The shear wave of an elastic medium under plasticity without a yield:
+    Drucker-Prager parameters without cohesion, friction and initial stress,
+    under which every deviatoric stress relaxes towards zero with the time T_v
+    (Wollherr et al., 2018), as a Maxwell body does. Its shear modulus relaxes
+    as
+
+        mu(s) = mu psi(s),    psi(s) = s / (s + omega),    omega = 1 / T_v,
+
+    from mu at once to zero: the medium flows under a lasting shear stress.
+    It is the anelastic medium with a single mechanism at omega and the
+    coefficient 1, which Anelasticity, fitted to a quality factor, excludes.
+    """
+
+    def __init__(self, relaxation):
+        relaxation = float(relaxation)
+        if not relaxation > 0.0:
+            raise Unsupported("a relaxation time of zero has no wave to send out")
+        self.frequency = 1.0 / relaxation
+        # psi maps the upper half-plane into itself
+        self.upper = 1.0
+        self.front_rate = 0.5 * self.frequency
+
+    # A = psi and B = 1 / psi, see Anelasticity
+
+    def impedance_excess(self, s):
+        """A - 1 at the complex `s`."""
+        s = np.asarray(s, dtype=complex)
+        return -self.frequency / (s + self.frequency)
+
+    def slowness_excess(self, s):
+        """B - 1 at the complex `s`."""
+        s = np.asarray(s, dtype=complex)
+        return self.frequency / s
+
+    def on_axis(self, x, gaps=None):
+        """A at s = -x, for x >= 0, with `gaps` as Anelasticity takes them."""
+        gap = None if gaps is None else gaps.get(self.frequency)
+        return -np.asarray(x, dtype=float) / (
+            self.frequency - x if gap is None else gap
+        )
+
+    def cuts(self):
+        """The interval of x where A(-x) < 0: from the zero of psi at 0 to its
+        pole at omega."""
+        return [(0.0, self.frequency)]
 
 
 class Porosity:
@@ -2214,6 +2287,23 @@ def self_test():
         float(np.max(np.abs(relaxation.kernel(lags) - exact)) / abs(exact[0])),
         1e-12,
     )
+    # and with the single mechanism of coefficient 1 of plasticity without a
+    # yield, a = 0 and b = omega, whose shear modulus relaxes to zero
+    elastic = Medium.isotropic(2700.0, 3.24e10, 3.24e10)
+    plastic = yieldless(elastic, {}, 1, 0.0625)
+    relaxation = Relaxation(plastic, plastic)
+    half = 0.5 * plastic.dispersion.frequency
+    exact = (
+        -relaxation.eta
+        * half
+        * np.exp(-half * lags)
+        * (_bessel_i(0, half * lags) - _bessel_i(1, half * lags))
+    )
+    check(
+        "the relaxation of the radiation damping without a yield",
+        float(np.max(np.abs(relaxation.kernel(lags) - exact)) / abs(exact[0])),
+        1e-12,
+    )
 
     # the tail of the stress the fault sends out, at the fault, is -g: on
     # Talbot's contour from h(s), and on the cuts by the quadrature
@@ -2229,6 +2319,8 @@ def self_test():
         ("an anelastic and an elastic medium", solid, medium),
         ("one porous medium", porous, porous),
         ("a porous and an anelastic medium", porous, solid),
+        ("plasticity without a yield", plastic, plastic),
+        ("plasticity without a yield and an elastic medium", plastic, elastic),
     ):
         relaxation = Relaxation(left, right)
         fronts, tails = relaxation.propagators(right, 0.0, lags)
@@ -2259,6 +2351,7 @@ def self_test():
         (16, weakening, solid, soft, "anelastic"),
         (34, imposed, solid, soft, "anelastic"),
         (16, weakening, porous, porous, "porous"),
+        (16, weakening, plastic, plastic, "without a yield"),
     ):
         problem = Problem({"FL": law, "XRef": -1.0e5}, fault, left, right)
         series = problem.solve(0.08, 1e-5)
