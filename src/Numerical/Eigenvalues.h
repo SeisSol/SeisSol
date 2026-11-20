@@ -63,6 +63,20 @@ using Scaling = Eigen::Matrix<typename Eigen::NumTraits<typename MatrixT::Scalar
  * inverse of the density, ~1e-4, in the rows of the velocities. Unless such a matrix is balanced,
  * the speeds of its waves come out with relative errors of the order of 1e-3 wherever the waves
  * couple all components, as they do in an anisotropic medium.
+ *
+ * Where the off-diagonal part of a row or of a column vanishes, the diagonal counts into the norms
+ * of both, as LAPACK counts it into all of them. The plane-wave operator of an anelastic solid has
+ * such rows: those of the memory variables that the wave leaves without coupling, which only decay,
+ * at the frequency of their mechanism. Their columns hold anelastic coefficients of the size of the
+ * stiffness, also in the rows of stresses that the wave leaves without coupling, whose columns
+ * vanish and whose diagonals are zero, and which so stay as they are. Unless those columns are
+ * scaled, the balanced operator keeps the norm of the stiffness, and the eigensolver puts the
+ * eigenvalues of such modes tens off the frequencies of their mechanisms, to modes that grow and
+ * that, sorted by their real parts, take the places of the waves. With the diagonal in both norms,
+ * the scaling of such a row and column can only shrink the entries off the diagonal, as the scaling
+ * of any other lessens their sum; were the diagonal to take the place of the vanishing norm alone,
+ * the scaling could grow them, toward a diagonal larger than they are, and the balancing of an
+ * operator shifted by one of its eigenvalues could go on without end.
  */
 template <typename MatrixT>
 Scaling<MatrixT> balance(MatrixT& m) {
@@ -83,8 +97,12 @@ Scaling<MatrixT> balance(MatrixT& m) {
           row += std::abs(m(i, j));
         }
       }
-      // a row or column without off-diagonal entries has nothing to balance, and one with
-      // entries that are not finite cannot be balanced
+      if (column == 0 || row == 0) {
+        column += std::abs(m(i, i));
+        row += std::abs(m(i, i));
+      }
+      // a row or column whose entries, on its diagonal and off it, all vanish has nothing to
+      // balance, and one with entries that are not finite cannot be balanced
       if (column == 0 || row == 0 || !std::isfinite(column + row)) {
         continue;
       }

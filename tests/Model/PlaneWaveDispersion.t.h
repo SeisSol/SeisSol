@@ -120,12 +120,9 @@ TEST_CASE_TEMPLATE_DEFINE("The plane waves of a viscoelastic material run at the
     CAPTURE(speed);
     const auto omegas = frequencies<Cfg>(material, central / speed);
 
-    // No mode grows. The modes that decay without travelling, imaginary eigenvalues, are so badly
-    // conditioned (their eigenvectors in the memory variables are nearly parallel) that the
-    // eigensolver, backward stable as it is, may take some of them far into the complex plane, and
-    // even to modes that grow; the waves themselves are well conditioned. Hence a warning only.
+    // no mode grows
     for (const auto& omega : omegas) {
-      WARN(omega.imag() >= -1e-9 * central);
+      CHECK(omega.imag() >= -1e-9 * central);
     }
 
     // the wave, of the frequency next to the central one
@@ -134,6 +131,15 @@ TEST_CASE_TEMPLATE_DEFINE("The plane waves of a viscoelastic material run at the
     });
     CHECK(wave.real() == doctest::Approx(central).epsilon(1 / (2 * quality * quality)));
     CHECK(wave.real() / (2 * wave.imag()) == doctest::Approx(quality).epsilon(0.1));
+
+    // The planar wave takes its modes by their places in this order (physics::Planarwave): P
+    // last, and second an S wave that travels the other way, at the frequency -conj(omega) of
+    // the one that travels along x. The modes that decay without travelling sort between.
+    if (quality == Qp) {
+      CHECK(omegas.back() == wave);
+    } else {
+      CHECK(std::abs(omegas[1] + std::conj(wave)) <= 1e-9 * central);
+    }
   }
 }
 
