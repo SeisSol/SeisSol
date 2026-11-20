@@ -40,6 +40,11 @@ class Pinning {
   [[nodiscard]] async::as::CpuMask getOnlineMask() const;
   [[nodiscard]] static bool areAllCpusOnline();
   void pinToFreeCPUs() const;
+  /**
+   * Pins the calling thread to @p mask. Unlike pinToFreeCPUs(), it calls no collective, so that a
+   * thread of its own can call it with a mask that the main thread has computed.
+   */
+  static void pinCurrentThread(const async::as::CpuMask& mask);
   static std::string maskToString(const async::as::CpuMask& mask);
   static std::string maskToStringShort(const async::as::CpuMask& mask);
   [[nodiscard]] static async::as::CpuMask getNodeMask();
