@@ -102,7 +102,7 @@ class GravitationalFreeSurfaceBc {
   template <typename MappingKrnl>
   void evaluateOnDevice(unsigned faceIdx,
                         MappingKrnl&& fsgKernelBase,
-                        recording::ConditionalPointersToRealsTable& dataTable,
+                        recording::ConditionalTable& dataTable,
                         double timeStepWidth,
                         device::DeviceInstance& /*device*/,
                         seissol::parallel::runtime::StreamRuntime& runtime) {

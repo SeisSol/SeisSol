@@ -50,7 +50,7 @@ class NeighborKernel : public Kernel<Cfg> {
                                const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) = 0;
 
   virtual void
-      computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
+      computeBatchedNeighborsIntegral(recording::ConditionalTable& table,
                                       seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
   [[nodiscard]] virtual std::pair<PerformanceEstimate, PerformanceEstimate>

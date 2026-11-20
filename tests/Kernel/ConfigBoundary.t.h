@@ -312,7 +312,7 @@ void checkBatchedConversion() {
   device.api().copyTo(deviceConverted, nan.data(), nan.size() * sizeof(RealT));
 
   {
-    recording::ConditionalPointersToRealsTable table;
+    recording::ConditionalTable table;
     std::vector<NeighborReal*> integrals{deviceIntegral};
     std::vector<Canonical*> canonical{deviceCanonical};
     auto& toCanonical = table[kernels::configboundary::toCanonicalKey(configIdOf<NeighborCfg>())];

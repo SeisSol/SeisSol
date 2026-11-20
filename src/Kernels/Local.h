@@ -65,8 +65,7 @@ class LocalKernel : public Kernel<Cfg> {
                                double time,
                                double timeStepWidth) = 0;
 
-  virtual void computeBatchedIntegral(recording::ConditionalPointersToRealsTable& dataTable,
-                                      recording::ConditionalIndicesTable& indicesTable,
+  virtual void computeBatchedIntegral(recording::ConditionalTable& dataTable,
                                       double timeStepWidth,
                                       seissol::parallel::runtime::StreamRuntime& runtime) = 0;
 
@@ -75,8 +74,7 @@ class LocalKernel : public Kernel<Cfg> {
    * from `time` when the evaluation runs.
    */
   virtual void
-      evaluateBatchedTimeDependentBc(recording::ConditionalPointersToRealsTable& dataTable,
-                                     recording::ConditionalIndicesTable& indicesTable,
+      evaluateBatchedTimeDependentBc(recording::ConditionalTable& dataTable,
                                      LTS::Layer& layer,
                                      const double* time,
                                      double timeStepWidth,

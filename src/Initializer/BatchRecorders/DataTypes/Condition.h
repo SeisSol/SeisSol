@@ -16,11 +16,9 @@
 namespace seissol::recording {
 template <typename T>
 constexpr bool isEncodedConstant() {
-  return std::is_same_v<FaceKinds, T> || std::is_same_v<KernelNames, T> ||
-         std::is_same_v<FaceId, T> || std::is_same_v<FaceRelations, T> ||
-         std::is_same_v<DrFaceRelations, T> || std::is_same_v<ComputationKind, T> ||
-         std::is_same_v<ExchangeInfo, T> || std::is_same_v<inner_keys::Wp::Id, T> ||
-         std::is_same_v<inner_keys::Dr::Id, T> || std::is_same_v<inner_keys::Indices::Id, T>;
+  return std::is_same_v<FaceKinds, T> || std::is_same_v<FaceId, T> ||
+         std::is_same_v<FaceRelations, T> || std::is_same_v<DrFaceRelations, T> ||
+         std::is_same_v<ComputationKind, T> || std::is_same_v<ExchangeInfo, T>;
 }
 
 /// The enumerations of encoded constants, which the operators below combine.

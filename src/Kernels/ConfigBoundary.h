@@ -204,7 +204,7 @@ class ConfigBoundary {
    * other configurations in their configuration, converts them into the canonical form of their
    * family, and from there into the configuration of the cells.
    */
-  void computeBatchedIntegrals(recording::ConditionalPointersToRealsTable& table,
+  void computeBatchedIntegrals(recording::ConditionalTable& table,
                                seissol::parallel::runtime::StreamRuntime& runtime) const;
 
   private:
@@ -228,7 +228,7 @@ class ConfigBoundary {
 
   /// The batched counterpart of computeIntegral, up to the canonical form.
   template <typename NeighborCfg>
-  void computeBatchedCanonical(recording::ConditionalPointersToRealsTable& table,
+  void computeBatchedCanonical(recording::ConditionalTable& table,
                                const Neighbor& neighbor,
                                seissol::parallel::runtime::StreamRuntime& runtime) const;
 

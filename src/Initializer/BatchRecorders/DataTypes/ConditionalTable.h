@@ -14,14 +14,9 @@
 #include "Table.h"
 
 namespace seissol::recording {
-using ConditionalPointersToRealsTable =
-    std::unordered_map<ConditionalKey, PointersToRealsTable, ConditionalHash<ConditionalKey>>;
-
-using DrConditionalPointersToRealsTable =
-    std::unordered_map<ConditionalKey, DrPointersToRealsTable, ConditionalHash<ConditionalKey>>;
-
-using ConditionalIndicesTable =
-    std::unordered_map<ConditionalKey, IndicesTable, ConditionalHash<ConditionalKey>>;
+/// The batches of a layer, by their keys.
+using ConditionalTable =
+    std::unordered_map<ConditionalKey, BatchTable, ConditionalHash<ConditionalKey>>;
 } // namespace seissol::recording
 
 #endif // SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_CONDITIONALTABLE_H_

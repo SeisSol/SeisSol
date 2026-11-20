@@ -158,7 +158,7 @@ std::pair<PerformanceEstimate, PerformanceEstimate> Neighbor<Cfg>::metrics(
 
 template <typename Cfg>
 void Neighbor<Cfg>::computeBatchedNeighborsIntegral(
-    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM recording::ConditionalTable& table,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
 

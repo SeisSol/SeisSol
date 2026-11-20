@@ -63,7 +63,7 @@ struct TimeCommon {
   static void computeBatchedIntegrals(Time<Cfg>& time,
                                       const real* timeCoeffs,
                                       const real* subtimeCoeffs,
-                                      recording::ConditionalPointersToRealsTable& table,
+                                      recording::ConditionalTable& table,
                                       seissol::parallel::runtime::StreamRuntime& runtime);
 
   TimeCommon() = delete;

@@ -344,7 +344,7 @@ void LocalIntegrationRecorder<Cfg>::recordFreeSurfaceGravityBc() {
         const ConditionalKey key(
             *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, face);
         checkKey(key);
-        (*currentIndicesTable_)[key].set(inner_keys::Indices::Id::Cells, cellIndices[face]);
+        (*currentTable_)[key].set(inner_keys::Indices::Id::Cells, cellIndices[face]);
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::Derivatives, derivatives[face]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs[face]);
@@ -467,7 +467,7 @@ void LocalIntegrationRecorder<Cfg>::recordAnalyticalBc(LTS::Layer& layer) {
         const ConditionalKey key(
             *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
         checkKey(key);
-        (*currentIndicesTable_)[key].set(inner_keys::Indices::Id::Cells, cellIndices[face]);
+        (*currentTable_)[key].set(inner_keys::Indices::Id::Cells, cellIndices[face]);
 
         (*currentTable_)[key].set(inner_keys::Wp::Id::Dofs, dofsPtrs[face]);
         (*currentTable_)[key].set(inner_keys::Wp::Id::NeighborIntegrationData, neighPtrs[face]);

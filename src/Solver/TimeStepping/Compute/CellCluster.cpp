@@ -333,8 +333,7 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
 
   const auto loop = deviceLoops_.begin(streamRuntime_.stream());
 
-  auto& dataTable = clusterData_->getConditionalTable<inner_keys::Wp>();
-  auto& indicesTable = clusterData_->getConditionalTable<inner_keys::Indices>();
+  auto& dataTable = clusterData_->getConditionalTable();
 
   kernels::LocalTmp<Cfg> tmp(seissolInstance_.gravitationSetup().acceleration);
 
@@ -358,7 +357,7 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
                                             true,
                                             streamRuntime);
 
-        localKernel_.computeBatchedIntegral(dataTable, indicesTable, timeStepWidth, streamRuntime);
+        localKernel_.computeBatchedIntegral(dataTable, timeStepWidth, streamRuntime);
 
         for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
           const ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
@@ -412,7 +411,7 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
   // depends on the current time, and therefore cannot be replayed from the graph above; it neither
   // reads nor writes what the graph computes after the local integral
   localKernel_.evaluateBatchedTimeDependentBc(
-      dataTable, indicesTable, *clusterData_, clock_.host(), timeStepWidth, streamRuntime_);
+      dataTable, *clusterData_, clock_.host(), timeStepWidth, streamRuntime_);
 
   deviceLoops_.end(loop,
                    streamRuntime_.stream(),
@@ -454,7 +453,7 @@ void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
   const auto loop = deviceLoops_.begin(streamRuntime_.stream());
 
   const double timeStepWidth = params.timeStepSize;
-  auto& table = clusterData_->getConditionalTable<inner_keys::Wp>();
+  auto& table = clusterData_->getConditionalTable();
 
   const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
   const auto timeCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
@@ -486,7 +485,6 @@ void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
         Cfg(), seissol::initializer::AllocationPlace::Device);
     auto* isAdjustableVector = clusterData_->var<LTSPlasticity::FlagScratch>(
         seissol::initializer::AllocationPlace::Device);
-    auto& indicesTable = clusterData_->getConditionalTable<inner_keys::Indices>();
     streamRuntime_.runGraph(
         plasticityGraphKey,
         *clusterData_,
@@ -496,7 +494,6 @@ void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
               seissolInstance_.parameters().model.tv,
               globalData_.onDevice,
               table,
-              indicesTable,
               plasticity,
               conditionalCounterDevice_.data(),
               isAdjustableVector,

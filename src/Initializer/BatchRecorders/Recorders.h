@@ -43,15 +43,11 @@ class AbstractRecorder {
   }
 
   virtual void setUpContext(initializer::Layer& layer) {
-    currentTable_ = &layer.getConditionalTable<inner_keys::Wp>();
-    currentDrTable_ = &layer.getConditionalTable<inner_keys::Dr>();
-    currentIndicesTable_ = &layer.getConditionalTable<inner_keys::Indices>();
+    currentTable_ = &layer.getConditionalTable();
     currentLayer_ = &layer;
   }
 
-  ConditionalPointersToRealsTable* currentTable_{nullptr};
-  DrConditionalPointersToRealsTable* currentDrTable_{nullptr};
-  ConditionalIndicesTable* currentIndicesTable_{nullptr};
+  ConditionalTable* currentTable_{nullptr};
   initializer::Layer* currentLayer_{nullptr};
 };
 

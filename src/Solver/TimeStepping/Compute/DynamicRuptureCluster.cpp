@@ -229,7 +229,7 @@ void DynamicRuptureCluster<Cfg>::computeDynamicRuptureDevice(
     const ComputeGraphType graphType = ComputeGraphType::DynamicRuptureInterface;
     device_.api().putProfilingMark("computeDrInterfaces", device::ProfilingColors::Cyan);
     const auto computeGraphKey = initializer::GraphKey(graphType, timestep);
-    auto& table = layerData.getConditionalTable<inner_keys::Dr>();
+    auto& table = layerData.getConditionalTable();
 
     const auto [timePoints, timeWeights] =
         seissol::quadrature::shiftedGaussLegendre(Cfg::ConvergenceOrder, 0, timestep);

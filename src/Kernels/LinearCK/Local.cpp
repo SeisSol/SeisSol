@@ -177,8 +177,7 @@ void Local<Cfg>::computeIntegral(real* timeIntegratedDoFs,
 
 template <typename Cfg>
 void Local<Cfg>::computeBatchedIntegral(
-    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
-    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& /*indicesTable*/,
+    SEISSOL_GPU_PARAM recording::ConditionalTable& dataTable,
     SEISSOL_GPU_PARAM double timeStepWidth,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
@@ -336,8 +335,7 @@ void Local<Cfg>::computeBatchedIntegral(
 
 template <typename Cfg>
 void Local<Cfg>::evaluateBatchedTimeDependentBc(
-    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& dataTable,
-    SEISSOL_GPU_PARAM recording::ConditionalIndicesTable& indicesTable,
+    SEISSOL_GPU_PARAM recording::ConditionalTable& dataTable,
     SEISSOL_GPU_PARAM LTS::Layer& layer,
     SEISSOL_GPU_PARAM const double* time,
     SEISSOL_GPU_PARAM double timeStepWidth,
@@ -349,10 +347,10 @@ void Local<Cfg>::evaluateBatchedTimeDependentBc(
   for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
     const ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
-    if (indicesTable.contains(analyticalKey)) {
+    if (dataTable.contains(analyticalKey)) {
       // the indices the table holds, not a copy of them: the loop below runs when the stream gets
       // to it, after this scope
-      const auto& cellIds = std::as_const(indicesTable)
+      const auto& cellIds = std::as_const(dataTable)
                                 .at(analyticalKey)
                                 .get<unsigned>(inner_keys::Indices::Id::Cells)
                                 ->getHostData();

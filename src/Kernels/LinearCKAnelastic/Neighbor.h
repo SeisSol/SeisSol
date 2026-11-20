@@ -27,7 +27,7 @@ class Neighbor : public NeighborKernel<Cfg> {
       const std::array<real*, Cell::NumFaces>& timeIntegrated,
       const std::array<real*, Cell::NumFaces>& faceNeighborsPrefetch) override;
 
-  void computeBatchedNeighborsIntegral(recording::ConditionalPointersToRealsTable& table,
+  void computeBatchedNeighborsIntegral(recording::ConditionalTable& table,
                                        seissol::parallel::runtime::StreamRuntime& runtime) override;
 
   [[nodiscard]] std::pair<PerformanceEstimate, PerformanceEstimate>

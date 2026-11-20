@@ -547,9 +547,7 @@ class Layer {
   std::unordered_map<GraphKey, device::DeviceGraphHandle, GraphKeyHash> computeGraphHandles_;
 #endif
 
-  recording::ConditionalPointersToRealsTable conditionalPointersToRealsTable_;
-  recording::DrConditionalPointersToRealsTable drConditionalPointersToRealsTable_;
-  recording::ConditionalIndicesTable conditionalIndicesTable_;
+  recording::ConditionalTable conditionalTable_;
 
   static std::size_t placeIndex(AllocationPlace place) {
     return place == AllocationPlace::Host ? 0 : 1;
@@ -766,34 +764,11 @@ class Layer {
     }
   }
 
-  template <typename InnerKeyType>
-  auto& getConditionalTable() {
-    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Wp>) {
-      return conditionalPointersToRealsTable_;
-    }
+  /// The batches recorded for the layer, by their keys (see recording::ConditionalKey).
+  recording::ConditionalTable& getConditionalTable() { return conditionalTable_; }
 
-    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Dr>) {
-      return drConditionalPointersToRealsTable_;
-    }
-
-    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Indices>) {
-      return conditionalIndicesTable_;
-    }
-  }
-
-  template <typename InnerKeyType>
-  const auto& getConditionalTable() const {
-    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Wp>) {
-      return conditionalPointersToRealsTable_;
-    }
-
-    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Dr>) {
-      return drConditionalPointersToRealsTable_;
-    }
-
-    if constexpr (std::is_same_v<InnerKeyType, recording::inner_keys::Indices>) {
-      return conditionalIndicesTable_;
-    }
+  [[nodiscard]] const recording::ConditionalTable& getConditionalTable() const {
+    return conditionalTable_;
   }
 
 #ifdef ACL_DEVICE

@@ -81,13 +81,13 @@ void DynamicRuptureRecorder<Cfg>::recordSpaceInterpolation() {
            ++faceRelation) {
         if (!qInterpolatedMinusPtr[side][faceRelation].empty()) {
           const ConditionalKey key(*KernelNames::DrSpaceMap, side, faceRelation);
-          (*currentDrTable_)[key].set(inner_keys::Dr::Id::QInterpolatedMinus,
-                                      qInterpolatedMinusPtr[side][faceRelation]);
-          (*currentDrTable_)[key].set(inner_keys::Dr::Id::IdofsMinus,
-                                      idofsMinusPtr[side][faceRelation]);
-          (*currentDrTable_)[key].set(inner_keys::Dr::Id::TinvT, tInvTMinusPtr[side][faceRelation]);
-          (*currentDrTable_)[key].set(inner_keys::Dr::Id::DerivativesMinus,
-                                      timeDerivativeMinusPtrs[side][faceRelation]);
+          (*currentTable_)[key].set(inner_keys::Dr::Id::QInterpolatedMinus,
+                                    qInterpolatedMinusPtr[side][faceRelation]);
+          (*currentTable_)[key].set(inner_keys::Dr::Id::IdofsMinus,
+                                    idofsMinusPtr[side][faceRelation]);
+          (*currentTable_)[key].set(inner_keys::Dr::Id::TinvT, tInvTMinusPtr[side][faceRelation]);
+          (*currentTable_)[key].set(inner_keys::Dr::Id::DerivativesMinus,
+                                    timeDerivativeMinusPtrs[side][faceRelation]);
         }
       }
     }

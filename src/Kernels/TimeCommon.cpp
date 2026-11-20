@@ -98,7 +98,7 @@ void TimeCommon<Cfg>::computeBatchedIntegrals(
     SEISSOL_GPU_PARAM Time<Cfg>& time,
     SEISSOL_GPU_PARAM const real* timeCoeffs,
     SEISSOL_GPU_PARAM const real* subtimeCoeffs,
-    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM recording::ConditionalTable& table,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;

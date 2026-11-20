@@ -68,7 +68,7 @@ void PlasticityRecorder<Cfg>::record(LTS::Layer& layer) {
     (*currentTable_)[key].set(inner_keys::Wp::Id::NodalStressTensor, qStressNodalPtrs);
     (*currentTable_)[key].set(inner_keys::Wp::Id::Pstrains, pstrainsPtrs);
     (*currentTable_)[key].set(inner_keys::Wp::Id::InitialLoad, initialLoadPtrs);
-    (*currentIndicesTable_)[key].set(inner_keys::Indices::Id::Cells, cellIndices);
+    (*currentTable_)[key].set(inner_keys::Indices::Id::Cells, cellIndices);
   }
 }
 

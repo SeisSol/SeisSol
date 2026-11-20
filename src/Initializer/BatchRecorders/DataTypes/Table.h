@@ -12,7 +12,6 @@
 #include "Core/Memory/MemoryAllocator.h"
 #include "EncodedConstants.h"
 
-#include <array>
 #include <cassert>
 #include <memory>
 #include <string>
@@ -47,44 +46,51 @@ class GenericTableEntry {
   memory::MemkindArray<Type> deviceArray_;
 };
 
-/// The variables `KeyType::Id` of a batch. A layer records its batches in its configuration, so a
-/// variable holds what that configuration holds, e.g. pointers to its reals: `set` takes the type
-/// of the entries from the vector, and `get` names it again.
-template <typename KeyType>
-struct GenericTable {
-  using VariableIdType = KeyType::Id;
-
+/// The variables of a batch (see BatchVariable). A layer records its batches in its configuration,
+/// so a variable holds what that configuration holds, e.g. pointers to its reals: `set` takes the
+/// type of the entries from the vector, and `get` names it again.
+class BatchTable {
   public:
-  GenericTable() = default;
-
-  template <typename DataType>
-  void set(VariableIdType id, std::vector<DataType>& data) {
-    content_[*id] = std::make_shared<GenericTableEntry<DataType>>(data);
-    types_[*id] = &typeid(DataType);
+  template <typename Tag, typename DataType>
+  void set(BatchVariable<Tag> /*variable*/, std::vector<DataType>& data) {
+    const auto id = BatchVariable<Tag>::id();
+    if (id >= content_.size()) {
+      content_.resize(id + 1);
+      types_.resize(id + 1, nullptr);
+    }
+    content_[id] = std::make_shared<GenericTableEntry<DataType>>(data);
+    types_[id] = &typeid(DataType);
   }
 
-  template <typename DataType>
-  GenericTableEntry<DataType>* get(VariableIdType id) {
-    assert((types_.at(*id) == nullptr || *types_.at(*id) == typeid(DataType)) &&
+  /// The entries of `variable`; null if the batch has none.
+  template <typename DataType, typename Tag>
+  GenericTableEntry<DataType>* get(BatchVariable<Tag> /*variable*/) {
+    const auto id = BatchVariable<Tag>::id();
+    if (id >= content_.size()) {
+      return nullptr;
+    }
+    assert((types_[id] == nullptr || *types_[id] == typeid(DataType)) &&
            "a batch variable is read as another type than it was recorded as");
-    return static_cast<GenericTableEntry<DataType>*>(content_.at(*id).get());
+    return static_cast<GenericTableEntry<DataType>*>(content_[id].get());
   }
 
-  template <typename DataType>
-  [[nodiscard]] const GenericTableEntry<DataType>* get(VariableIdType id) const {
-    assert((types_.at(*id) == nullptr || *types_.at(*id) == typeid(DataType)) &&
+  /// The entries of `variable`; null if the batch has none.
+  template <typename DataType, typename Tag>
+  [[nodiscard]] const GenericTableEntry<DataType>* get(BatchVariable<Tag> /*variable*/) const {
+    const auto id = BatchVariable<Tag>::id();
+    if (id >= content_.size()) {
+      return nullptr;
+    }
+    assert((types_[id] == nullptr || *types_[id] == typeid(DataType)) &&
            "a batch variable is read as another type than it was recorded as");
-    return static_cast<const GenericTableEntry<DataType>*>(content_.at(*id).get());
+    return static_cast<const GenericTableEntry<DataType>*>(content_[id].get());
   }
 
   private:
-  std::array<std::shared_ptr<void>, *VariableIdType::Count> content_{};
-  std::array<const std::type_info*, *VariableIdType::Count> types_{};
+  // by the id of the variable
+  std::vector<std::shared_ptr<void>> content_;
+  std::vector<const std::type_info*> types_;
 };
-
-using PointersToRealsTable = GenericTable<inner_keys::Wp>;
-using DrPointersToRealsTable = GenericTable<inner_keys::Dr>;
-using IndicesTable = GenericTable<inner_keys::Indices>;
 
 } // namespace seissol::recording
 

@@ -315,7 +315,7 @@ std::size_t ConfigBoundary<Cfg>::scratchBytes(ConfigId neighbor) {
 
 template <typename Cfg>
 void ConfigBoundary<Cfg>::computeBatchedIntegrals(
-    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM recording::ConditionalTable& table,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) const {
 #ifdef ACL_DEVICE
   using namespace seissol::recording;
@@ -386,7 +386,7 @@ void ConfigBoundary<Cfg>::computeBatchedIntegrals(
 template <typename Cfg>
 template <typename NeighborCfg>
 void ConfigBoundary<Cfg>::computeBatchedCanonical(
-    SEISSOL_GPU_PARAM recording::ConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM recording::ConditionalTable& table,
     SEISSOL_GPU_PARAM const Neighbor& neighbor,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) const {
 #ifdef ACL_DEVICE

@@ -130,7 +130,7 @@ void DynamicRupture<Cfg>::spaceTimeInterpolation(
 
 template <typename Cfg>
 void DynamicRupture<Cfg>::batchedSpaceTimeInterpolation(
-    SEISSOL_GPU_PARAM recording::DrConditionalPointersToRealsTable& table,
+    SEISSOL_GPU_PARAM recording::ConditionalTable& table,
     SEISSOL_GPU_PARAM const real* coeffs,
     SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
 #ifdef ACL_DEVICE
