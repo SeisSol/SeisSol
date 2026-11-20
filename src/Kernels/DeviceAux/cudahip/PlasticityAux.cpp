@@ -133,14 +133,15 @@ __global__ void
     }
 
     eta[linearidx<Cfg>()] += std::sqrt(pstrainSq);
-
-    // update the FLOPs that we've been here
-    // (there's no atomicAdd for unsigned long / sometimes size_t, so take one of the other ones)
-    static_assert(sizeof(unsigned long long) == sizeof(std::size_t));
-    atomicAdd(reinterpret_cast<unsigned long long*>(yieldCounter), 1);
   }
   if (linearidx<Cfg>() == 0) {
     isAdjustableVector[blockIdx.x] = isAdjusted;
+    if (isAdjusted) {
+      // count the cell for the FLOPs of the yield, once, as the CPU does
+      // (there's no atomicAdd for unsigned long / sometimes size_t, so take one of the other ones)
+      static_assert(sizeof(unsigned long long) == sizeof(std::size_t));
+      atomicAdd(reinterpret_cast<unsigned long long*>(yieldCounter), 1);
+    }
   }
 }
 
