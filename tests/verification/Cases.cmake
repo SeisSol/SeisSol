@@ -1404,10 +1404,15 @@ seissol_add_fault1d(NAME fault1d-poroelastic-imposed FL 33 FAULT fault1d-imposed
                     REQUIRE equations=poroelastic
                     SET "DynamicRupture.SlipRateOutputType=0"
                     LABELS convergence)
-# The propagators of material-poroelastic.yaml, which relaxes within a fraction
-# of a step, do not invert on Talbot's contour beyond some 60 m from the fault,
-# where their exponent spans hundreds of orders of magnitude on it; the
-# energies of the column are left out there.
+# material-poroelastic.yaml relaxes within a fraction of a step into the elastic
+# solid of the density of the mixture, whose shear wave, at 2130 m/s, is slower
+# than those of the other cases on the same mesh. The case deviates three times
+# as much as fault1d-poroelastic-lsw, at the fault and at the receivers, and an
+# elastic run of that solid does so as well: both halve with cells half as long
+# across the fault, and the porous run lies 5e-4 from the elastic one. The
+# propagators of the medium do not invert on Talbot's contour beyond some 60 m
+# from the fault, where their exponent spans hundreds of orders of magnitude on
+# it; the energies of the column are left out there.
 seissol_add_fault1d(NAME fault1d-poroelastic-lsw-stiff FL 16 FAULT fault1d-lsw-porous.yaml
                     MESH fault1d-long REQUIRE equations=poroelastic
                     SET "Output.EnergyOutput=0"
