@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+name: layering-check
+on:
+  - push
+
+jobs:
+  layering-check:
+    name: layering-check
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v6
+
+      # the include rules of the layout Core/ Features/ Simulation/; the metrics go to the summary
+      - name: check-layering
+        run: |
+          set -euo pipefail
+          python3 .ci/layering.py --report
