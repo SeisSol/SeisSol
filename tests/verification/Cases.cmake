@@ -1355,6 +1355,44 @@ seissol_add_fault1d(NAME fault1d-viscoelastic-imposed FL 33 FAULT fault1d-impose
                     SET "Output.EnergyOutput=0" "DynamicRupture.SlipRateOutputType=0"
                     LABELS convergence)
 
+# In a porous medium, the pore fluid, which a shear wave first leaves behind,
+# follows the skeleton as Darcy's friction drags it along: the density the wave
+# moves relaxes, and with it the radiation damping (see fault1d.py). In
+# material-fault1d-poroelastic.yaml, the frequency of Biot lies within the band
+# of the rupture, and the damping rises by 5 per cent as it relaxes; the
+# outflow planes reflect 2.5 per cent of what arrives below that frequency. In
+# material-poroelastic.yaml, it lies at 17 kHz, and the fluid follows within a
+# fraction of a step (fault1d-poroelastic-lsw-stiff). The faults take the pore
+# pressure on them, which a porous medium reads (fault1d-*-porous.yaml), and
+# leave out thermal pressurization, whose pore pressure SeisSol does not yet
+# combine with that of the medium. The energy output is off, as above.
+seissol_add_fault1d(NAME fault1d-poroelastic-lsw FL 16 FAULT fault1d-lsw-porous.yaml
+                    MESH fault1d-long MATERIAL material-fault1d-poroelastic.yaml
+                    REQUIRE equations=poroelastic
+                    SET "Output.EnergyOutput=0" ${SEISSOL_FAULT1D_ELEMENTWISE}
+                        ${SEISSOL_FAULT1D_ELEMENTWISE_MASK}
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-poroelastic-lsw-bimaterial FL 6 FAULT fault1d-lsw-porous.yaml
+                    MESH fault1d-long-bimaterial MATERIAL material-fault1d-poroelastic.yaml
+                    REQUIRE equations=poroelastic
+                    SET "Output.EnergyOutput=0" "DynamicRupture.pc_vstar=0.1"
+                        "DynamicRupture.pc_prakashLength=0.1"
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-poroelastic-rs-fvw FL 103 FAULT fault1d-rs-fvw-porous.yaml
+                    MESH fault1d-long STEPS 2048 MATERIAL material-fault1d-poroelastic.yaml
+                    REQUIRE equations=poroelastic
+                    SET "Output.EnergyOutput=0" ${SEISSOL_RS_FVW}
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-poroelastic-imposed FL 33 FAULT fault1d-imposed.yaml
+                    MESH fault1d-long MATERIAL material-fault1d-poroelastic.yaml
+                    REQUIRE equations=poroelastic
+                    SET "Output.EnergyOutput=0" "DynamicRupture.SlipRateOutputType=0"
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-poroelastic-lsw-stiff FL 16 FAULT fault1d-lsw-porous.yaml
+                    MESH fault1d-long REQUIRE equations=poroelastic
+                    SET "Output.EnergyOutput=0"
+                    LABELS convergence)
+
 # The same on fault1d with its vertices numbered at random, which puts its
 # faces on eleven pairs of the faces of their cells (see the faces of a fault,
 # Stage 1): with a rule that is not fully symmetric, the points of its faces lie

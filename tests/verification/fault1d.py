@@ -31,9 +31,12 @@ waves, polarized and as fast as the Christoffel matrix of the direction x
 makes them (see Medium and Problem). The receivers are compared with all of
 this in the fault frame that the documentation defines.
 
-In an anelastic medium, the shear modulus relaxes (see Anelasticity), and so
-does the impedance. The fault sees the impedance of the unrelaxed medium at
-once, and the rest of the radiation damping as it relaxes:
+In an anelastic medium, the shear modulus relaxes (see Anelasticity); in a
+porous one, the pore fluid, which the shear wave first leaves behind, follows
+the skeleton as Darcy's friction drags it along, so that the density the wave
+moves relaxes (see Porosity). Either way, so does the impedance. The fault
+sees the impedance of the unrelaxed medium at once, and the rest of the
+radiation damping as it relaxes:
 
     tau(t) = tau_load(t) - eta V(t) - (g * V)(t),
 
@@ -67,7 +70,9 @@ are meant to check:
   Green's function of the diffusion across a Gaussian shear zone, rather than a
   sum over wave numbers;
 * the mechanisms of an anelastic medium are those of docs/attenuation.rst,
-  fitted to the quality factors as Emmerich and Korn (1987) fit them.
+  fitted to the quality factors as Emmerich and Korn (1987) fit them;
+* a porous medium follows the equations of Biot as de la Puente et al. (2008)
+  pose them.
 
 The delta pulse (FL=35), whose output is a single impulse, is not covered.
 """
@@ -156,7 +161,7 @@ class Medium:
 
     A medium whose shear wave disperses has the density and the stiffness its
     waves start out with, and `dispersion` states how they relax: an
-    Anelasticity.
+    Anelasticity or a Porosity.
     """
 
     def __init__(self, rho, stiffness, dispersion=None):
@@ -189,6 +194,15 @@ class Medium:
             stiffness[index + 3, index + 3] = mu
         return cls(rho, stiffness, anelasticity)
 
+    @classmethod
+    def porous(cls, mu, lam, porosity):
+        """A porous medium, by the moduli of its skeleton and its Porosity: its
+        shear wave starts out with the density the pore fluid leaves it. Its
+        P waves, which a fault that slips uniformly in it does not send out,
+        are not those of the porous medium."""
+        stiffness = cls.isotropic(porosity.unrelaxed, mu, lam).stiffness
+        return cls(porosity.unrelaxed, stiffness, porosity)
+
     def is_isotropic(self):
         mu, lam = self.stiffness[3, 3], self.stiffness[0, 1]
         reference = Medium.isotropic(self.rho, mu, lam).stiffness
@@ -207,10 +221,21 @@ def medium_of(maps, group, attenuation=None):
     """The medium of a group: rho, and either mu and lambda or the 21 c_ij of an
     anisotropic medium. In a build with anelastic mechanisms, `attenuation`
     gives FreqCentral, FreqRatio and the number of mechanisms, and the quality
-    factors Qp and Qs make the medium anelastic."""
+    factors Qp and Qs make the medium anelastic; the porosity and the rest of
+    the parameters of SeisSol's porous medium make it porous."""
     values = dict(maps.get(None, {}))
     values.update(maps.get(group, {}))
     try:
+        if "porosity" in values:
+            porosity = Porosity(
+                values["rho"],
+                values["rho_fluid"],
+                values["porosity"],
+                values["tortuosity"],
+                values["permeability"],
+                values["viscosity"],
+            )
+            return Medium.porous(values["mu"], values["lambda"], porosity)
         if "c11" in values:
             if attenuation is not None:
                 raise Unsupported("an anelastic medium is isotropic here")
@@ -299,8 +324,8 @@ class Anelasticity:
         self.upper = 1.0
         self.front_rate = 0.5 * float(np.sum(self.s_coefficients * self.frequencies))
 
-    # The dispersion of the shear wave, as Relaxation takes it from a
-    # medium: A = (Z / Z_U)^2 and B = (c_U kappa / s)^2, with the
+    # The dispersion of the shear wave, as Relaxation takes it from either
+    # kind of medium: A = (Z / Z_U)^2 and B = (c_U kappa / s)^2, with the
     # impedance Z(s), the unrelaxed one Z_U, the wave number kappa(s) and
     # the unrelaxed speed c_U. Here, A = psi and B = 1 / psi.
 
@@ -351,6 +376,70 @@ class Anelasticity:
             cuts.append((high, float(omega)))
             below = float(omega)
         return cuts
+
+
+class Porosity:
+    """The shear wave of a porous medium, as SeisSol poses Biot's equations
+    (de la Puente et al., 2008): the momentum of the mixture and of the pore
+    fluid,
+
+        rho_bar dv/dt + rho_f dw/dt = div sigma,
+        rho_f dv/dt + m dw/dt = -grad p - (nu / kappa) w,
+
+    with the velocity v of the skeleton and w of the fluid relative to it, the
+    density rho_bar = (1 - phi) rho_s + phi rho_f of the mixture, of the
+    porosity phi, m = T rho_f / phi of the tortuosity T, and Darcy's friction
+    nu / kappa of the viscosity nu and the permeability kappa. A shear wave
+    leaves the pressure p, and the second equation gives
+    w = -rho_f s v / (m s + nu / kappa) for the Laplace variable s: the wave
+    moves the density
+
+        rho(s) = rho_bar - rho_f^2 s / (m s + nu / kappa)
+               = rho_U (1 + D omega_c / (s + omega_c)),
+
+    rho_U = rho_bar - rho_f^2 / m at once, with the fluid left behind, and
+    rho_bar = rho_U (1 + D) once it follows, D = rho_f^2 / (m rho_U), at the
+    frequency omega_c = nu / (kappa m) of Biot.
+    """
+
+    def __init__(
+        self, rho_solid, rho_fluid, porosity, tortuosity, permeability, viscosity
+    ):
+        rho_solid, rho_fluid = float(rho_solid), float(rho_fluid)
+        porosity, tortuosity = float(porosity), float(tortuosity)
+        mixture = (1.0 - porosity) * rho_solid + porosity * rho_fluid
+        m = rho_fluid * tortuosity / porosity
+        self.unrelaxed = mixture - rho_fluid**2 / m
+        if self.unrelaxed <= 0.0:
+            raise Unsupported("the porous medium has no positive density at once")
+        self.excess = rho_fluid**2 / (m * self.unrelaxed)
+        self.frequency = float(viscosity) / (float(permeability) * m)
+        # rho(s) maps the upper half-plane into the lower one
+        self.upper = -1.0
+        self.front_rate = 0.5 * self.excess * self.frequency
+
+    # A = B = rho(s) / rho_U, see Anelasticity
+
+    def impedance_excess(self, s):
+        """A - 1 at the complex `s`."""
+        s = np.asarray(s, dtype=complex)
+        return self.excess * self.frequency / (s + self.frequency)
+
+    def slowness_excess(self, s):
+        """B - 1 at the complex `s`."""
+        return self.impedance_excess(s)
+
+    def on_axis(self, x, gaps=None):
+        """A at s = -x, for x >= 0, with `gaps` as Anelasticity takes them."""
+        gap = None if gaps is None else gaps.get(self.frequency)
+        return 1.0 + self.excess * self.frequency / (
+            self.frequency - x if gap is None else gap
+        )
+
+    def cuts(self):
+        """The interval of x where A(-x) < 0: from the pole at omega_c to the
+        zero at omega_c (1 + D)."""
+        return [(self.frequency, self.frequency * (1.0 + self.excess))]
 
 
 def _tanh_sinh(start, end, step, reach):
@@ -429,11 +518,12 @@ def _convolve(kernel, values, step):
 
 class Relaxation:
     """The radiation damping of a slip rate between two isotropic media, one
-    of them anelastic at least, as a convolution.
+    of them anelastic or porous at least, as a convolution.
 
     A side whose shear wave relaxes sends it out with the impedance
     Z(s) = Z_U sqrt(A(s)), with A = psi of the shear modulus of an anelastic
-    medium (see Anelasticity), so that the radiation damping
+    medium (see Anelasticity) and A = rho(s) / rho_U of a porous one (see
+    Porosity), so that the radiation damping
     h(s) = (1 / Z_left(s) + 1 / Z_right(s))^-1 is eta = h(oo), that of the
     unrelaxed media, and a part g that relaxes: tau = tau_load - eta V - g * V.
     A maps the upper half-plane into a half-plane, so that sqrt(A), and h, are
@@ -452,9 +542,9 @@ class Relaxation:
     The waves a side sends out disperse: the velocity at the distance |x|
     follows from V with the propagator (h / Z)(s) exp(-|x| kappa(s)), with the
     wave number kappa(s) = s sqrt(B(s)) / c_U, B = 1 / psi of an anelastic
-    medium, and the shear stress with -h(s) exp(-|x| kappa(s)). For large s,
-    kappa(s) is s / c_U + r / c_U + O(1 / s), r = sum_l Y_l omega_l / 2, so
-    that each is the
+    medium and B = A of a porous one, and the shear stress with
+    -h(s) exp(-|x| kappa(s)). For large s, kappa(s) is s / c_U + r / c_U +
+    O(1 / s), r = sum_l Y_l omega_l / 2 or D omega_c / 2, so that each is the
     front of the unrelaxed shear speed c_U, damped by exp(-|x| r / c_U), and a
     tail behind it, which the Talbot inversion samples. Where B vanishes or
     has a pole, exp(-|x| kappa) is singular, and does not reduce to the cuts.
@@ -1267,8 +1357,16 @@ class Problem:
         self.relaxation = None
         if left.dispersion is not None or right.dispersion is not None:
             if not (left.is_isotropic() and right.is_isotropic()):
-                raise Unsupported("anelastic media are supported if isotropic")
+                raise Unsupported(
+                    "anelastic and porous media are supported if isotropic"
+                )
             self.relaxation = Relaxation(left, right)
+        # the pore pressure a fault in a porous medium takes as well
+        if any(
+            self.inputs.get(name, default=0.0) != 0.0
+            for name in ("p", "nuc_p", "nuc2_p", "Tnuc_p", "Tnuc2_p")
+        ):
+            raise Unsupported("a pore pressure on the fault is not supported")
         self.impedance = np.linalg.inv(left.admittance + right.admittance)
         self.impedance = 0.5 * (self.impedance + self.impedance.T)
         self.eta_shear = self.impedance[1:, 1:]
@@ -2099,6 +2197,24 @@ def self_test():
         float(np.max(np.abs(relaxation.kernel(lags) - exact)) / abs(exact[0])),
         1e-12,
     )
+    # the same with psi = rho(s) / rho_U of a porous medium, a = omega_c (1 + D)
+    # and b = omega_c, whose k = -omega_c D / 2 turns the sign of I_1
+    porosity = Porosity(2600.0, 1000.0, 0.3, 1.5, 1.0e-9, 1.0e-3)
+    porous = Medium.porous(3.24e10, 3.24e10, porosity)
+    relaxation = Relaxation(porous, porous)
+    half = 0.5 * porosity.frequency * porosity.excess
+    exact = (
+        relaxation.eta
+        * half
+        * np.exp(-(porosity.frequency + half) * lags)
+        * (_bessel_i(0, half * lags) + _bessel_i(1, half * lags))
+    )
+    check(
+        "the relaxation of the radiation damping of a porous medium",
+        float(np.max(np.abs(relaxation.kernel(lags) - exact)) / abs(exact[0])),
+        1e-12,
+    )
+
     # the tail of the stress the fault sends out, at the fault, is -g: on
     # Talbot's contour from h(s), and on the cuts by the quadrature
     solid = Medium.isotropic(
@@ -2111,6 +2227,8 @@ def self_test():
         ("one anelastic medium", solid, solid),
         ("two anelastic media", solid, soft),
         ("an anelastic and an elastic medium", solid, medium),
+        ("one porous medium", porous, porous),
+        ("a porous and an anelastic medium", porous, solid),
     ):
         relaxation = Relaxation(left, right)
         fronts, tails = relaxation.propagators(right, 0.0, lags)
@@ -2140,6 +2258,7 @@ def self_test():
     for law, fault, left, right, kind in (
         (16, weakening, solid, soft, "anelastic"),
         (34, imposed, solid, soft, "anelastic"),
+        (16, weakening, porous, porous, "porous"),
     ):
         problem = Problem({"FL": law, "XRef": -1.0e5}, fault, left, right)
         series = problem.solve(0.08, 1e-5)

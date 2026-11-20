@@ -688,7 +688,7 @@ endfunction()
 # its own, so that it can be repeated, and its thresholds recorded, without
 # running SeisSol again. Without MATERIAL, the case takes the material of its
 # build, and without REQUIRE, it runs in elastic and anisotropic builds; a case
-# in an anelastic medium requires its equations. FILES
+# in an anelastic or a porous medium requires its equations. FILES
 # are further inputs, such as receivers that SET names. LTS steps locally (see
 # seissol_add_minitest).
 #
@@ -720,8 +720,8 @@ function(seissol_add_fault1d)
     set(F1D_STEPS 1536)
   endif()
   # the exact solution holds for elastic media, isotropic or not, and for
-  # isotropic anelastic ones; an anisotropic build runs the isotropic cases
-  # with the material of material-anisotropic.yaml
+  # isotropic anelastic and porous ones; an anisotropic build runs the isotropic
+  # cases with the material of material-anisotropic.yaml
   if (NOT F1D_REQUIRE)
     set(F1D_REQUIRE "equations=elastic|anisotropic")
   endif()

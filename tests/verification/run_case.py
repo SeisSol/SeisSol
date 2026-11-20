@@ -3021,6 +3021,13 @@ def _command_exact(args):
             )
         else:
             problem = fault1d.Problem(rupture, fault, left, right, rotation=rotation)
+            if problem.relaxation is not None:
+                # a medium that relaxes faster than the steps resolve, as a porous
+                # one does at the frequency of Biot, takes steps that resolve it
+                fastest = float(problem.relaxation.rates.max())
+                step = interval / max(
+                    args.substeps, math.ceil(4.0 * interval * fastest)
+                )
             energies = None
             if energy_file(work, prefix).exists():
                 energies = read_energies(energy_file(work, prefix))
@@ -3056,8 +3063,8 @@ def _command_exact(args):
                 )
             if energies is not None and problem.relaxation is not None:
                 raise SystemExit(
-                    "the energy output of an anelastic medium has no exact "
-                    "solution here; the case has to switch it off"
+                    "the energy output of an anelastic or a porous medium has no "
+                    "exact solution here; the case has to switch it off"
                 )
             if energies is not None:
                 spec = manifest["spec"]

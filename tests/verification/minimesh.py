@@ -225,11 +225,11 @@ PRESETS = {
         group_splits=(("x", None),),
         periodic=(False, True, True),
     ),
-    # fault1d drawn out across the fault, for anelastic media: the outflow
-    # planes absorb the shear wave of the unrelaxed impedance Z_U, and reflect
-    # (Z_U - Z) / (Z_U + Z) of one that relaxes to Z. Six cells on either side
-    # keep what they reflect from the fault and the receivers for over a
-    # hundred milliseconds at the speeds of the cases (see fault1d.py).
+    # fault1d drawn out across the fault, for anelastic and porous media: the
+    # outflow planes absorb the shear wave of the unrelaxed impedance Z_U, and
+    # reflect (Z_U - Z) / (Z_U + Z) of one that relaxes to Z. Six cells on
+    # either side keep what they reflect from the fault and the receivers for
+    # over a hundred milliseconds at the speeds of the cases (see fault1d.py).
     "fault1d-long": Spec(
         name="fault1d-long",
         cells=(12, 3, 3),

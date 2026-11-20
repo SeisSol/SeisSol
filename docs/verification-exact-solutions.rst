@@ -35,8 +35,8 @@ are skipped, their runs as well as their comparisons. The cases run in the
 configurations of the elastic and the anisotropic equations, the latter with an
 anisotropic material that is isotropic in effect, and with media with tilted
 axes of their own; those on ``fault1d-long`` run in the configurations of
-the viscoelastic equations. With fused simulations, each simulation runs the
-case, and
+the viscoelastic and the poroelastic equations. With fused simulations, each
+simulation runs the case, and
 each is compared. The cases on ``fault2d-periodic``, which take minutes each,
 run in double precision, in order 6, without fused simulations only, and carry
 the label ``spectral`` as well; ``ctest -LE spectral`` leaves them out.
@@ -95,12 +95,13 @@ The meshes
    those of :doc:`left-lateral-right-lateral-normal-reverse`.
 
 ``fault1d-long``, ``fault1d-long-bimaterial``
-   ``fault1d`` drawn out to 400 m across the fault, for anelastic media. The
-   outflow planes absorb the shear wave of the unrelaxed impedance
+   ``fault1d`` drawn out to 400 m across the fault, for anelastic and porous
+   media. The outflow planes absorb the shear wave of the unrelaxed impedance
    :math:`Z_U`, and reflect :math:`(Z_U - Z) / (Z_U + Z)` of one whose
    impedance relaxes to :math:`Z`: 3 to 6 per cent below 50 Hz with the
-   quality factors of the cases. Six cells on either side keep what they
-   reflect away from the fault and the receivers for the time of the cases.
+   quality factors of the cases, 2.5 per cent below the frequency of Biot in
+   their porous medium. Six cells on either side keep what they reflect away
+   from the fault and the receivers for the time of the cases.
 
 ``fault1d-lts``
    ``fault1d`` with thin cells along the fault, whose time step is less than
@@ -140,6 +141,18 @@ The exact solutions
    carries along. The waves disperse on their way to the receivers: their
    propagator is a front at the unrelaxed speed, damped, and a tail, which an
    inversion on Talbot's contour samples.
+
+   In a porous medium, as SeisSol poses Biot's equations, the pore fluid,
+   which a shear wave first leaves behind, follows the skeleton as Darcy's
+   friction drags it along: the density the wave moves relaxes from
+   :math:`\bar\rho - \rho_f^2 / m`, :math:`m = T \rho_f / \phi` with the
+   tortuosity :math:`T` and the porosity :math:`\phi`, to the density
+   :math:`\bar\rho` of the mixture as :math:`\rho(s) = \bar\rho - \rho_f^2 s
+   / (m s + \nu / \kappa)`, with the viscosity :math:`\nu` and the
+   permeability :math:`\kappa` of Darcy's friction, and the impedance
+   :math:`Z(s) = \sqrt{\mu \rho(s)}` with it,
+   which the same quadrature and inversion take. The integration takes steps
+   that resolve the frequency of Biot.
 
 ``fault1d.Front``
    A forced rupture front that runs faster than the shear waves outruns all it
@@ -182,6 +195,10 @@ Case                                                   What it adds
                                                        two media with the Prakash-Clifton regularization, rate
                                                        and state with thermal pressurization, an imposed slip
                                                        rate
+``fault1d-poroelastic-*``                              porous media (``fault1d-long``), the same but thermal
+                                                       pressurization, with the frequency of Biot within the
+                                                       band of the rupture, and slip weakening with it at
+                                                       17 kHz (``-stiff``)
 ====================================================== =========================================================
 
 On ``fault2d``, ``fault2d-supershear`` holds a forced supershear front. On
@@ -267,9 +284,9 @@ time, the static frictional work :math:`A V \cdot H u / 2` with the slip
 :math:`u`; the kinetic and the strain energy, and the momentum, are those of
 the waves within the column, which leave it through its ends. The momentum is
 compared relative to the integral of :math:`\rho |v|`, as the momenta of the
-two sides cancel where their media are alike. The cases in anelastic media
-switch the energy output off: what it books for the anelastic variables has no
-exact solution there.
+two sides cancel where their media are alike. The cases in anelastic and
+porous media switch the energy output off: what it books for the anelastic
+variables and the pore fluid has no exact solution there.
 
 Thresholds
 ----------
