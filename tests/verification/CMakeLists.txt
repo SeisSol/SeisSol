@@ -835,3 +835,50 @@ foreach (SEISSOL_VERIFICATION_CONFIG IN LISTS verification_configs)
                        FIXTURES_CLEANUP verification
                        LABELS "verification;coverage")
 endforeach()
+
+# ---------------------------------------------------------------------------
+# The suite of an installation, which run_suite.py runs against the installed
+# executable, without the build, e.g. on a machine with a GPU, which the build
+# does not need: the scripts, the cases and the snapshot references, what the
+# configuration wrote to the build (to build/ of the suite), and suite.json,
+# what CTest knows of the tests of the build, which the installation writes.
+# Each executable has a suite of its own, under its name, as the builds of
+# several executables may share an installation.
+# ---------------------------------------------------------------------------
+
+set(SEISSOL_SUITE_DESTINATION
+    share/seissol/verification/$<TARGET_FILE_BASE_NAME:seissol-bin>)
+file(GLOB suite_scripts ${CMAKE_CURRENT_SOURCE_DIR}/*.py)
+install(FILES ${suite_scripts} DESTINATION ${SEISSOL_SUITE_DESTINATION})
+install(DIRECTORY cases DESTINATION ${SEISSOL_SUITE_DESTINATION})
+install(DIRECTORY ${SEISSOL_SNAPSHOT_DIR}/ DESTINATION ${SEISSOL_SUITE_DESTINATION}/references)
+set(suite_files environment.json)
+foreach (config IN LISTS verification_configs)
+  list(APPEND suite_files ${config}/capabilities.json ${config}/declared.json)
+endforeach()
+foreach (file IN LISTS suite_files)
+  get_filename_component(directory ${file} DIRECTORY)
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${file}
+          DESTINATION ${SEISSOL_SUITE_DESTINATION}/build/${directory})
+endforeach()
+list(TRANSFORM suite_files REPLACE "^(.+)$" "\"\\1\"" OUTPUT_VARIABLE quoted_files)
+string(JOIN ", " suite_files_json ${quoted_files})
+file(GENERATE
+     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/suite-origin.json
+     CONTENT "{
+  \"source\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"references\": \"${SEISSOL_SNAPSHOT_DIR}\",
+  \"project\": \"${PROJECT_SOURCE_DIR}\",
+  \"build\": \"${CMAKE_CURRENT_BINARY_DIR}\",
+  \"binary\": \"$<TARGET_FILE:seissol-bin>\",
+  \"python\": \"${Python3_EXECUTABLE}\",
+  \"mpiexec\": \"${MPIEXEC_EXECUTABLE}\",
+  \"files\": [${suite_files_json}]
+}
+")
+# the destination names the executable, which only the generation knows
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/InstallSuite.cmake.in
+               ${CMAKE_CURRENT_BINARY_DIR}/InstallSuite.cmake.configured @ONLY)
+file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/InstallSuite.cmake
+     INPUT ${CMAKE_CURRENT_BINARY_DIR}/InstallSuite.cmake.configured)
+install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/InstallSuite.cmake)

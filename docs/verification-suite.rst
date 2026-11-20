@@ -13,9 +13,10 @@ The verification suite
 generates itself (``minimesh.py``), in each configuration of the executable
 that ``SEISSOL_VERIFICATION_CONFIGS`` names (see :doc:`build-parameters`), and
 holds the runs against exact solutions, against each other and against stored
-references. This page describes how to run the suite, which runs it holds
-against each other, and its cases of materials and plasticity;
-:doc:`verification-exact-solutions` describes those of dynamic rupture.
+references. This page describes how to run the suite, with the build and
+without it, which runs it holds against each other, and its cases of materials
+and plasticity; :doc:`verification-exact-solutions` describes those of dynamic
+rupture.
 
 Running the suite
 -----------------
@@ -25,6 +26,31 @@ configuration, as ``verification.smoke-box48<elastic-o6-f64>``, with labels by
 what they hold: ``ctest -L verification`` runs all of them, ``ctest -L dr``,
 ``-L exact``, ``-L identity`` or ``-L plasticity`` a part of them, and
 ``ctest -LE spectral`` leaves out the cases that take minutes each.
+
+The suite of an installation
+----------------------------
+
+An installation holds the suite of each of its executables, in
+``share/seissol/verification/<executable>``: the scripts, the cases, the
+snapshot references, what the configuration of the build wrote for the suite,
+and ``suite.json``, what CTest knows of its tests. ``run_suite.py`` there runs
+these tests against the installed executable, without the build and its
+sources, in a working directory of its own, in the order that their fixtures
+demand, as CTest would; e.g. on a machine with a GPU, which the build does not
+need:
+
+.. code-block:: bash
+
+   python3 share/seissol/verification/seissol/run_suite.py \
+       --binary bin/seissol --work /tmp/verification \
+       --exclude-label 'spectral|snapshot' -j 4
+
+It takes the options of CTest that choose the tests (``-R``, ``-E``, ``-L``,
+``-LE``) and ``-j``, and ``--mpiexec`` for the MPI launcher of the machine;
+the output of each test goes to ``logs`` in the working directory. The GPU CI
+runs the suites of its builds this way, on the device, without the spectral
+comparisons, which take minutes of the host and no device, and without the
+snapshots, whose references hold the rounding of a CPU build.
 
 Identities
 ----------

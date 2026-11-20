@@ -191,8 +191,9 @@ jobs:
           # every workflow and branch: what an earlier job downloaded to install/ would stay next to
           # the executables of this build, and verify.py takes an executable
           # seissol-<configuration> before the shared seissol. Nor may the report of an earlier job
-          # pass for this one's, should verify.py stop before writing its own.
-          rm -rf install report.txt
+          # pass for this one's, should verify.py stop before writing its own, nor its verification
+          # runs for this one's.
+          rm -rf install report.txt verification
 
       - name: install-packages
         run: |
@@ -258,6 +259,42 @@ jobs:
             --threads ${{ matrix.parallel.threads }} \
             --color always \
             --report report.txt
+
+      - name: verification-suite
+        # the verification cases of each executable of the build (tests/verification/run_suite.py),
+        # which the installation holds, here where the device is: those of the configurations of
+        # order 6 of the elastic, the viscoelastic and the poroelastic solid, without the spectral
+        # comparisons, which take minutes of the host and no device, and without the snapshots,
+        # whose references hold the rounding of a CPU build
+        if: ${{ !cancelled() && steps.get-seissol.outcome == 'success' }}
+        run: |
+          export PATH=$(pwd)/install/bin:$PATH
+          export LD_LIBRARY_PATH=$(pwd)/install/lib:$(pwd)/install/lib64:${LD_LIBRARY_PATH:-}
+          chmod +x $(pwd)/install/bin/*
+          export OMPI_ALLOW_RUN_AS_ROOT=1
+          export OMPI_ALLOW_RUN_AS_ROOT_CONFIRM=1
+          export OMPI_MCA_rmaps_base_oversubscribe=true
+          status=0
+          for suite in $(pwd)/install/share/seissol/verification/*/; do
+            executable=$(basename ${suite})
+            python3 ${suite}run_suite.py \
+              --binary $(pwd)/install/bin/${executable} \
+              --work $(pwd)/verification/${executable} \
+              --regex '<(elastic|viscoelastic-m3|poroelastic)-o6-f(32|64)>' \
+              --exclude-label 'spectral|snapshot' \
+              -j ${{ matrix.parallel.threads }} || status=1
+          done
+          exit ${status}
+
+      - name: upload-verification-logs
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: verification-${{ matrix.setup.name }}-r${{ matrix.parallel.ranks }}t${{ matrix.parallel.threads }}
+          path: |
+            verification/*/logs
+            verification/*/*/results
+          if-no-files-found: ignore
 
       - name: upload-report
         uses: actions/upload-artifact@v7
