@@ -248,6 +248,20 @@ PRESETS = {
         faults=(("x", None),),
         periodic=(True, True, True),
     ),
+    # the half y > 0 of fault2d-periodic, with free surfaces at y = 0 and at
+    # y = 400 in place of the period along y: an antiplane rupture that
+    # nucleates about y = 0 is even in y on fault2d-periodic, so that y = 0 and
+    # y = +-400 carry no shear traction sigma_yz, as free surfaces do. The
+    # rupture breaks the surface along a fault that meets it at right angles.
+    "fault2d-surface": Spec(
+        name="fault2d-surface",
+        cells=(8, 12, 3),
+        size=(800.0 / 3.0, 400.0, 100.0),
+        origin=(-400.0 / 3.0, 0.0, -50.0),
+        boundary=(("ymin", 1), ("ymax", 1)),
+        faults=(("x", None),),
+        periodic=(True, False, True),
+    ),
     # elongated and open on every side: energy has to decay monotonically.
     "open96": Spec(
         name="open96",

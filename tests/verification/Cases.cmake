@@ -1469,6 +1469,21 @@ seissol_add_fault1d(NAME fault2d-antiplane-relabel FL 16 FAULT fault2d-antiplane
 set_tests_properties(verification.fault2d-antiplane-relabel${SEISSOL_VERIFICATION_SUFFIX}
                      verification.exact.fault2d-antiplane-relabel${SEISSOL_VERIFICATION_SUFFIX}
                      PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+# The same on the half y > 0 of fault2d-periodic, with free surfaces in place
+# of the mirror plane y = 0 and of the period (see minimesh.py,
+# fault2d-surface): the rupture breaks the surface, and the spectral method
+# takes the mirrored mesh. The receivers are those at y > 0 and, mirrored, the
+# volume receivers at y < 0, one of them moved off a face of its cell.
+seissol_add_fault1d(NAME fault2d-antiplane-surface FL 16 FAULT fault2d-antiplane.yaml
+                    MESH fault2d-surface STEPS 2560
+                    FILES faultreceiver2d-surface.dat receiver2d-surface.dat
+                    SET ${SEISSOL_ANTIPLANE} ${SEISSOL_RUPTURE_VELOCITY_OUTPUT}
+                        "Pickpoint.PPFileName='faultreceiver2d-surface.dat'"
+                        "Output.RFileName='receiver2d-surface.dat'"
+                    LABELS "convergence;surface")
+set_tests_properties(verification.fault2d-antiplane-surface${SEISSOL_VERIFICATION_SUFFIX}
+                     verification.exact.fault2d-antiplane-surface${SEISSOL_VERIFICATION_SUFFIX}
+                     PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
 # Fast velocity weakening with thermal pressurization, whose pore pressure
 # rises by up to a fifth of the normal stress (see
 # fault2d-antiplane-rs-fvw-tp.yaml); the fault receivers report it and the

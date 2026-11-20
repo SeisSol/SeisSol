@@ -2457,6 +2457,36 @@
       "traction": 0.032,
       "velocity": 0.076
     },
+    "fault2d-antiplane-surface/anisotropic/o6/double": {
+      "accumulated-slip": 0.0045,
+      "direction": 0.00019,
+      "dynamic-stress-time": 0.0011,
+      "friction": 0.0013,
+      "normal-stress": 0.00045,
+      "peak-slip-rate": 0.14,
+      "rupture-time": 0.012,
+      "rupture-velocity": 0.082,
+      "slip": 0.0048,
+      "slip-rate": 0.13,
+      "stress": 0.025,
+      "traction": 0.027,
+      "velocity": 0.05
+    },
+    "fault2d-antiplane-surface/elastic/o6/double": {
+      "accumulated-slip": 0.0045,
+      "direction": 0.00019,
+      "dynamic-stress-time": 0.0011,
+      "friction": 0.0013,
+      "normal-stress": 0.00045,
+      "peak-slip-rate": 0.14,
+      "rupture-time": 0.012,
+      "rupture-velocity": 0.082,
+      "slip": 0.0048,
+      "slip-rate": 0.13,
+      "stress": 0.025,
+      "traction": 0.027,
+      "velocity": 0.05
+    },
     "fault2d-antiplane/anisotropic/o6/double": {
       "accumulated-slip": 0.0047,
       "direction": 0.00022,

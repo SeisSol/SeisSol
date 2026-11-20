@@ -75,6 +75,14 @@ The meshes
    inclined. A spontaneous rupture runs out on it from a nucleation along
    :math:`y`.
 
+``fault2d-surface``
+   The half :math:`y > 0` of ``fault2d-periodic``, with free surfaces at
+   :math:`y = 0` and :math:`y = 400` m in place of the period. An antiplane
+   rupture that nucleates about :math:`y = 0` is even in :math:`y` on
+   ``fault2d-periodic``, so that both planes carry no shear traction there, as
+   free surfaces do: the rupture breaks the surface, and the spectral method
+   takes the mirrored mesh.
+
 ``fault1d-dip60``, ``fault1d-dip30``, ``fault1d-flat``
    ``fault1d`` turned in space, for a fault that dips by 60 or 30 degrees and
    a horizontal one, none of which strikes along an axis, and whose lattice
@@ -166,6 +174,7 @@ Case                                        FL     What it adds
 ``fault2d-inplane``                         16     a spontaneous in-plane rupture
 ``fault2d-inplane-supershear``              16     its transition to supershear
 ``fault2d-antiplane-relabel``               16     other faces of the cells
+``fault2d-antiplane-surface``               16     a rupture that breaks a free surface
 =========================================== ====== ==========================================
 
 The imposed slip rate FL=35 imposes all of the slip within the sub-step of the

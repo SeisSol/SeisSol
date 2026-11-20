@@ -136,7 +136,7 @@ endfunction()
 foreach (preset box6 box48 skew48 fault48 faultskew48 fault1d fault1d-bimaterial fault2d
                 fault2d-periodic mat48 periodicx72 periodic162 open96
                 box48-relabel fault48-relabel fault1d-relabel fault2d-periodic-relabel
-                fault1d-dip60 fault1d-dip30 fault1d-flat fault1d-lts)
+                fault1d-dip60 fault1d-dip30 fault1d-flat fault1d-lts fault2d-surface)
   seissol_add_minimesh(NAME ${preset} PRESET ${preset})
 endforeach()
 
@@ -176,8 +176,11 @@ set_tests_properties(verification.antiplane.self-test PROPERTIES
                      SKIP_RETURN_CODE 77
                      LABELS "verification;smoke;dr")
 
-# every receiver strictly inside a cell of every mesh; see minimesh.py locate
+# every receiver strictly inside a cell of every mesh, but of fault2d-surface, whose cases take
+# receivers of their own (below), as it is the half y > 0 of fault2d-periodic; see minimesh.py
+# locate
 get_property(meshes GLOBAL PROPERTY SEISSOL_MINIMESHES)
+list(REMOVE_ITEM meshes fault2d-surface)
 set(mesh_files "")
 set(mesh_fixtures "")
 foreach (mesh ${meshes})
@@ -240,6 +243,24 @@ add_test(NAME verification.faultreceivers2d-periodic
                  ${SEISSOL_MINIMESH_DIR}/fault2d-periodic.puml.h5)
 set_tests_properties(verification.faultreceivers2d-periodic PROPERTIES
                      FIXTURES_REQUIRED minimesh.fault2d-periodic
+                     LABELS "verification;smoke;dr")
+# those of fault2d-periodic at y > 0, and the volume receivers at y < 0 mirrored, one of them
+# moved off a face of its cell
+add_test(NAME verification.receivers2d-surface
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate
+                 ${CMAKE_CURRENT_SOURCE_DIR}/cases/receiver2d-surface.dat
+                 ${SEISSOL_MINIMESH_DIR}/fault2d-surface.puml.h5)
+set_tests_properties(verification.receivers2d-surface PROPERTIES
+                     FIXTURES_REQUIRED minimesh.fault2d-surface
+                     LABELS "verification;smoke;dr")
+add_test(NAME verification.faultreceivers2d-surface
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate --fault
+                 ${CMAKE_CURRENT_SOURCE_DIR}/cases/faultreceiver2d-surface.dat
+                 ${SEISSOL_MINIMESH_DIR}/fault2d-surface.puml.h5)
+set_tests_properties(verification.faultreceivers2d-surface PROPERTIES
+                     FIXTURES_REQUIRED minimesh.fault2d-surface
                      LABELS "verification;smoke;dr")
 
 # ---------------------------------------------------------------------------
@@ -642,7 +663,7 @@ function(seissol_add_fault1d)
   if (NOT F1D_REQUIRE)
     set(F1D_REQUIRE "equations=elastic|anisotropic")
   endif()
-  if (F1D_MESH MATCHES "^fault2d-periodic")
+  if (F1D_MESH MATCHES "^fault2d-(periodic|surface)")
     list(APPEND F1D_REQUIRE "scipy=true" "precision=double" "fused=1")
     list(APPEND F1D_LABELS spectral)
   endif()
@@ -686,7 +707,7 @@ function(seissol_add_fault1d)
       "case.${SEISSOL_VERIFICATION_CONFIG}.${F1D_NAME};minimesh.${F1D_MESH};verification"
       TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
       LABELS "verification;dr;exact;${F1D_LABELS}")
-  if (F1D_MESH MATCHES "^fault2d-periodic")
+  if (F1D_MESH MATCHES "^fault2d-(periodic|surface)")
     set_tests_properties(verification.exact.${F1D_NAME}${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
         RESOURCE_LOCK verification.spectral.${F1D_NAME})
   endif()

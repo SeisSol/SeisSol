@@ -1823,14 +1823,36 @@ def _command_snapshot(args):
 # --------------------------------------------------------------------------
 
 
+def _mirrored_along_y(spec):
+    """Whether the mesh of the spec `spec` (minimesh.Spec, as its manifest
+    holds it) is the half y > 0 of a period of twice its length along y,
+    mirrored at y = 0: it ends in free surfaces at y = 0 and at its far end
+    (see minimesh.py, fault2d-surface)."""
+    planes = {}
+    for plane, tag in spec["boundary"]:
+        planes.update(
+            {name: tag for name in ("ymin", "ymax")} if plane == "all" else {plane: tag}
+        )
+    origin = spec["origin"] or [-0.5 * length for length in spec["size"]]
+    return (
+        not spec["periodic"][1]
+        and planes.get("ymin") == planes.get("ymax") == 1
+        and origin[1] == 0.0
+    )
+
+
 def _fault1d_groups(manifest):
     """The material groups at x < 0 and at x > 0 of a fault1d mesh, which may
-    be periodic across the fault as well."""
+    be periodic across the fault as well, and mirrored along y (see
+    _mirrored_along_y)."""
     spec = manifest["spec"]
+    origin = spec["origin"] or [-0.5 * length for length in spec["size"]]
     if (
         [list(plane) for plane in spec["faults"]] != [["x", None]]
-        or list(spec["periodic"])[1:] != [True, True]
-        or spec["origin"] is not None
+        or not (spec["periodic"][1] or _mirrored_along_y(spec))
+        or not spec["periodic"][2]
+        or origin[0] != -0.5 * spec["size"][0]
+        or origin[2] != -0.5 * spec["size"][2]
     ):
         raise SystemExit(
             f"{manifest['name']} is no fault1d mesh: the exact solution needs the fault "
@@ -2698,7 +2720,15 @@ def _compare_antiplane_case(
     if left.rho != right.rho or not np.array_equal(left.stiffness, right.stiffness):
         raise fault1d.Unsupported("the spectral method takes one medium on both sides")
     fault_receivers = simulations[0][0]
-    width, length = manifest["spec"]["size"][:2]
+    spec = manifest["spec"]
+    width, length = spec["size"][:2]
+    # a mesh that ends in free surfaces at y = 0 and at the far end of y is
+    # the half y > 0 of the period of twice its length, mirrored at y = 0 (see
+    # minimesh.py, fault2d-surface): an antiplane rupture about y = 0 leaves
+    # no shear traction sigma_yz on either plane
+    mirrored = _mirrored_along_y(spec)
+    if mirrored:
+        length *= 2.0
     # the points of the method run through the first fault receiver
     spacing = length / args.points
     offset = (float(fault_receivers[0][2]["x2"][0]) + 0.5 * length) % spacing
@@ -2708,6 +2738,12 @@ def _compare_antiplane_case(
     except easimodel.Unsupported as reason:
         raise fault1d.Unsupported(f"{model.name}: {reason}") from reason
     if antiplane.in_plane(fault):
+        if mirrored:
+            # at a mirror plane, the in-plane slip leaves no normal velocity
+            # rather than no normal traction
+            raise fault1d.Unsupported(
+                "a free surface across in-plane slip is no mirror"
+            )
         solver = antiplane.Inplane(left, length, width, args.points, offset)
     points = sorted(
         {_antiplane_point(solver, header) for _, _, header in fault_receivers}
