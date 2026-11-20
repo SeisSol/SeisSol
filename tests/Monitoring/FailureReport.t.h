@@ -7,9 +7,9 @@
 
 #include <doctest.h>
 
-#include "Monitoring/FailureReport.h"
-#include "Monitoring/RunSummary.h"
-#include "Parallel/SystemInfo.h"
+#include "Core/Monitoring/FailureReport.h"
+#include "Core/Monitoring/RunSummary.h"
+#include "Core/Parallel/SystemInfo.h"
 
 #include <csignal>
 #include <cstdint>

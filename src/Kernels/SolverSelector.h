@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_KERNELS_SOLVERSELECTOR_H_
 #define SEISSOL_SRC_KERNELS_SOLVERSELECTOR_H_
 
-#include "Common/Typedefs.h"
+#include "Core/Common/Typedefs.h"
 #include "Kernels/LinearCK/Solver.h"
 #include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Kernels/STP/Solver.h"

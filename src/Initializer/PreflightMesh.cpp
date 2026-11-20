@@ -7,18 +7,18 @@
 
 #include "PreflightMesh.h"
 
-#include "Common/Constants.h"
+#include "Core/Common/Constants.h"
+#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Geometry/MeshTools.h"
+#include "Core/Geometry/PUMLReader.h"
+#include "Core/Parallel/OpenMP.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
-#include "Geometry/MeshDefinition.h"
-#include "Geometry/MeshTools.h"
-#include "Geometry/PUMLReader.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/InitProcedure/Internal/FaceTypeCheck.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/PointMapper.h"
-#include "Parallel/OpenMP.h"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>

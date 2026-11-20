@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/SegmentMap.h"
+#include "Core/Common/SegmentMap.h"
 
 namespace seissol::unit_test {
 

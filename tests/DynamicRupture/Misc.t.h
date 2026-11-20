@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
+#include "Core/Geometry/MeshDefinition.h"
 #include "DynamicRupture/Misc.h"
-#include "Geometry/MeshDefinition.h"
 #include "TestHelper.h"
 
 #include <cmath>

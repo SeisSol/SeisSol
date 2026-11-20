@@ -11,8 +11,13 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_COMPUTE_CELLCLUSTER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_COMPUTE_CELLCLUSTER_H_
 
-#include "Common/Executor.h"
-#include "Common/Real.h"
+#include "Core/Common/Executor.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Monitoring/ActorStateStatistics.h"
+#include "Core/Monitoring/DeviceTimer.h"
+#include "Core/Monitoring/LoopStatistics.h"
+#include "Core/Monitoring/Metric.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/ConfigBoundary.h"
 #include "Kernels/Plasticity.h"
@@ -20,11 +25,6 @@
 #include "Kernels/Receiver.h"
 #include "Kernels/Solver.h"
 #include "Kernels/TimeCommon.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Monitoring/ActorStateStatistics.h"
-#include "Monitoring/DeviceTimer.h"
-#include "Monitoring/LoopStatistics.h"
-#include "Monitoring/Metric.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 #include "Solver/Settings.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"

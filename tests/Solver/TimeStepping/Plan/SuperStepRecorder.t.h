@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Parallel/Runtime/Stream.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Solver/TimeStepping/Plan/SuperStepRecorder.h"
 
 #include <vector>

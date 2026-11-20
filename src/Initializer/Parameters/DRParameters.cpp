@@ -7,7 +7,7 @@
 
 #include "DRParameters.h"
 
-#include "Common/ConfigRegistry.h"
+#include "Core/Common/ConfigRegistry.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"

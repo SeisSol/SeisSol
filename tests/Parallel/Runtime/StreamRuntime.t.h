@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "Parallel/Runtime/Event.h"
-#include "Parallel/Runtime/Stream.h"
+#include "Core/Parallel/Runtime/Event.h"
+#include "Core/Parallel/Runtime/Stream.h"
 
 #include <array>
 #include <cstddef>

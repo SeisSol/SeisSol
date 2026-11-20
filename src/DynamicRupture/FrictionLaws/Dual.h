@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_DUAL_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_DUAL_H_
 
-#include "Common/Marker.h"
+#include "Core/Common/Marker.h"
 
 #include <cmath>
 #include <numbers>

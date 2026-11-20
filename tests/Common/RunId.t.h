@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Common/RunId.h"
+#include "Core/Common/RunId.h"
 
 #include <set>
 #include <string>

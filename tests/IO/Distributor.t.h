@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "IO/Reader/Distribution.h"
+#include "Core/IO/Reader/Distribution.h"
 
 #include <cstddef>
 #include <cstdint>

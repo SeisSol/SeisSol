@@ -1,0 +1,136 @@
+// SPDX-FileCopyrightText: 2025 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#ifndef SEISSOL_SRC_CORE_MEMORY_TREE_BACKMAP_H_
+#define SEISSOL_SRC_CORE_MEMORY_TREE_BACKMAP_H_
+
+#include <array>
+#include <cstddef>
+#include <limits>
+#include <optional>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
+
+namespace seissol::initializer {
+
+/**
+  A position in the Storage structure; identified by the layer color and the cell position inside
+  that layer. (and the global ID as extra info)
+ */
+struct StoragePosition {
+  std::size_t color{std::numeric_limits<std::size_t>::max()};
+  std::size_t cell{std::numeric_limits<std::size_t>::max()};
+  std::size_t global{std::numeric_limits<std::size_t>::max()};
+
+  constexpr bool operator==(const StoragePosition& other) const {
+    return color == other.color && cell == other.cell;
+  }
+
+  constexpr bool operator!=(const StoragePosition& other) const { return !(*this == other); }
+
+  constexpr StoragePosition() = default;
+
+  explicit constexpr StoragePosition(std::size_t color, std::size_t cell, std::size_t global)
+      : color(color), cell(cell), global(global) {}
+
+  /**
+    A undefined storage position; e.g. for use when there is no cell present but a position needs to
+    be stored. Will most likely cause a segfault when used; prefer using optionals to
+    StoragePositions instead where possible.
+  */
+  static const StoragePosition NullPosition;
+};
+
+// cf. e.g. https://github.com/llvm/llvm-project/issues/182031#issuecomment-3921681926 or
+// https://eel.is/c++draft/support#cmp.strongord-1
+inline constexpr StoragePosition StoragePosition::NullPosition{};
+
+/**
+  A map from e.g. cell ID to position in a layered Storage structure. May contain MaxDuplicatesP
+  many duplicates per cell ID. (akin to the Lut implementation in older SeisSol)
+ */
+template <std::size_t MaxDuplicatesP>
+class StorageBackmap {
+  public:
+  static constexpr std::size_t MaxDuplicates = MaxDuplicatesP;
+
+  private:
+  using CellStoragePosition = std::array<StoragePosition, MaxDuplicates>;
+
+  std::vector<CellStoragePosition> data_;
+
+  std::size_t copyCount_{1};
+
+  public:
+  explicit StorageBackmap(std::size_t size) : data_(size) {}
+
+  StorageBackmap() = default;
+
+  [[nodiscard]] StoragePosition get(std::size_t id, std::size_t copy) const {
+    const auto position = getDup(id, copy, 0);
+    if (!position.has_value()) {
+      logError() << "Backmap has no position stored for" << id << "in copy" << copy << ".";
+    }
+    return *position;
+  }
+
+  [[nodiscard]] std::optional<StoragePosition>
+      getDup(std::size_t id, std::size_t copy, std::size_t duplicate) const {
+    if (duplicate >= MaxDuplicates) {
+      return {};
+    } else {
+      const auto position = data_[id * copyCount_ + copy][duplicate];
+      if (position == StoragePosition::NullPosition) {
+        return {};
+      } else {
+        return position;
+      }
+    }
+  }
+
+  void setSize(std::size_t size, std::size_t copy) {
+    data_.resize(size * copy);
+    copyCount_ = copy;
+  }
+
+  [[nodiscard]] std::size_t copyCount() const { return copyCount_; }
+
+  template <typename TRef>
+  std::size_t addElement(std::size_t color,
+                         const TRef* zeroPosition,
+                         const TRef* layerData,
+                         std::size_t cell,
+                         std::size_t copy,
+                         std::size_t index) {
+    const auto layerPosition = (reinterpret_cast<std::intptr_t>(layerData) -
+                                reinterpret_cast<std::intptr_t>(zeroPosition)) /
+                               sizeof(TRef);
+    const auto position = layerPosition + index;
+    const auto storagePosition = StoragePosition{color, index, position};
+
+    if (cell * copyCount_ >= data_.size()) {
+      logError() << "Tried to add cell" << cell << "to a backmap of size"
+                 << data_.size() / copyCount_ << ". Out of capacity.";
+    }
+
+    if (copyCount_ <= copy) {
+      logError() << "Exceeded copy count." << copy << "against" << copyCount_;
+    }
+
+    for (std::size_t j = 0; j < MaxDuplicates; ++j) {
+      if (data_[cell * copyCount_ + copy][j] == StoragePosition::NullPosition) {
+        data_[cell * copyCount_ + copy][j] = storagePosition;
+        return j;
+      }
+    }
+    logError() << "Backmap has stored more than" << MaxDuplicates << "duplicates for" << cell
+               << ". Out of capacity.";
+  }
+};
+
+} // namespace seissol::initializer
+#endif // SEISSOL_SRC_CORE_MEMORY_TREE_BACKMAP_H_

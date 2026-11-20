@@ -7,15 +7,15 @@
 
 #include "InstantaneousTimeMirrorManager.h"
 
-#include "Common/ConfigDispatch.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Modules/Module.h"
+#include "Core/Modules/Modules.h"
 #include "Initializer/Model/CellLocalMatrices.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
-#include "Modules/Module.h"
-#include "Modules/Modules.h"
 #include "SeisSol.h"
 
 #include <cstddef>

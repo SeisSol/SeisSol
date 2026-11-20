@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/ConfigValue.h"
-#include "Common/Real.h"
+#include "Core/Common/ConfigValue.h"
+#include "Core/Common/Real.h"
 #include "Model/MaterialType.h"
 
 #include <array>

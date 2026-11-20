@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Kernels/Common.h"
-#include "Parallel/Runtime/Stream.h"
 #include "Solver/TimeStepping/Compute/ClusterClock.h"
 
 #ifdef ACL_DEVICE

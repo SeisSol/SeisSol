@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "Common/Executor.h"
-#include "Common/Real.h"
+#include "Core/Common/Executor.h"
+#include "Core/Common/Real.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Halo/GhostCluster.h"

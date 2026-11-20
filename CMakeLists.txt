@@ -159,7 +159,7 @@ if (OPENMP)
   target_link_libraries(seissol-common-properties INTERFACE OpenMP::OpenMP_CXX)
   target_compile_definitions(seissol-common-properties INTERFACE OMP OMPI_SKIP_MPICXX)
 
-  # What the task graph on the host takes (see Parallel/Runtime/HostRuntime.h): tasks with
+  # What the task graph on the host takes (see Core/Parallel/Runtime/HostRuntime.h): tasks with
   # dependencies on a list of runtime length (iterators), detached tasks, taskloop and masked. The
   # version that _OPENMP reports cannot tell: GCC reports 4.5 up to version 15, though it has them
   # from 12 on, and NVHPC reports 5.1 without them.

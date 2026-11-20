@@ -9,22 +9,22 @@
 #include "InitialFieldProjection.h"
 
 #include "Alignment.h"
-#include "Common/ConfigDispatch.h"
-#include "Common/Constants.h"
 #include "Config.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/Constants.h"
+#include "Core/Geometry/CellTransform.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Numerical/Quadrature.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "Geometry/CellTransform.h"
-#include "Geometry/MeshReader.h"
 #include "Initializer/Parameters/SimulationFiles.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Layer.h"
-#include "Numerical/Quadrature.h"
 #include "ParameterDB.h"
 #include "Physics/InitialField.h"
 #include "Solver/MultipleSimulations.h"
@@ -41,7 +41,7 @@
 #include <vector>
 
 #ifdef USE_ASAGI
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "Reader/AsagiReader.h"
 
 #include <easi/util/AsagiReader.h>

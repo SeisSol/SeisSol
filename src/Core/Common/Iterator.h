@@ -1,0 +1,372 @@
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_CORE_COMMON_ITERATOR_H_
+#define SEISSOL_SRC_CORE_COMMON_ITERATOR_H_
+
+#include <functional>
+#include <iterator>
+#include <limits>
+#include <stdexcept>
+#include <tuple>
+#include <utility>
+
+// NOTE: the following are essentially backports of C++20 and C++23 features
+
+namespace seissol::common {
+
+// TODO: remove all in here once C++23 lands in SeisSol
+
+// cf. https://stackoverflow.com/a/44661987
+template <typename RangeT>
+using IteratorType = decltype(std::begin(std::declval<RangeT&>()));
+
+/**
+  Runs multiple iterators at the same time in a tuple, akin to Python `zip`.
+
+  Can most likely be simplified with C++20 view transforms.
+  Will be replaced with C++23 std::views::zip .
+ */
+template <typename... RangeTs>
+class Zip {
+  public:
+  // only a discount implementation for now: we only support LegacyInputIterator.
+
+  template <typename... IteratorTs>
+  class Iterator {
+public:
+    // the names under which the standard library looks up the types of an iterator
+    // NOLINTBEGIN(readability-identifier-naming)
+    using iterator_category = std::input_iterator_tag;
+    using difference_type =
+        std::tuple<typename std::iterator_traits<IteratorTs>::difference_type...>;
+    using value_type = std::tuple<typename std::iterator_traits<IteratorTs>::value_type...>;
+    using pointer = std::tuple<typename std::iterator_traits<IteratorTs>::pointer...>;
+    using reference = std::tuple<typename std::iterator_traits<IteratorTs>::reference...>;
+    // NOLINTEND(readability-identifier-naming)
+
+    constexpr static auto makeReference(std::tuple<IteratorTs...>& iterators) -> reference {
+      return std::apply([](auto&... values) { return reference{*values...}; }, iterators);
+    }
+
+    Iterator(bool lenient,
+             const std::tuple<IteratorTs...>& iterators,
+             const std::tuple<IteratorTs...>& iteratorEnds)
+        : iterators_(iterators), iteratorEnds_(iteratorEnds),
+          ended_(tupleAnyEqual(iterators, iteratorEnds)), lenient_(lenient) {
+      if (!lenient && ended_ && iterators != iteratorEnds) {
+        throw std::runtime_error("Not all iterators are finished (but they should be).");
+      }
+    }
+
+    constexpr auto operator*() -> reference { return makeReference(iterators_); }
+
+    constexpr auto operator*() const -> reference { return makeReference(iterators_); }
+
+    constexpr auto operator++() -> Iterator& {
+      iterators_ = tupleTransform([](auto& value) { return ++value; }, iterators_);
+
+      ended_ = tupleAnyEqual(iterators_, iteratorEnds_);
+      if (!lenient_ && ended_ && iterators_ != iteratorEnds_) {
+        throw std::runtime_error("Not all iterators are finished (but they should be).");
+      }
+
+      return *this;
+    }
+
+    constexpr auto operator==(const Iterator& other) const -> bool {
+      return (ended_ && other.ended_) ||
+             (!ended_ && !other.ended_ && iterators_ == other.iterators_);
+    }
+
+    constexpr auto operator!=(const Iterator& other) const -> bool { return !(*this == other); }
+
+private:
+    std::tuple<IteratorTs...> iterators_;
+    std::tuple<IteratorTs...> iteratorEnds_;
+    bool ended_;
+    bool lenient_;
+  };
+
+  explicit Zip(bool lenient, RangeTs&&... ranges) : ranges_(ranges...), lenient_(lenient) {}
+
+  constexpr auto begin() {
+    return Iterator<IteratorType<RangeTs>...>(
+        lenient_,
+        tupleTransform([](auto& value) { return std::begin(value); }, ranges_),
+        tupleTransform([](auto&& value) { return std::end(value); }, ranges_));
+  }
+
+  constexpr auto end() {
+    return Iterator<IteratorType<RangeTs>...>(
+        lenient_,
+        tupleTransform([](auto& value) { return std::end(value); }, ranges_),
+        tupleTransform([](auto&& value) { return std::end(value); }, ranges_));
+  }
+
+  [[nodiscard]] constexpr auto begin() const {
+    return Iterator<IteratorType<RangeTs>...>(
+        lenient_,
+        tupleTransform([](const auto& value) { return std::cbegin(value); }, ranges_),
+        tupleTransform([](const auto& value) { return std::cend(value); }, ranges_));
+  }
+
+  [[nodiscard]] constexpr auto end() const {
+    return Iterator<IteratorType<RangeTs>...>(
+        lenient_,
+        tupleTransform([](const auto& value) { return std::cend(value); }, ranges_),
+        tupleTransform([](const auto& value) { return std::cend(value); }, ranges_));
+  }
+
+  private:
+  template <typename TupleT, std::size_t... Idx>
+  constexpr static bool tupleAnyEqualImpl(const TupleT& tuple1,
+                                          const TupleT& tuple2,
+                                          std::index_sequence<Idx...> /*unused*/) {
+    return ((std::get<Idx>(tuple1) == std::get<Idx>(tuple2)) || ...);
+  }
+
+  template <typename TupleT>
+  constexpr static bool tupleAnyEqual(const TupleT& tuple1, const TupleT& tuple2) {
+    using Indices = std::make_index_sequence<std::tuple_size_v<TupleT>>;
+    return tupleAnyEqualImpl(tuple1, tuple2, Indices());
+  }
+
+  template <typename F, typename TupleA>
+  constexpr static auto tupleTransform(F function, TupleA& tuple) {
+    return std::apply([function](auto&... args) { return std::tuple{function(args)...}; }, tuple);
+  }
+
+  template <typename F, typename TupleA>
+  constexpr static auto tupleTransform(F function, const TupleA& tuple) {
+    return std::apply([function](const auto&... args) { return std::tuple{function(args)...}; },
+                      tuple);
+  }
+
+  std::tuple<RangeTs...> ranges_;
+  bool lenient_;
+};
+
+/**
+  Runs multiple iterators at the same time in a tuple, akin to Python `zip`.
+
+  Usage:
+
+  for (const auto [first, second, third] : zip(firstIt, secondIt, thirdIt)) {
+    // ...
+  }
+
+  Can most likely be simplified with C++20 view transforms.
+  Will be replaced with C++23 std::views::zip .
+ */
+template <typename... RangeTs>
+constexpr auto zip(RangeTs&&... ranges) {
+  return Zip<RangeTs...>(false, std::forward<RangeTs>(ranges)...);
+}
+
+/**
+  A simple incrementing range.
+
+  TODO: replace/remove, once C++20 lands in SeisSol
+ */
+template <typename T>
+class Range {
+  static_assert(std::is_integral_v<T>, "For now, T needs to be integer");
+
+  public:
+  class Iterator {
+public:
+    // the names under which the standard library looks up the types of an iterator
+    // NOLINTBEGIN(readability-identifier-naming)
+    using iterator_category = std::input_iterator_tag;
+    using difference_type = std::make_signed_t<T>;
+    using value_type = T;
+    using pointer = const T*;
+    using reference =
+        std::conditional_t<std::is_trivially_copyable_v<T> && sizeof(T) <= sizeof(std::size_t),
+                           T,
+                           const T&>;
+    // NOLINTEND(readability-identifier-naming)
+
+    Iterator(T value, T step, T end) : value_(value), step_(step), end_(end) {
+      if (value > end) {
+        value = end;
+      }
+    }
+
+    constexpr auto operator++() {
+      value_ += step_;
+      if (value_ > end_) {
+        value_ = end_;
+      }
+      return *this;
+    }
+
+    constexpr auto operator*() -> reference { return value_; }
+
+    constexpr auto operator*() const -> reference { return value_; }
+
+    constexpr auto operator==(const Iterator& other) const -> bool {
+      return value_ == other.value_ && step_ == other.step_ && end_ == other.end_;
+    }
+
+    constexpr auto operator!=(const Iterator& other) const -> bool { return !(*this == other); }
+
+private:
+    T value_;
+    T step_;
+    T end_;
+  };
+
+  Range(T start, T stop, T step) : startVal_(start), stopVal_(stop), stepVal_(step) {}
+
+  [[nodiscard]] constexpr auto begin() const { return Iterator(startVal_, stepVal_, stopVal_); }
+
+  [[nodiscard]] constexpr auto end() const { return Iterator(stopVal_, stepVal_, stopVal_); }
+
+  [[nodiscard]] constexpr auto cbegin() const { return Iterator(startVal_, stepVal_, stopVal_); }
+
+  [[nodiscard]] constexpr auto cend() const { return Iterator(stopVal_, stepVal_, stopVal_); }
+
+  private:
+  T startVal_;
+  T stopVal_;
+  T stepVal_;
+};
+
+/**
+  A range to an iterator, running from 0 to `stop - 1`. (similar to Python)
+
+  With C++20, replace by std::views::iota
+ */
+template <typename T>
+constexpr auto range(T stop) {
+  return Range(static_cast<T>(0), stop, static_cast<T>(1));
+}
+
+/**
+  A range to an iterator, running from `start` to `stop - 1`. (similar to Python)
+
+  With C++20, replace by std::views::iota
+ */
+template <typename T>
+constexpr auto range(T start, T stop) {
+  return Range(start, stop, static_cast<T>(1));
+}
+
+/**
+  A range to an iterator, running from `start` to `stop - 1` in increment `step`. (similar to
+  Python)
+
+  With C++20, replace by std::views::iota
+ */
+template <typename T>
+constexpr auto range(T start, T stop, T step) {
+  return Range(start, stop, step);
+}
+
+/**
+  Counts while running through an iterator.
+
+  Usage:
+
+  for (const auto [i, item] : zip(it)) {
+    // ...
+  }
+
+  Will give:
+  0, it[0]
+  1, it[1]
+  ...
+
+  Can most likely be simplified with C++20 view transforms.
+  Will be replaced with C++23 std::views::enumerate .
+ */
+template <typename RangeT>
+constexpr auto enumerate(RangeT&& iterator) {
+  // a tiny bit hacky to use both zip and the int range like that. But it should work.
+  return Zip<Range<std::size_t>, RangeT>(
+      true,
+      Range<std::size_t>(0, std::numeric_limits<std::size_t>::max(), 1),
+      std::forward<RangeT>(iterator));
+}
+
+/**
+  Filter an iterator by a function; i.e. skip certain elements while iterating over it. E.g.
+
+  auto beginIt = FilteredIterator(obj.begin(), obj.end(), filter);
+  auto endIt = FilteredIterator(obj.end(), obj.end(), filter);
+
+  for (auto it = beginIt; it != endIt; ++it) {
+    // ...
+  }
+
+  is equivalent to
+
+  for (auto it = obj.begin(); it != obj.end(); ++it) {
+    if (filter(*it)) {
+      // ...
+    }
+  }
+
+  (NOTE: might benefit from a short-hand notation like for zip and enumerate in this file; however
+  we didn't need that so far; and C++20 is around the corner to be adopted anyways)
+ */
+template <typename T>
+class FilteredIterator {
+  public:
+  // the names under which the standard library looks up the types of an iterator
+  // NOLINTBEGIN(readability-identifier-naming)
+  using iterator_category = std::iterator_traits<T>::iterator_category;
+  using difference_type = std::iterator_traits<T>::difference_type;
+  using value_type = std::iterator_traits<T>::value_type;
+  using pointer = std::iterator_traits<T>::pointer;
+  using reference = std::iterator_traits<T>::reference;
+  // NOLINTEND(readability-identifier-naming)
+
+  FilteredIterator(T base, T end, const std::function<bool(reference)>& filter)
+      : base_(base), end_(end), filter_(filter) {
+    // skip initially-filtered elements
+    while (this->base_ != end && !filter(*this->base_)) {
+      ++this->base_;
+    }
+  }
+
+  constexpr auto operator++() {
+    // advance, and skip if needed
+    ++base_;
+    while (base_ != end_ && !filter_(*base_)) {
+      ++base_;
+    }
+    return *this;
+  }
+
+  constexpr auto operator*() -> reference { return *base_; }
+
+  constexpr auto operator*() const -> reference { return *base_; }
+
+  constexpr auto operator==(const T& other) const -> bool { return other == base_; }
+
+  constexpr auto operator!=(const T& other) const -> bool { return !(*this == other); }
+
+  constexpr auto operator==(const FilteredIterator<T>& other) const -> bool {
+    return other.base_ == base_;
+  }
+
+  constexpr auto operator!=(const FilteredIterator<T>& other) const -> bool {
+    return !(*this == other);
+  }
+
+  private:
+  T base_;
+  T end_;
+  std::function<bool(reference)> filter_;
+};
+
+} // namespace seissol::common
+
+#endif // SEISSOL_SRC_CORE_COMMON_ITERATOR_H_

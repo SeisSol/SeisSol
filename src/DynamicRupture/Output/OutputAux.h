@@ -9,11 +9,11 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTAUX_H_
 
 #include "Config.h"
+#include "Core/Geometry/CellTransform.h"
+#include "Core/Geometry/FaceTransform.h"
+#include "Core/Geometry/MeshReader.h"
 #include "DataTypes.h"
 #include "GeneratedCode/tensor.h"
-#include "Geometry/CellTransform.h"
-#include "Geometry/FaceTransform.h"
-#include "Geometry/MeshReader.h"
 
 #include <array>
 #include <cstddef>

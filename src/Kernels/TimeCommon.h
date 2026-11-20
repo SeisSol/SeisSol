@@ -10,7 +10,7 @@
 #ifndef SEISSOL_SRC_KERNELS_TIMECOMMON_H_
 #define SEISSOL_SRC_KERNELS_TIMECOMMON_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"

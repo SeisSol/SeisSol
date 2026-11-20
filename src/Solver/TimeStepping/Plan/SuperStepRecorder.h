@@ -8,9 +8,9 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_PLAN_SUPERSTEPRECORDER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_PLAN_SUPERSTEPRECORDER_H_
 
-#include "Monitoring/DeviceTimer.h"
-#include "Parallel/Runtime/HostActor.h"
-#include "Parallel/Runtime/Stream.h"
+#include "Core/Monitoring/DeviceTimer.h"
+#include "Core/Parallel/Runtime/HostActor.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 

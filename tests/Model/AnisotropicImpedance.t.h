@@ -15,14 +15,14 @@
 #include <doctest.h>
 
 #include "Alignment.h"
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
+#include "Core/Geometry/MeshDefinition.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Impedance.h"
 #include "Equations/ImpedanceBase.h"
 #include "Equations/Setup.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include "Geometry/MeshDefinition.h"
 #include "ImpedanceReference.h"
 #include "Initializer/Model/DynamicRuptureImpedance.h"
 #include "Model/Common.h"

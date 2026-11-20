@@ -10,7 +10,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_CLUSTERING_CLUSTERSMOOTHER_H_
 #define SEISSOL_SRC_INITIALIZER_CLUSTERING_CLUSTERSMOOTHER_H_
 
-#include "Geometry/PUMLReader.h"
+#include "Core/Geometry/PUMLReader.h"
 #include "Initializer/BasicTypedefs.h"
 
 #include <cstddef>

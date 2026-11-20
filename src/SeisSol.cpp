@@ -8,13 +8,13 @@
 
 #include "SeisSol.h"
 
-#include "Geometry/MeshReader.h"
-#include "Modules/Modules.h"
-#include "Monitoring/Unit.h"
-#include "Parallel/Helper.h"
-#include "Parallel/MPI.h"
-#include "Parallel/OpenMP.h"
-#include "Parallel/Pin.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Modules/Modules.h"
+#include "Core/Monitoring/Unit.h"
+#include "Core/Parallel/Helper.h"
+#include "Core/Parallel/MPI.h"
+#include "Core/Parallel/OpenMP.h"
+#include "Core/Parallel/Pin.h"
 
 #include <cstddef>
 #include <memory>

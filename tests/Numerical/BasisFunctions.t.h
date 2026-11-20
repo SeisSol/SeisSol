@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
+#include "Core/Numerical/BasisFunction.h"
 #include "GeneratedCode/init.h"
-#include "Numerical/BasisFunction.h"
 #include "TestHelper.h"
 
 namespace seissol::unit_test {

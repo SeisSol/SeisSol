@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Monitoring/DeviceTimeline.h"
+#include "Core/Monitoring/DeviceTimeline.h"
 
 #include <utility>
 #include <vector>

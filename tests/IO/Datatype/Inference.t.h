@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "IO/Datatype/Datatype.h"
-#include "IO/Datatype/Inference.h"
+#include "Core/IO/Datatype/Datatype.h"
+#include "Core/IO/Datatype/Inference.h"
 #include "TestHelper.h"
 
 #include <array>

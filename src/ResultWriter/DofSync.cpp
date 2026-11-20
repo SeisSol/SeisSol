@@ -7,11 +7,11 @@
 
 #include "DofSync.h"
 
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Parallel/MPI.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/TimeStepping/Halo.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Layer.h"
-#include "Parallel/MPI.h"
 
 #include <cstdint>
 #include <mpi.h>

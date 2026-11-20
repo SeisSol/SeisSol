@@ -7,7 +7,7 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_DATA_H_
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_DATA_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 

@@ -5,15 +5,15 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/Real.h"
+#include "Core/Numerical/Eigenvalues.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Setup.h"
 #include "Equations/acoustic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Model/Common.h"
-#include "Numerical/Eigenvalues.h"
 #include "TestConfigs.h"
 #include "TestHelper.h"
 #include "Values.h"

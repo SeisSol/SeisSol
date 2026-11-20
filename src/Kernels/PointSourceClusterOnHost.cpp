@@ -9,13 +9,13 @@
 #include "PointSourceClusterOnHost.h"
 
 #include "Config.h"
+#include "Core/Monitoring/Trace.h"
+#include "Core/Parallel/Runtime/HostRuntime.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"
 #include "Kernels/PointSourceCluster.h"
-#include "Monitoring/Trace.h"
-#include "Parallel/Runtime/HostRuntime.h"
-#include "Parallel/Runtime/Stream.h"
 #include "SourceTerm/Typedefs.h"
 
 #include <array>

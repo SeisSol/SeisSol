@@ -8,8 +8,8 @@
 
 #include "Touch.h"
 
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/Real.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/SolverSelector.h"
 

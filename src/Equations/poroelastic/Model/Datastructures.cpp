@@ -16,7 +16,7 @@
 
 // Also if we don't use poroelastic materials, the material has to be properly defined
 // such that e.g. seissol::Interoperability::initializeModel work without ifdefs
-#include "Numerical/Eigenvalues.h"
+#include "Core/Numerical/Eigenvalues.h"
 double seissol::model::PoroElasticMaterial::getPWaveSpeed() const {
   eigenvalues::Eigenpair<std::complex<double>, NumQuantities> eigendecomposition;
   std::array<std::complex<double>, NumQuantities * NumQuantities> atValues{};

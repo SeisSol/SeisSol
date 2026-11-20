@@ -9,10 +9,10 @@
 #ifndef SEISSOL_SRC_INITIALIZER_MODEL_CELLLOCALMATRICES_H_
 #define SEISSOL_SRC_INITIALIZER_MODEL_CELLLOCALMATRICES_H_
 
-#include "Geometry/MeshReader.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Memory/Descriptor/LTS.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
-#include "Memory/Descriptor/LTS.h"
 
 namespace seissol::initializer {
 

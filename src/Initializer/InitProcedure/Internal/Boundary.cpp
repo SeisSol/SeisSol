@@ -6,15 +6,15 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Boundary.h"
 
-#include "Common/ConfigDispatch.h"
-#include "Common/Constants.h"
-#include "Common/Iterator.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Iterator.h"
+#include "Core/Memory/Descriptor/Boundary.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Descriptor/Surface.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "Initializer/BoundarySetup.h"
 #include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/Boundary.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Descriptor/Surface.h"
-#include "Memory/Tree/Layer.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 
 #include <cstddef>

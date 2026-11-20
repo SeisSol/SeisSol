@@ -7,7 +7,7 @@
 #ifndef SEISSOL_SRC_KERNELS_STP_DATA_H_
 #define SEISSOL_SRC_KERNELS_STP_DATA_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/Common.h"

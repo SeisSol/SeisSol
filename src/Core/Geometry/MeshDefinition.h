@@ -1,0 +1,89 @@
+// SPDX-FileCopyrightText: 2013 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
+
+#ifndef SEISSOL_SRC_CORE_GEOMETRY_MESHDEFINITION_H_
+#define SEISSOL_SRC_CORE_GEOMETRY_MESHDEFINITION_H_
+
+#include "Core/Common/CompactOptional.h"
+#include "Core/Common/Constants.h"
+#include "Initializer/BasicTypedefs.h"
+
+#include <cstddef>
+#include <vector>
+
+namespace seissol {
+
+using CoordinateT = std::array<double, Cell::Dim>;
+
+struct Element {
+  // global cell ID
+  size_t globalId{};
+  size_t localId{};
+  std::array<size_t, Cell::NumVertices> vertices{};
+  std::array<OptionalSize, Cell::NumFaces> neighbors;
+  std::array<int8_t, Cell::NumFaces> neighborSides{};
+  std::array<int8_t, Cell::NumFaces> sideOrientations{};
+  /** Domain boundary condition, or 0 for inner elements and MPI boundaries */
+  std::array<FaceType, Cell::NumFaces> boundaries{};
+  std::array<int, Cell::NumFaces> neighborRanks{};
+  std::array<size_t, Cell::NumFaces> mpiIndices{};
+  /** Material of the element */
+  int group{};
+  std::array<int, Cell::NumFaces> faultTags{};
+  std::size_t clusterId{};
+  double timestep{};
+};
+
+struct Vertex {
+  CoordinateT coords{};
+  /** Elements sharing this neighbor */
+  std::vector<size_t> elements;
+};
+
+struct MPINeighborElement {
+  /** Local number of the local element */
+  size_t localElement{};
+  /** Global number neighbor element */
+  size_t neighborElement{};
+  /** Side of the local element */
+  int8_t localSide{};
+  /** Side of the neighbor element */
+  int8_t neighborSide{};
+};
+
+struct Fault {
+  size_t globalId{};
+  size_t neighborGlobalId{};
+
+  /** Normal of the fault face */
+  CoordinateT normal{};
+
+  /** Rotation matrix */
+  CoordinateT tangent1{};
+  CoordinateT tangent2{};
+
+  /** The element which contains this fault */
+  OptionalSize element;
+  OptionalSize neighborElement;
+
+  int tag{};
+  int8_t neighborSide{};
+  /** The side of the element */
+  int8_t side{};
+};
+
+struct MPINeighbor {
+  /** Local ID of the MPI neighbor */
+  size_t localID{};
+
+  std::vector<MPINeighborElement> elements;
+};
+
+} // namespace seissol
+
+#endif // SEISSOL_SRC_CORE_GEOMETRY_MESHDEFINITION_H_

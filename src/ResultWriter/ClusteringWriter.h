@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_CLUSTERINGWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_CLUSTERINGWRITER_H_
 
-#include "Memory/Tree/Layer.h"
+#include "Core/Memory/Tree/Layer.h"
 
 #include <string>
 #include <type_traits>

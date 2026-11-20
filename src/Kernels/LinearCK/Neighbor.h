@@ -11,11 +11,11 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_NEIGHBOR_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_NEIGHBOR_H_
 
-#include "Common/Constants.h"
-#include "Common/Real.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
+#include "Core/Monitoring/Metric.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Neighbor.h"
-#include "Monitoring/Metric.h"
 #ifdef ACL_DEVICE
 #include <Device/device.h>
 #endif

@@ -7,13 +7,13 @@
 
 #include "ImposedSlipRatesInitializer.h"
 
-#include "Common/ConfigDispatch.h"
-#include "Common/Real.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/Real.h"
+#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Geometry/MeshTools.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "DynamicRupture/Misc.h"
-#include "Geometry/MeshDefinition.h"
-#include "Geometry/MeshTools.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
 
 #include <algorithm>

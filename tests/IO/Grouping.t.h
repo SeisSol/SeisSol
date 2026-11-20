@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "IO/Datatype/Inference.h"
-#include "IO/Instance/Point/Grouping.h"
+#include "Core/IO/Datatype/Inference.h"
+#include "Core/IO/Instance/Point/Grouping.h"
 
 #include <cstddef>
 #include <cstdint>

@@ -5,9 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/ConfigDispatch.h"
-#include "Common/ConfigRegistry.h"
-#include "Common/ConfigValue.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/ConfigValue.h"
 
 #include <cstddef>
 #include <variant>

@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_TASKHALOTRANSPORT_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_TASKHALOTRANSPORT_H_
 
-#include "Parallel/Runtime/HostRuntime.h"
+#include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Solver/TimeStepping/Halo/HaloTransport.h"
 
 #include <atomic>

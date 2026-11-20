@@ -6,13 +6,13 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "MeshLayout.h"
 
-#include "Common/Constants.h"
-#include "Common/Iterator.h"
-#include "Geometry/MeshReader.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Iterator.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Memory/Tree/Colormap.h"
+#include "Core/Parallel/MPI.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/TimeStepping/Halo.h"
-#include "Memory/Tree/Colormap.h"
-#include "Parallel/MPI.h"
 
 #include <algorithm>
 #include <cstddef>

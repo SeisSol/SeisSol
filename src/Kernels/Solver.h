@@ -7,13 +7,13 @@
 #ifndef SEISSOL_SRC_KERNELS_SOLVER_H_
 #define SEISSOL_SRC_KERNELS_SOLVER_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
+#include "Core/Numerical/TimeBasis.h"
 #include "Kernels/Data.h"
 #include "Kernels/LinearCK/Solver.h"
 #include "Kernels/LinearCKAnelastic/Solver.h"
 #include "Kernels/STP/Solver.h"
 #include "Kernels/SolverSelector.h"
-#include "Numerical/TimeBasis.h"
 
 // IWYU pragma: begin_exports
 

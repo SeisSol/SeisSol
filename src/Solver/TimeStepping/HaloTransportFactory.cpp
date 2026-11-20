@@ -7,9 +7,9 @@
 
 #include "HaloTransportFactory.h"
 
+#include "Core/Parallel/Helper.h"
+#include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Kernels/Common.h"
-#include "Parallel/Helper.h"
-#include "Parallel/Runtime/HostRuntime.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 #include "Solver/TimeStepping/Halo/HaloTransport.h"
 #include "Solver/TimeStepping/Halo/Mpi/MpiHaloTransport.h"

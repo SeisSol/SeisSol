@@ -7,26 +7,26 @@
 
 #include "Init.h"
 
-#include "Common/ConfigRegistry.h"
-#include "Common/ConfigValue.h"
-#include "Common/Json.h"
-#include "Geometry/MeshReader.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/ConfigValue.h"
+#include "Core/Common/Json.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Monitoring/DeviceTimeline.h"
+#include "Core/Monitoring/Memory.h"
+#include "Core/Monitoring/RunSummary.h"
+#include "Core/Monitoring/Stopwatch.h"
+#include "Core/Monitoring/Trace.h"
+#include "Core/Monitoring/Unit.h"
+#include "Core/Numerical/Statistics.h"
+#include "Core/Parallel/Helper.h"
+#include "Core/Parallel/MPI.h"
 #include "InitIO.h"
 #include "InitMesh.h"
 #include "InitModel.h"
 #include "InitSideConditions.h"
 #include "Initializer/InitProcedure/InitLayout.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Memory/Tree/Layer.h"
-#include "Monitoring/DeviceTimeline.h"
-#include "Monitoring/Memory.h"
-#include "Monitoring/RunSummary.h"
-#include "Monitoring/Stopwatch.h"
-#include "Monitoring/Trace.h"
-#include "Monitoring/Unit.h"
-#include "Numerical/Statistics.h"
-#include "Parallel/Helper.h"
-#include "Parallel/MPI.h"
 #include "ResultWriter/ThreadsPinningWriter.h"
 #include "SeisSol.h"
 
@@ -37,7 +37,7 @@
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include "Monitoring/DeviceTimer.h"
+#include "Core/Monitoring/DeviceTimer.h"
 
 #include <Device/device.h>
 #include <sstream>

@@ -7,12 +7,12 @@
 
 #include "SourceTimeFunction.h"
 
-#include "Common/Real.h"
 #include "Config.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Numerical/DeltaPulse.h"
-#include "Numerical/GaussianNucleationFunction.h"
-#include "Numerical/RegularizedYoffe.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Numerical/DeltaPulse.h"
+#include "Core/Numerical/GaussianNucleationFunction.h"
+#include "Core/Numerical/RegularizedYoffe.h"
 
 #include <cstddef>
 #include <cstdint>

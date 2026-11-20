@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Geometry/CellTransform.h"
+#include "Core/Geometry/CellTransform.h"
 
 #include <Eigen/Dense>
 #include <array>

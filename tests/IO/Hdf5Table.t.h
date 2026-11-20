@@ -7,9 +7,9 @@
 
 #include <doctest.h>
 
-#include "IO/Datatype/Inference.h"
-#include "IO/Instance/Point/Hdf5Table.h"
-#include "IO/Reader/File/Hdf5Reader.h"
+#include "Core/IO/Datatype/Inference.h"
+#include "Core/IO/Instance/Point/Hdf5Table.h"
+#include "Core/IO/Reader/File/Hdf5Reader.h"
 #include "WriterHarness.t.h"
 
 #include <cstddef>

@@ -7,8 +7,8 @@
 
 #include "Kernels/DeviceAux/PlasticityAux.h"
 
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"

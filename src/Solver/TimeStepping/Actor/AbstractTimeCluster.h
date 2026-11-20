@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTOR_ABSTRACTTIMECLUSTER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTOR_ABSTRACTTIMECLUSTER_H_
 
-#include "Memory/Tree/Layer.h"
-#include "Parallel/Runtime/HostRuntime.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Actor/StepParams.h"
 

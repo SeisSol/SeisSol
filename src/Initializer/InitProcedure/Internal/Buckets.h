@@ -7,10 +7,10 @@
 #ifndef SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_BUCKETS_H_
 #define SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_BUCKETS_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/LTSTree.h"
 #include "Initializer/TimeStepping/Halo.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 
 namespace seissol::initializer::internal {

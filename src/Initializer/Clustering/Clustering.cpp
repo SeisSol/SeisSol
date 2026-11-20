@@ -7,11 +7,11 @@
 
 #include "Initializer/Clustering/Clustering.h"
 
-#include "Common/ConfigDispatch.h"
-#include "Common/ConfigRegistry.h"
-#include "Common/Constants.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/Constants.h"
+#include "Core/Geometry/PUMLReader.h"
 #include "Equations/Datastructures.h"
-#include "Geometry/PUMLReader.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Clustering/ClusterLadder.h"
 #include "Initializer/Clustering/ClusterSmoother.h"

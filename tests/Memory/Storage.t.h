@@ -5,16 +5,16 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/ConfigDispatch.h"
-#include "Common/ConfigRegistry.h"
-#include "Common/Iterator.h"
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/Iterator.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Tree/Backmap.h"
+#include "Core/Memory/Tree/Colormap.h"
+#include "Core/Memory/Tree/LTSTree.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "Initializer/BasicTypedefs.h"
-#include "Memory/Tree/Backmap.h"
-#include "Memory/Tree/Colormap.h"
-#include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Layer.h"
 #include "TestConfigs.h"
 
 #include <cstddef>

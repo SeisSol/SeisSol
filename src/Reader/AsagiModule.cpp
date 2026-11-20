@@ -10,11 +10,11 @@
 
 #include "AsagiModule.h"
 
-#include "Modules/Modules.h"
-#include "Parallel/Helper.h"
-#include "Parallel/MPI.h"
-#include "Parallel/OpenMP.h"
-#include "Parallel/Pin.h"
+#include "Core/Modules/Modules.h"
+#include "Core/Parallel/Helper.h"
+#include "Core/Parallel/MPI.h"
+#include "Core/Parallel/OpenMP.h"
+#include "Core/Parallel/Pin.h"
 
 #include <asagi.h>
 #include <limits>

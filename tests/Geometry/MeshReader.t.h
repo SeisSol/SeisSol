@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "Common/Constants.h"
-#include "Geometry/MeshReader.h"
+#include "Core/Common/Constants.h"
+#include "Core/Geometry/MeshReader.h"
 #include "TestHelper.h"
 
 #include <Eigen/Dense>

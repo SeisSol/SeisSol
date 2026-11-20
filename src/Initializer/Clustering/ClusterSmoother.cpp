@@ -9,11 +9,11 @@
 
 #include "Initializer/Clustering/ClusterSmoother.h"
 
-#include "Common/Constants.h"
-#include "Geometry/PUMLReader.h"
+#include "Core/Common/Constants.h"
+#include "Core/Geometry/PUMLReader.h"
+#include "Core/Parallel/MPI.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/FaceMap.h"
-#include "Parallel/MPI.h"
 
 #include <PUML/Downward.h>
 #include <PUML/Types.h>

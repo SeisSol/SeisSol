@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_DOFSYNC_H_
 #define SEISSOL_SRC_RESULTWRITER_DOFSYNC_H_
 
+#include "Core/Modules/Module.h"
 #include "Initializer/TimeStepping/Halo.h"
-#include "Modules/Module.h"
 
 namespace seissol::writer {
 

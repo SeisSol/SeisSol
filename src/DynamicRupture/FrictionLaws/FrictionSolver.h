@@ -8,16 +8,16 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVER_H_
 
-#include "Common/ConfigDispatch.h"
-#include "Common/ConfigRegistry.h"
-#include "Common/Real.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Parallel/Runtime/Stream.h"
 
 #include <functional>
 #include <memory>

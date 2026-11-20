@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Numerical/RegularizedYoffe.h"
+#include "Core/Numerical/RegularizedYoffe.h"
 
 #include <algorithm>
 #include <array>

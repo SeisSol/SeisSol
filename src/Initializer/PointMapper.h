@@ -9,9 +9,9 @@
 #ifndef SEISSOL_SRC_INITIALIZER_POINTMAPPER_H_
 #define SEISSOL_SRC_INITIALIZER_POINTMAPPER_H_
 
-#include "Common/Constants.h"
-#include "Geometry/MeshDefinition.h"
-#include "Geometry/MeshReader.h"
+#include "Core/Common/Constants.h"
+#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Geometry/MeshReader.h"
 
 #include <Eigen/Dense>
 #include <algorithm>

@@ -8,14 +8,14 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTMANAGER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_OUTPUTMANAGER_H_
 
+#include "Core/IO/Instance/Point/Hdf5Table.h"
+#include "Core/Memory/Tree/Backmap.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "DynamicRupture/Output/Builders/ElementWiseBuilder.h"
 #include "DynamicRupture/Output/Builders/PickPointBuilder.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
-#include "IO/Instance/Point/Hdf5Table.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Memory/Tree/Backmap.h"
-#include "Parallel/Runtime/Stream.h"
 
 #include <array>
 #include <cstddef>

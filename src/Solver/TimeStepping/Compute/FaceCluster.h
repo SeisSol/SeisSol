@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_COMPUTE_FACECLUSTER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_COMPUTE_FACECLUSTER_H_
 
-#include "Common/Executor.h"
+#include "Core/Common/Executor.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Actor/StepParams.h"

@@ -8,10 +8,11 @@
 #ifndef SEISSOL_SRC_KERNELS_CONFIGBOUNDARY_H_
 #define SEISSOL_SRC_KERNELS_CONFIGBOUNDARY_H_
 
-#include "Common/ConfigDispatch.h"
-#include "Common/ConfigRegistry.h"
-#include "Common/Constants.h"
-#include "Common/Real.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/configboundary.h"
 #include "GeneratedCode/tensor.h"
@@ -20,7 +21,6 @@
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/Typedefs.h"
 #include "Model/Common.h"
-#include "Parallel/Runtime/Stream.h"
 
 #include <array>
 #include <cstddef>

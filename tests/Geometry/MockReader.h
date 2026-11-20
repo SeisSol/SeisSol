@@ -8,8 +8,8 @@
 #ifndef SEISSOL_TESTS_GEOMETRY_MOCKREADER_H_
 #define SEISSOL_TESTS_GEOMETRY_MOCKREADER_H_
 
-#include "Common/Constants.h"
-#include "Geometry/MeshReader.h"
+#include "Core/Common/Constants.h"
+#include "Core/Geometry/MeshReader.h"
 
 #include <Eigen/Dense>
 #include <array>

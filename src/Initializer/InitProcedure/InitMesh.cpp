@@ -7,12 +7,12 @@
 
 #include "InitMesh.h"
 
-#include "Geometry/MeshDefinition.h"
+#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Monitoring/Instrumentation.h"
+#include "Core/Monitoring/RunSummary.h"
 #include "Initializer/Clustering/Clustering.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Monitoring/Instrumentation.h"
-#include "Monitoring/RunSummary.h"
 #include "Solver/Estimator.h"
 
 #include <Eigen/Core>
@@ -29,17 +29,17 @@
 #include <utils/logger.h>
 #include <vector>
 #ifdef USE_HDF
-#include "Geometry/PUMLReader.h"
+#include "Core/Geometry/PUMLReader.h"
 
 #include <hdf5.h>
 #endif // defined(USE_HDF)
+#include "Core/Modules/Modules.h"
+#include "Core/Monitoring/Stopwatch.h"
+#include "Core/Numerical/Statistics.h"
+#include "Core/Parallel/MPI.h"
 #include "Initializer/Clustering/VertexWeights/MeasuredWeights.h"
 #include "Initializer/Clustering/VertexWeights/WeightsFactory.h"
 #include "Initializer/FaceMap.h"
-#include "Modules/Modules.h"
-#include "Monitoring/Stopwatch.h"
-#include "Numerical/Statistics.h"
-#include "Parallel/MPI.h"
 #include "ResultWriter/MiniSeisSolWriter.h"
 #include "SeisSol.h"
 

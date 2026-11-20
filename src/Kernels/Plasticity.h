@@ -10,13 +10,13 @@
 #ifndef SEISSOL_SRC_KERNELS_PLASTICITY_H_
 #define SEISSOL_SRC_KERNELS_PLASTICITY_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
+#include "Core/Monitoring/Metric.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Model/Plasticity.h"
-#include "Monitoring/Metric.h"
-#include "Parallel/Runtime/Stream.h"
 
 #include <cmath>
 #include <limits>

@@ -5,12 +5,12 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/ConfigRegistry.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Memory/HostData.h"
+#include "Core/Memory/Tree/Colormap.h"
+#include "Core/Memory/Tree/LTSTree.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "Initializer/BasicTypedefs.h"
-#include "Memory/HostData.h"
-#include "Memory/Tree/Colormap.h"
-#include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Layer.h"
 
 #include <array>
 #include <cstddef>

@@ -6,15 +6,15 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "ConfigBoundaryCheck.h"
 
-#include "Common/ConfigRegistry.h"
-#include "Common/ConfigValue.h"
-#include "Common/Constants.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/ConfigValue.h"
+#include "Core/Common/Constants.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Parallel/MPI.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Kernels/Common.h"
 #include "Kernels/ConfigBoundary.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Layer.h"
-#include "Parallel/MPI.h"
 
 #include <cstddef>
 #include <cstdint>

@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTOR_ACTORSTATE_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_ACTOR_ACTORSTATE_H_
 
-#include "Common/Executor.h"
-#include "Parallel/Runtime/Event.h"
+#include "Core/Common/Executor.h"
+#include "Core/Parallel/Runtime/Event.h"
 
 #include <atomic>
 #include <cstdint>

@@ -8,13 +8,13 @@
 
 #include "Estimator.h"
 
-#include "Common/ConfigRegistry.h"
-#include "Common/ConfigValue.h"
-#include "Common/Executor.h"
-#include "Common/Real.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/ConfigValue.h"
+#include "Core/Common/Executor.h"
+#include "Core/Common/Real.h"
+#include "Core/Numerical/Statistics.h"
+#include "Core/Parallel/MPI.h"
 #include "Kernels/Common.h"
-#include "Numerical/Statistics.h"
-#include "Parallel/MPI.h"
 #include "Proxy/Common.h"
 #include "Proxy/Runner.h"
 

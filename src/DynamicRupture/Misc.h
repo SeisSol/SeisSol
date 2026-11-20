@@ -8,13 +8,13 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_MISC_H_
 
-#include "Common/Constants.h"
-#include "Common/Marker.h"
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Marker.h"
+#include "Core/Common/Real.h"
+#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Numerical/GaussianNucleationFunction.h"
 #include "GeneratedCode/init.h"
-#include "Geometry/MeshDefinition.h"
-#include "Numerical/GaussianNucleationFunction.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <array>

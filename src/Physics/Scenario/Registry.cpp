@@ -7,8 +7,8 @@
 
 #include "Registry.h"
 
-#include "Common/ConfigRegistry.h"
-#include "Common/ConfigValue.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/ConfigValue.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Typedefs.h"

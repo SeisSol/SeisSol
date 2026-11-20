@@ -8,16 +8,16 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_GRAVITATIONALFREESURFACEBC_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_GRAVITATIONALFREESURFACEBC_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
+#include "Core/Monitoring/Metric.h"
+#include "Core/Numerical/ODEInt.h"
+#include "Core/Numerical/Quadrature.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
-#include "Monitoring/Metric.h"
-#include "Numerical/ODEInt.h"
-#include "Numerical/Quadrature.h"
-#include "Parallel/Runtime/Stream.h"
 
 #include <utility>
 

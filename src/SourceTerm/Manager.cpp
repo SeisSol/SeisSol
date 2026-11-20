@@ -11,29 +11,29 @@
 
 #include "Manager.h"
 
-#include "Common/ConfigDispatch.h"
-#include "Common/Constants.h"
-#include "Common/Marker.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Marker.h"
+#include "Core/Geometry/CellTransform.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Geometry/MeshTools.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/MemoryAllocator.h"
+#include "Core/Memory/Tree/Backmap.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Numerical/BasisFunction.h"
+#include "Core/Parallel/Helper.h"
+#include "Core/Parallel/MPI.h"
 #include "Equations/Datastructures.h"
 #include "FSRMReader.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "Geometry/CellTransform.h"
-#include "Geometry/MeshReader.h"
-#include "Geometry/MeshTools.h"
 #include "Initializer/Parameters/SourceParameters.h"
 #include "Initializer/PointMapper.h"
 #include "Kernels/PointSourceCluster.h"
 #include "Kernels/PointSourceClusterOnHost.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/MemoryAllocator.h"
-#include "Memory/Tree/Backmap.h"
-#include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Datastructures.h" // IWYU pragma: keep
-#include "Numerical/BasisFunction.h"
-#include "Parallel/Helper.h"
-#include "Parallel/MPI.h"
 #include "PointSource.h"
 #include "Solver/Settings.h"
 #include "Solver/TimeStepping/TimeManager.h"
@@ -60,7 +60,7 @@
 #endif
 
 #ifdef ACL_DEVICE
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "Kernels/PointSourceClusterOnDevice.h"
 #endif
 

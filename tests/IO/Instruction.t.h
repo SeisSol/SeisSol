@@ -7,12 +7,12 @@
 
 #include <doctest.h>
 
-#include "IO/Instance/Geometry/Geometry.h"
-#include "IO/Instance/Geometry/Typedefs.h"
-#include "IO/Writer/Instructions/Data.h"
-#include "IO/Writer/Instructions/Hdf5.h"
-#include "IO/Writer/Instructions/Instruction.h"
-#include "IO/Writer/Writer.h"
+#include "Core/IO/Instance/Geometry/Geometry.h"
+#include "Core/IO/Instance/Geometry/Typedefs.h"
+#include "Core/IO/Writer/Instructions/Data.h"
+#include "Core/IO/Writer/Instructions/Hdf5.h"
+#include "Core/IO/Writer/Instructions/Instruction.h"
+#include "Core/IO/Writer/Writer.h"
 #include "WriterHarness.t.h"
 
 #include <algorithm>

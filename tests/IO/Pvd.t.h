@@ -7,9 +7,9 @@
 
 #include <doctest.h>
 
-#include "IO/Instance/Metadata/Pvd.h"
-#include "IO/Instance/Metadata/Xml.h"
-#include "IO/Writer/Instructions/Binary.h"
+#include "Core/IO/Instance/Metadata/Pvd.h"
+#include "Core/IO/Instance/Metadata/Xml.h"
+#include "Core/IO/Writer/Instructions/Binary.h"
 
 #include <memory>
 #include <string>

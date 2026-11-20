@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "Common/ConfigLayout.h"
-#include "Common/ConfigRegistry.h"
+#include "Core/Common/ConfigLayout.h"
+#include "Core/Common/ConfigRegistry.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"
 

@@ -11,12 +11,12 @@
 #ifndef SEISSOL_SRC_KERNELS_NEIGHBOR_H_
 #define SEISSOL_SRC_KERNELS_NEIGHBOR_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
+#include "Core/Monitoring/Metric.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Kernel.h"
-#include "Monitoring/Metric.h"
-#include "Parallel/Runtime/Stream.h"
 
 namespace seissol::kernels {
 

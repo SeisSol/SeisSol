@@ -9,7 +9,7 @@
 #ifndef SEISSOL_SRC_SOURCETERM_MANAGER_H_
 #define SEISSOL_SRC_SOURCETERM_MANAGER_H_
 
-#include "Geometry/MeshReader.h"
+#include "Core/Geometry/MeshReader.h"
 #include "Solver/Settings.h"
 #include "Solver/TimeStepping/TimeManager.h"
 

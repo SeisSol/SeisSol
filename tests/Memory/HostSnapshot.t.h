@@ -5,9 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Memory/HostSnapshot.h"
-#include "Memory/MemoryAllocator.h"
-#include "Memory/Tree/Layer.h"
+#include "Core/Memory/HostSnapshot.h"
+#include "Core/Memory/MemoryAllocator.h"
+#include "Core/Memory/Tree/Layer.h"
 
 #include <algorithm>
 #include <cstddef>

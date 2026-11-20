@@ -9,13 +9,13 @@
 #ifndef SEISSOL_SRC_KERNELS_POINTSOURCECLUSTER_H_
 #define SEISSOL_SRC_KERNELS_POINTSOURCECLUSTER_H_
 
-#include "Common/Marker.h"
-#include "Common/Real.h"
+#include "Core/Common/Marker.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/MemoryAllocator.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include "Memory/MemoryAllocator.h"
-#include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 #include "SourceTerm/Typedefs.h"
 

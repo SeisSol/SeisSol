@@ -7,9 +7,9 @@
 #ifndef SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_FACETYPECHECK_H_
 #define SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_FACETYPECHECK_H_
 
+#include "Core/Memory/Descriptor/LTS.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Parameters/InitializationParameters.h"
-#include "Memory/Descriptor/LTS.h"
 
 #include <cstdint>
 #include <string>

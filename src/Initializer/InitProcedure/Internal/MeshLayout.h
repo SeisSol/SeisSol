@@ -7,10 +7,10 @@
 #ifndef SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_MESHLAYOUT_H_
 #define SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_MESHLAYOUT_H_
 
-#include "Geometry/MeshReader.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Memory/Tree/Colormap.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/TimeStepping/Halo.h"
-#include "Memory/Tree/Colormap.h"
 
 #include <mpi.h>
 #include <stdexcept>

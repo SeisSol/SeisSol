@@ -7,9 +7,9 @@
 
 #include <doctest.h>
 
-#include "Common/Environment.h"
-#include "IO/Instance/Geometry/Deduplicate.h"
-#include "IO/Instance/Geometry/Geometry.h"
+#include "Core/Common/Environment.h"
+#include "Core/IO/Instance/Geometry/Deduplicate.h"
+#include "Core/IO/Instance/Geometry/Geometry.h"
 
 #include <cmath>
 #include <cstddef>

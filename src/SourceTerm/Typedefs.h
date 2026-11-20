@@ -10,10 +10,10 @@
 #ifndef SEISSOL_SRC_SOURCETERM_TYPEDEFS_H_
 #define SEISSOL_SRC_SOURCETERM_TYPEDEFS_H_
 
-#include "Common/Constants.h"
-#include "Common/Real.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/MemoryAllocator.h"
 #include "GeneratedCode/tensor.h"
-#include "Memory/MemoryAllocator.h"
 
 #include <array>
 #include <cstddef>

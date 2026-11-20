@@ -1,0 +1,374 @@
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
+// SPDX-FileContributor: Lukas Krenz
+
+#include "Pin.h"
+
+#include "Core/Common/IntegerMaskParser.h"
+#include "Core/Parallel/MPI.h"
+
+#include <async/as/Pin.h>
+#include <cassert>
+#include <cstdlib>
+#include <deque>
+#include <fstream>
+#include <mpi.h>
+#include <optional>
+#include <set>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <utils/env.h>
+#include <utils/logger.h>
+#include <vector>
+
+// the CPU masks (cf. async::as::CpuMask) are only available on Linux
+#ifdef __linux__
+#include <sched.h>
+#include <sys/sysinfo.h>
+#ifdef USE_NUMA_AWARE_PINNING
+#include "numa.h"
+#endif // USE_NUMA_AWARE_PINNING
+#endif // __linux__
+
+namespace seissol::parallel {
+
+using namespace async::as;
+
+std::deque<bool> Pinning::parseOnlineCpuMask(std::string s, unsigned numberOfConfiguredCpus) {
+  std::deque<bool> onlineMask(numberOfConfiguredCpus, false);
+
+  // The file has the format e.g. 0-1,12-59
+  // Possibly also on some systems 0,12
+  // or just one range 0-7
+
+  // Step 1: Split into tokens
+  // E.g. 0-1, 12-59 into t1=0-1, t2=12-59
+  std::vector<std::string> tokens;
+  size_t pos = 0;
+  std::string token;
+  while ((pos = s.find(',')) != std::string::npos) {
+    token = s.substr(0, pos);
+    s.erase(0, pos + 1);
+    tokens.push_back(token);
+  }
+  tokens.push_back(s);
+
+  // Step 2: Set mask for each token
+  for (auto& t : tokens) {
+    pos = t.find('-');
+    int beginRange = 0;
+    int endRange = 0;
+    if (pos == std::string::npos) {
+      beginRange = std::stoi(t);
+      endRange = beginRange;
+    } else {
+      beginRange = std::stoi(t.substr(0, pos));
+      t.erase(0, pos + 1);
+      endRange = std::stoi(t);
+    }
+
+    for (int cpu = beginRange; cpu <= endRange; ++cpu) {
+      onlineMask[cpu] = true;
+    }
+  }
+  return onlineMask;
+}
+
+CpuMask seissol::parallel::Pinning::computeOnlineCpuMask() {
+#ifdef __linux__
+  CPU_ZERO(&onlineMask_.set);
+  std::deque<bool> mask;
+
+  const std::string onlineFilePath = "/sys/devices/system/cpu/online";
+  const std::ifstream file(onlineFilePath);
+
+  if (file.good()) {
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    mask = parseOnlineCpuMask(buffer.str(), get_nprocs_conf());
+
+  } else {
+    logWarning() << "Could not read" << onlineFilePath << "Assuming that all cpus are online.";
+    mask = std::deque<bool>(get_nprocs_conf(), true);
+  }
+
+  assert(static_cast<int>(mask.size()) == get_nprocs_conf());
+  for (unsigned cpu = 0; cpu < mask.size(); ++cpu) {
+    if (mask[cpu]) {
+      CPU_SET(cpu, &onlineMask_.set);
+    }
+  }
+  return CpuMask{onlineMask_};
+#else
+  return {};
+#endif
+}
+
+Pinning::Pinning() {
+  // Affinity mask for the OpenMP workers
+  openmpMask_ = getWorkerUnionMask();
+  computeOnlineCpuMask();
+}
+
+void Pinning::checkEnvVariables(utils::Env& env) {
+#ifdef __linux__
+  const auto envVariable = env.getOptional<std::string>("FREE_CPUS_MASK");
+  if (envVariable.has_value()) {
+    auto parsedResult = seissol::IntegerMaskParser::parse(envVariable.value());
+    if (parsedResult) {
+      parsedFreeCPUsMask_ = parsedResult.value();
+
+      bool isMaskGood{true};
+      const auto numLocalProcesses = Mpi::mpi.sharedMemMpiSize();
+      if (std::cmp_greater(numLocalProcesses, parsedFreeCPUsMask_.size())) {
+        logInfo() << "There are more communication (and/or output-writing) threads"
+                  << "to pin than locations defined in `SEISSOL_FREE_CPUS_MASK`";
+
+        isMaskGood = false;
+      } else {
+        const auto maxCpuId = get_nprocs() - 1;
+        for (auto localProcessId = 0; std::cmp_less(localProcessId, parsedFreeCPUsMask_.size());
+             ++localProcessId) {
+          for (const auto cpu : parsedFreeCPUsMask_[localProcessId]) {
+            if (cpu > maxCpuId) {
+              logInfo() << "Free cpu mask of the local process" << localProcessId
+                        << "is out of bounds. CPU/core id" << cpu << "exceeds max. value"
+                        << maxCpuId;
+              isMaskGood = false;
+              break;
+            }
+          }
+        }
+      }
+
+      if (isMaskGood) {
+        logInfo() << "Binding free cpus according to `SEISSOL_FREE_CPUS_MASK` env. variable.";
+      } else {
+        logWarning() << "Ignoring `SEISSOL_FREE_CPUS_MASK` env. variable.";
+        logWarning() << "`SEISSOL_FREE_CPUS_MASK` Format:"
+                     << "(<int>|<range: int-int>|<list: {int,+}>),+";
+        parsedFreeCPUsMask_ = IntegerMaskParser::MaskType{};
+      }
+    } else {
+      logWarning() << "Failed to parse `SEISSOL_FREE_CPUS_MASK` env. variable";
+    }
+  }
+#endif // __linux__
+}
+
+CpuMask Pinning::getWorkerUnionMask() {
+#ifdef __linux__
+  cpu_set_t workerUnion;
+  CPU_ZERO(&workerUnion);
+
+#ifdef _OPENMP
+#pragma omp parallel default(none) shared(workerUnion)
+  {
+    cpu_set_t worker;
+    CPU_ZERO(&worker);
+    sched_getaffinity(0, sizeof(cpu_set_t), &worker);
+#pragma omp critical
+    {
+      CPU_OR(&workerUnion, &workerUnion, &worker);
+    }
+  }
+#else
+  sched_getaffinity(0, sizeof(cpu_set_t), &workerUnion);
+#endif
+
+  return CpuMask{workerUnion};
+
+#else
+  return CpuMask{};
+#endif // __linux__
+}
+
+CpuMask Pinning::getFreeCPUsMask() const {
+#ifdef __linux__
+  const auto nodeOpenMpMask = getNodeMask();
+
+  cpu_set_t freeMask{};
+  CPU_ZERO(&freeMask);
+
+  if (not parsedFreeCPUsMask_.empty()) {
+    const auto localProcessor = Mpi::mpi.sharedMemMpiRank();
+    for (const auto& cpu : parsedFreeCPUsMask_[localProcessor]) {
+      CPU_SET(cpu, &freeMask);
+    }
+    return CpuMask{freeMask};
+  }
+
+#ifdef USE_NUMA_AWARE_PINNING
+  // Find all numa nodes on which some OpenMP worker is pinned to
+  std::set<int> numaDomainsOfThisProcess{};
+  for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
+    if (CPU_ISSET(cpu, &openmpMask_.set)) {
+      numaDomainsOfThisProcess.insert(numa_node_of_cpu(cpu));
+    }
+  }
+
+  // Set free mask to all free threads which are on one of our numa nodes
+  for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
+    const bool isOnline = CPU_ISSET(cpu, &onlineMask_.set);
+    const bool isFree = !CPU_ISSET(cpu, &nodeOpenMpMask.set);
+    if (isOnline && isFree) {
+      const int numaNode = numa_node_of_cpu(cpu);
+      const bool isValidNumaNode = numaDomainsOfThisProcess.contains(numaNode);
+      if (isValidNumaNode) {
+        CPU_SET(cpu, &freeMask);
+      }
+    }
+  }
+#else
+  // Set now contains all unused cores on the machine.
+  // Note that pinning of the communication thread is then not Numa-aware if there's more than one
+  // rank per node!
+  for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
+    const bool isOnline = CPU_ISSET(cpu, &onlineMask_.set);
+    const bool isFree = !CPU_ISSET(cpu, &nodeOpenMpMask.set);
+    if (isOnline && isFree) {
+      CPU_SET(cpu, &freeMask);
+    }
+  }
+#endif // USE_NUMA_AWARE_PINNING
+
+  return CpuMask{freeMask};
+#else
+  return {};
+#endif // __linux__
+}
+
+bool Pinning::freeCPUsMaskEmpty(const CpuMask& mask) {
+#ifdef __linux__
+  return CPU_COUNT(&(mask.set)) == 0;
+#else
+  return false;
+#endif // __linux__
+}
+
+std::optional<int> Pinning::firstCpu(const CpuMask& mask) {
+#ifdef __linux__
+  // the ids in a mask range up to CPU_SETSIZE; CPU_COUNT is how many of them are set
+  for (int cpu = 0; cpu < CPU_SETSIZE; ++cpu) {
+    if (CPU_ISSET(cpu, &mask.set) != 0) {
+      return cpu;
+    }
+  }
+#endif // __linux__
+  return {};
+}
+
+CpuMask Pinning::getOnlineMask() const { return onlineMask_; }
+
+bool Pinning::areAllCpusOnline() {
+#ifdef __linux__
+  return get_nprocs_conf() == get_nprocs();
+#else
+  return true;
+#endif
+}
+
+void Pinning::pinToFreeCPUs() const {
+#ifdef __linux__
+  const auto freeMask = getFreeCPUsMask();
+  sched_setaffinity(0, sizeof(cpu_set_t), &freeMask.set);
+#endif // __linux__
+}
+
+std::string Pinning::maskToStringShort(const CpuMask& mask) {
+#ifdef __linux__
+  const auto& set = mask.set;
+  std::stringstream st;
+  std::optional<int> start = std::optional<int>();
+  bool hasText = false;
+
+  const auto printInterval = [&](int cpu) {
+    if (start.has_value()) {
+      if (hasText) {
+        st << ",";
+      }
+      hasText = true;
+      st << start.value();
+      if (start.value() + 1 < cpu) {
+        st << "-" << (cpu - 1);
+      }
+    }
+  };
+
+  for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
+    const bool isset = CPU_ISSET(cpu, &set) != 0;
+    if (isset && !start.has_value()) {
+      start = cpu;
+    } else if (!isset && start.has_value()) {
+      printInterval(cpu);
+      start = std::optional<int>();
+    }
+  }
+
+  if (start.has_value()) {
+    printInterval(get_nprocs_conf());
+  }
+
+  return st.str();
+
+#else
+  return "Affinity is not supported on this platform.";
+#endif // __linux__
+}
+
+std::string Pinning::maskToString(const CpuMask& mask) {
+#ifdef __linux__
+  const auto& set = mask.set;
+  std::stringstream st;
+  for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
+    if (cpu % 10 == 0 && cpu != 0 && cpu != get_nprocs_conf() - 1) {
+      st << '|';
+    }
+    if (CPU_ISSET(cpu, &set)) {
+      st << cpu % 10;
+    } else {
+      st << '-';
+    }
+  }
+  return st.str();
+
+#else
+  return "Affinity is not supported on this platform.";
+#endif // __linux__
+}
+
+CpuMask Pinning::getNodeMask() {
+#ifdef __linux__
+  const auto workerMask = getWorkerUnionMask().set;
+
+  // We have to use this due to the insanity of std::vector<bool>; and unsigned char rather than
+  // char, as MPI defines the bitwise reductions for integer types only, of which char is none
+  auto workerMaskArray = std::vector<unsigned char>(get_nprocs_conf(), 0);
+  for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
+    workerMaskArray[cpu] = CPU_ISSET(cpu, &workerMask);
+  }
+
+  Mpi::mpi.allreduceContainer(workerMaskArray, MPI_BOR, Mpi::mpi.sharedMemComm());
+
+  cpu_set_t nodeMask;
+  CPU_ZERO(&nodeMask);
+  for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
+    const auto isSet = workerMaskArray[cpu] != 0;
+    if (isSet) {
+      CPU_SET(cpu, &nodeMask);
+    }
+  }
+
+  return CpuMask{nodeMask};
+#else
+  return {};
+#endif // __linux__
+}
+
+} // namespace seissol::parallel

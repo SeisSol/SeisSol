@@ -7,12 +7,12 @@
 
 #include <doctest.h>
 
-#include "IO/Datatype/Inference.h"
-#include "IO/Writer/Instructions/Data.h"
-#include "IO/Writer/Instructions/Hdf5.h"
-#include "IO/Writer/Module/BufferRegistry.h"
-#include "IO/Writer/Module/WriterModule.h"
-#include "IO/Writer/Writer.h"
+#include "Core/IO/Datatype/Inference.h"
+#include "Core/IO/Writer/Instructions/Data.h"
+#include "Core/IO/Writer/Instructions/Hdf5.h"
+#include "Core/IO/Writer/Module/BufferRegistry.h"
+#include "Core/IO/Writer/Module/WriterModule.h"
+#include "Core/IO/Writer/Writer.h"
 
 #include <cstdint>
 #include <memory>

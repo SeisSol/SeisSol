@@ -7,7 +7,7 @@
 
 #include "SeisSolParameters.h"
 
-#include "Common/ConfigRegistry.h"
+#include "Core/Common/ConfigRegistry.h"
 #include "Initializer/Parameters/CubeGeneratorParameters.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/InitializationParameters.h"

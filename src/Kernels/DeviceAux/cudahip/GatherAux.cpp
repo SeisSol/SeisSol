@@ -7,7 +7,7 @@
 
 #include "Kernels/DeviceAux/GatherAux.h"
 
-#include "Parallel/BlockSet.h"
+#include "Core/Parallel/BlockSet.h"
 
 #include <algorithm>
 #include <cstddef>

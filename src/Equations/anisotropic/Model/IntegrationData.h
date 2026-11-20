@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_INTEGRATIONDATA_H_
 #define SEISSOL_SRC_EQUATIONS_ANISOTROPIC_MODEL_INTEGRATIONDATA_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 
 #include <array>
 

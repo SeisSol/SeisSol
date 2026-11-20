@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Common/ConfigRegistry.h"
+#include "Core/Common/ConfigRegistry.h"
 #include "Kernels/Common.h"
 #include "Solver/Estimator.h"
 

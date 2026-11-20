@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_IMPOSEDSLIPRATES_H_
 
 #include "BaseFrictionSolver.h"
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "DynamicRupture/Misc.h"
 
 namespace seissol::dr::friction_law::gpu {

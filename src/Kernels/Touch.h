@@ -9,7 +9,7 @@
 #ifndef SEISSOL_SRC_KERNELS_TOUCH_H_
 #define SEISSOL_SRC_KERNELS_TOUCH_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 
 namespace seissol::kernels {
 

@@ -7,9 +7,9 @@
 
 #include <doctest.h>
 
+#include "Core/Geometry/MeshDefinition.h"
 #include "Equations/Datastructures.h"
 #include "Equations/poroelastic/Model/Impedance.h"
-#include "Geometry/MeshDefinition.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Model/Common.h"
 #include "Model/FaceCoupling.h"

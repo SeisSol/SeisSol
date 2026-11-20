@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "Monitoring/FlopCounter.h"
-#include "Monitoring/Metric.h"
+#include "Core/Monitoring/FlopCounter.h"
+#include "Core/Monitoring/Metric.h"
 
 namespace seissol::unit_test {
 using seissol::monitoring::FlopCounter;

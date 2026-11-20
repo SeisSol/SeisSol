@@ -7,19 +7,19 @@
 
 #include "OutputAux.h"
 
-#include "Common/Constants.h"
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
+#include "Core/Geometry/CellTransform.h"
+#include "Core/Geometry/FaceTransform.h"
+#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Geometry/MeshTools.h"
+#include "Core/Numerical/BasisFunction.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "GeneratedCode/init.h"
 #include "Geometry.h"
-#include "Geometry/CellTransform.h"
-#include "Geometry/FaceTransform.h"
-#include "Geometry/MeshDefinition.h"
-#include "Geometry/MeshTools.h"
 #include "Initializer/InputAux.h"
-#include "Numerical/BasisFunction.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>

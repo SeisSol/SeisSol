@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
 
-#include "Common/ConfigRegistry.h"
+#include "Core/Common/ConfigRegistry.h"
 #include "ParameterReader.h"
 
 #include <cstddef>

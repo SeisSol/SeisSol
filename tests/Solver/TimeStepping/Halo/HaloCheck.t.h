@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "Solver/TimeStepping/Halo/HaloCheck.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 #include "Solver/TimeStepping/Halo/HaloTransport.h"

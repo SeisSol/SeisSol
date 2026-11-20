@@ -7,11 +7,11 @@
 
 #include "doctest.h"
 
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/Real.h"
+#include "Core/Numerical/Projection.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Model/BoundaryMappings.h"
-#include "Numerical/Projection.h"
 #include "Solver/MultipleSimulations.h"
 #include "TestConfigs.h"
 #include "TestHelper.h"

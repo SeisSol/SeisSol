@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "IO/Writer/Module/WriterModule.h"
+#include "Core/IO/Writer/Module/WriterModule.h"
 
 namespace seissol::unit_test {
 

@@ -10,12 +10,12 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_SETUP_H_
 #define SEISSOL_SRC_EQUATIONS_ELASTIC_MODEL_SETUP_H_
 
+#include "Core/Numerical/Eigenvalues.h"
+#include "Core/Numerical/Transformation.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
-#include "Numerical/Eigenvalues.h"
-#include "Numerical/Transformation.h"
 
 namespace seissol::model {
 using Matrix99 = Eigen::Matrix<double, 9, 9>;

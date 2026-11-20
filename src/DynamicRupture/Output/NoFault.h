@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_NOFAULT_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_NOFAULT_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
 
 namespace seissol::dr::output {

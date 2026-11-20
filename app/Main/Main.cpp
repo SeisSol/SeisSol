@@ -7,11 +7,15 @@
 // SPDX-FileContributor: Sebastian Rettenberger
 
 #include "BuildInfo.h"
-#include "Common/ConfigRegistry.h"
-#include "Common/Environment.h"
-#include "Common/Filesystem.h"
-#include "Common/Json.h"
-#include "Common/RunId.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/Environment.h"
+#include "Core/Common/Filesystem.h"
+#include "Core/Common/Json.h"
+#include "Core/Common/RunId.h"
+#include "Core/Monitoring/FailureReport.h"
+#include "Core/Monitoring/Instrumentation.h"
+#include "Core/Parallel/MPI.h"
+#include "Core/Parallel/SystemInfo.h"
 #include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Initializer/InitProcedure/Init.h"
 #include "Initializer/Parameters/DRParameters.h"
@@ -20,10 +24,6 @@
 #include "Initializer/Parameters/ParameterReader.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Preflight.h"
-#include "Monitoring/FailureReport.h"
-#include "Monitoring/Instrumentation.h"
-#include "Parallel/MPI.h"
-#include "Parallel/SystemInfo.h"
 #include "SeisSol.h"
 
 #include <array>
@@ -54,9 +54,9 @@
 
 #ifdef ACL_DEVICE
 #include "Alignment.h"
-#include "Common/Typedefs.h"
-#include "Parallel/Helper.h"
-#include "Parallel/Runtime/Stream.h"
+#include "Core/Common/Typedefs.h"
+#include "Core/Parallel/Helper.h"
+#include "Core/Parallel/Runtime/Stream.h"
 
 #include <Device/device.h>
 #endif

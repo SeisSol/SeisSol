@@ -7,10 +7,10 @@
 
 #include "Halo.h"
 
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Parallel/MPI.h"
 #include "Initializer/BasicTypedefs.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Layer.h"
-#include "Parallel/MPI.h"
 
 #include <cstddef>
 #include <cstdint>

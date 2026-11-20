@@ -8,9 +8,9 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_PICKPOINTWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_PICKPOINTWRITER_H_
 
-#include "Memory/HostData.h"
-#include "Modules/Module.h"
-#include "Modules/Modules.h"
+#include "Core/Memory/HostData.h"
+#include "Core/Modules/Module.h"
+#include "Core/Modules/Modules.h"
 
 #include <functional>
 

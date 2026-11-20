@@ -7,8 +7,8 @@
 #ifndef SEISSOL_SRC_INITIALIZER_LTSSETUP_H_
 #define SEISSOL_SRC_INITIALIZER_LTSSETUP_H_
 
-#include "Common/Constants.h"
-#include "Common/Literals.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Literals.h"
 
 #include <cassert>
 #include <cstdint>

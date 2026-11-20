@@ -6,8 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Config.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "GeneratedCode/tensor.h"
-#include "Parallel/Runtime/Stream.h"
 #include "PointSourceCluster.h"
 #include "SourceTerm/Typedefs.h"
 

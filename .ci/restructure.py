@@ -131,6 +131,9 @@ LAYOUT = [
     ("Equations/", f"{WP}/Physics/"),
     *[(f"Equations/{name}/Model/", f"{WP}/Physics/{name}/") for name in EQUATIONS],
     ("Model/", f"{WP}/Physics/"),
+    # the bridges between the equations and the schemes
+    ("Equations/Setup.h", f"{WP}/Solver/Setup.h"),
+    ("Model/Concepts.h", f"{WP}/Solver/Concepts.h"),
     ("Kernels/LinearCK/", f"{WP}/Solver/LinearCK/"),
     ("Kernels/LinearCKAnelastic/", f"{WP}/Solver/LinearCKAnelastic/"),
     ("Kernels/STP/", f"{WP}/Solver/STP/"),
@@ -465,10 +468,11 @@ def rewrite_includes(root, sources, moves, aliases):
     """Rewrites the includes of all C++ files (at their new places) to the new paths."""
     count = 0
     for includer in sources.files:
-        includes = read_includes(root, includer)
         new_includer = includer
         if includer.startswith("src/") and includer[4:] in moves:
             new_includer = "src/" + moves[includer[4:]]
+        # the files have moved already
+        includes = read_includes(root, new_includer)
         changes = {}
         for index, bracket, spelled in includes:
             if bracket != '"':
@@ -618,8 +622,9 @@ def update_cmake(root, old_units, moves, batches):
             os.path.join(groupdir, "CMakeLists.txt"), "w", encoding="utf-8"
         ) as file:
             file.write(CMAKE_HEADER + "\n")
-            for child in children:
-                file.write(f"add_subdirectory({child})\n")
+            file.write(
+                "\n\n".join(f"add_subdirectory({child})" for child in children) + "\n"
+            )
         git(root, "add", f"src/{group}/CMakeLists.txt")
     top = sorted(
         name
@@ -632,11 +637,11 @@ def update_cmake(root, old_units, moves, batches):
     positions = [
         i for i, line in enumerate(lines) if line.startswith("add_subdirectory(")
     ]
-    first = positions[0]
-    rest = [line for i, line in enumerate(lines) if i not in positions]
-    rest[first:first] = [f"add_subdirectory({name})" for name in top]
+    # one empty line between the entries, as src/CMakeLists.txt asks for
+    entries = "\n\n".join(f"add_subdirectory({name})" for name in top).split("\n")
+    lines[positions[0] : positions[-1] + 1] = entries
     with open(path, "w", encoding="utf-8") as file:
-        file.write("\n".join(rest) + "\n")
+        file.write("\n".join(lines) + "\n")
 
 
 def remove_cmake_blocks(root, batches):

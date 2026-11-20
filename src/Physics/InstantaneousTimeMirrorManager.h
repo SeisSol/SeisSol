@@ -8,13 +8,13 @@
 #ifndef SEISSOL_SRC_PHYSICS_INSTANTANEOUSTIMEMIRRORMANAGER_H_
 #define SEISSOL_SRC_PHYSICS_INSTANTANEOUSTIMEMIRRORMANAGER_H_
 
-#include "Geometry/MeshReader.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/LTSTree.h"
+#include "Core/Modules/Module.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/LTSTree.h"
-#include "Modules/Module.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Compute/CellCluster.h"
 #include "Solver/TimeStepping/Halo/GhostCluster.h"

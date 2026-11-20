@@ -14,31 +14,17 @@ include(sources.cmake)
 # sort alphabetically
 # leave one line in between (to facilitate Git merges)
 
-add_subdirectory(Common)
+add_subdirectory(Core)
 
 add_subdirectory(DynamicRupture)
 
 add_subdirectory(Equations)
 
-add_subdirectory(Geometry)
-
 add_subdirectory(Initializer)
-
-add_subdirectory(IO)
 
 add_subdirectory(Kernels)
 
-add_subdirectory(Memory)
-
 add_subdirectory(Model)
-
-add_subdirectory(Modules)
-
-add_subdirectory(Monitoring)
-
-add_subdirectory(Numerical)
-
-add_subdirectory(Parallel)
 
 add_subdirectory(Physics)
 

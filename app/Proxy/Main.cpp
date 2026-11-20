@@ -6,8 +6,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/ConfigRegistry.h"
-#include "Common/Executor.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/Executor.h"
 #include "Kernels/Common.h"
 #include "Proxy/Common.h"
 #include "Proxy/LikwidWrapper.h"
@@ -26,9 +26,9 @@
 
 #ifdef ACL_DEVICE
 #include "Alignment.h"
-#include "Common/Typedefs.h"
-#include "Parallel/Helper.h"
-#include "Parallel/Runtime/Stream.h"
+#include "Core/Common/Typedefs.h"
+#include "Core/Parallel/Helper.h"
+#include "Core/Parallel/Runtime/Stream.h"
 
 #include <Device/device.h>
 #include <cstdlib>

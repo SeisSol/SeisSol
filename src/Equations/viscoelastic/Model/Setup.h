@@ -10,11 +10,11 @@
 #ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_SETUP_H_
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_SETUP_H_
 
+#include "Core/Numerical/Transformation.h"
 #include "Equations/viscoelastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
-#include "Numerical/Transformation.h"
 
 #include <yateto.h>
 

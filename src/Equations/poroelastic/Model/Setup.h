@@ -8,14 +8,14 @@
 #ifndef SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_SETUP_H_
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_SETUP_H_
 
+#include "Core/Numerical/Eigenvalues.h"
+#include "Core/Numerical/Transformation.h"
 #include "Equations/elastic/Model/Setup.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/Helper.h"
 #include "GeneratedCode/init.h"
 #include "Kernels/Common.h"
 #include "Model/Common.h"
-#include "Numerical/Eigenvalues.h"
-#include "Numerical/Transformation.h"
 
 #include <Eigen/Dense>
 #include <cassert>

@@ -9,11 +9,11 @@
 #ifndef SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
 #define SEISSOL_SRC_SOLVER_FREESURFACEINTEGRATOR_H_
 
-#include "Geometry/MeshReader.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Descriptor/Surface.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "Kernels/Common.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Descriptor/Surface.h"
-#include "Memory/Tree/Layer.h"
 
 #include <memory>
 

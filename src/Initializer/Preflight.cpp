@@ -7,11 +7,13 @@
 
 #include "Preflight.h"
 
-#include "Common/ConfigDispatch.h"
-#include "Common/ConfigRegistry.h"
-#include "Common/ConfigValue.h"
-#include "Common/Filesystem.h"
-#include "Common/Json.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/ConfigValue.h"
+#include "Core/Common/Filesystem.h"
+#include "Core/Common/Json.h"
+#include "Core/Monitoring/FailureReport.h"
+#include "Core/Monitoring/RunSummary.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "Equations/Datastructures.h"
 #include "Initializer/BasicTypedefs.h"
@@ -29,8 +31,6 @@
 #include "Initializer/PreflightMesh.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "Model/CommonDatastructures.h"
-#include "Monitoring/FailureReport.h"
-#include "Monitoring/RunSummary.h"
 #include "ResultWriter/ReceiverWriter.h"
 #include "SourceTerm/FSRMReader.h"
 

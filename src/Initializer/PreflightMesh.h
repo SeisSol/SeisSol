@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PREFLIGHTMESH_H_
 #define SEISSOL_SRC_INITIALIZER_PREFLIGHTMESH_H_
 
-#include "Geometry/MeshDefinition.h"
+#include "Core/Geometry/MeshDefinition.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/DRParameters.h"

@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/IntegerMaskParser.h"
+#include "Core/Common/IntegerMaskParser.h"
 
 namespace seissol::unit_test {
 

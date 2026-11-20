@@ -8,9 +8,9 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_IMPOSEDSLIPRATES_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_IMPOSEDSLIPRATES_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "DynamicRupture/Output/ReceiverBasedOutput.h"
-#include "Memory/Descriptor/DynamicRupture.h"
 
 namespace seissol::dr::output {
 class ImposedSlipRates : public ReceiverOutputImpl<ImposedSlipRates> {

@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/Iterator.h"
+#include "Core/Common/Iterator.h"
 
 namespace seissol::unit_test {
 

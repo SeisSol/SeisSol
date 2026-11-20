@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Modules/Module.h"
-#include "Modules/Modules.h"
+#include "Core/Modules/Module.h"
+#include "Core/Modules/Modules.h"
 #include "TestHelper.h"
 
 #include <cstdint>

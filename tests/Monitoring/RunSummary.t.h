@@ -7,13 +7,13 @@
 
 #include <doctest.h>
 
-#include "Common/Environment.h"
-#include "Common/Filesystem.h"
-#include "IO/Instance/Point/Csv.h"
-#include "Monitoring/RunSummary.h"
-#include "Numerical/Statistics.h"
-#include "Parallel/MPI.h"
-#include "Parallel/SystemInfo.h"
+#include "Core/Common/Environment.h"
+#include "Core/Common/Filesystem.h"
+#include "Core/IO/Instance/Point/Csv.h"
+#include "Core/Monitoring/RunSummary.h"
+#include "Core/Numerical/Statistics.h"
+#include "Core/Parallel/MPI.h"
+#include "Core/Parallel/SystemInfo.h"
 
 #include <cstdlib>
 #include <fstream>

@@ -10,8 +10,8 @@
 
 #include "PointSource.h"
 
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/tensor.h"
 #include "Model/MaterialType.h"

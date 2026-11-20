@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_KERNELS_DEVICEAUX_GATHERAUX_H_
 #define SEISSOL_SRC_KERNELS_DEVICEAUX_GATHERAUX_H_
 
-#include "Parallel/BlockSet.h"
+#include "Core/Parallel/BlockSet.h"
 
 #include <cstddef>
 

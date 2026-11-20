@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_DRPARAMETERS_H_
 
-#include "Common/ConfigRegistry.h"
+#include "Core/Common/ConfigRegistry.h"
 #include "DynamicRupture/Typedefs.h"
 #include "ParameterReader.h"
 

@@ -7,8 +7,8 @@
 
 #include "Initializer/Clustering/ClusteringCost.h"
 
+#include "Core/Parallel/MPI.h"
 #include "Initializer/Clustering/ClusterLadder.h"
-#include "Parallel/MPI.h"
 
 #include <algorithm>
 #include <cassert>

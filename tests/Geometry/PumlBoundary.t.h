@@ -15,10 +15,10 @@
 
 #include <doctest.h>
 
-#include "Common/Constants.h"
-#include "Geometry/PUMLReader.h"
+#include "Core/Common/Constants.h"
+#include "Core/Geometry/PUMLReader.h"
+#include "Core/Parallel/MPI.h"
 #include "Initializer/Parameters/MeshParameters.h"
-#include "Parallel/MPI.h"
 #include "TestHelper.h"
 
 #include <cstddef>

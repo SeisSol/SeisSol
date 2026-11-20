@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_BASEDRINITIALIZER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_INITIALIZER_BASEDRINITIALIZER_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/ParameterDB.h"

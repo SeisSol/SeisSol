@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Numerical/Eigenvalues.h"
+#include "Core/Numerical/Eigenvalues.h"
 #include "TestHelper.h"
 
 #include <Eigen/Dense>

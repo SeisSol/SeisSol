@@ -7,9 +7,9 @@
 
 #include "HaloCheck.h"
 
-#include "Common/Real.h"
-#include "Monitoring/Unit.h"
-#include "Parallel/MPI.h"
+#include "Core/Common/Real.h"
+#include "Core/Monitoring/Unit.h"
+#include "Core/Parallel/MPI.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 #include "Solver/TimeStepping/Halo/HaloTransport.h"
 

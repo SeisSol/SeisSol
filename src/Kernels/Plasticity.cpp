@@ -10,8 +10,10 @@
 #include "Plasticity.h"
 
 #include "Alignment.h"
-#include "Common/Marker.h"
 #include "Config.h"
+#include "Core/Common/Marker.h"
+#include "Core/Monitoring/Metric.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
@@ -19,8 +21,6 @@
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Model/Plasticity.h"
-#include "Monitoring/Metric.h"
-#include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <algorithm>

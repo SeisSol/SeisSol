@@ -14,7 +14,7 @@
 
 #include <doctest.h>
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Typedefs.h"
 #include "GeneratedCode/init.h"

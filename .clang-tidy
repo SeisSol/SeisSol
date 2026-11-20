@@ -124,7 +124,7 @@ CheckOptions:
   - key:             cppcoreguidelines-special-member-functions.AllowSoleDefaultDtor
     value:           True
 
-  # the collectives that the Mpi class wraps (src/Parallel/MPI.h) go through it: it takes the MPI
+  # the collectives that the Mpi class wraps (src/Core/Parallel/MPI.h) go through it: it takes the MPI
   # type from the C++ one, the size of the communicator from the communicator, and the communicator
   # of the outputs on their thread; the class itself uses them with NOLINT
   - key:             bugprone-unsafe-functions.CustomFunctions

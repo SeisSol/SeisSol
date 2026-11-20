@@ -9,13 +9,13 @@
 
 #include "LtsSetup.h"
 
-#include "Common/Constants.h"
+#include "Core/Common/Constants.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
 #include "Initializer/TimeStepping/Halo.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Layer.h"
 
 #include <array>
 #include <cassert>

@@ -9,11 +9,11 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCK_LOCAL_H_
 #define SEISSOL_SRC_KERNELS_LINEARCK_LOCAL_H_
 
-#include "Common/Constants.h"
-#include "Common/Real.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
+#include "Core/Monitoring/Metric.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Local.h"
-#include "Monitoring/Metric.h"
 
 #include <memory>
 #pragma GCC diagnostic push

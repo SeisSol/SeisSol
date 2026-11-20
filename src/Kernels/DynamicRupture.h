@@ -9,13 +9,13 @@
 #ifndef SEISSOL_SRC_KERNELS_DYNAMICRUPTURE_H_
 #define SEISSOL_SRC_KERNELS_DYNAMICRUPTURE_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
+#include "Core/Monitoring/Metric.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Kernel.h"
 #include "Kernels/Solver.h"
-#include "Monitoring/Metric.h"
 
 namespace seissol::kernels {
 

@@ -8,11 +8,11 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERINTERFACE_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_FRICTIONSOLVERINTERFACE_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Typedefs.h"
 #include "GeneratedCode/tensor.h"
-#include "Memory/Tree/Layer.h"
 
 // A sycl-independent interface is required for interacting with the wp solver
 // which, in its turn, is not supposed to know anything about SYCL

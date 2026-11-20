@@ -9,8 +9,8 @@
 #include "PointSourceClusterOnDevice.h"
 
 #include "Config.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Kernels/PointSourceCluster.h"
-#include "Parallel/Runtime/Stream.h"
 #include "SourceTerm/Typedefs.h"
 
 #include <cstddef>

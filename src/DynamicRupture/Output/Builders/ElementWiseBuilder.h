@@ -8,11 +8,11 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_ELEMENTWISEBUILDER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_ELEMENTWISEBUILDER_H_
 
+#include "Core/Geometry/FaceTransform.h"
 #include "DynamicRupture/Output/FaultRefiner/FaultRefiners.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
 #include "GeneratedCode/init.h"
-#include "Geometry/FaceTransform.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "ReceiverBasedOutputBuilder.h"
 

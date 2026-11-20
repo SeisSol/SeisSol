@@ -6,12 +6,12 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Initializer/TimeStepping/ClusterLayout.h"
 
-#include "Geometry/MeshReader.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Monitoring/Unit.h"
+#include "Core/Numerical/StableSum.h"
+#include "Core/Numerical/Statistics.h"
+#include "Core/Parallel/MPI.h"
 #include "Initializer/BasicTypedefs.h"
-#include "Monitoring/Unit.h"
-#include "Numerical/StableSum.h"
-#include "Numerical/Statistics.h"
-#include "Parallel/MPI.h"
 
 #include <algorithm>
 #include <array>

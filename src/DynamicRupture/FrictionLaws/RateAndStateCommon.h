@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATECOMMON_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_RATEANDSTATECOMMON_H_
 
-#include "Common/Marker.h"
+#include "Core/Common/Marker.h"
 #include "DynamicRupture/FrictionLaws/Dual.h"
 
 #include <algorithm>
@@ -165,8 +165,8 @@ SEISSOL_HOSTDEVICE T logsinhOver(T y, T c) {
 
   expm1 is the primitive that makes the quotient stable, so no series is needed here; it stays at
   one as z vanishes, and the guard is for a z that has underflowed to zero outright. The function is
-  phi_1(-z) of Numerical/PhiFunctions.h, which reaches for the standard library by qualified name
-  and so cannot take a dual number.
+  phi_1(-z) of Core/Numerical/PhiFunctions.h, which reaches for the standard library by qualified
+  name and so cannot take a dual number.
  */
 template <typename T>
 SEISSOL_HOSTDEVICE T relaxationWeight(T z) {

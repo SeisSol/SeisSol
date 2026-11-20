@@ -11,11 +11,11 @@
 
 #include "PointMapper.h"
 
-#include "Common/Constants.h"
-#include "Geometry/MeshDefinition.h"
-#include "Geometry/MeshReader.h"
-#include "Geometry/MeshTools.h"
-#include "Parallel/MPI.h"
+#include "Core/Common/Constants.h"
+#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Geometry/MeshTools.h"
+#include "Core/Parallel/MPI.h"
 
 #include <Eigen/Core>
 #include <algorithm>

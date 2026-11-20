@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_LINEARSLIPWEAKENING_H_
 
 #include "BaseFrictionLaw.h"
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "GeneratedCode/kernel.h"
 #include "Initializer/Typedefs.h"
 

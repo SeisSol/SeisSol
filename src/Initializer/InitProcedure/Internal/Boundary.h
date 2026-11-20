@@ -7,9 +7,9 @@
 #ifndef SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_BOUNDARY_H_
 #define SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_BOUNDARY_H_
 
-#include "Memory/Descriptor/Boundary.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Descriptor/Surface.h"
+#include "Core/Memory/Descriptor/Boundary.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Descriptor/Surface.h"
 #include "Solver/FreeSurfaceIntegrator.h"
 
 namespace seissol::initializer::internal {

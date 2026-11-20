@@ -11,16 +11,16 @@
 #define SEISSOL_SRC_MODEL_COMMON_H_
 
 #include "Config.h"
+#include "Core/Geometry/MeshTools.h"
+#include "Core/Numerical/Eigenvalues.h"
+#include "Core/Numerical/Transformation.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/quantities.h"
-#include "Geometry/MeshTools.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/SolverSelector.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/Quantities.h"
-#include "Numerical/Eigenvalues.h"
-#include "Numerical/Transformation.h"
 
 #include <Eigen/Dense>
 #include <algorithm>

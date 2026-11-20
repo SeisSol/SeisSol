@@ -8,11 +8,11 @@
 
 #include "Runner.h"
 
+#include "Core/Monitoring/Metric.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "KernelDevice.h"
 #include "KernelHost.h"
 #include "Kernels/Common.h"
-#include "Monitoring/Metric.h"
-#include "Parallel/Runtime/Stream.h"
 #include "Proxy/Cycles.h"
 #include "Proxy/Kernel.h"
 
@@ -29,7 +29,7 @@
 #endif
 
 #include "Common.h"
-#include "Monitoring/FlopCounter.h"
+#include "Core/Monitoring/FlopCounter.h"
 
 #include <cassert>
 

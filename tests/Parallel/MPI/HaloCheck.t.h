@@ -10,8 +10,8 @@
 
 #include <doctest.h>
 
-#include "Common/Real.h"
-#include "Parallel/MPI.h"
+#include "Core/Common/Real.h"
+#include "Core/Parallel/MPI.h"
 #include "Solver/TimeStepping/Halo/HaloCheck.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 #include "Solver/TimeStepping/Halo/Mpi/MpiHaloTransport.h"

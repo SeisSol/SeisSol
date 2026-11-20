@@ -11,7 +11,7 @@
 
 #ifdef USE_ASAGI
 
-#include "Parallel/MPI.h"
+#include "Core/Parallel/MPI.h"
 #include "easi/util/AsagiReader.h"
 
 namespace asagi {

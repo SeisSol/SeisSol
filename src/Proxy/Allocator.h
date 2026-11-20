@@ -9,19 +9,19 @@
 #ifndef SEISSOL_SRC_PROXY_ALLOCATOR_H_
 #define SEISSOL_SRC_PROXY_ALLOCATOR_H_
 
-#include "Common/ConfigDispatch.h"
-#include "Common/ConfigRegistry.h"
-#include "Common/Real.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/GlobalData.h"
+#include "Core/Memory/Tree/LTSTree.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Kernels/DynamicRupture.h"
 #include "Kernels/Local.h"
 #include "Kernels/Neighbor.h"
 #include "Kernels/Solver.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/GlobalData.h"
-#include "Memory/Tree/LTSTree.h"
-#include "Memory/Tree/Layer.h"
-#include "Parallel/Runtime/Stream.h"
 
 #include <cstddef>
 #include <functional>

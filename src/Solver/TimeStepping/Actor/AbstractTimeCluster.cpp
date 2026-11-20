@@ -7,9 +7,9 @@
 
 #include "AbstractTimeCluster.h"
 
-#include "Common/Executor.h"
-#include "Monitoring/Trace.h"
-#include "Parallel/Runtime/Stream.h"
+#include "Core/Common/Executor.h"
+#include "Core/Monitoring/Trace.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Actor/StepParams.h"
 

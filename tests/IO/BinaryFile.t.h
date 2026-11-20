@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "IO/Writer/File/BinaryWriter.h"
+#include "Core/IO/Writer/File/BinaryWriter.h"
 #include "WriterHarness.t.h"
 
 #include <algorithm>

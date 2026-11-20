@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_KERNELS_STP_SETUP_H_
 #define SEISSOL_SRC_KERNELS_STP_SETUP_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/quantities.h"
 #include "Kernels/STP/Data.h"

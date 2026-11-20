@@ -6,12 +6,12 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Recording.h"
 
-#include "Common/ConfigDispatch.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "Initializer/BatchRecorders/Recorders.h"
 #include "Kernels/Common.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Layer.h"
 
 namespace seissol::initializer::internal {
 

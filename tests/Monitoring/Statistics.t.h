@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Numerical/Statistics.h"
+#include "Core/Numerical/Statistics.h"
 
 #include <cmath>
 #include <vector>

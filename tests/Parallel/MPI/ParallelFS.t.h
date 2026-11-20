@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "Parallel/MPI.h"
-#include "Parallel/ParallelFS.h"
+#include "Core/Parallel/MPI.h"
+#include "Core/Parallel/ParallelFS.h"
 
 #include <filesystem>
 

@@ -8,10 +8,10 @@
 #ifndef SEISSOL_SRC_MODEL_FACECOUPLING_H_
 #define SEISSOL_SRC_MODEL_FACECOUPLING_H_
 
+#include "Core/Geometry/MeshDefinition.h"
 #include "Equations/Datastructures.h"
 #include "Equations/anisotropic/Model/Impedance.h"
 #include "Equations/poroelastic/Model/Impedance.h"
-#include "Geometry/MeshDefinition.h"
 #include "Model/Common.h"
 #include "Model/Quantities.h"
 

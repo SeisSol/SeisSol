@@ -7,15 +7,15 @@
 
 #include <doctest.h>
 
-#include "IO/Datatype/Inference.h"
-#include "IO/Instance/Geometry/Geometry.h"
-#include "IO/Instance/Geometry/Typedefs.h"
-#include "IO/Instance/Mesh/VtkHdf.h"
-#include "IO/Instance/Point/Grouping.h"
-#include "IO/Instance/Point/Hdf5Table.h"
-#include "IO/Reader/File/Hdf5Reader.h"
+#include "Core/IO/Datatype/Inference.h"
+#include "Core/IO/Instance/Geometry/Geometry.h"
+#include "Core/IO/Instance/Geometry/Typedefs.h"
+#include "Core/IO/Instance/Mesh/VtkHdf.h"
+#include "Core/IO/Instance/Point/Grouping.h"
+#include "Core/IO/Instance/Point/Hdf5Table.h"
+#include "Core/IO/Reader/File/Hdf5Reader.h"
+#include "Core/Parallel/MPI.h"
 #include "IO/WriterHarness.t.h"
-#include "Parallel/MPI.h"
 #include "TestHelper.h"
 
 #include <cstdint>

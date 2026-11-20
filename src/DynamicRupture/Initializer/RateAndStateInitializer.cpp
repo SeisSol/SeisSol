@@ -7,14 +7,14 @@
 
 #include "RateAndStateInitializer.h"
 
-#include "Common/ConfigDispatch.h"
-#include "Common/Real.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
 #include "DynamicRupture/Initializer/BaseDRInitializer.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/Layer.h"
 
 #include <cmath>
 #include <cstdint>

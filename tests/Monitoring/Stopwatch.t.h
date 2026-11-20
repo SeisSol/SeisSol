@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Monitoring/Stopwatch.h"
+#include "Core/Monitoring/Stopwatch.h"
 #include "TestHelper.h"
 
 #include <thread>

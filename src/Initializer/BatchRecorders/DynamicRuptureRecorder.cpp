@@ -5,15 +5,15 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/Constants.h"
 #include "Config.h"
+#include "Core/Common/Constants.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/Layer.h"
 #include "Recorders.h"
 
 #include <array>

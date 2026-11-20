@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "IO/Instance/Geometry/Geometry.h"
+#include "Core/IO/Instance/Geometry/Geometry.h"
 
 #include <optional>
 

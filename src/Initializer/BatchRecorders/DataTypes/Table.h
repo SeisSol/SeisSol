@@ -9,8 +9,8 @@
 #define SEISSOL_SRC_INITIALIZER_BATCHRECORDERS_DATATYPES_TABLE_H_
 
 #include "Condition.h"
+#include "Core/Memory/MemoryAllocator.h"
 #include "EncodedConstants.h"
-#include "Memory/MemoryAllocator.h"
 
 #include <array>
 #include <cassert>

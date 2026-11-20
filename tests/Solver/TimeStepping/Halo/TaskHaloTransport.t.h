@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Parallel/Runtime/HostRuntime.h"
+#include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Solver/TimeStepping/Halo/HaloTransport.h"
 #include "Solver/TimeStepping/Halo/TaskHaloTransport.h"
 

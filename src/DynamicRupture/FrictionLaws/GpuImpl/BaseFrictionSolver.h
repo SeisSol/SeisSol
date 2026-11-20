@@ -8,9 +8,11 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_BASEFRICTIONSOLVER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_BASEFRICTIONSOLVER_H_
 
-#include "Common/Constants.h"
-#include "Common/Marker.h"
-#include "Common/Real.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Marker.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Numerical/Functions.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverDetails.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
@@ -18,8 +20,6 @@
 #include "Equations/Datastructures.h"
 #include "FrictionSolverInterface.h"
 #include "GeneratedCode/init.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Numerical/Functions.h"
 
 #include <algorithm>
 

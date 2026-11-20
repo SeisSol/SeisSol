@@ -9,16 +9,16 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_BASEFRICTIONLAW_H_
 
 #include "Alignment.h"
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Monitoring/Instrumentation.h"
+#include "Core/Monitoring/Trace.h"
+#include "Core/Parallel/Runtime/HostRuntime.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Monitoring/Instrumentation.h"
-#include "Monitoring/Trace.h"
-#include "Parallel/Runtime/HostRuntime.h"
 
 #include <algorithm>
 #include <yaml-cpp/yaml.h>

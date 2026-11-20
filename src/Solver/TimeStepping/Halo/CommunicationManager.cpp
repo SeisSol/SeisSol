@@ -7,8 +7,8 @@
 
 #include "CommunicationManager.h"
 
-#include "Parallel/Pin.h"
-#include "Parallel/Runtime/HostRuntime.h"
+#include "Core/Parallel/Pin.h"
+#include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Solver/TimeStepping/Halo/TaskHaloTransport.h"
 
 #include <algorithm>

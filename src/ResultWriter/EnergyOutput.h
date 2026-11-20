@@ -8,19 +8,19 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 #define SEISSOL_SRC_RESULTWRITER_ENERGYOUTPUT_H_
 
+#include "Core/Geometry/MeshReader.h"
+#include "Core/IO/Instance/Point/Csv.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/HostData.h"
+#include "Core/Memory/MemoryAllocator.h"
+#include "Core/Modules/Module.h"
+#include "Core/Modules/Modules.h"
+#include "Core/Monitoring/Unit.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Equations/Energy.h"
-#include "Geometry/MeshReader.h"
-#include "IO/Instance/Point/Csv.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/HostData.h"
-#include "Memory/MemoryAllocator.h"
-#include "Modules/Module.h"
-#include "Modules/Modules.h"
-#include "Monitoring/Unit.h"
-#include "Parallel/Runtime/Stream.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <array>

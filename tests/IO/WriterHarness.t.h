@@ -8,13 +8,13 @@
 #ifndef SEISSOL_TESTS_IO_WRITERHARNESS_T_H_
 #define SEISSOL_TESTS_IO_WRITERHARNESS_T_H_
 
-#include "IO/Datatype/Datatype.h"
-#include "IO/Datatype/Inference.h"
-#include "IO/Reader/File/Hdf5Reader.h"
-#include "IO/Writer/Instructions/Data.h"
-#include "IO/Writer/Instructions/Instruction.h"
-#include "IO/Writer/Module/AsyncWriter.h"
-#include "IO/Writer/Writer.h"
+#include "Core/IO/Datatype/Datatype.h"
+#include "Core/IO/Datatype/Inference.h"
+#include "Core/IO/Reader/File/Hdf5Reader.h"
+#include "Core/IO/Writer/Instructions/Data.h"
+#include "Core/IO/Writer/Instructions/Instruction.h"
+#include "Core/IO/Writer/Module/AsyncWriter.h"
+#include "Core/IO/Writer/Writer.h"
 #include "TestHelper.h"
 
 #include <algorithm>

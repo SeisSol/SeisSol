@@ -8,8 +8,8 @@
 #include <doctest.h>
 
 #include "Alignment.h"
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"

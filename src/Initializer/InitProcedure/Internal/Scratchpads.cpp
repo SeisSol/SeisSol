@@ -6,19 +6,19 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Scratchpads.h"
 
-#include "Common/ConfigDispatch.h"
-#include "Common/Constants.h"
-#include "Common/Real.h"
-#include "Common/Typedefs.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
+#include "Core/Common/Typedefs.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/LtsSetup.h"
 #include "Kernels/Common.h"
 #include "Kernels/ConfigBoundary.h"
 #include "Kernels/SolverSelector.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Layer.h"
 
 #include <algorithm>
 #include <cstddef>

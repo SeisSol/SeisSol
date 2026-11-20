@@ -9,16 +9,16 @@
 
 #include "TimeCommon.h"
 
-#include "Common/ConfigDispatch.h"
-#include "Common/Constants.h"
-#include "Common/Marker.h"
 #include "Config.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Marker.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
 #include "Kernels/Solver.h"
-#include "Parallel/Runtime/Stream.h"
 
 #include <array>
 #include <cassert>

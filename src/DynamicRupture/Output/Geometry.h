@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_GEOMETRY_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_GEOMETRY_H_
 
-#include "Common/CompactOptional.h"
-#include "Geometry/MeshDefinition.h"
+#include "Core/Common/CompactOptional.h"
+#include "Core/Geometry/MeshDefinition.h"
 
 #include <Eigen/Dense>
 #include <array>

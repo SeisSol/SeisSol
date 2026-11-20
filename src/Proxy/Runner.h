@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_PROXY_RUNNER_H_
 
 #include "Common.h"
-#include "Monitoring/Metric.h"
+#include "Core/Monitoring/Metric.h"
 namespace seissol::proxy {
 
 auto runProxy(const ProxyConfig& config) -> ProxyOutput;

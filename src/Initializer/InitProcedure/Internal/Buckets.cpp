@@ -7,10 +7,13 @@
 #include "Buckets.h"
 
 #include "Alignment.h"
-#include "Common/ConfigDispatch.h"
-#include "Common/ConfigRegistry.h"
-#include "Common/Constants.h"
-#include "Common/Real.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Backmap.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/LtsSetup.h"
@@ -18,9 +21,6 @@
 #include "Kernels/Common.h"
 #include "Kernels/ConfigBoundary.h"
 #include "Kernels/SolverSelector.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Backmap.h"
-#include "Memory/Tree/Layer.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"
 
 #include <array>

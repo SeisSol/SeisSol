@@ -9,24 +9,24 @@
 #ifndef SEISSOL_SRC_KERNELS_RECEIVER_H_
 #define SEISSOL_SRC_KERNELS_RECEIVER_H_
 
-#include "Common/Executor.h"
-#include "Common/Real.h"
+#include "Core/Common/Executor.h"
+#include "Core/Common/Real.h"
+#include "Core/Geometry/CellTransform.h"
+#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Backmap.h"
+#include "Core/Monitoring/Metric.h"
+#include "Core/Numerical/BasisFunction.h"
+#include "Core/Numerical/Transformation.h"
+#include "Core/Parallel/DataCollector.h"
+#include "Core/Parallel/Runtime/HostActor.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "GeneratedCode/init.h"
-#include "Geometry/CellTransform.h"
-#include "Geometry/MeshDefinition.h"
-#include "Geometry/MeshReader.h"
 #include "Initializer/PointMapper.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Interface.h"
 #include "Kernels/Solver.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Backmap.h"
-#include "Monitoring/Metric.h"
-#include "Numerical/BasisFunction.h"
-#include "Numerical/Transformation.h"
-#include "Parallel/DataCollector.h"
-#include "Parallel/Runtime/HostActor.h"
-#include "Parallel/Runtime/Stream.h"
 
 #include <Eigen/Dense>
 #include <array>

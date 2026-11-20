@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "IO/Instance/Point/Csv.h"
+#include "Core/IO/Instance/Point/Csv.h"
 #include "WriterHarness.t.h"
 
 #include <cstdint>

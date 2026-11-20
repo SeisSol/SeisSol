@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_PROXY_COMMON_H_
 #define SEISSOL_SRC_PROXY_COMMON_H_
 
-#include "Common/ConfigRegistry.h"
-#include "Common/Executor.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/Executor.h"
 
 #include <string>
 #include <string_view>

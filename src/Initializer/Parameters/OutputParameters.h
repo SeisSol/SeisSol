@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_OUTPUTPARAMETERS_H_
 
-#include "Common/ConfigRegistry.h"
+#include "Core/Common/ConfigRegistry.h"
 #include "Initializer/InputAux.h"
 #include "Model/PlasticityQuantities.h"
 #include "ParameterReader.h"

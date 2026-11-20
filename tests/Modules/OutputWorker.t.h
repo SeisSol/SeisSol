@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Modules/OutputWorker.h"
+#include "Core/Modules/OutputWorker.h"
 
 #include <async/as/Pin.h>
 #include <atomic>

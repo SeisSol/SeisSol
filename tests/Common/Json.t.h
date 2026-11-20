@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "Common/Filesystem.h"
-#include "Common/Json.h"
+#include "Core/Common/Filesystem.h"
+#include "Core/Common/Json.h"
 
 #include <cstdint>
 #include <cstdlib>

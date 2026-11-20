@@ -7,7 +7,7 @@
 
 #include "ClusterClock.h"
 
-#include "Parallel/Runtime/Stream.h"
+#include "Core/Parallel/Runtime/Stream.h"
 
 #ifdef ACL_DEVICE
 #include "Kernels/DeviceAux/ClockAux.h"

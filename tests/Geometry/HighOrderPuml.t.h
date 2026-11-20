@@ -18,11 +18,11 @@
 
 #include <doctest.h>
 
-#include "Geometry/PUMLReader.h"
+#include "Core/Geometry/PUMLReader.h"
+#include "Core/Parallel/MPI.h"
+#include "Core/Parallel/SystemInfo.h"
 #include "Initializer/Parameters/LtsParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Parallel/MPI.h"
-#include "Parallel/SystemInfo.h"
 #include "SeisSol.h"
 #include "TestHelper.h"
 #include "VertexOrderInvariance.t.h"

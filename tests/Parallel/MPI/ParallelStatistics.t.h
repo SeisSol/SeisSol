@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "Numerical/Statistics.h"
-#include "Parallel/MPI.h"
+#include "Core/Numerical/Statistics.h"
+#include "Core/Parallel/MPI.h"
 
 #include <cmath>
 

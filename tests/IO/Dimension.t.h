@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "IO/Writer/Instructions/Data.h"
-#include "IO/Writer/Instructions/Dimension.h"
+#include "Core/IO/Writer/Instructions/Data.h"
+#include "Core/IO/Writer/Instructions/Dimension.h"
 
 #include <cstdint>
 #include <vector>

@@ -7,10 +7,10 @@
 
 #include "doctest.h"
 
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/Real.h"
+#include "Core/IO/Instance/Geometry/Points.h"
 #include "GeneratedCode/init.h"
-#include "IO/Instance/Geometry/Points.h"
 #include "TestConfigs.h"
 #include "TestHelper.h"
 

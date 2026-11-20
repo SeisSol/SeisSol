@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_MODEL_PLASTICITY_H_
 
 #include "Alignment.h"
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Model/CommonDatastructures.h"

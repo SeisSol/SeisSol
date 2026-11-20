@@ -7,9 +7,9 @@
 
 #include <doctest.h>
 
-#include "Common/Constants.h"
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"

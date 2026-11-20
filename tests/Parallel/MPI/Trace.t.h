@@ -10,8 +10,8 @@
 
 #include <doctest.h>
 
-#include "Monitoring/Trace.h"
-#include "Parallel/MPI.h"
+#include "Core/Monitoring/Trace.h"
+#include "Core/Parallel/MPI.h"
 
 #include <cstddef>
 #include <cstdio>

@@ -10,8 +10,8 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIME_H_
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_TIME_H_
 
-#include "Common/Constants.h"
-#include "Common/Real.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"

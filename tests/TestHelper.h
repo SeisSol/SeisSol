@@ -10,8 +10,8 @@
 
 #include <doctest.h>
 
-#include "Common/Environment.h"
-#include "Common/Filesystem.h"
+#include "Core/Common/Environment.h"
+#include "Core/Common/Filesystem.h"
 #include "Setup.h"
 
 #include <cmath>

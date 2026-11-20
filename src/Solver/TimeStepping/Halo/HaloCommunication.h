@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_HALOCOMMUNICATION_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_HALOCOMMUNICATION_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
 

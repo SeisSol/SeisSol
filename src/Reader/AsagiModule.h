@@ -11,9 +11,9 @@
 
 #ifdef USE_ASAGI
 
-#include "Modules/Module.h"
-#include "Modules/Modules.h"
-#include "Parallel/Pin.h"
+#include "Core/Modules/Module.h"
+#include "Core/Modules/Modules.h"
+#include "Core/Parallel/Pin.h"
 
 #include <memory>
 #include <string>

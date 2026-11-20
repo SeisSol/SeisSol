@@ -5,9 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/Real.h"
-#include "Common/Typedefs.h"
 #include "Config.h"
+#include "Core/Common/Real.h"
+#include "Core/Common/Typedefs.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/tensor.h"
 #include "Model/CommonDatastructures.h"

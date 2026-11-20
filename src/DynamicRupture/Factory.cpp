@@ -7,12 +7,12 @@
 
 #include "Factory.h"
 
+#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/Misc.h"
 #include "FrictionLaws/FrictionLaws.h"
 #include "Initializer/Initializers.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Memory/Descriptor/DynamicRupture.h"
 #include "Output/Output.h"
 
 #include <memory>

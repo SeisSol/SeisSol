@@ -7,8 +7,8 @@
 #ifndef SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ENERGY_H_
 #define SEISSOL_SRC_EQUATIONS_ACOUSTIC_MODEL_ENERGY_H_
 
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/Real.h"
 #include "Equations/EnergyBase.h"
 #include "Equations/acoustic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"

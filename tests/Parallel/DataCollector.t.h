@@ -7,11 +7,11 @@
 
 #include <doctest.h>
 
+#include "Core/Memory/MemoryAllocator.h"
+#include "Core/Parallel/DataCollector.h"
+#include "Core/Parallel/Runtime/HostBufferPool.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Kernels/Common.h"
-#include "Memory/MemoryAllocator.h"
-#include "Parallel/DataCollector.h"
-#include "Parallel/Runtime/HostBufferPool.h"
-#include "Parallel/Runtime/Stream.h"
 
 #include <cstddef>
 #include <cstdint>

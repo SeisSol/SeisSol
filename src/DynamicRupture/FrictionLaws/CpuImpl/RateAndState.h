@@ -9,9 +9,9 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_RATEANDSTATE_H_
 
 #include "BaseFrictionLaw.h"
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
-#include "Memory/Descriptor/DynamicRupture.h"
 
 #include <cmath>
 #include <limits>

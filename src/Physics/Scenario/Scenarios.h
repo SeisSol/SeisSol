@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_PHYSICS_SCENARIO_SCENARIOS_H_
 #define SEISSOL_SRC_PHYSICS_SCENARIO_SCENARIOS_H_
 
-#include "Common/ConfigRegistry.h"
+#include "Core/Common/ConfigRegistry.h"
 #include "GeneratedCode/init.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"

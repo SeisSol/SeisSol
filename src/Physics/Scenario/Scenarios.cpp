@@ -7,17 +7,17 @@
 
 #include "Physics/Scenario/Scenarios.h"
 
-#include "Common/ConfigDispatch.h"
-#include "Common/ConfigLayout.h"
-#include "Common/ConfigRegistry.h"
-#include "Common/ConfigValue.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/ConfigLayout.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/ConfigValue.h"
+#include "Core/Numerical/Eigenvalues.h"
 #include "Equations/Datastructures.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/MaterialType.h"
-#include "Numerical/Eigenvalues.h"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>

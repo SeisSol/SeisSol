@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/ConfigRegistry.h"
-#include "Memory/Tree/Colormap.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Memory/Tree/Colormap.h"
 
 #include <cstddef>
 #include <vector>

@@ -9,15 +9,15 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_GPUIMPL_SOURCETIMEFUNCTION_H_
 
 #include "BaseFrictionSolver.h"
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Numerical/DeltaPulse.h"
+#include "Core/Numerical/GaussianNucleationFunction.h"
+#include "Core/Numerical/RegularizedYoffe.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
 #include "FrictionSolverInterface.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/Layer.h"
-#include "Numerical/DeltaPulse.h"
-#include "Numerical/GaussianNucleationFunction.h"
-#include "Numerical/RegularizedYoffe.h"
 
 namespace seissol::dr::friction_law::gpu {
 

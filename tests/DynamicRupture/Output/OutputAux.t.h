@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Common/Constants.h"
+#include "Core/Common/Constants.h"
 #include "DynamicRupture/Output/Geometry.h"
 #include "DynamicRupture/Output/OutputAux.h"
 

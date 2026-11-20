@@ -7,19 +7,19 @@
 
 #include "MeasuredWeights.h"
 
-#include "Geometry/MeshReader.h"
-#include "IO/Reader/Distribution.h"
-#include "IO/Reader/File/Hdf5Reader.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/IO/Reader/Distribution.h"
+#include "Core/IO/Reader/File/Hdf5Reader.h"
+#include "Core/Memory/Tree/Colormap.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Monitoring/LoopStatistics.h"
+#include "Core/Parallel/Helper.h"
+#include "Core/Parallel/MPI.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Initializer/Clustering/VertexWeights/WeightsModels.h"
 #include "Initializer/MemoryManager.h"
 #include "Kernels/Common.h"
-#include "Memory/Tree/Colormap.h"
-#include "Memory/Tree/Layer.h"
-#include "Monitoring/LoopStatistics.h"
-#include "Parallel/Helper.h"
-#include "Parallel/MPI.h"
 
 #include <algorithm>
 #include <array>

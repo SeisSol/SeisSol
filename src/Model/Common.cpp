@@ -9,7 +9,7 @@
 
 #include "Model/Common.h"
 
-#include "Geometry/MeshDefinition.h"
+#include "Core/Geometry/MeshDefinition.h"
 
 #include <array>
 

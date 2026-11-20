@@ -7,17 +7,17 @@
 
 #include <doctest.h>
 
-#include "IO/Datatype/Inference.h"
-#include "IO/Instance/Geometry/Typedefs.h"
-#include "IO/Instance/Mesh/VtkHdf.h"
-#include "IO/Instance/Mesh/Xdmf.h"
-#include "IO/Reader/File/Hdf5Reader.h"
-#include "IO/Writer/File/Hdf5Writer.h"
-#include "IO/Writer/Instructions/Binary.h"
-#include "IO/Writer/Instructions/Data.h"
-#include "IO/Writer/Instructions/Dimension.h"
-#include "IO/Writer/Instructions/Hdf5.h"
-#include "IO/Writer/Writer.h"
+#include "Core/IO/Datatype/Inference.h"
+#include "Core/IO/Instance/Geometry/Typedefs.h"
+#include "Core/IO/Instance/Mesh/VtkHdf.h"
+#include "Core/IO/Instance/Mesh/Xdmf.h"
+#include "Core/IO/Reader/File/Hdf5Reader.h"
+#include "Core/IO/Writer/File/Hdf5Writer.h"
+#include "Core/IO/Writer/Instructions/Binary.h"
+#include "Core/IO/Writer/Instructions/Data.h"
+#include "Core/IO/Writer/Instructions/Dimension.h"
+#include "Core/IO/Writer/Instructions/Hdf5.h"
+#include "Core/IO/Writer/Writer.h"
 #include "WriterHarness.t.h"
 
 #include <algorithm>

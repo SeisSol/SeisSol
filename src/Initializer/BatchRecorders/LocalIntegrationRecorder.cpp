@@ -5,10 +5,12 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/Constants.h"
-#include "Common/Real.h"
-#include "Common/Typedefs.h"
 #include "Config.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
+#include "Core/Common/Typedefs.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
@@ -19,8 +21,6 @@
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/LtsSetup.h"
 #include "Kernels/SolverSelector.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Layer.h"
 #include "Recorders.h"
 #include "Solver/MultipleSimulations.h"
 

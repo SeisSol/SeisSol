@@ -8,18 +8,18 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_RECEIVERBASEDOUTPUTBUILDER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_RECEIVERBASEDOUTPUTBUILDER_H_
 
-#include "Common/ConfigRegistry.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Backmap.h"
+#include "Core/Numerical/Transformation.h"
+#include "Core/Parallel/MPI.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
-#include "Geometry/MeshReader.h"
 #include "Initializer/InputAux.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Backmap.h"
 #include "Model/Common.h"
-#include "Numerical/Transformation.h"
-#include "Parallel/MPI.h"
 
 #include <memory>
 #include <vector>

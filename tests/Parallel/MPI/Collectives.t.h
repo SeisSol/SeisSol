@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Parallel/MPI.h"
+#include "Core/Parallel/MPI.h"
 
 #include <array>
 #include <cmath>

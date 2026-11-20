@@ -8,11 +8,11 @@
 #include <doctest.h>
 
 #include "Alignment.h"
-#include "Common/ConfigDispatch.h"
-#include "Common/ConfigRegistry.h"
-#include "Common/ConfigValue.h"
-#include "Common/Constants.h"
-#include "Common/Real.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/ConfigValue.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/configboundary.h"
 #include "GeneratedCode/init.h"
@@ -24,12 +24,12 @@
 #include "Solver/MultipleSimulations.h"
 
 #ifdef ACL_DEVICE
+#include "Core/Memory/GlobalData.h"
+#include "Core/Memory/MemoryAllocator.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Initializer/Typedefs.h"
-#include "Memory/GlobalData.h"
-#include "Memory/MemoryAllocator.h"
-#include "Parallel/Runtime/Stream.h"
 
 #include <Device/device.h>
 #endif

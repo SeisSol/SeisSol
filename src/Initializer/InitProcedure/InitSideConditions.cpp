@@ -7,8 +7,9 @@
 
 #include "InitSideConditions.h"
 
-#include "Common/ConfigRegistry.h"
-#include "Common/ConfigValue.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/ConfigValue.h"
+#include "Core/Memory/Descriptor/LTS.h"
 #include "Initializer/InitialFieldProjection.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/Parameters/InitializationParameters.h"
@@ -16,7 +17,6 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Parameters/SimulationFiles.h"
 #include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/LTS.h"
 #include "Physics/InitialField.h"
 #include "Physics/Scenario/Registry.h"
 #include "SeisSol.h"

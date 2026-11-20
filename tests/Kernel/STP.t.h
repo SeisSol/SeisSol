@@ -5,8 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/Real.h"
-#include "Common/Typedefs.h"
+#include "Core/Common/Real.h"
+#include "Core/Common/Typedefs.h"
+#include "Core/Geometry/CellTransform.h"
 #include "Equations/poroelastic/Model/Datastructures.h"
 #include "Equations/poroelastic/Model/Helper.h"
 #include "Equations/poroelastic/Model/Setup.h"
@@ -14,7 +15,6 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
-#include "Geometry/CellTransform.h"
 #include "Kernels/Common.h"
 #include "Kernels/STP/Setup.h"
 #include "Model/Common.h"

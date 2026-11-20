@@ -5,11 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/ConfigDispatch.h"
-#include "Common/ConfigLayout.h"
-#include "Common/ConfigRegistry.h"
-#include "Common/Typedefs.h"
 #include "Config.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/ConfigLayout.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/Typedefs.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/runtime.h"

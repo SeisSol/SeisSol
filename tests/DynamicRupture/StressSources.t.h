@@ -8,8 +8,8 @@
 #include <doctest.h>
 
 #include "Alignment.h"
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/Real.h"
 #include "DynamicRupture/Misc.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "TestConfigs.h"

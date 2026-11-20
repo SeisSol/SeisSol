@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Parallel/Runtime/EventPool.h"
+#include "Core/Parallel/Runtime/EventPool.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 
 #include <cmath>
@@ -17,7 +17,7 @@
 #include <variant>
 
 #ifdef ACL_DEVICE
-#include "Parallel/Runtime/Stream.h"
+#include "Core/Parallel/Runtime/Stream.h"
 
 #include <Device/device.h>
 #endif

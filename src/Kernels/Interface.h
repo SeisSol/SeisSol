@@ -9,11 +9,11 @@
 #ifndef SEISSOL_SRC_KERNELS_INTERFACE_H_
 #define SEISSOL_SRC_KERNELS_INTERFACE_H_
 
-#include "Common/Constants.h"
-#include "Common/Real.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/LTS.h"
 #include "GeneratedCode/tensor.h"
 #include "Kernels/LinearCK/GravitationalFreeSurfaceBC.h"
-#include "Memory/Descriptor/LTS.h"
 
 namespace seissol::kernels {
 /// The thread-local scratch data of the integration of a cell of the configuration `Cfg`.

@@ -9,17 +9,17 @@
 #include "DynamicRupture.h"
 
 #include "Alignment.h"
-#include "Common/Constants.h"
-#include "Common/Marker.h"
 #include "Config.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Marker.h"
+#include "Core/Monitoring/Metric.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
-#include "Monitoring/Metric.h"
-#include "Parallel/Runtime/Stream.h"
 
 #include <cassert>
 #include <cstdint>

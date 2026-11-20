@@ -9,9 +9,9 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_TYPEDEFS_H_
 
 #include "Alignment.h"
-#include "Common/Constants.h"
-#include "Common/Executor.h"
-#include "Common/Real.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Executor.h"
+#include "Core/Common/Real.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/tensor.h"
 

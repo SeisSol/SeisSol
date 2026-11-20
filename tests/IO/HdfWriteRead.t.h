@@ -7,11 +7,11 @@
 
 #include <doctest.h>
 
-#include "IO/Instance/Geometry/Geometry.h"
-#include "IO/Instance/Geometry/Typedefs.h"
-#include "IO/Instance/Mesh/VtkHdf.h"
-#include "IO/Instance/Mesh/Xdmf.h"
-#include "IO/Reader/File/Hdf5Reader.h"
+#include "Core/IO/Instance/Geometry/Geometry.h"
+#include "Core/IO/Instance/Geometry/Typedefs.h"
+#include "Core/IO/Instance/Mesh/VtkHdf.h"
+#include "Core/IO/Instance/Mesh/Xdmf.h"
+#include "Core/IO/Reader/File/Hdf5Reader.h"
 #include "WriterHarness.t.h"
 
 #include <algorithm>

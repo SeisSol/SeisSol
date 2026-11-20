@@ -8,11 +8,11 @@
 #define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest.h>
 
-#include "Parallel/MPI.h"
+#include "Core/Parallel/MPI.h"
 
 #include <string_view>
 
-// the flop counters of the matrix kernels, as Monitoring/FlopCounter.h declares them
+// the flop counters of the matrix kernels, as Core/Monitoring/FlopCounter.h declares them
 // NOLINTNEXTLINE(readability-identifier-naming,cppcoreguidelines-avoid-non-const-global-variables)
 extern long long libxsmm_num_total_flops;
 // NOLINTNEXTLINE(readability-identifier-naming,cppcoreguidelines-avoid-non-const-global-variables)

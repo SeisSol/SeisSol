@@ -8,16 +8,16 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_PICKPOINTBUILDER_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_BUILDERS_PICKPOINTBUILDER_H_
 
-#include "Common/Iterator.h"
+#include "Core/Common/Iterator.h"
+#include "Core/Geometry/CellTransform.h"
+#include "Core/Geometry/FaceTransform.h"
+#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Parallel/MPI.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "DynamicRupture/Output/DataTypes.h"
 #include "DynamicRupture/Output/OutputAux.h"
-#include "Geometry/CellTransform.h"
-#include "Geometry/FaceTransform.h"
-#include "Geometry/MeshDefinition.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PointMapper.h"
-#include "Parallel/MPI.h"
-#include "Parallel/Runtime/Stream.h"
 #include "ReceiverBasedOutputBuilder.h"
 
 #include <algorithm>

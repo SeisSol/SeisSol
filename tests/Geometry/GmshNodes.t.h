@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Geometry/GmshNodes.h"
+#include "Core/Geometry/GmshNodes.h"
 
 #include <cstddef>
 #include <vector>

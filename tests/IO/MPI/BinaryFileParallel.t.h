@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "IO/Writer/File/BinaryWriter.h"
-#include "Parallel/MPI.h"
+#include "Core/IO/Writer/File/BinaryWriter.h"
+#include "Core/Parallel/MPI.h"
 #include "TestHelper.h"
 
 #include <cstddef>

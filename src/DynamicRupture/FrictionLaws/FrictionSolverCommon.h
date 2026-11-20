@@ -8,14 +8,14 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_FRICTIONSOLVERCOMMON_H_
 
-#include "Common/Constants.h"
-#include "Common/Executor.h"
-#include "Common/Real.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Executor.h"
+#include "Core/Common/Real.h"
+#include "Core/Numerical/GaussianNucleationFunction.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Typedefs.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
-#include "Numerical/GaussianNucleationFunction.h"
 #include "Solver/MultipleSimulations.h"
 
 #include <algorithm>

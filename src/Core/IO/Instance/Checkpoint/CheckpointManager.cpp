@@ -1,0 +1,223 @@
+// SPDX-FileCopyrightText: 2024 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include "CheckpointManager.h"
+
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/ConfigValue.h"
+#include "Core/IO/Datatype/Datatype.h"
+#include "Core/IO/Datatype/Inference.h"
+#include "Core/IO/Datatype/MPIType.h"
+#include "Core/IO/Reader/Distribution.h"
+#include "Core/IO/Reader/File/Hdf5Reader.h"
+#include "Core/IO/Writer/Instructions/Data.h"
+#include "Core/IO/Writer/Instructions/Hdf5.h"
+#include "Core/IO/Writer/Writer.h"
+#include "Core/Parallel/MPI.h"
+
+#include <cassert>
+#include <cstddef>
+#include <cstdlib>
+#include <cstring>
+#include <functional>
+#include <map>
+#include <memory>
+#include <string>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
+
+namespace seissol::io::instance::checkpoint {
+
+namespace {
+/// the extents of a value of the given type, outermost first; empty unless it is an array
+std::vector<std::size_t> valueShape(const std::shared_ptr<datatype::Datatype>& type) {
+  if (const auto array = std::dynamic_pointer_cast<datatype::ArrayDatatype>(type)) {
+    return array->dimensions();
+  }
+  return {};
+}
+} // namespace
+
+std::shared_ptr<datatype::Datatype>
+    CheckpointManager::perCellDatatype(const std::shared_ptr<datatype::Datatype>& type,
+                                       std::size_t count) {
+  if (count == 1) {
+    return type;
+  }
+  // stated as one array rather than an array of arrays, so that the values of a cell have the
+  // type they would have as one array variable
+  if (const auto array = std::dynamic_pointer_cast<datatype::ArrayDatatype>(type)) {
+    auto dimensions = array->dimensions();
+    dimensions.insert(dimensions.begin(), count);
+    return std::make_shared<datatype::ArrayDatatype>(array->base(), dimensions);
+  }
+  return std::make_shared<datatype::ArrayDatatype>(type, std::vector<std::size_t>{count});
+}
+
+std::function<writer::Writer(const std::string&, std::size_t, double)>
+    CheckpointManager::makeWriter() {
+  const auto dataRegistry = this->dataRegistry_;
+  // the order of the configuration of the data
+  const std::size_t order = configValue(config_).convergenceOrder;
+  const std::size_t simulationCount = simulationCount_;
+  const std::size_t fusedCount = fusedCount_;
+  return [=](const std::string& prefix, std::size_t counter, double time) -> writer::Writer {
+    writer::Writer writer;
+    const auto filename = prefix + std::string("-checkpoint-") + std::to_string(counter) + ".h5";
+    for (const auto& [_, ckpTree] : dataRegistry) {
+      const std::size_t cells = ckpTree.cells;
+      assert(cells == ckpTree.ids.size());
+      writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
+          writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name}),
+          "__ids",
+          writer::WriteBuffer::create(ckpTree.ids.data(), ckpTree.ids.size()),
+          datatype::inferDatatype<std::size_t>()));
+      for (const auto& variable : ckpTree.variables) {
+        std::shared_ptr<writer::DataSource> dataSource;
+        if (variable.pack.has_value()) {
+          // data needs to be transformed, copy
+          const auto elemSize = variable.memoryDatatype->size();
+          const auto packFn = variable.pack.value();
+          dataSource = writer::GeneratedBuffer::createElementwise<char>(
+              elemSize,
+              1,
+              std::vector<std::size_t>(),
+              [=](void* target, std::size_t index) {
+                std::invoke(packFn,
+                            target,
+                            reinterpret_cast<const void*>(
+                                reinterpret_cast<const char*>(variable.data) + index * elemSize));
+              },
+              variable.datatype);
+        } else {
+          // no transform; write-through
+          dataSource = std::make_shared<writer::WriteBuffer>(
+              variable.data, cells, variable.datatype, std::vector<std::size_t>());
+        }
+        writer.addInstruction(std::make_shared<writer::instructions::Hdf5DataWrite>(
+            writer::instructions::Hdf5Location(filename, {"checkpoint", ckpTree.name}),
+            variable.name,
+            dataSource,
+            variable.datatype));
+      }
+    }
+    writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+        writer::instructions::Hdf5Location(filename, {"checkpoint"}),
+        "__time",
+        writer::WriteInline::create(time)));
+    writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+        writer::instructions::Hdf5Location(filename, {"checkpoint"}),
+        "__order",
+        writer::WriteInline::create(order)));
+    writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+        writer::instructions::Hdf5Location(filename, {"checkpoint"}),
+        "__simulations",
+        writer::WriteInline::create(simulationCount)));
+    writer.addInstruction(std::make_shared<writer::instructions::Hdf5AttributeWrite>(
+        writer::instructions::Hdf5Location(filename, {"checkpoint"}),
+        "__fused",
+        writer::WriteInline::create(fusedCount)));
+    return writer;
+  };
+}
+
+double CheckpointManager::loadCheckpoint(const std::string& file) {
+  std::size_t storesize = 0;
+  void* datastore = nullptr;
+
+  logInfo() << "Loading checkpoint...";
+  logInfo() << "Checkpoint file:" << file;
+
+  auto reader = reader::file::Hdf5Reader(seissol::Mpi::mpi.comm());
+  reader.openFile(file);
+  reader.openGroup("checkpoint");
+  const auto convergenceOrderRead = reader.readAttributeScalar<int>("__order");
+  if (std::cmp_not_equal(convergenceOrderRead, configValue(config_).convergenceOrder)) {
+    logError() << "Convergence order does not match. Read:" << convergenceOrderRead;
+  }
+  // The data points of a cell or face are told apart by their copy, which the simulations of the
+  // run and the ones a cell fuses decide; other numbers would match the data of other copies to
+  // them. A checkpoint that does not state them holds one copy of the cells, which fuse the
+  // simulations of the run.
+  const auto simulationsRead = reader.hasAttribute("__simulations")
+                                   ? reader.readAttributeScalar<std::size_t>("__simulations")
+                                   : fusedCount_;
+  const auto fusedRead = reader.hasAttribute("__fused")
+                             ? reader.readAttributeScalar<std::size_t>("__fused")
+                             : fusedCount_;
+  if (simulationsRead != simulationCount_ || fusedRead != fusedCount_) {
+    logError()
+        << "The checkpoint was written by a run of" << simulationsRead << "simulations with"
+        << fusedRead << "fused in a cell, but this run computes" << simulationCount_
+        << "simulations with" << fusedCount_
+        << "fused in a cell; a checkpoint restarts only the simulations it was written with.";
+  }
+  for (auto& [_, ckpTree] : dataRegistry_) {
+    reader.openGroup(ckpTree.name);
+    auto distributor = reader::Distributor(seissol::Mpi::mpi.comm());
+
+    logInfo() << "Reading group IDs for" << ckpTree.name;
+    const auto groupIds = reader.readData<std::size_t>("__ids");
+    distributor.setup(groupIds, ckpTree.ids);
+
+    std::vector<reader::Distributor::DistributionInstance> distributions;
+    distributions.reserve(ckpTree.variables.size());
+    for (const auto& variable : ckpTree.variables) {
+      logInfo() << "Reading variable" << ckpTree.name << "/" << variable.name;
+      // the shape of a value includes how many values a cell holds (see perCellDatatype), e.g.
+      // the number of grid points of the thermal pressurization: a checkpoint of another one
+      // describes another state, and is not to be read into this one
+      const auto storedShape = reader.dataValueShape(variable.name);
+      const auto expectedShape = valueShape(variable.datatype);
+      if (storedShape != expectedShape) {
+        logError() << "The checkpoint holds" << ckpTree.name << "/" << variable.name
+                   << "with values of the shape" << storedShape << ", but this run needs"
+                   << expectedShape
+                   << "; it was written with other parameters (e.g. another tp_gridpoints).";
+      }
+      const std::size_t count = reader.dataCount(variable.name);
+      const std::size_t currsize = count * variable.datatype->size();
+      if (currsize > storesize) {
+        std::free(datastore);
+        datastore = std::malloc(currsize);
+        if (datastore == nullptr) {
+          logError() << "Realloc failed; maybe you are reading too much (checkpoint) data?";
+        }
+        storesize = currsize;
+
+        // touch memory explicitly
+        std::memset(datastore, 0, storesize);
+      }
+      reader.readDataRaw(datastore, variable.name, count, variable.datatype);
+      const auto distribution =
+          distributor.distributeRaw(variable.data,
+                                    datastore,
+                                    datatype::convertToMPI(variable.datatype),
+                                    datatype::convertToMPI(variable.memoryDatatype),
+                                    variable.unpack);
+      distributions.push_back(distribution);
+    }
+    logInfo() << "Finishing data distribution for" << ckpTree.name;
+    for (auto& distribution : distributions) {
+      distribution.complete();
+    }
+
+    reader.closeGroup();
+  }
+  const auto time = reader.readAttributeScalar<double>("__time");
+  reader.closeGroup();
+  reader.closeFile();
+
+  logInfo() << "Checkpoint loading complete.";
+
+  std::free(datastore);
+
+  return time;
+}
+
+} // namespace seissol::io::instance::checkpoint

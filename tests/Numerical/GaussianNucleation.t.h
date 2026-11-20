@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Numerical/GaussianNucleationFunction.h"
+#include "Core/Numerical/GaussianNucleationFunction.h"
 
 #include <cmath>
 #include <cstddef>

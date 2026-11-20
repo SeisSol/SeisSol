@@ -8,9 +8,20 @@
 #include "EnergyOutput.h"
 
 #include "Alignment.h"
-#include "Common/ConfigDispatch.h"
-#include "Common/Constants.h"
-#include "Common/RunId.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/RunId.h"
+#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Geometry/MeshTools.h"
+#include "Core/IO/Writer/File/RunFiles.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Descriptor/Surface.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Modules/Modules.h"
+#include "Core/Monitoring/Unit.h"
+#include "Core/Numerical/Quadrature.h"
+#include "Core/Parallel/MPI.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Energy.h" // IWYU pragma: keep
@@ -20,24 +31,13 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "Geometry/MeshDefinition.h"
-#include "Geometry/MeshTools.h"
-#include "IO/Writer/File/RunFiles.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Initializer/PreProcessorMacros.h"
 #include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Descriptor/Surface.h"
-#include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
-#include "Modules/Modules.h"
-#include "Monitoring/Unit.h"
-#include "Numerical/Quadrature.h"
-#include "Parallel/MPI.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
 
@@ -64,7 +64,7 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #endif
 
 namespace seissol::writer {

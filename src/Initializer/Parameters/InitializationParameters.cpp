@@ -7,8 +7,8 @@
 
 #include "InitializationParameters.h"
 
-#include "Common/ConfigLayout.h"
-#include "Common/ConfigRegistry.h"
+#include "Core/Common/ConfigLayout.h"
+#include "Core/Common/ConfigRegistry.h"
 #include "Initializer/InputAux.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"

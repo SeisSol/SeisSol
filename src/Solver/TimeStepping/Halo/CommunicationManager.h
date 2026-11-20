@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_COMMUNICATIONMANAGER_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_HALO_COMMUNICATIONMANAGER_H_
 
-#include "Parallel/HelperThread.h"
-#include "Parallel/Pin.h"
+#include "Core/Parallel/HelperThread.h"
+#include "Core/Parallel/Pin.h"
 #include "Solver/TimeStepping/Halo/GhostCluster.h"
 #include "Solver/TimeStepping/Halo/TaskHaloTransport.h"
 

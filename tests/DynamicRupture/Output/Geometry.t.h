@@ -5,19 +5,19 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/ConfigDispatch.h"
-#include "Common/ConfigValue.h"
-#include "Common/Real.h"
-#include "Common/Typedefs.h"
 #include "Config.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/ConfigValue.h"
+#include "Core/Common/Real.h"
+#include "Core/Common/Typedefs.h"
+#include "Core/Geometry/CellTransform.h"
+#include "Core/Geometry/FaceTransform.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Numerical/BasisFunction.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/OutputAux.h"
-#include "Geometry/CellTransform.h"
-#include "Geometry/FaceTransform.h"
-#include "Geometry/MeshReader.h"
 #include "Geometry/MockReader.h"
 #include "Initializer/PointMapper.h"
-#include "Numerical/BasisFunction.h"
 #include "TestHelper.h"
 
 #include <Eigen/Dense>

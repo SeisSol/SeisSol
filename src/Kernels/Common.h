@@ -11,8 +11,8 @@
 #define SEISSOL_SRC_KERNELS_COMMON_H_
 
 #include "Alignment.h"
-#include "Common/Constants.h"
-#include "Common/Typedefs.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Typedefs.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 

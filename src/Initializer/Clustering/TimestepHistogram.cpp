@@ -7,7 +7,7 @@
 
 #include "Initializer/Clustering/TimestepHistogram.h"
 
-#include "Parallel/MPI.h"
+#include "Core/Parallel/MPI.h"
 
 #include <algorithm>
 #include <cassert>

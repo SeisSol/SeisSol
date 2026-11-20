@@ -7,7 +7,8 @@
 
 #include "Initializer/Clustering/ClusteringEvaluator.h"
 
-#include "Geometry/PUMLReader.h"
+#include "Core/Geometry/PUMLReader.h"
+#include "Core/Parallel/MPI.h"
 #include "Initializer/Clustering/ClusterHistogram.h"
 #include "Initializer/Clustering/ClusterLadder.h"
 #include "Initializer/Clustering/ClusterSmoother.h"
@@ -15,7 +16,6 @@
 #include "Initializer/Clustering/TimestepHistogram.h"
 #include "Initializer/FaceMap.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
-#include "Parallel/MPI.h"
 
 #include <algorithm>
 #include <cassert>

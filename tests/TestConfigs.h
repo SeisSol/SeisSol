@@ -15,9 +15,9 @@
 
 #include <doctest.h>
 
-#include "Common/ConfigValue.h"
-#include "Common/Typedefs.h"
 #include "Config.h"
+#include "Core/Common/ConfigValue.h"
+#include "Core/Common/Typedefs.h"
 #include "Equations/Datastructures.h"
 #include "Model/MaterialType.h"
 

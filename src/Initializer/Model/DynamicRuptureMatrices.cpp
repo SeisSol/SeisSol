@@ -9,8 +9,15 @@
 
 #include "DynamicRuptureMatrices.h"
 
-#include "Common/ConfigDispatch.h"
-#include "Common/Real.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/Real.h"
+#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Geometry/MeshTools.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Backmap.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "DynamicRupture/Typedefs.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Impedance.h"      // IWYU pragma: keep
@@ -19,18 +26,11 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "Geometry/MeshDefinition.h"
-#include "Geometry/MeshReader.h"
-#include "Geometry/MeshTools.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/LtsSetup.h"
 #include "Initializer/Model/DynamicRuptureImpedance.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
 #include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Backmap.h"
-#include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
 

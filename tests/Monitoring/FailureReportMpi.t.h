@@ -10,10 +10,10 @@
 
 #include <doctest.h>
 
-#include "Monitoring/FailureReport.h"
-#include "Monitoring/RunSummary.h"
-#include "Parallel/MPI.h"
-#include "Parallel/SystemInfo.h"
+#include "Core/Monitoring/FailureReport.h"
+#include "Core/Monitoring/RunSummary.h"
+#include "Core/Parallel/MPI.h"
+#include "Core/Parallel/SystemInfo.h"
 
 #include <filesystem>
 #include <fstream>

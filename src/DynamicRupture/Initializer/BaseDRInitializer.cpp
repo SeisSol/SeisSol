@@ -7,21 +7,21 @@
 
 #include "BaseDRInitializer.h"
 
-#include "Common/ConfigDispatch.h"
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/Real.h"
+#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Numerical/Transformation.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/general/init.h"
 #include "GeneratedCode/general/kernel.h"
-#include "Geometry/MeshDefinition.h"
-#include "Geometry/MeshReader.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
-#include "Numerical/Transformation.h"
 #include "SeisSol.h"
 
 #include <Eigen/Dense>

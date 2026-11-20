@@ -9,7 +9,7 @@
 
 #include "AsagiReader.h"
 
-#include "Monitoring/Instrumentation.h"
+#include "Core/Monitoring/Instrumentation.h"
 #include "Reader/AsagiModule.h"
 
 #include <asagi.h>

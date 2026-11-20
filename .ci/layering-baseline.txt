@@ -197,13 +197,8 @@ physics-includes-runtime Features/WavePropagation/Physics/elastic/Setup.h Core/K
 physics-includes-runtime Features/WavePropagation/Physics/poroelastic/Setup.h Core/Kernels/Common.h
 physics-includes-runtime Features/WavePropagation/Physics/viscoacoustic/Setup.h Core/Kernels/Common.h
 physics-includes-runtime Features/WavePropagation/Physics/viscoelastic/Setup.h Core/Kernels/Common.h
+physics-includes-solver Features/InitialConditions/Physics/Scenario/Scenarios.cpp Features/WavePropagation/Solver/Setup.h
 physics-includes-solver Features/WavePropagation/Physics/Common.h Features/WavePropagation/Solver/SolverSelector.h
-physics-includes-solver Features/WavePropagation/Physics/Concepts.h Features/WavePropagation/Solver/Local.h
-physics-includes-solver Features/WavePropagation/Physics/Concepts.h Features/WavePropagation/Solver/Neighbor.h
-physics-includes-solver Features/WavePropagation/Physics/Concepts.h Features/WavePropagation/Solver/Spacetime.h
-physics-includes-solver Features/WavePropagation/Physics/Concepts.h Features/WavePropagation/Solver/Time.h
-physics-includes-solver Features/WavePropagation/Physics/Setup.h Features/WavePropagation/Solver/LinearCK/Setup.h
-physics-includes-solver Features/WavePropagation/Physics/Setup.h Features/WavePropagation/Solver/LinearCKAnelastic/Setup.h
-physics-includes-solver Features/WavePropagation/Physics/Setup.h Features/WavePropagation/Solver/STP/Setup.h
+physics-includes-solver Features/WavePropagation/Physics/poroelastic/Datastructures.cpp Features/WavePropagation/Solver/Setup.h
 solver-includes-setup Features/InitialConditions/Output/AnalysisWriter.cpp Features/InitialConditions/Setup/InitialFieldProjection.h
 solver-includes-setup Features/WavePropagation/Output/FreeSurfaceIntegrator.cpp Features/WavePropagation/Setup/BoundaryHelper.h

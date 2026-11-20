@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Numerical/PhiFunctions.h"
+#include "Core/Numerical/PhiFunctions.h"
 
 #include <cmath>
 #include <cstddef>

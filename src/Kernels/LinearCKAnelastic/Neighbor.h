@@ -10,7 +10,7 @@
 #ifndef SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_NEIGHBOR_H_
 #define SEISSOL_SRC_KERNELS_LINEARCKANELASTIC_NEIGHBOR_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "GeneratedCode/kernel.h"
 #include "Kernels/Neighbor.h"
 

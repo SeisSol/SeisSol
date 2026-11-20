@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Parallel/Runtime/EventPool.h"
+#include "Core/Parallel/Runtime/EventPool.h"
 
 #include <cstddef>
 #include <deque>

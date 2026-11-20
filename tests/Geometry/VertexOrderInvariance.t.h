@@ -15,18 +15,18 @@
 // of coordinates are no longer exact. Neither the partition nor anything SeisSol makes of a cell
 // may depend on the order in which a cell lists its vertices.
 
-#include "Common/CompactOptional.h"
-#include "Geometry/MeshDefinition.h"
-#include "Geometry/PUMLReader.h"
-#include "Geometry/PartitioningLib.h"
+#include "Core/Common/CompactOptional.h"
+#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Geometry/PUMLReader.h"
+#include "Core/Geometry/PartitioningLib.h"
+#include "Core/Parallel/MPI.h"
+#include "Core/Parallel/SystemInfo.h"
 #include "Initializer/Clustering/Clustering.h"
 #include "Initializer/Clustering/VertexWeights/WeightsModels.h"
 #include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/LtsParameters.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
-#include "Parallel/MPI.h"
-#include "Parallel/SystemInfo.h"
 #include "SeisSol.h"
 #include "TestHelper.h"
 

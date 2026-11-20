@@ -7,10 +7,10 @@
 
 #include "GhostCluster.h"
 
-#include "Common/Executor.h"
+#include "Core/Common/Executor.h"
+#include "Core/Monitoring/Instrumentation.h"
+#include "Core/Monitoring/Trace.h"
 #include "Kernels/Common.h"
-#include "Monitoring/Instrumentation.h"
-#include "Monitoring/Trace.h"
 #include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Solver/TimeStepping/Actor/ActorState.h"
 #include "Solver/TimeStepping/Halo/HaloCommunication.h"

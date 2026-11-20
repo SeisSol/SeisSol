@@ -7,10 +7,10 @@
 
 #include "MiniSeisSolWriter.h"
 
-#include "Common/RunId.h"
-#include "IO/Instance/Point/Csv.h"
-#include "Parallel/MPI.h"
-#include "Parallel/SystemInfo.h"
+#include "Core/Common/RunId.h"
+#include "Core/IO/Instance/Point/Csv.h"
+#include "Core/Parallel/MPI.h"
+#include "Core/Parallel/SystemInfo.h"
 
 #include <algorithm>
 #include <cstddef>

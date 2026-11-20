@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_THREADSPINNINGWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_THREADSPINNINGWRITER_H_
 
-#include "Parallel/Pin.h"
-#include "Parallel/SystemInfo.h"
+#include "Core/Parallel/Pin.h"
+#include "Core/Parallel/SystemInfo.h"
 
 #include <string>
 #include <utility>

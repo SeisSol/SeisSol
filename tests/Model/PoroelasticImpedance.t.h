@@ -16,7 +16,7 @@
 #include <doctest.h>
 
 #include "Alignment.h"
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "Equations/Impedance.h"
 #include "Equations/ImpedanceBase.h"

@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Parallel/Pin.h"
+#include "Core/Parallel/Pin.h"
 
 #include <async/as/Pin.h>
 #include <initializer_list>

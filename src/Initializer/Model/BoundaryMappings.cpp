@@ -9,23 +9,23 @@
 
 #include "BoundaryMappings.h"
 
-#include "Common/ConfigDispatch.h"
-#include "Common/Constants.h"
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
+#include "Core/Geometry/FaceTransform.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "Equations/Datastructures.h" // IWYU pragma: keep
 #include "Equations/Setup.h"          // IWYU pragma: keep
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "Geometry/FaceTransform.h"
-#include "Geometry/MeshReader.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BoundarySetup.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/TimeStepping/ClusterLayout.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/Tree/Layer.h"
 #include "Model/Common.h"
 #include "Solver/MultipleSimulations.h"
 

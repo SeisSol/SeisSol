@@ -9,8 +9,13 @@
 
 #include "ParameterDB.h"
 
-#include "Common/Constants.h"
 #include "Config.h"
+#include "Core/Common/Constants.h"
+#include "Core/Geometry/CellTransform.h"
+#include "Core/Geometry/FaceTransform.h"
+#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Geometry/PUMLReader.h"
+#include "Core/Numerical/Quadrature.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
 #include "Equations/acoustic/Model/Datastructures.h"
@@ -18,12 +23,7 @@
 #include "Equations/viscoacoustic/Model/Datastructures.h"
 #include "Equations/viscoelastic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
-#include "Geometry/CellTransform.h"
-#include "Geometry/FaceTransform.h"
-#include "Geometry/MeshDefinition.h"
-#include "Geometry/PUMLReader.h"
 #include "Model/CommonDatastructures.h"
-#include "Numerical/Quadrature.h"
 #include "SeisSol.h"
 #include "Solver/MultipleSimulations.h"
 #include "easi/ResultAdapter.h"
@@ -62,7 +62,7 @@
 #endif
 
 #ifdef USE_ASAGI
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "Reader/AsagiReader.h"
 #endif
 

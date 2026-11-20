@@ -7,9 +7,9 @@
 
 #include <doctest.h>
 
+#include "Core/Parallel/MPI.h"
 #include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Initializer/Clustering/VertexWeights/MeasuredWeights.h"
-#include "Parallel/MPI.h"
 #include "TestHelper.h"
 
 #include <algorithm>

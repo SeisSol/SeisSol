@@ -7,11 +7,11 @@
 
 #include "ClusteringWriter.h"
 
-#include "Common/RunId.h"
-#include "IO/Instance/Point/Csv.h"
+#include "Core/Common/RunId.h"
+#include "Core/IO/Instance/Point/Csv.h"
+#include "Core/Numerical/Statistics.h"
+#include "Core/Parallel/MPI.h"
 #include "Initializer/BasicTypedefs.h"
-#include "Numerical/Statistics.h"
-#include "Parallel/MPI.h"
 
 #include <cstddef>
 #include <cstdint>

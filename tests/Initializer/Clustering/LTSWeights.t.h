@@ -5,9 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/ConfigRegistry.h"
-#include "Common/Constants.h"
-#include "Geometry/PUMLReader.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/Constants.h"
+#include "Core/Geometry/PUMLReader.h"
+#include "Core/Parallel/MPI.h"
+#include "Core/Parallel/SystemInfo.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Clustering/ClusterLadder.h"
 #include "Initializer/Clustering/Clustering.h"
@@ -21,8 +23,6 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 #include "Initializer/Typedefs.h"
-#include "Parallel/MPI.h"
-#include "Parallel/SystemInfo.h"
 #include "SeisSol.h"
 #include "TestHelper.h"
 

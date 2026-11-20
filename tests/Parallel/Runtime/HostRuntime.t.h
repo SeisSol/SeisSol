@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Parallel/Runtime/HostRuntime.h"
+#include "Core/Parallel/Runtime/HostRuntime.h"
 
 #include <algorithm>
 #include <atomic>

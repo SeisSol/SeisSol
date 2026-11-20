@@ -7,13 +7,13 @@
 
 #include "GlobalTimestep.h"
 
-#include "Common/ConfigDispatch.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Parallel/MPI.h"
 #include "Equations/Datastructures.h"
 #include "Initializer/ParameterDB.h"
 #include "Initializer/Parameters//SeisSolParameters.h"
 #include "Initializer/Parameters/ModelParameters.h"
 #include "Initializer/Parameters/SimulationFiles.h"
-#include "Parallel/MPI.h"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>

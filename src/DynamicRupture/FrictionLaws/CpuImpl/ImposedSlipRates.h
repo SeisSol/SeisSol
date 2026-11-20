@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_DYNAMICRUPTURE_FRICTIONLAWS_CPUIMPL_IMPOSEDSLIPRATES_H_
 
 #include "BaseFrictionLaw.h"
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "DynamicRupture/Misc.h"
 
 namespace seissol::dr::friction_law::cpu {

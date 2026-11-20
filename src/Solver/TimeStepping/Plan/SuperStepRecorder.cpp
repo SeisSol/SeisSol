@@ -13,9 +13,9 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include "Parallel/Helper.h"
-#include "Parallel/Runtime/HostActor.h"
-#include "Parallel/Runtime/Stream.h"
+#include "Core/Parallel/Helper.h"
+#include "Core/Parallel/Runtime/HostActor.h"
+#include "Core/Parallel/Runtime/Stream.h"
 
 #include <Device/device.h>
 #include <algorithm>

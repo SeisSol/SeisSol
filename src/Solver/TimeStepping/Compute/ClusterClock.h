@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_SOLVER_TIMESTEPPING_COMPUTE_CLUSTERCLOCK_H_
 #define SEISSOL_SRC_SOLVER_TIMESTEPPING_COMPUTE_CLUSTERCLOCK_H_
 
-#include "Parallel/Runtime/Stream.h"
+#include "Core/Parallel/Runtime/Stream.h"
 
 namespace seissol::solver {
 

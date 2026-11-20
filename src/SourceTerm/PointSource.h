@@ -11,8 +11,8 @@
 #ifndef SEISSOL_SRC_SOURCETERM_POINTSOURCE_H_
 #define SEISSOL_SRC_SOURCETERM_POINTSOURCE_H_
 
-#include "Common/Real.h"
-#include "Memory/MemoryAllocator.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/MemoryAllocator.h"
 #include "SourceTerm/Typedefs.h"
 
 namespace seissol::sourceterm {

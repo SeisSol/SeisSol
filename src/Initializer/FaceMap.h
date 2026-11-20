@@ -7,7 +7,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_FACEMAP_H_
 #define SEISSOL_SRC_INITIALIZER_FACEMAP_H_
 
-#include "Common/SegmentMap.h"
+#include "Core/Common/SegmentMap.h"
 #include "Initializer/BasicTypedefs.h"
 
 #include <string>

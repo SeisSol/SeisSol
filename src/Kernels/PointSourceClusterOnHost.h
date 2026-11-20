@@ -9,7 +9,7 @@
 #ifndef SEISSOL_SRC_KERNELS_POINTSOURCECLUSTERONHOST_H_
 #define SEISSOL_SRC_KERNELS_POINTSOURCECLUSTERONHOST_H_
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
 #include "GeneratedCode/tensor.h"
 #include "PointSourceCluster.h"
 #include "SourceTerm/Typedefs.h"

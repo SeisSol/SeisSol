@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "IO/Datatype/Datatype.h"
-#include "IO/Datatype/MPIType.h"
+#include "Core/IO/Datatype/Datatype.h"
+#include "Core/IO/Datatype/MPIType.h"
 
 #include <memory>
 #include <mpi.h>

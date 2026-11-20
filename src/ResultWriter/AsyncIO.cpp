@@ -7,8 +7,8 @@
 
 #include "AsyncIO.h"
 
-#include "Parallel/MPI.h"
-#include "Parallel/Pin.h"
+#include "Core/Parallel/MPI.h"
+#include "Core/Parallel/Pin.h"
 
 #include <async/Config.h>
 #include <async/Dispatcher.h>

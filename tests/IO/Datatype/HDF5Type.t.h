@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "IO/Datatype/Datatype.h"
-#include "IO/Datatype/HDF5Type.h"
+#include "Core/IO/Datatype/Datatype.h"
+#include "Core/IO/Datatype/HDF5Type.h"
 
 #include <hdf5.h>
 #include <memory>

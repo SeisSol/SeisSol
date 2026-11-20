@@ -10,15 +10,15 @@
 #ifndef SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
 #define SEISSOL_SRC_RESULTWRITER_RECEIVERWRITER_H_
 
-#include "Geometry/MeshReader.h"
-#include "IO/Instance/Point/Hdf5Table.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/IO/Instance/Point/Hdf5Table.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/HostData.h"
+#include "Core/Memory/Tree/Backmap.h"
+#include "Core/Modules/Module.h"
+#include "Core/Monitoring/Stopwatch.h"
 #include "Initializer/Parameters/OutputParameters.h"
 #include "Kernels/Receiver.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/HostData.h"
-#include "Memory/Tree/Backmap.h"
-#include "Modules/Module.h"
-#include "Monitoring/Stopwatch.h"
 
 #include <Eigen/Dense>
 #include <cstddef>

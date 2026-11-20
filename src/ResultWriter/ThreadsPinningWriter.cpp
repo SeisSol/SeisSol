@@ -7,12 +7,12 @@
 
 #include "ResultWriter/ThreadsPinningWriter.h"
 
-#include "Common/RunId.h"
-#include "IO/Instance/Point/Csv.h"
-#include "Parallel/Helper.h"
-#include "Parallel/MPI.h"
-#include "Parallel/Pin.h"
-#include "Parallel/SystemInfo.h"
+#include "Core/Common/RunId.h"
+#include "Core/IO/Instance/Point/Csv.h"
+#include "Core/Parallel/Helper.h"
+#include "Core/Parallel/MPI.h"
+#include "Core/Parallel/Pin.h"
+#include "Core/Parallel/SystemInfo.h"
 
 #include <algorithm>
 #include <cstddef>

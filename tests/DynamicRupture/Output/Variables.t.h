@@ -5,9 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Core/Memory/MemoryAllocator.h"
 #include "DynamicRupture/Misc.h"
 #include "DynamicRupture/Output/DataTypes.h"
-#include "Memory/MemoryAllocator.h"
 
 namespace seissol::unit_test {
 

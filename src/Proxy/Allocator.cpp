@@ -9,10 +9,17 @@
 #include "Allocator.h"
 
 #include "Alignment.h"
-#include "Common/ConfigDispatch.h"
-#include "Common/ConfigRegistry.h"
-#include "Common/Constants.h"
 #include "Config.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/Constants.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/GlobalData.h"
+#include "Core/Memory/MemoryAllocator.h"
+#include "Core/Memory/Tree/Colormap.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Parallel/OpenMP.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/Typedefs.h"
@@ -20,13 +27,6 @@
 #include "Kernels/Solver.h"
 #include "Kernels/SolverSelector.h"
 #include "Kernels/Touch.h"
-#include "Memory/Descriptor/DynamicRupture.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Memory/GlobalData.h"
-#include "Memory/MemoryAllocator.h"
-#include "Memory/Tree/Colormap.h"
-#include "Memory/Tree/Layer.h"
-#include "Parallel/OpenMP.h"
 #include "Proxy/Constants.h"
 #include "Solver/Settings.h"
 
@@ -35,8 +35,8 @@
 #include <random>
 
 #ifdef ACL_DEVICE
-#include "Common/Real.h"
-#include "Common/Typedefs.h"
+#include "Core/Common/Real.h"
+#include "Core/Common/Typedefs.h"
 #include "Initializer/BatchRecorders/Recorders.h"
 #include "Initializer/InitProcedure/Internal/Scratchpads.h"
 

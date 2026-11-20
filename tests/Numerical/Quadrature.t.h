@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Numerical/Quadrature.h"
-#include "Numerical/SymmetricTetrahedronRule.h"
+#include "Core/Numerical/Quadrature.h"
+#include "Core/Numerical/SymmetricTetrahedronRule.h"
 
 #include <algorithm>
 #include <array>

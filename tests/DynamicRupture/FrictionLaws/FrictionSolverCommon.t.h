@@ -5,13 +5,13 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/Real.h"
+#include "Core/Common/Real.h"
+#include "Core/Numerical/Quadrature.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolver.h"
 #include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
 #include "DynamicRupture/Misc.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include "Numerical/Quadrature.h"
 #include "TestConfigs.h"
 #include "TestHelper.h"
 

@@ -9,17 +9,17 @@
 #ifndef SEISSOL_SRC_SEISSOL_H_
 #define SEISSOL_SRC_SEISSOL_H_
 
-#include "Common/Executor.h"
-#include "IO/Manager.h"
+#include "Core/Common/Executor.h"
+#include "Core/IO/Manager.h"
+#include "Core/Modules/Modules.h"
+#include "Core/Monitoring/EpochSynchronization.h"
+#include "Core/Monitoring/FlopCounter.h"
+#include "Core/Monitoring/RunSummary.h"
+#include "Core/Parallel/Pin.h"
+#include "Core/Parallel/SystemInfo.h"
 #include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
-#include "Modules/Modules.h"
-#include "Monitoring/EpochSynchronization.h"
-#include "Monitoring/FlopCounter.h"
-#include "Monitoring/RunSummary.h"
-#include "Parallel/Pin.h"
-#include "Parallel/SystemInfo.h"
 #include "Physics/InstantaneousTimeMirrorManager.h"
 #include "ResultWriter/AnalysisWriter.h"
 #include "ResultWriter/AsyncIO.h"
@@ -260,7 +260,7 @@ class SeisSol : private SeisSolCore {
   utils::Env& env() { return env_; }
 
   /**
-   * Sets the ID of this run (see Common/RunId.h); the same on every rank.
+   * Sets the ID of this run (see Core/Common/RunId.h); the same on every rank.
    */
   void setRunId(const std::string& runId) { runId_ = runId; }
 

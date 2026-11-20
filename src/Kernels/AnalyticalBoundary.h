@@ -8,14 +8,14 @@
 #ifndef SEISSOL_SRC_KERNELS_ANALYTICALBOUNDARY_H_
 #define SEISSOL_SRC_KERNELS_ANALYTICALBOUNDARY_H_
 
-#include "Common/Constants.h"
-#include "Common/Real.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Numerical/Quadrature.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Numerical/Quadrature.h"
 #include "Physics/InitialField.h"
 #include "Solver/MultipleSimulations.h"
 

@@ -10,12 +10,12 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERDB_H_
 
-#include "Common/Constants.h"
-#include "Common/Real.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Geometry/PUMLReader.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
-#include "Geometry/MeshReader.h"
-#include "Geometry/PUMLReader.h"
 #include "Initializer/Typedefs.h"
 #include "easi/Query.h"
 #include "easi/ResultAdapter.h"

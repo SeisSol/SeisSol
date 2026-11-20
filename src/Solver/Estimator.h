@@ -9,7 +9,7 @@
 #ifndef SEISSOL_SRC_SOLVER_ESTIMATOR_H_
 #define SEISSOL_SRC_SOLVER_ESTIMATOR_H_
 
-#include "Common/ConfigRegistry.h"
+#include "Core/Common/ConfigRegistry.h"
 
 #include <vector>
 

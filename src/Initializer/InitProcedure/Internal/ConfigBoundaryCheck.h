@@ -7,7 +7,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_CONFIGBOUNDARYCHECK_H_
 #define SEISSOL_SRC_INITIALIZER_INITPROCEDURE_INTERNAL_CONFIGBOUNDARYCHECK_H_
 
-#include "Memory/Descriptor/LTS.h"
+#include "Core/Memory/Descriptor/LTS.h"
 
 namespace seissol::initializer::internal {
 

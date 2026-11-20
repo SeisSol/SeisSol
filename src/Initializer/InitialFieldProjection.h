@@ -9,11 +9,11 @@
 #ifndef SEISSOL_SRC_INITIALIZER_INITIALFIELDPROJECTION_H_
 #define SEISSOL_SRC_INITIALIZER_INITIALFIELDPROJECTION_H_
 
-#include "Geometry/MeshReader.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Memory/Descriptor/LTS.h"
 #include "Initializer/MemoryManager.h"
 #include "Initializer/Parameters/SimulationFiles.h"
 #include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/LTS.h"
 #include "Physics/InitialField.h"
 
 #include <memory>

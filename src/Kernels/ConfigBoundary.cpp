@@ -8,13 +8,14 @@
 #include "ConfigBoundary.h"
 
 #include "Alignment.h"
-#include "Common/ConfigDispatch.h"
-#include "Common/ConfigRegistry.h"
-#include "Common/ConfigValue.h"
-#include "Common/Constants.h"
-#include "Common/Marker.h"
-#include "Common/Real.h"
 #include "Config.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/ConfigValue.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Marker.h"
+#include "Core/Common/Real.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/configboundary.h"
 #include "GeneratedCode/kernel.h"
@@ -28,7 +29,6 @@
 #include "Initializer/LtsSetup.h"
 #include "Kernels/Solver.h"
 #include "Kernels/SolverSelector.h"
-#include "Parallel/Runtime/Stream.h"
 
 #include <algorithm>
 #include <array>

@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PREPROCESSORMACROS_H_
 #define SEISSOL_SRC_INITIALIZER_PREPROCESSORMACROS_H_
 
-#include "Common/Constants.h"
-#include "Monitoring/Instrumentation.h"
+#include "Core/Common/Constants.h"
+#include "Core/Monitoring/Instrumentation.h"
 
 #include <cstddef>
 

@@ -10,17 +10,17 @@
 #include "Neighbor.h"
 
 #include "Alignment.h"
-#include "Common/Constants.h"
-#include "Common/Marker.h"
 #include "Config.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Marker.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Monitoring/Metric.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/Typedefs.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Monitoring/Metric.h"
-#include "Parallel/Runtime/Stream.h"
 
 #include <array>
 #include <cassert>
@@ -31,7 +31,7 @@
 #include <utility>
 
 #ifdef ACL_DEVICE
-#include "Common/Offset.h"
+#include "Core/Common/Offset.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
 #endif

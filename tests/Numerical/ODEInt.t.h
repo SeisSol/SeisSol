@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Numerical/ODEInt.h"
-#include "Numerical/ODEVector.h"
+#include "Core/Numerical/ODEInt.h"
+#include "Core/Numerical/ODEVector.h"
 
 #include <Eigen/Dense>
 #include <type_traits>

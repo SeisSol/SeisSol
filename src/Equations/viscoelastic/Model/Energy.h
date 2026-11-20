@@ -7,16 +7,16 @@
 #ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_ENERGY_H_
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_ENERGY_H_
 
-#include "Common/Constants.h"
-#include "Common/Real.h"
-#include "Common/Typedefs.h"
 #include "Config.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
+#include "Core/Common/Typedefs.h"
 #include "Equations/EnergyBase.h"
 #include "Equations/viscoelastic/Model/Datastructures.h"
 #include "Model/Common.h"
 
 #ifdef SEISSOL_KERNELS_LINEARCKANELASTIC
-#include "Common/ConfigDispatch.h"
+#include "Core/Common/ConfigDispatch.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"

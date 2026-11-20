@@ -7,9 +7,9 @@
 #ifndef SEISSOL_SRC_KERNELS_KERNEL_H_
 #define SEISSOL_SRC_KERNELS_KERNEL_H_
 
-#include "Common/Executor.h"
+#include "Core/Common/Executor.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "Initializer/Typedefs.h"
-#include "Parallel/Runtime/Stream.h"
 
 namespace seissol::kernels {
 

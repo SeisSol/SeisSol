@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_INITIALIZER_CLUSTERING_CLUSTERINGEVALUATOR_H_
 #define SEISSOL_SRC_INITIALIZER_CLUSTERING_CLUSTERINGEVALUATOR_H_
 
-#include "Geometry/PUMLReader.h"
+#include "Core/Geometry/PUMLReader.h"
 #include "Initializer/Clustering/ClusterHistogram.h"
 #include "Initializer/Clustering/ClusterLadder.h"
 #include "Initializer/Clustering/ClusterSmoother.h"

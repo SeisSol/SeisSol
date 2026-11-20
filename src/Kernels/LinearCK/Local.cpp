@@ -10,9 +10,12 @@
 #include "Kernels/LinearCK/Local.h"
 
 #include "Alignment.h"
-#include "Common/Constants.h"
-#include "Common/Marker.h"
 #include "Config.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Marker.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Monitoring/Metric.h"
+#include "Core/Parallel/Runtime/Stream.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
@@ -21,9 +24,6 @@
 #include "Kernels/AnalyticalBoundary.h"
 #include "Kernels/Common.h"
 #include "Kernels/Interface.h"
-#include "Memory/Descriptor/LTS.h"
-#include "Monitoring/Metric.h"
-#include "Parallel/Runtime/Stream.h"
 
 #include <array>
 #include <cassert>
@@ -33,11 +33,11 @@
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
-#include "Common/Offset.h"
+#include "Core/Common/Offset.h"
+#include "Core/Monitoring/Trace.h"
+#include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
-#include "Monitoring/Trace.h"
-#include "Parallel/Runtime/HostRuntime.h"
 
 #include <utility>
 #endif

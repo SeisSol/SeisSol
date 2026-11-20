@@ -8,9 +8,9 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_FACTORY_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_FACTORY_H_
 
+#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "DynamicRupture/Initializer/Initializers.h"
 #include "FrictionLaws/FrictionSolver.h"
-#include "Memory/Descriptor/DynamicRupture.h"
 #include "Output/Output.h"
 
 #include <stdexcept>

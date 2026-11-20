@@ -7,9 +7,9 @@
 
 #include <doctest.h>
 
-#include "Monitoring/LoopStatistics.h"
-#include "Monitoring/Stopwatch.h"
-#include "Parallel/MPI.h"
+#include "Core/Monitoring/LoopStatistics.h"
+#include "Core/Monitoring/Stopwatch.h"
+#include "Core/Parallel/MPI.h"
 
 #include <string>
 #include <thread>

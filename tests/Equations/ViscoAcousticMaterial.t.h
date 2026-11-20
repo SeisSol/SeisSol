@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Common/ConfigDispatch.h"
+#include "Core/Common/ConfigDispatch.h"
 #include "Equations/Datastructures.h"
 #include "Kernels/SolverSelector.h"
 #include "Model/Quantities.h"

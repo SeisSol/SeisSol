@@ -7,9 +7,9 @@
 
 #include <doctest.h>
 
-#include "IO/Datatype/Inference.h"
-#include "IO/Reader/File/Hdf5Reader.h"
-#include "Parallel/MPI.h"
+#include "Core/IO/Datatype/Inference.h"
+#include "Core/IO/Reader/File/Hdf5Reader.h"
+#include "Core/Parallel/MPI.h"
 #include "TestHelper.h"
 
 #include <cstring>

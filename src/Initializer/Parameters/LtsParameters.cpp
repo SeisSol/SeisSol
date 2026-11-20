@@ -7,8 +7,8 @@
 
 #include "LtsParameters.h"
 
-#include "Common/ConfigRegistry.h"
-#include "Common/ConfigValue.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/ConfigValue.h"
 #include "Initializer/Clustering/ClusterCostModel.h"
 #include "Initializer/Parameters/ParameterReader.h"
 

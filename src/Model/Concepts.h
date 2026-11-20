@@ -7,9 +7,9 @@
 #ifndef SEISSOL_SRC_MODEL_CONCEPTS_H_
 #define SEISSOL_SRC_MODEL_CONCEPTS_H_
 
-#include "Common/ConfigValue.h"
-#include "Common/Real.h"
-#include "Common/Typedefs.h"
+#include "Core/Common/ConfigValue.h"
+#include "Core/Common/Real.h"
+#include "Core/Common/Typedefs.h"
 #include "Initializer/BasicTypedefs.h"
 #include "Kernels/Local.h"
 #include "Kernels/Neighbor.h"

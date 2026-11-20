@@ -7,10 +7,10 @@
 
 #include <doctest.h>
 
-#include "Common/Constants.h"
-#include "Geometry/CellTransform.h"
-#include "Geometry/FaceTransform.h"
-#include "Geometry/MeshTools.h"
+#include "Core/Common/Constants.h"
+#include "Core/Geometry/CellTransform.h"
+#include "Core/Geometry/FaceTransform.h"
+#include "Core/Geometry/MeshTools.h"
 #include "TestHelper.h"
 
 #include <Eigen/Dense>

@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Common/ConfigRegistry.h"
+#include "Core/Common/ConfigRegistry.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/ParameterReader.h"
 

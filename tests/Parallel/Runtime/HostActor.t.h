@@ -7,10 +7,10 @@
 
 #include <doctest.h>
 
-#include "Parallel/Runtime/Event.h"
-#include "Parallel/Runtime/HostActor.h"
-#include "Parallel/Runtime/HostBufferPool.h"
-#include "Parallel/Runtime/Stream.h"
+#include "Core/Parallel/Runtime/Event.h"
+#include "Core/Parallel/Runtime/HostActor.h"
+#include "Core/Parallel/Runtime/HostBufferPool.h"
+#include "Core/Parallel/Runtime/Stream.h"
 
 #include <array>
 #include <atomic>

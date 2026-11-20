@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "Common/ConfigRegistry.h"
-#include "Common/Real.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/Real.h"
 #include "Equations/Datastructures.h"
 #include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Parameters/ModelParameters.h"

@@ -10,7 +10,7 @@
 #ifndef SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_DATASTRUCTURES_H_
 #define SEISSOL_SRC_EQUATIONS_VISCOELASTIC_MODEL_DATASTRUCTURES_H_
 
-#include "Common/Constants.h"
+#include "Core/Common/Constants.h"
 #include "Equations/elastic/Model/Datastructures.h"
 #include "Equations/viscoelastic/Model/Attenuation.h"
 #include "GeneratedCode/tensor.h"
