@@ -61,6 +61,11 @@ same problem in another form:
    The energy output sums over the cells and the faces of a rank and then
    over the ranks: on another number of ranks or threads, in another order.
 
+``bitwise-*-restart``
+   A run continued from a checkpoint is the run without it, bit for bit; with
+   rate and state and thermal pressurization, the checkpoint carries the state
+   of the diffusion across the shear zone as well.
+
 The differences of the receivers are relative to the largest value of their
 column, as a value that passes through zero, as the shear stress of a wave
 does, would magnify a difference by rounding beyond any bound.

@@ -1034,6 +1034,19 @@ seissol_add_comparison(
     TOLERANCE 0
     RECEIVERS volume
     LABELS "bitwise;restart;dr")
+# Rate and state with thermal pressurization carries more of the state of a
+# fault through a checkpoint: the state variable, the convergence of its
+# solver, and the temperature, the pore pressure and their transforms Theta
+# and Sigma on the grid of the diffusion across the shear zone.
+seissol_add_rupture(NAME rupture-rs-fvw-tp-restart FL 103 FAULT fault-rs-fvw-tp.yaml
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} RESTART 32 LABELS restart)
+seissol_add_comparison(
+    NAME bitwise-rupture-rs-fvw-tp-restart
+    REFERENCE rupture-rs-fvw-tp
+    CANDIDATE rupture-rs-fvw-tp-restart
+    TOLERANCE 0
+    RECEIVERS volume
+    LABELS "bitwise;restart;dr")
 
 # A checkpoint tells the copies of the cells and of the fault faces apart, so
 # the restart of a run of copies goes on as that run does. It restarts only the
