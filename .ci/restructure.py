@@ -727,6 +727,10 @@ def apply(args, root):
     remove_cmake_blocks(root, batches)
     count = rewrite_mentions(root, moves)
     print(f"rewrote {count} other mentions of moved paths")
+    # git does not track directories; the ones the moves left empty go
+    for dirpath, _, _ in sorted(os.walk(os.path.join(root, "src")), reverse=True):
+        if not os.listdir(dirpath):
+            os.rmdir(dirpath)
     print("next: .ci/header.py --fix src app tests, then clang-format (pre-commit)")
 
 
