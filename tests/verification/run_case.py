@@ -2759,6 +2759,8 @@ def _compare_antiplane_case(
 
     if left.rho != right.rho or not np.array_equal(left.stiffness, right.stiffness):
         raise fault1d.Unsupported("the spectral method takes one medium on both sides")
+    if left.dispersion is not None:
+        raise fault1d.Unsupported("the spectral method takes an elastic medium")
     fault_receivers = simulations[0][0]
     spec = manifest["spec"]
     width, length = spec["size"][:2]
@@ -2920,8 +2922,20 @@ def _command_exact(args):
         record(args.result, result)
         print(result["reason"][0])
         return SKIP_RETURN_CODE
-    left = fault1d.medium_of(materials, left)
-    right = fault1d.medium_of(materials, right)
+    capabilities = json.loads(Path(args.capabilities).read_text(encoding="utf-8"))
+    # a build with anelastic mechanisms fits them to the band of the parameters
+    attenuation = None
+    if int(capabilities.get("mechanisms", 0)) > 0:
+        attenuation = (
+            float(parameters.get("equations", "FreqCentral")),
+            float(parameters.get("equations", "FreqRatio")),
+            int(capabilities["mechanisms"]),
+        )
+    try:
+        left = fault1d.medium_of(materials, left, attenuation)
+        right = fault1d.medium_of(materials, right, attenuation)
+    except fault1d.Unsupported as reason:
+        raise SystemExit(f"the case has no exact solution here: {reason}") from reason
 
     prefix = Path(parameters.get("Output", "OutputFile") or "output/out")
     directory = work / prefix.parent
@@ -3040,6 +3054,11 @@ def _command_exact(args):
                 deviations.update(
                     {f"elementwise-{name}": value for name, value in found.items()}
                 )
+            if energies is not None and problem.relaxation is not None:
+                raise SystemExit(
+                    "the energy output of an anelastic medium has no exact "
+                    "solution here; the case has to switch it off"
+                )
             if energies is not None:
                 spec = manifest["spec"]
                 origin = (spec["origin"] or [-0.5 * spec["size"][0]])[0]
@@ -3063,7 +3082,6 @@ def _command_exact(args):
     except fault1d.Unsupported as reason:
         raise SystemExit(f"the case has no exact solution here: {reason}") from reason
 
-    capabilities = json.loads(Path(args.capabilities).read_text(encoding="utf-8"))
     key = "{}/{}/o{}/{}".format(
         args.name,
         capabilities["equations"],

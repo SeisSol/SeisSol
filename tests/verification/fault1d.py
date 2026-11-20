@@ -31,6 +31,17 @@ waves, polarized and as fast as the Christoffel matrix of the direction x
 makes them (see Medium and Problem). The receivers are compared with all of
 this in the fault frame that the documentation defines.
 
+In an anelastic medium, the shear modulus relaxes (see Anelasticity), and so
+does the impedance. The fault sees the impedance of the unrelaxed medium at
+once, and the rest of the radiation damping as it relaxes:
+
+    tau(t) = tau_load(t) - eta V(t) - (g * V)(t),
+
+with eta that of the unrelaxed media and g a sum of decaying exponentials,
+whose convolution with V the integration carries along (see Relaxation). The
+waves disperse on their way from the fault: their front arrives at the
+unrelaxed speed, damped, and leaves a tail behind it.
+
 fault2d draws the column out along y. A forced rupture front that runs along
 y faster than the shear waves outruns everything it sends out, and leaves
 every point of the fault behind it with the problem of fault1d, shifted to its
@@ -54,7 +65,9 @@ are meant to check:
   time;
 * thermal pressurization is the convolution of the frictional heating with the
   Green's function of the diffusion across a Gaussian shear zone, rather than a
-  sum over wave numbers.
+  sum over wave numbers;
+* the mechanisms of an anelastic medium are those of docs/attenuation.rst,
+  fitted to the quality factors as Emmerich and Korn (1987) fit them.
 
 The delta pulse (FL=35), whose output is a single impulse, is not covered.
 """
@@ -140,10 +153,15 @@ class Medium:
     that the impedance Z = sum rho c q q^T = (rho Gamma)^(1/2) maps the
     velocity of the waves leaving a plane to the traction they carry, and the
     admittance Y = Z^-1 maps back.
+
+    A medium whose shear wave disperses has the density and the stiffness its
+    waves start out with, and `dispersion` states how they relax: an
+    Anelasticity.
     """
 
-    def __init__(self, rho, stiffness):
+    def __init__(self, rho, stiffness, dispersion=None):
         self.rho = float(rho)
+        self.dispersion = dispersion
         self.stiffness = np.array(stiffness, dtype=float)
         christoffel = self.stiffness[np.ix_(_ALONG_X, _ALONG_X)]
         # the Christoffel matrix of the waves along x, in the components x, y, z
@@ -157,13 +175,19 @@ class Medium:
         self.admittance = vectors @ np.diag(1.0 / (self.rho * self.speeds)) @ vectors.T
 
     @classmethod
-    def isotropic(cls, rho, mu, lam):
+    def isotropic(cls, rho, mu, lam, anelasticity=None):
+        """An isotropic medium; an anelastic one states the moduli of its
+        central frequency (see Anelasticity)."""
+        if anelasticity is not None:
+            modulus = (lam + 2.0 * mu) * anelasticity.p_factor
+            mu = mu * anelasticity.s_factor
+            lam = modulus - 2.0 * mu
         stiffness = np.zeros((6, 6))
         stiffness[:3, :3] = lam
         for index in range(3):
             stiffness[index, index] = lam + 2.0 * mu
             stiffness[index + 3, index + 3] = mu
-        return cls(rho, stiffness)
+        return cls(rho, stiffness, anelasticity)
 
     def is_isotropic(self):
         mu, lam = self.stiffness[3, 3], self.stiffness[0, 1]
@@ -179,21 +203,368 @@ class Medium:
         return float(self.speeds[0])
 
 
-def medium_of(maps, group):
+def medium_of(maps, group, attenuation=None):
     """The medium of a group: rho, and either mu and lambda or the 21 c_ij of an
-    anisotropic medium."""
+    anisotropic medium. In a build with anelastic mechanisms, `attenuation`
+    gives FreqCentral, FreqRatio and the number of mechanisms, and the quality
+    factors Qp and Qs make the medium anelastic."""
     values = dict(maps.get(None, {}))
     values.update(maps.get(group, {}))
     try:
         if "c11" in values:
+            if attenuation is not None:
+                raise Unsupported("an anelastic medium is isotropic here")
             stiffness = np.zeros((6, 6))
             for i in range(6):
                 for j in range(i, 6):
                     stiffness[i, j] = stiffness[j, i] = values[f"c{i + 1}{j + 1}"]
             return Medium(values["rho"], stiffness)
-        return Medium.isotropic(values["rho"], values["mu"], values["lambda"])
+        anelasticity = None
+        if attenuation is not None:
+            anelasticity = Anelasticity(values["Qp"], values["Qs"], *attenuation)
+        return Medium.isotropic(
+            values["rho"], values["mu"], values["lambda"], anelasticity
+        )
     except KeyError as error:
         raise Unsupported(f"the material of group {group} lacks {error}") from error
+
+
+# --------------------------------------------------------------------------
+# anelastic media
+# --------------------------------------------------------------------------
+
+
+class Anelasticity:
+    """The mechanisms of an anelastic medium, as SeisSol sets them up
+    (docs/attenuation.rst).
+
+    The medium is a generalized Maxwell body whose L relaxation frequencies
+    omega_l lie logarithmically equispaced from 2 pi FreqCentral /
+    sqrt(FreqRatio) to 2 pi FreqCentral sqrt(FreqRatio), or at FreqCentral for
+    a single mechanism. The modulus M of a wave relaxes as
+
+        M(s) = M_U psi(s),    psi(s) = 1 - sum_l Y_l omega_l / (s + omega_l),
+
+    for the Laplace variable s. The anelastic coefficients Y_l fit a constant
+    quality factor Q as Emmerich and Korn (1987) fit it: in the least-squares
+    sense at the 2 L - 1 frequencies omega_k equispaced as the relaxation
+    frequencies are, which are every other of them,
+
+        1 / Q = sum_l Y_l (omega_l omega_k + omega_l^2 / Q) / (omega_l^2 + omega_k^2),
+
+    those of the P wave to Q_p, those of the S wave to Q_s. The moduli the
+    medium states are those of the central frequency omega_0, at which the
+    waves run at the speeds they give: the phase velocity
+    1 / Re sqrt(rho / M(i omega_0)) is sqrt(M / rho) for the unrelaxed modulus
+    M_U = M (|psi| + Re psi) / (2 |psi|^2), with psi at i omega_0.
+    """
+
+    def __init__(self, q_p, q_s, central, ratio, mechanisms):
+        mechanisms = int(mechanisms)
+        if mechanisms < 1:
+            raise Unsupported("an anelastic medium takes at least one mechanism")
+        count = 2 * mechanisms - 1
+        omega_0 = 2.0 * math.pi * float(central)
+        if mechanisms > 1:
+            ratio = float(ratio)
+            exponents = np.arange(count) / (count - 1)
+            fitted = omega_0 / math.sqrt(ratio) * ratio**exponents
+        else:
+            fitted = np.array([omega_0])
+        self.frequencies = fitted[::2]
+
+        def coefficients(q):
+            q = float(q)
+            system = (
+                np.outer(fitted, self.frequencies) + self.frequencies**2 / q
+            ) / np.add.outer(fitted**2, self.frequencies**2)
+            return np.linalg.lstsq(system, np.full(count, 1.0 / q), rcond=None)[0]
+
+        def unrelaxed(values):
+            psi = 1.0 - complex(
+                np.sum(values * self.frequencies / (1j * omega_0 + self.frequencies))
+            )
+            return (abs(psi) + psi.real) / (2.0 * abs(psi) ** 2)
+
+        self.p_coefficients = coefficients(q_p)
+        self.s_coefficients = coefficients(q_s)
+        self.p_factor = unrelaxed(self.p_coefficients)
+        self.s_factor = unrelaxed(self.s_coefficients)
+        if np.any(self.s_coefficients <= 0.0) or np.sum(self.s_coefficients) >= 1.0:
+            raise Unsupported(
+                "the shear modulus does not relax to a positive modulus with "
+                "positive coefficients"
+            )
+        # psi maps the upper half-plane into itself
+        self.upper = 1.0
+        self.front_rate = 0.5 * float(np.sum(self.s_coefficients * self.frequencies))
+
+    # The dispersion of the shear wave, as Relaxation takes it from a
+    # medium: A = (Z / Z_U)^2 and B = (c_U kappa / s)^2, with the
+    # impedance Z(s), the unrelaxed one Z_U, the wave number kappa(s) and
+    # the unrelaxed speed c_U. Here, A = psi and B = 1 / psi.
+
+    def _defect(self, s):
+        """1 - psi at the complex `s`, without the cancellation of 1 - psi."""
+        s = np.asarray(s, dtype=complex)
+        defect = np.zeros(s.shape, dtype=complex)
+        for omega, coefficient in zip(self.frequencies, self.s_coefficients):
+            defect = defect + coefficient * omega / (s + omega)
+        return defect
+
+    def impedance_excess(self, s):
+        """A - 1 at the complex `s`."""
+        return -self._defect(s)
+
+    def slowness_excess(self, s):
+        """B - 1 at the complex `s`."""
+        defect = self._defect(s)
+        return defect / (1.0 - defect)
+
+    def on_axis(self, x, gaps=None):
+        """A at s = -x, for x >= 0. `gaps` maps relaxation frequencies omega_l
+        to omega_l - x, for where x is closer to omega_l than its rounding
+        resolves."""
+        psi = np.ones(np.shape(x))
+        for omega, coefficient in zip(self.frequencies, self.s_coefficients):
+            gap = None if gaps is None else gaps.get(omega)
+            psi = psi - coefficient * omega / (omega - x if gap is None else gap)
+        return psi
+
+    def cuts(self):
+        """The intervals of x where A(-x) < 0. psi(-x) falls between its
+        poles, from psi(0) > 0, or from infinity above the pole before, to
+        minus infinity at the next: each interval runs from the zero of psi
+        to the pole above it."""
+        cuts = []
+        below = 0.0
+        for omega in self.frequencies:
+            low, high = below, float(omega)
+            while True:
+                middle = 0.5 * (low + high)
+                if middle in (low, high):
+                    break
+                if self.on_axis(middle) > 0.0:
+                    low = middle
+                else:
+                    high = middle
+            cuts.append((high, float(omega)))
+            below = float(omega)
+        return cuts
+
+
+def _tanh_sinh(start, end, step, reach):
+    """The nodes and the weights of the tanh-sinh quadrature on [start, end],
+    with the distances of the nodes to either end, which the nodes themselves
+    lose to rounding near the ends."""
+    u = np.arange(-reach, reach + 0.5 * step, step)
+    q = 0.5 * math.pi * np.sinh(u)
+    weights = 0.25 * (end - start) * step * math.pi * np.cosh(u) / np.cosh(q) ** 2
+    below = (end - start) / (1.0 + np.exp(-2.0 * q))
+    above = (end - start) / (1.0 + np.exp(2.0 * q))
+    nodes = np.where(q < 0.0, start + below, end - above)
+    inside = (below > 0.0) & (above > 0.0)
+    return nodes[inside], weights[inside], below[inside], above[inside]
+
+
+def _shear_impedance(medium, s):
+    """The impedance Z(s) of the shear wave a medium sends out, at the
+    complex `s` off the negative real axis."""
+    unrelaxed = medium.impedance[1, 1]
+    if medium.dispersion is None:
+        return np.full(np.shape(s), unrelaxed, dtype=complex)
+    return unrelaxed * np.sqrt(1.0 + medium.dispersion.impedance_excess(s))
+
+
+def _talbot(transform, times, nodes=24):
+    """The inverse Laplace transforms of the functions that `transform` stacks
+    along its first axis, at the `times` > 0, on the fixed Talbot contour of
+    Abate and Valko (2004), which runs around the negative real axis."""
+    theta = math.pi * np.arange(1, nodes) / nodes
+    cotangent = 1.0 / np.tan(theta)
+    contour = theta * (cotangent + 1j)
+    slope = theta + (theta * cotangent - 1.0) * cotangent
+    radius = 2.0 * nodes / (5.0 * times)
+    s = radius[:, None] * contour[None, :]
+    total = 0.5 * np.real(transform(radius + 0j)) * np.exp(radius * times)
+    total = total + np.sum(
+        np.real(np.exp(s * times[:, None]) * transform(s) * (1.0 + 1j * slope)),
+        axis=-1,
+    )
+    return radius / nodes * total
+
+
+def _convolve(kernel, values, step):
+    """The integral of kernel(lag) values(t - lag) over the lags from 0 to t,
+    at the points of the grid of the spacing `step` that kernel and the
+    columns of `values` are sampled on. Gregory's rule, the trapezoidal rule
+    with the differences up to the second at either end, keeps the error at
+    the fourth power of the step where the integrand is smooth: the kernel of
+    the fastest mechanisms decays within a few dozen steps, where the
+    trapezoidal rule alone would miss by its square. Over the first step,
+    the trapezoidal rule is all there is."""
+    count = kernel.size
+    size = 1 << (2 * count - 1).bit_length()
+    spectrum = np.fft.rfft(kernel, size)
+    result = np.zeros(values.shape)
+    for column in range(values.shape[1]):
+        value = values[:, column]
+        full = np.fft.irfft(spectrum * np.fft.rfft(value, size), size)[:count]
+        # the integrand at the lags 0, h and 2 h, and at t, t - h and t - 2 h
+        start = [kernel[k] * value[2 - k : count - k] for k in range(3)]
+        end = [kernel[2 - k : count - k] * value[k] for k in range(3)]
+        forward = start[1] - start[0]
+        forward_second = start[2] - 2.0 * start[1] + start[0]
+        backward = end[0] - end[1]
+        backward_second = end[0] - 2.0 * end[1] + end[2]
+        result[2:, column] = step * (
+            full[2:]
+            - 0.5 * (start[0] + end[0])
+            - (backward - forward) / 12.0
+            - (backward_second + forward_second) / 24.0
+        )
+        result[1, column] = 0.5 * step * (kernel[0] * value[1] + kernel[1] * value[0])
+    return result
+
+
+class Relaxation:
+    """The radiation damping of a slip rate between two isotropic media, one
+    of them anelastic at least, as a convolution.
+
+    A side whose shear wave relaxes sends it out with the impedance
+    Z(s) = Z_U sqrt(A(s)), with A = psi of the shear modulus of an anelastic
+    medium (see Anelasticity), so that the radiation damping
+    h(s) = (1 / Z_left(s) + 1 / Z_right(s))^-1 is eta = h(oo), that of the
+    unrelaxed media, and a part g that relaxes: tau = tau_load - eta V - g * V.
+    A maps the upper half-plane into a half-plane, so that sqrt(A), and h, are
+    analytic but on the intervals of the negative real axis where A < 0 (see
+    the cuts of either). Taking the inversion of the Laplace transform onto
+    them,
+
+        g(t) = integral of exp(-x t) w(x) dx,    w(x) = -Im h(-x + i0) / pi,
+
+    which a tanh-sinh quadrature takes, on each piece between the ends of the
+    cuts of the two sides, to a sum of exponentials c_j exp(-x_j t); g * V is
+    then the sum of c_j q_j over as many variables q_j' = V - x_j q_j, which
+    the integration carries along. Against an inversion in 30 digits on
+    Talbot's contour, g agrees to 1e-13 for the mechanisms of the cases.
+
+    The waves a side sends out disperse: the velocity at the distance |x|
+    follows from V with the propagator (h / Z)(s) exp(-|x| kappa(s)), with the
+    wave number kappa(s) = s sqrt(B(s)) / c_U, B = 1 / psi of an anelastic
+    medium, and the shear stress with -h(s) exp(-|x| kappa(s)). For large s,
+    kappa(s) is s / c_U + r / c_U + O(1 / s), r = sum_l Y_l omega_l / 2, so
+    that each is the
+    front of the unrelaxed shear speed c_U, damped by exp(-|x| r / c_U), and a
+    tail behind it, which the Talbot inversion samples. Where B vanishes or
+    has a pole, exp(-|x| kappa) is singular, and does not reduce to the cuts.
+    """
+
+    # the step and the reach of the tanh-sinh quadrature
+    _STEP = 0.12
+    _REACH = 3.6
+
+    def __init__(self, left, right):
+        self.media = (left, right)
+        self.eta = 1.0 / sum(1.0 / medium.impedance[1, 1] for medium in self.media)
+        ends = sorted(
+            {
+                end
+                for medium in self.media
+                if medium.dispersion is not None
+                for cut in medium.dispersion.cuts()
+                for end in cut
+            }
+        )
+        rates, weights = [], []
+        for start, end in zip(ends[:-1], ends[1:]):
+            middle = 0.5 * (start + end)
+            if not any(
+                medium.dispersion is not None
+                and medium.dispersion.on_axis(middle) < 0.0
+                for medium in self.media
+            ):
+                continue
+            nodes, quadrature, below, above = _tanh_sinh(
+                start, end, self._STEP, self._REACH
+            )
+            gaps = {start: -below, end: above}
+            impedances = []
+            for medium in self.media:
+                impedance = np.full(nodes.shape, medium.impedance[1, 1], dtype=complex)
+                dispersion = medium.dispersion
+                if dispersion is not None:
+                    value = dispersion.on_axis(nodes, gaps)
+                    # sqrt(A) on the upper side of the cut
+                    root = np.where(value < 0.0, 1j * dispersion.upper, 1.0)
+                    impedance *= root * np.sqrt(np.abs(value))
+                impedances.append(impedance)
+            # h as Z_left Z_right / (Z_left + Z_right), which vanishes where an
+            # impedance does, at the zero of its psi
+            left_impedance, right_impedance = impedances
+            damping = (
+                left_impedance * right_impedance / (left_impedance + right_impedance)
+            )
+            rates.append(nodes)
+            weights.append(-quadrature * damping.imag / math.pi)
+        self.rates = np.concatenate(rates)
+        self.weights = np.concatenate(weights)
+
+    def kernel(self, t):
+        """g at the times `t`."""
+        t = np.asarray(t, dtype=float)
+        return np.exp(-np.multiply.outer(t, self.rates)) @ self.weights
+
+    def start(self):
+        """The variables q_j of the convolution, for each component of V."""
+        return np.zeros((self.rates.size, 2))
+
+    def history(self, memory):
+        """g * V along y and z, from the variables q_j."""
+        return self.weights @ memory
+
+    def change(self, memory, rate):
+        """dq_j / dt for the slip rate `rate` along y and z."""
+        return np.asarray(rate)[None, :] - self.rates[:, None] * memory
+
+    def damping(self, s):
+        """h(s), at the complex `s` off the negative real axis."""
+        return 1.0 / sum(1.0 / _shear_impedance(medium, s) for medium in self.media)
+
+    def propagators(self, medium, distance, times):
+        """The velocity and the shear stress along the slip at the distance
+        `distance` from the fault, on the side of `medium`, per slip rate: the
+        weights of their fronts, and their tails at the `times` after the
+        front, of which the first is 0."""
+        speed = medium.shear_speed
+        unrelaxed = medium.impedance[1, 1]
+        dispersion = medium.dispersion
+        rate = 0.0 if dispersion is None else dispersion.front_rate
+        damped = math.exp(-distance * rate / speed)
+        fronts = np.array((self.eta / unrelaxed * damped, -self.eta * damped))
+
+        def transform(s):
+            damping = self.damping(s)
+            impedance = _shear_impedance(medium, s)
+            exponent = np.zeros(s.shape, dtype=complex)
+            if dispersion is not None:
+                # s / c_U (sqrt(B) - 1), with B - 1 taken as it is
+                excess = dispersion.slowness_excess(s)
+                exponent = (
+                    -distance * s / speed * excess / (np.sqrt(1.0 + excess) + 1.0)
+                )
+            waves = np.exp(exponent)
+            return np.stack(
+                (
+                    damping / impedance * waves - fronts[0],
+                    -damping * waves - fronts[1],
+                )
+            )
+
+        # the tail right behind the front, from where it has hardly changed
+        lags = np.array(times, dtype=float)
+        lags[0] = 1e-3 * lags[1]
+        return fronts, _talbot(transform, lags)
 
 
 class Inputs:
@@ -893,6 +1264,11 @@ class Problem:
         self.rotation = rotation
         self.law = int(self.inputs.get("FL"))
         self.left, self.right = left, right
+        self.relaxation = None
+        if left.dispersion is not None or right.dispersion is not None:
+            if not (left.is_isotropic() and right.is_isotropic()):
+                raise Unsupported("anelastic media are supported if isotropic")
+            self.relaxation = Relaxation(left, right)
         self.impedance = np.linalg.inv(left.admittance + right.admittance)
         self.impedance = 0.5 * (self.impedance + self.impedance.T)
         self.eta_shear = self.impedance[1:, 1:]
@@ -931,6 +1307,8 @@ class Problem:
         waves inclined at the angle of the Mach cone."""
         if not (self.left.is_isotropic() and self.right.is_isotropic()):
             raise Unsupported("a front is supported between isotropic media only")
+        if self.relaxation is not None:
+            raise Unsupported("a front is supported between elastic media only")
         traction = [self.loading.initial] + [
             source for source, _, _ in self.loading.sources
         ]
@@ -980,7 +1358,27 @@ class Problem:
         direction /= np.linalg.norm(direction)
         load = np.array([self.loading(t) for t in time])
         vector = np.outer(rate, direction)
-        traction = load[:, 1:] - vector @ self.eta_shear.T
+        locked = load[:, 1:]
+        if self.relaxation is not None:
+            # the convolution of the relaxation with the imposed slip rate, by
+            # the integration of _integrate, with the slip rate at the middle
+            # of each step
+            middle = np.outer(
+                [self.friction(t + 0.5 * step)[0] for t in time[:-1]], direction
+            )
+            relaxation = self.relaxation
+            memory = relaxation.start()
+            history = [relaxation.history(memory)]
+            for index in range(count):
+                k1 = relaxation.change(memory, vector[index])
+                k2 = relaxation.change(memory + 0.5 * step * k1, middle[index])
+                k3 = relaxation.change(memory + 0.5 * step * k2, middle[index])
+                k4 = relaxation.change(memory + step * k3, vector[index + 1])
+                memory = memory + step / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+                history.append(relaxation.history(memory))
+            # the welded fault keeps the traction the media relax
+            locked = locked - np.array(history)
+        traction = locked - vector @ self.eta_shear.T
         normal = load[:, 0] - vector @ self.eta_normal
         return self._finish(
             {
@@ -990,7 +1388,7 @@ class Problem:
                 "slip-rate-z": vector[:, 1],
                 "traction": np.hypot(traction[:, 0], traction[:, 1]),
                 # the traction the fault would carry if it were welded
-                "locked-traction": np.hypot(load[:, 1], load[:, 2]),
+                "locked-traction": np.hypot(locked[:, 0], locked[:, 1]),
                 "normal-stress": normal,
                 "effective-normal-stress": normal,
                 "slip": slip,
@@ -998,10 +1396,13 @@ class Problem:
             }
         )
 
-    def _rates(self, t, state, pressure):
+    def _rates(self, t, state, pressure, memory=None):
         normal, along_y, along_z = self.loading(t)
         load = np.array((along_y, along_z))
-        shear = math.hypot(along_y, along_z)
+        if memory is not None:
+            # what the relaxing media take off the traction so far
+            load = load - self.relaxation.history(memory)
+        shear = math.hypot(load[0], load[1])
         direction = load / shear if shear > 0.0 else np.array((1.0, 0.0))
         if not self.isotropic and self._direction is not None:
             direction = self._direction
@@ -1028,21 +1429,25 @@ class Problem:
             raise Unsupported("the direction of the slip does not settle")
         self._direction = direction
         rates = [rate * direction[0], rate * direction[1], rate] + extra
-        return rates, result, direction
+        change = None
+        if memory is not None:
+            change = self.relaxation.change(memory, rate * direction)
+        return rates, result, direction, change
 
     def _integrate(self, count, step):
         state = self.friction.initial_state(self.loading)
+        memory = None if self.relaxation is None else self.relaxation.start()
         thermal = self.thermal
         if thermal is not None:
             thermal.prepare(step, count)
         rows = []
 
-        def observe(t, state):
+        def observe(t, state, memory):
             pressure = temperature = 0.0
             if thermal is not None:
                 temperature, change = thermal.changes()
                 pressure = change - thermal.pore_pressure
-            _, result, direction = self._rates(t, state, pressure)
+            _, result, direction, _ = self._rates(t, state, pressure, memory)
             row = dict(result)
             row["time"] = t
             row["effective-normal-stress"] = result["normal-stress"] + pressure
@@ -1056,35 +1461,45 @@ class Problem:
                 row["temperature"] = thermal.t0 + temperature
             return row
 
-        rows.append(observe(0.0, state))
+        rows.append(observe(0.0, state, memory))
         for index in range(count):
             t = index * step
             heating = []
             slopes = []
+            changes = []
             current = rows[-1]["traction"] * rows[-1]["slip-rate"]
             for fraction, previous in ((0.0, None), (0.5, 0), (0.5, 1), (1.0, 2)):
+                probe_memory = memory
                 if previous is None:
                     probe = state
                 else:
                     scale = step * (1.0 if fraction == 1.0 else 0.5)
                     probe = [s + scale * k for s, k in zip(state, slopes[previous])]
+                    if memory is not None:
+                        probe_memory = memory + scale * changes[previous]
                 pressure = 0.0
                 if thermal is not None:
                     _, change = thermal.changes(fraction, current)
                     pressure = change - thermal.pore_pressure
-                rates, result, _ = self._rates(t + fraction * step, probe, pressure)
+                rates, result, _, change = self._rates(
+                    t + fraction * step, probe, pressure, probe_memory
+                )
                 current = result["traction"] * result["slip-rate"]
                 slopes.append(rates)
+                changes.append(change)
                 heating.append(current)
             state = [
                 s + step / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
                 for s, k1, k2, k3, k4 in zip(state, *slopes)
             ]
+            if memory is not None:
+                k1, k2, k3, k4 = changes
+                memory = memory + step / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
             if thermal is not None:
                 weights = (1.0, 2.0, 2.0, 1.0)
                 average = sum(w * h for w, h in zip(weights, heating)) / 6.0
                 thermal.record(average)
-            rows.append(observe((index + 1) * step, state))
+            rows.append(observe((index + 1) * step, state, memory))
         series = {key: np.array([row[key] for row in rows]) for key in rows[0]}
         return self._finish(series)
 
@@ -1116,6 +1531,8 @@ class Problem:
         time = series["time"]
         if self.front is not None:
             return self._radiated_inclined(series, x, medium, side)
+        if self.relaxation is not None:
+            return self._radiated_relaxing(series, x, medium, side)
         slip_rate = np.zeros((time.size, 3))
         slip_rate[:, 1] = series["slip-rate-y"]
         slip_rate[:, 2] = series["slip-rate-z"]
@@ -1129,6 +1546,30 @@ class Problem:
             velocity += np.outer(delayed, polarization)
             gradient += np.outer(-side * delayed / speed, polarization)
         stress = gradient @ medium.stiffness[:, _ALONG_X].T
+        return velocity, stress
+
+    def _radiated_relaxing(self, series, x, medium, side):
+        """The shear wave a side sends out into an isotropic medium that
+        relaxes (see Relaxation): its velocity along the slip, -/+ that of
+        the propagator on the side x < 0 / x > 0, and its shear stress, the
+        same on both."""
+        time = series["time"]
+        step = time[1] - time[0]
+        rate = np.column_stack((series["slip-rate-y"], series["slip-rate-z"]))
+        fronts, tails = self.relaxation.propagators(medium, abs(x), time)
+        arrival = abs(x) / medium.shear_speed
+        velocity = np.zeros((time.size, 3))
+        stress = np.zeros((time.size, 6))
+        columns = (VOIGT.index("xy"), VOIGT.index("xz"))
+        for front, tail, scale, field, where in (
+            (fronts[0], tails[0], side, velocity, (1, 2)),
+            (fronts[1], tails[1], 1.0, stress, columns),
+        ):
+            values = front * rate + _convolve(tail, rate, step)
+            for column, index in zip(values.T, where):
+                field[:, index] = scale * np.interp(
+                    time - arrival, time, column, left=0.0
+                )
         return velocity, stress
 
     def _radiated_inclined(self, series, x, medium, side):
@@ -1638,6 +2079,85 @@ def self_test():
             1e-15,
         )
 
+    # the radiation damping of a single mechanism relaxes in closed form: with
+    # psi = (s + a) / (s + b), b = omega and a = omega (1 - Y), its part
+    # g = eta (sqrt(psi) - 1) is -eta k exp(-c t) (I_0(k t) - I_1(k t)), with
+    # k = (b - a) / 2 and c = (a + b) / 2
+    mechanism = Anelasticity(40.0, 20.0, 50.0, 100.0, 1)
+    single = Medium.isotropic(2700.0, 3.24e10, 3.24e10, mechanism)
+    relaxation = Relaxation(single, single)
+    half = 0.5 * mechanism.frequencies[0] * mechanism.s_coefficients[0]
+    lags = np.linspace(0.0, 0.1, 201)
+    exact = (
+        -relaxation.eta
+        * half
+        * np.exp(-(mechanism.frequencies[0] - half) * lags)
+        * (_bessel_i(0, half * lags) - _bessel_i(1, half * lags))
+    )
+    check(
+        "the relaxation of the radiation damping of a single mechanism",
+        float(np.max(np.abs(relaxation.kernel(lags) - exact)) / abs(exact[0])),
+        1e-12,
+    )
+    # the tail of the stress the fault sends out, at the fault, is -g: on
+    # Talbot's contour from h(s), and on the cuts by the quadrature
+    solid = Medium.isotropic(
+        2700.0, 3.24e10, 3.24e10, Anelasticity(40.0, 20.0, 50.0, 100.0, 3)
+    )
+    soft = Medium.isotropic(
+        2700.0, 1.62e10, 1.62e10, Anelasticity(30.0, 10.0, 50.0, 100.0, 3)
+    )
+    for label, left, right in (
+        ("one anelastic medium", solid, solid),
+        ("two anelastic media", solid, soft),
+        ("an anelastic and an elastic medium", solid, medium),
+    ):
+        relaxation = Relaxation(left, right)
+        fronts, tails = relaxation.propagators(right, 0.0, lags)
+        check(
+            f"the relaxation on the cuts and on Talbot's contour, {label}",
+            float(
+                largest(
+                    abs(fronts[1] + relaxation.eta) / relaxation.eta,
+                    np.max(np.abs(tails[1][1:] + relaxation.kernel(lags[1:])))
+                    / abs(relaxation.kernel(0.0)),
+                )
+            ),
+            1e-9,
+        )
+
+    # the shear stress the waves carry at the fault, by the propagator, is
+    # what the relaxing media take off the traction, by the integration: for
+    # slip weakening, and for an imposed slip rate, whose welded fault keeps it
+    sigma, tau = 120.0e6, 85.0e6
+    weakening = {"s_xx": -sigma, "s_xy": tau, "mu_s": 0.677, "mu_d": 0.525, "d_c": 0.08}
+    imposed = {
+        "strike_slip": -1.0,
+        "dip_slip": 0.0,
+        "rupture_onset": 0.01,
+        "rupture_rise_time": 0.05,
+    }
+    for law, fault, left, right, kind in (
+        (16, weakening, solid, soft, "anelastic"),
+        (34, imposed, solid, soft, "anelastic"),
+    ):
+        problem = Problem({"FL": law, "XRef": -1.0e5}, fault, left, right)
+        series = problem.solve(0.08, 1e-5)
+        _, stress = problem.radiated(series, 0.0)
+        if law == 34:
+            # the slip along -y leaves the welded fault the traction +y
+            kept = series["locked-traction"]
+            carried = stress[:, VOIGT.index("xy")] + problem.eta * series["slip-rate-y"]
+        else:
+            kept = series["traction"] - tau
+            carried = stress[:, VOIGT.index("xy")]
+        check(
+            f"the stress at the fault, by the propagator and by the integration, "
+            f"FL={law}, {kind}",
+            float(np.max(np.abs(kept - carried)) / np.max(np.abs(carried))),
+            1e-6,
+        )
+
     # a traction in fault coordinates is the stress it is the traction of: on
     # the fault x = 0 with the normal e_x, the strike is -e_y and the dip -e_z;
     # on a mesh that turns the fault, they are the strike and the dip of the
@@ -1673,6 +2193,18 @@ def self_test():
             1e-12,
         )
     return failures
+
+
+def _bessel_i(order, z, terms=60):
+    """The modified Bessel function of the first kind I_order(z), by its
+    series, for the moderate z of the self-test."""
+    z = np.asarray(z, dtype=float)
+    term = (0.5 * z) ** order / math.factorial(order)
+    total = term.copy()
+    for m in range(1, terms):
+        term = term * (0.5 * z) ** 2 / (m * (m + order))
+        total = total + term
+    return total
 
 
 def _turn(rotations):

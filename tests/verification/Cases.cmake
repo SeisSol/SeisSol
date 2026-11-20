@@ -1326,6 +1326,35 @@ seissol_add_fault1d(NAME fault1d-anisotropic-imposed FL 33 FAULT fault1d-imposed
                     MATERIAL material-fault1d-anisotropic.yaml REQUIRE equations=anisotropic
                     LABELS convergence)
 
+# In an anelastic medium, the radiation damping relaxes: the fault takes the
+# impedance of the unrelaxed medium at once and the rest as a convolution with
+# its slip rate, and the waves disperse on their way to the receivers (see
+# fault1d.py). The outflow planes absorb the shear wave of the unrelaxed
+# impedance Z_U, and reflect (Z_U - Z) / (Z_U + Z) of one that relaxes to Z,
+# 3 to 6 per cent below 50 Hz in material-viscoelastic.yaml; fault1d-long
+# keeps what they reflect out of the time of the cases, that of the imposed
+# slip rate within 1536 steps. The energy output is off: what it books for the
+# anelastic variables has no exact solution here.
+seissol_add_fault1d(NAME fault1d-viscoelastic-lsw FL 16 FAULT fault1d-lsw.yaml
+                    MESH fault1d-long REQUIRE equations=viscoelastic
+                    SET "Output.EnergyOutput=0" ${SEISSOL_FAULT1D_ELEMENTWISE}
+                        ${SEISSOL_FAULT1D_ELEMENTWISE_MASK}
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-viscoelastic-lsw-bimaterial FL 6 FAULT fault1d-lsw.yaml
+                    MESH fault1d-long-bimaterial REQUIRE equations=viscoelastic
+                    SET "Output.EnergyOutput=0" "DynamicRupture.pc_vstar=0.1"
+                        "DynamicRupture.pc_prakashLength=0.1"
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-viscoelastic-rs-fvw-tp FL 103 FAULT fault1d-rs-fvw-tp.yaml
+                    MESH fault1d-long STEPS 2048 REQUIRE equations=viscoelastic
+                    SET "Output.EnergyOutput=0" ${SEISSOL_RS_FVW} ${SEISSOL_TP}
+                        ${SEISSOL_FAULT1D_TP_OUTPUT}
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-viscoelastic-imposed FL 33 FAULT fault1d-imposed.yaml
+                    MESH fault1d-long REQUIRE equations=viscoelastic
+                    SET "Output.EnergyOutput=0" "DynamicRupture.SlipRateOutputType=0"
+                    LABELS convergence)
+
 # The same on fault1d with its vertices numbered at random, which puts its
 # faces on eleven pairs of the faces of their cells (see the faces of a fault,
 # Stage 1): with a rule that is not fully symmetric, the points of its faces lie

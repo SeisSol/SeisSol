@@ -34,7 +34,9 @@ of the cases on ``fault2d-periodic`` needs ``scipy``; without it, these cases
 are skipped, their runs as well as their comparisons. The cases run in the
 configurations of the elastic and the anisotropic equations, the latter with an
 anisotropic material that is isotropic in effect, and with media with tilted
-axes of their own. With fused simulations, each simulation runs the case, and
+axes of their own; those on ``fault1d-long`` run in the configurations of
+the viscoelastic equations. With fused simulations, each simulation runs the
+case, and
 each is compared. The cases on ``fault2d-periodic``, which take minutes each,
 run in double precision, in order 6, without fused simulations only, and carry
 the label ``spectral`` as well; ``ctest -LE spectral`` leaves them out.
@@ -92,6 +94,14 @@ The meshes
    strike and the dip of the turned fault, which on the horizontal one are
    those of :doc:`left-lateral-right-lateral-normal-reverse`.
 
+``fault1d-long``, ``fault1d-long-bimaterial``
+   ``fault1d`` drawn out to 400 m across the fault, for anelastic media. The
+   outflow planes absorb the shear wave of the unrelaxed impedance
+   :math:`Z_U`, and reflect :math:`(Z_U - Z) / (Z_U + Z)` of one whose
+   impedance relaxes to :math:`Z`: 3 to 6 per cent below 50 Hz with the
+   quality factors of the cases. Six cells on either side keep what they
+   reflect away from the fault and the receivers for the time of the cases.
+
 ``fault1d-lts``
    ``fault1d`` with thin cells along the fault, whose time step is less than
    half that of the cells beyond: local time stepping at the rate 2 puts the
@@ -118,6 +128,18 @@ The exact solutions
    without, and the imposed slip rates FL=33 and 34. The friction laws follow
    :doc:`dynamic-rupture` and :doc:`slip-rate-on-dr` and the publications they
    point to, not the code they are meant to check.
+
+   In an anelastic medium (:doc:`attenuation`), the shear modulus relaxes as
+   :math:`M(s) = \mu_U (1 - \sum_l Y_l \omega_l / (s + \omega_l))` for the
+   Laplace variable :math:`s`, with the mechanisms fitted to the quality
+   factors as Emmerich and Korn (1987) fit them, and so does the impedance
+   :math:`Z(s) = \sqrt{\rho M(s)}`. The fault takes :math:`\eta` of the
+   unrelaxed media at once and the rest as a convolution with the slip rate,
+   whose kernel, analytic but on cuts along the negative real axis, a
+   quadrature on the cuts takes to a sum of exponentials that the integration
+   carries along. The waves disperse on their way to the receivers: their
+   propagator is a front at the unrelaxed speed, damped, and a tail, which an
+   inversion on Talbot's contour samples.
 
 ``fault1d.Front``
    A forced rupture front that runs faster than the shear waves outruns all it
@@ -156,6 +178,10 @@ Case                                                   What it adds
 ``fault1d-lsw-traction``, ``-traction-*``              the stresses as tractions along the strike and the dip
 ``fault1d-lsw-lts``, ``fault1d-rs-fvw-tp-lts``         local time stepping (``fault1d-lts``)
 ``fault1d-lsw-relabel``, ``fault1d-rs-fvw-tp-relabel`` other faces of the cells (``fault1d-relabel``)
+``fault1d-viscoelastic-*``                             anelastic media (``fault1d-long``): slip weakening,
+                                                       two media with the Prakash-Clifton regularization, rate
+                                                       and state with thermal pressurization, an imposed slip
+                                                       rate
 ====================================================== =========================================================
 
 On ``fault2d``, ``fault2d-supershear`` holds a forced supershear front. On
@@ -241,7 +267,9 @@ time, the static frictional work :math:`A V \cdot H u / 2` with the slip
 :math:`u`; the kinetic and the strain energy, and the momentum, are those of
 the waves within the column, which leave it through its ends. The momentum is
 compared relative to the integral of :math:`\rho |v|`, as the momenta of the
-two sides cancel where their media are alike.
+two sides cancel where their media are alike. The cases in anelastic media
+switch the energy output off: what it books for the anelastic variables has no
+exact solution there.
 
 Thresholds
 ----------

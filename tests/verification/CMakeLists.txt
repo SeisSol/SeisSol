@@ -145,7 +145,8 @@ endfunction()
 foreach (preset box6 box48 skew48 fault48 faultskew48 fault1d fault1d-bimaterial fault2d
                 fault2d-periodic mat48 periodicx72 periodic162 open96
                 box48-relabel fault48-relabel fault1d-relabel fault2d-periodic-relabel
-                fault1d-dip60 fault1d-dip30 fault1d-flat fault1d-lts fault2d-surface)
+                fault1d-dip60 fault1d-dip30 fault1d-flat fault1d-lts fault2d-surface
+                fault1d-long fault1d-long-bimaterial)
   seissol_add_minimesh(NAME ${preset} PRESET ${preset})
 endforeach()
 
@@ -211,10 +212,12 @@ add_test(NAME verification.faultreceivers
                  ${SEISSOL_MINIMESH_DIR}/fault48.puml.h5
                  ${SEISSOL_MINIMESH_DIR}/faultskew48.puml.h5
                  ${SEISSOL_MINIMESH_DIR}/fault1d.puml.h5
-                 ${SEISSOL_MINIMESH_DIR}/fault1d-bimaterial.puml.h5)
+                 ${SEISSOL_MINIMESH_DIR}/fault1d-bimaterial.puml.h5
+                 ${SEISSOL_MINIMESH_DIR}/fault1d-long.puml.h5
+                 ${SEISSOL_MINIMESH_DIR}/fault1d-long-bimaterial.puml.h5)
 set_tests_properties(verification.faultreceivers PROPERTIES
                      FIXTURES_REQUIRED
-                     "minimesh.fault48;minimesh.faultskew48;minimesh.fault1d;minimesh.fault1d-bimaterial"
+                     "minimesh.fault48;minimesh.faultskew48;minimesh.fault1d;minimesh.fault1d-bimaterial;minimesh.fault1d-long;minimesh.fault1d-long-bimaterial"
                      LABELS "verification;smoke;dr")
 
 # the receivers of the rupture front along y, spread out along it
@@ -684,7 +687,8 @@ endfunction()
 # since the exact solution is the better reference; the comparison is a test of
 # its own, so that it can be repeated, and its thresholds recorded, without
 # running SeisSol again. Without MATERIAL, the case takes the material of its
-# build, and without REQUIRE, it runs in elastic and anisotropic builds. FILES
+# build, and without REQUIRE, it runs in elastic and anisotropic builds; a case
+# in an anelastic medium requires its equations. FILES
 # are further inputs, such as receivers that SET names. LTS steps locally (see
 # seissol_add_minitest).
 #
@@ -715,8 +719,9 @@ function(seissol_add_fault1d)
   if (NOT F1D_STEPS)
     set(F1D_STEPS 1536)
   endif()
-  # the exact solution holds for elastic media, isotropic or not; an anisotropic
-  # build runs the isotropic cases with the material of material-anisotropic.yaml
+  # the exact solution holds for elastic media, isotropic or not, and for
+  # isotropic anelastic ones; an anisotropic build runs the isotropic cases
+  # with the material of material-anisotropic.yaml
   if (NOT F1D_REQUIRE)
     set(F1D_REQUIRE "equations=elastic|anisotropic")
   endif()

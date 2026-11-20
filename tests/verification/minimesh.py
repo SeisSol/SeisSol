@@ -225,6 +225,28 @@ PRESETS = {
         group_splits=(("x", None),),
         periodic=(False, True, True),
     ),
+    # fault1d drawn out across the fault, for anelastic media: the outflow
+    # planes absorb the shear wave of the unrelaxed impedance Z_U, and reflect
+    # (Z_U - Z) / (Z_U + Z) of one that relaxes to Z. Six cells on either side
+    # keep what they reflect from the fault and the receivers for over a
+    # hundred milliseconds at the speeds of the cases (see fault1d.py).
+    "fault1d-long": Spec(
+        name="fault1d-long",
+        cells=(12, 3, 3),
+        size=(400.0, 100.0, 100.0),
+        boundary=(("xmin", 5), ("xmax", 5)),
+        faults=(("x", None),),
+        periodic=(False, True, True),
+    ),
+    "fault1d-long-bimaterial": Spec(
+        name="fault1d-long-bimaterial",
+        cells=(12, 3, 3),
+        size=(400.0, 100.0, 100.0),
+        boundary=(("xmin", 5), ("xmax", 5)),
+        faults=(("x", None),),
+        group_splits=(("x", None),),
+        periodic=(False, True, True),
+    ),
     # the fault1d column drawn out along y, for a rupture front that runs along
     # y: twelve hundred metres let a front faster than the shear waves run
     # ahead of everything its start sends out for some tens of milliseconds
