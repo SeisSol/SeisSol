@@ -522,7 +522,14 @@ def receiver_files(root, prefix, kinds=RECEIVER_KINDS["all"]):
 
 
 def compare_receivers(
-    reference, candidate, prefix, tolerance, floor, kinds=RECEIVER_KINDS["all"]
+    reference,
+    candidate,
+    prefix,
+    tolerance,
+    floor,
+    kinds=RECEIVER_KINDS["all"],
+    negate=(),
+    scale="value",
 ):
     """Compare two runs' receiver output.
 
@@ -530,6 +537,13 @@ def compare_receivers(
     only way to state bit identity about an ASCII output. A mismatch is then
     quantified anyway, because a difference of 1e-16 and one of 1e-3 call for
     completely different investigations.
+
+    The columns named in `negate` are compared with the opposite sign of the
+    candidate, for runs that state a quantity in a frame of the other
+    orientation. A difference is relative to the larger of the two values,
+    or with `scale` "column", to the largest value of the column in the
+    reference file, so that rounding in a value that passes through zero does
+    not count as a difference of order one.
     """
     problems = []
     worst = {}
@@ -547,7 +561,7 @@ def compare_receivers(
 
     identical = True
     for name in sorted(set(left) & set(right)):
-        if output_bytes(left[name]) == output_bytes(right[name]):
+        if not negate and output_bytes(left[name]) == output_bytes(right[name]):
             continue
         identical = False
         names, rows_left = read_receiver(left[name])
@@ -557,10 +571,21 @@ def compare_receivers(
                 f"{name}: {len(rows_left)} samples against {len(rows_right)}"
             )
             continue
+        signs = [-1.0 if label in negate else 1.0 for label in names]
+        largest = [
+            max((abs(row[column]) for row in rows_left), default=0.0)
+            for column in range(len(names))
+        ]
         for row_left, row_right in zip(rows_left, rows_right):
             for column, (a, b) in enumerate(zip(row_left, row_right)):
                 label = names[column] if column < len(names) else str(column)
-                relative = abs(a - b) / max(abs(a), abs(b), floor)
+                if column < len(signs):
+                    b *= signs[column]
+                if scale == "column" and column < len(largest):
+                    denominator = max(largest[column], floor)
+                else:
+                    denominator = max(abs(a), abs(b), floor)
+                relative = abs(a - b) / denominator
                 worst[label] = max(worst.get(label, 0.0), relative)
 
     if identical:
@@ -1265,6 +1290,11 @@ def _command_compare(args):
         return SKIP_RETURN_CODE
 
     kinds = RECEIVER_KINDS[args.receivers]
+    if (
+        args.tolerance_single is not None
+        and inputs["candidate"].get("capabilities", {}).get("precision") == "single"
+    ):
+        args.tolerance = args.tolerance_single
     if args.simulations:
         problems, worst = compare_simulations(
             Path(args.reference),
@@ -1284,6 +1314,8 @@ def _command_compare(args):
             args.tolerance,
             args.floor,
             kinds,
+            negate=frozenset(args.negate),
+            scale=args.scale,
         )
     if args.energies is not None:
         energy_problems, energy_worst = compare_energies(
@@ -2535,9 +2567,11 @@ def _compare_antiplane_case(
     path = None
     reference = None
     if args.solutions:
+        # the key holds all that the solution is computed from, and nothing of
+        # the case otherwise, so that cases that pose the same problem on
+        # other meshes share it
         key = _reference_key(
             {
-                "case": args.name,
                 "method": type(solver).__name__,
                 "points": args.points,
                 "offset": offset,
@@ -2554,7 +2588,7 @@ def _compare_antiplane_case(
                 "law": law,
             }
         )
-        path = Path(args.solutions) / f"{args.name}-{key}.npz"
+        path = Path(args.solutions) / f"{type(solver).__name__.lower()}-{key}.npz"
         if path.exists():
             reference = _load_reference(path)
             print(f"the spectral solution is the one kept in {path}")
@@ -2944,6 +2978,11 @@ def main(argv=None):
         help="largest permitted relative difference; zero demands identical files",
     )
     compare.add_argument(
+        "--tolerance-single",
+        type=float,
+        help="the tolerance where the candidate ran in single precision",
+    )
+    compare.add_argument(
         "--floor",
         type=float,
         default=1e-30,
@@ -2962,6 +3001,20 @@ def main(argv=None):
         choices=sorted(RECEIVER_KINDS),
         default="all",
         help="compare the receivers of this kind only",
+    )
+    compare.add_argument(
+        "--negate",
+        action="append",
+        default=[],
+        metavar="COLUMN",
+        help="compare this column with the opposite sign of the candidate; repeatable",
+    )
+    compare.add_argument(
+        "--scale",
+        choices=("value", "column"),
+        default="value",
+        help="relate a difference to the larger of the two values, or to the "
+        "largest value of the column in the reference",
     )
     compare.add_argument(
         "--energies",

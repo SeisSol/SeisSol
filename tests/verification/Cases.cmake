@@ -79,8 +79,8 @@ seissol_add_minitest(
     ACTIVITY "v1:1e-12"
     LABELS "smoke;plasticity")
 
-# without a friction law the fault is welded: NoFault passes the traction of
-# the continuous-contact state through unchanged
+# without a fault file, the rupture is off, and the faces of the fault are
+# faces as any other
 seissol_add_minitest(
     NAME smoke-fault48
     MESH fault48
@@ -88,6 +88,21 @@ seissol_add_minitest(
     STEPS 20
     REQUIRE equations=elastic
     ACTIVITY "v1:1e-12"
+    LABELS "smoke;dr")
+# without a friction law the fault is welded: NoFault passes the traction of
+# the continuous-contact state through unchanged. The fault file keeps the
+# rupture on (see fault-welded.yaml).
+set(SEISSOL_WELDED "DynamicRupture.FL=0" "DynamicRupture.ModelFileName='fault-welded.yaml'")
+seissol_add_minitest(
+    NAME smoke-fault48-welded
+    MESH fault48
+    PARAMETERS wave.par
+    STEPS 20
+    REQUIRE equations=elastic
+    SET ${SEISSOL_WELDED}
+    FILES fault-welded.yaml
+    ACTIVITY "v1:1e-12"
+    NO_SNAPSHOT
     LABELS "smoke;dr")
 
 # the Dirichlet faces drive a wave into the body at rest; their setup takes the
@@ -224,17 +239,29 @@ seissol_add_comparison(
     TOLERANCE 0
     LABELS "bitwise;mpi;plan")
 
-# A welded fault is the absence of a fault: fault48 and box48 are the same
-# mesh apart from the tag on the plane x = 0, and the rupture quadrature is
-# exact for the polynomial degrees involved, so the two runs differ by
-# rounding only. A sign or rotation error in the rupture flux gives a
-# difference of order one; the bound sits between the two regimes and gets
-# tightened once the actual difference has been measured.
+# A fault whose rupture is off is no fault at all: fault48 and box48 are the
+# same mesh apart from the tag on the plane x = 0.
+seissol_add_comparison(
+    NAME identity-fault48-off
+    REFERENCE smoke-box48
+    CANDIDATE smoke-fault48
+    TOLERANCE 0
+    LABELS "identity;dr")
+# A welded fault is the absence of a fault: the rupture quadrature is exact for
+# the polynomial degrees involved, so the two runs differ by rounding only,
+# relative to the largest value of a column, as a value that passes through
+# zero magnifies its rounding beyond any bound: by 1.3e-12 in double precision,
+# 5e-5 in single. A sign or rotation error in the rupture flux gives a
+# difference of order one.
+set(SEISSOL_WELDED_ROUNDING 1e-10)
+set(SEISSOL_WELDED_ROUNDING_SINGLE 1e-3)
 seissol_add_comparison(
     NAME identity-fault48-nofault
     REFERENCE smoke-box48
-    CANDIDATE smoke-fault48
-    TOLERANCE 1e-6
+    CANDIDATE smoke-fault48-welded
+    TOLERANCE ${SEISSOL_WELDED_ROUNDING}
+    SINGLE_TOLERANCE ${SEISSOL_WELDED_ROUNDING_SINGLE}
+    SCALE column
     LABELS "identity;dr")
 
 # ---------------------------------------------------------------------------
@@ -1079,6 +1106,110 @@ seissol_add_comparison(
     LABELS "bitwise;mpi;copies;dr")
 
 # ---------------------------------------------------------------------------
+# Stage 1: the faces of a fault, whichever faces of their cells they are.
+#
+# SeisSol numbers the vertices of a cell by their ids, which decide which face
+# of each of its two cells a fault face is, and with it the variant of every
+# kernel that works on it. Of the 14 pairs of faces that this numbering allows
+# on the two sides of a face, the meshes numbered along the lattice hold
+# (3, 0) and (3, 1) only; their copies with the vertices numbered at random
+# hold the others (see minimesh.py, RELABELLED). A welded fault has to be the
+# absence of a fault there as well.
+#
+# A fully symmetric quadrature rule on the faces, as Dunavant's, puts the
+# points of a face where they are whichever face it is, so that a rupture on a
+# relabelled mesh differs from the one on the original by rounding only; with
+# Stroud's, the points move with the numbering, and only the exact solutions
+# hold the cases on relabelled meshes (Stage 2). The same goes for the side of
+# the fault that the reference point makes its plus side: on the other side,
+# it turns the fault normal and with it the strike around, but not the dip
+# (see docs/parameter-file.rst). With the jump across the fault turned around
+# as well, that leaves the strike components of the fault receivers and the
+# normal stress as they are, and turns the dip components and the normal
+# velocity around.
+#
+# The differences are relative to the largest value of their column: a value
+# that passes through zero, as the shear stress of a wave does, magnifies a
+# difference by rounding beyond any bound.
+# ---------------------------------------------------------------------------
+
+seissol_add_minitest(
+    NAME smoke-box48-relabel
+    MESH box48-relabel
+    PARAMETERS wave.par
+    STEPS 20
+    REQUIRE equations=elastic
+    ACTIVITY "v1:1e-12"
+    NO_SNAPSHOT
+    LABELS "smoke;relabel")
+seissol_add_minitest(
+    NAME smoke-fault48-relabel
+    MESH fault48-relabel
+    PARAMETERS wave.par
+    STEPS 20
+    REQUIRE equations=elastic
+    SET ${SEISSOL_WELDED}
+    FILES fault-welded.yaml
+    ACTIVITY "v1:1e-12"
+    NO_SNAPSHOT
+    LABELS "smoke;dr;relabel")
+# box48-relabel is numbered as fault48-relabel (see minimesh.py, RELABELLED):
+# the projection of the initial wave depends on the numbering
+seissol_add_comparison(
+    NAME identity-fault48-relabel-nofault
+    REFERENCE smoke-box48-relabel
+    CANDIDATE smoke-fault48-relabel
+    TOLERANCE ${SEISSOL_WELDED_ROUNDING}
+    SINGLE_TOLERANCE ${SEISSOL_WELDED_ROUNDING_SINGLE}
+    SCALE column
+    LABELS "identity;dr;relabel")
+
+# the columns of the fault receivers that the other plus side turns around
+set(SEISSOL_TURNED_COLUMNS SRd T_d Td0 Sld u_n)
+set(SEISSOL_MIRRORED "DynamicRupture.XRef=1.0e5")
+
+seissol_add_rupture(NAME rupture-lsw-relabel FL 16 FAULT fault-lsw.yaml MESH fault48-relabel
+                    NO_SNAPSHOT REQUIRE dr-quad-rule=dunavant LABELS relabel)
+seissol_add_rupture(NAME rupture-rs-fvw-tp-relabel FL 103 FAULT fault-rs-fvw-tp.yaml
+                    MESH fault48-relabel SET ${SEISSOL_RS_FVW} ${SEISSOL_TP}
+                    NO_SNAPSHOT REQUIRE dr-quad-rule=dunavant LABELS relabel)
+seissol_add_rupture(NAME rupture-lsw-mirror FL 16 FAULT fault-lsw.yaml
+                    SET ${SEISSOL_MIRRORED}
+                    NO_SNAPSHOT REQUIRE dr-quad-rule=dunavant LABELS mirror)
+seissol_add_rupture(NAME rupture-rs-fvw-tp-mirror FL 103 FAULT fault-rs-fvw-tp.yaml
+                    MESH fault48-relabel SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_MIRRORED}
+                    NO_SNAPSHOT REQUIRE dr-quad-rule=dunavant LABELS "relabel;mirror")
+# The rounding grows with the rupture, the more so with rate and state and thermal
+# pressurization: to 8e-13 and 1.4e-10 of the largest value of a column in double precision, and
+# to 2.2e-4 and 4.9e-2 in single, there in the components along the dip, which a rupture along the
+# strike leaves small. So the single precision holds a component or a sign turned the wrong way,
+# the double precision the identity; each tolerance leaves room for the rounding of other
+# compilers and processors.
+set(SEISSOL_RUPTURE_ROUNDING_lsw 1e-10)
+set(SEISSOL_RUPTURE_ROUNDING_SINGLE_lsw 1e-3)
+set(SEISSOL_RUPTURE_ROUNDING_rs-fvw-tp 1e-8)
+set(SEISSOL_RUPTURE_ROUNDING_SINGLE_rs-fvw-tp 0.2)
+foreach (law lsw rs-fvw-tp)
+  seissol_add_comparison(
+      NAME identity-rupture-${law}-relabel
+      REFERENCE rupture-${law}
+      CANDIDATE rupture-${law}-relabel
+      TOLERANCE ${SEISSOL_RUPTURE_ROUNDING_${law}}
+      SINGLE_TOLERANCE ${SEISSOL_RUPTURE_ROUNDING_SINGLE_${law}}
+      SCALE column
+      LABELS "identity;dr;relabel")
+  seissol_add_comparison(
+      NAME identity-rupture-${law}-mirror
+      REFERENCE rupture-${law}
+      CANDIDATE rupture-${law}-mirror
+      TOLERANCE ${SEISSOL_RUPTURE_ROUNDING_${law}}
+      SINGLE_TOLERANCE ${SEISSOL_RUPTURE_ROUNDING_SINGLE_${law}}
+      SCALE column
+      NEGATE ${SEISSOL_TURNED_COLUMNS}
+      LABELS "identity;dr;mirror")
+endforeach()
+
+# ---------------------------------------------------------------------------
 # Stage 2: friction laws against an exact solution (seissol_add_fault1d).
 #
 # On fault1d, a uniform fault stays uniform: nothing is transferred along it,
@@ -1175,6 +1306,17 @@ seissol_add_fault1d(NAME fault1d-anisotropic-imposed FL 33 FAULT fault1d-imposed
                     MATERIAL material-fault1d-anisotropic.yaml REQUIRE equations=anisotropic
                     LABELS convergence)
 
+# The same on fault1d with its vertices numbered at random, which puts its
+# faces on eleven pairs of the faces of their cells (see the faces of a fault,
+# Stage 1): with a rule that is not fully symmetric, the points of its faces lie
+# elsewhere, and only the exact solution holds it
+seissol_add_fault1d(NAME fault1d-lsw-relabel FL 16 FAULT fault1d-lsw.yaml
+                    MESH fault1d-relabel LABELS "convergence;relabel")
+seissol_add_fault1d(NAME fault1d-rs-fvw-tp-relabel FL 103 FAULT fault1d-rs-fvw-tp.yaml
+                    MESH fault1d-relabel STEPS 2048
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
+                    LABELS "convergence;relabel")
+
 # the outputs of rupture1d.par and the rupture velocity Vr, which the fault
 # receivers take from the gradient of the rupture times of the Gauss points of
 # their face (see docs/fault-output.rst)
@@ -1261,6 +1403,17 @@ foreach (law aging:3 slip:4 svw:7 fvw:103)
                        verification.exact.fault2d-antiplane-rs-${name}${SEISSOL_VERIFICATION_SUFFIX}
                        PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
 endforeach()
+# The antiplane rupture with linear slip weakening on fault2d-periodic with
+# its vertices numbered at random, whose faces lie on all 14 pairs of faces of
+# their cells (see the faces of a fault, Stage 1)
+seissol_add_fault1d(NAME fault2d-antiplane-relabel FL 16 FAULT fault2d-antiplane.yaml
+                    MESH fault2d-periodic-relabel STEPS 2560
+                    FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                    SET ${SEISSOL_ANTIPLANE} ${SEISSOL_RUPTURE_VELOCITY_OUTPUT}
+                    LABELS "convergence;relabel")
+set_tests_properties(verification.fault2d-antiplane-relabel${SEISSOL_VERIFICATION_SUFFIX}
+                     verification.exact.fault2d-antiplane-relabel${SEISSOL_VERIFICATION_SUFFIX}
+                     PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
 # Fast velocity weakening with thermal pressurization, whose pore pressure
 # rises by up to a fifth of the normal stress (see
 # fault2d-antiplane-rs-fvw-tp.yaml); the fault receivers report it and the

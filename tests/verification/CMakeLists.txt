@@ -134,7 +134,8 @@ function(seissol_add_minimesh)
 endfunction()
 
 foreach (preset box6 box48 skew48 fault48 faultskew48 fault1d fault1d-bimaterial fault2d
-                fault2d-periodic mat48 periodicx72 periodic162 open96)
+                fault2d-periodic mat48 periodicx72 periodic162 open96
+                box48-relabel fault48-relabel fault1d-relabel fault2d-periodic-relabel)
   seissol_add_minimesh(NAME ${preset} PRESET ${preset})
 endforeach()
 
@@ -437,29 +438,40 @@ endfunction()
 
 # ---------------------------------------------------------------------------
 # seissol_add_comparison(NAME <name> REFERENCE <case> CANDIDATE <case>
-#                        [TOLERANCE r] [PREFIX p] [SIMULATIONS r:c ...]
-#                        [RECEIVERS all|volume|fault] [ENERGIES tolerance]
+#                        [TOLERANCE r] [SINGLE_TOLERANCE r] [PREFIX p]
+#                        [SIMULATIONS r:c ...]
+#                        [RECEIVERS all|volume|fault] [NEGATE column ...]
+#                        [SCALE value|column] [ENERGIES tolerance]
 #                        [LABELS label ...])
 #
 # Holds two runs against each other. A tolerance of zero demands identical
-# output. With SIMULATIONS, only the simulations given as pairs are compared:
+# output; SINGLE_TOLERANCE, if given, is the one of a build in single
+# precision. With SIMULATIONS, only the simulations given as pairs are compared:
 # r:c holds the simulation c of the candidate against the simulation r of the
 # reference, counted from zero, so that runs of different numbers of
 # simulations can be compared. RECEIVERS restricts the comparison to the
-# volume or the on-fault receivers. ENERGIES compares the energy output as
-# well, each quantity to this tolerance relative to its largest value. The
-# runner propagates a skip: if either input was skipped because this build
-# lacks the configuration, so is the comparison.
+# volume or the on-fault receivers. The columns NEGATE names are compared with
+# the opposite sign of the candidate, for a candidate that states them in a
+# frame of the other orientation. SCALE column relates a difference to the
+# largest value of its column rather than to the two values, for runs that
+# differ by rounding, which a value that passes through zero would magnify.
+# ENERGIES compares the energy output as well, each quantity to this
+# tolerance relative to its largest value. The runner propagates a skip: if
+# either input was skipped because this build lacks the configuration, so is
+# the comparison.
 # ---------------------------------------------------------------------------
 
 function(seissol_add_comparison)
   cmake_parse_arguments(CMP
       ""
-      "NAME;REFERENCE;CANDIDATE;TOLERANCE;PREFIX;RECEIVERS;ENERGIES"
-      "SIMULATIONS;LABELS"
+      "NAME;REFERENCE;CANDIDATE;TOLERANCE;SINGLE_TOLERANCE;PREFIX;RECEIVERS;SCALE;ENERGIES"
+      "SIMULATIONS;NEGATE;LABELS"
       ${ARGN})
   if (NOT CMP_TOLERANCE)
     set(CMP_TOLERANCE 0)
+  endif()
+  if (NOT CMP_SINGLE_TOLERANCE)
+    set(CMP_SINGLE_TOLERANCE ${CMP_TOLERANCE})
   endif()
   if (NOT CMP_PREFIX)
     set(CMP_PREFIX output/mini)
@@ -467,10 +479,16 @@ function(seissol_add_comparison)
   if (NOT CMP_RECEIVERS)
     set(CMP_RECEIVERS all)
   endif()
+  if (NOT CMP_SCALE)
+    set(CMP_SCALE value)
+  endif()
 
   set(simulations "")
   foreach (pair ${CMP_SIMULATIONS})
     list(APPEND simulations --simulations ${pair})
+  endforeach()
+  foreach (column ${CMP_NEGATE})
+    list(APPEND simulations --negate ${column})
   endforeach()
   if (DEFINED CMP_ENERGIES)
     list(APPEND simulations --energies ${CMP_ENERGIES})
@@ -488,7 +506,9 @@ function(seissol_add_comparison)
                    --result ${directory}/results/${CMP_NAME}.json
                    --prefix ${CMP_PREFIX}
                    --tolerance ${CMP_TOLERANCE}
+                   --tolerance-single ${CMP_SINGLE_TOLERANCE}
                    --receivers ${CMP_RECEIVERS}
+                   --scale ${CMP_SCALE}
                    ${simulations})
   set(fixtures
       case.${SEISSOL_VERIFICATION_CONFIG}.${CMP_REFERENCE}
@@ -507,16 +527,18 @@ endfunction()
 # ---------------------------------------------------------------------------
 # seissol_add_rupture(NAME <name> FL <law> FAULT <file> [SET ...] [ENV ...] [MESH mesh]
 #                     [RANKS n] [THREADS n] [EXPECT_FAILURE regex] [EXPECT_ZERO]
-#                     [FILES name ...] [RESTART step [RESTART_SET ...]])
+#                     [FILES name ...] [RESTART step [RESTART_SET ...]]
+#                     [REQUIRE key=value ...])
 #
 # A case of a friction law on fault48 (see the friction laws in Cases.cmake).
+# REQUIRE adds to the elastic build every such case requires.
 # ---------------------------------------------------------------------------
 
 function(seissol_add_rupture)
   cmake_parse_arguments(RUP
       "EXPECT_ZERO;NO_SNAPSHOT;SNAPSHOT_EVERYWHERE"
       "NAME;FL;FAULT;MESH;RANKS;THREADS;EXPECT_FAILURE;RESTART"
-      "SET;ENV;FILES;RESTART_SET;LABELS"
+      "SET;ENV;FILES;RESTART_SET;REQUIRE;LABELS"
       ${ARGN})
   if (NOT RUP_MESH)
     set(RUP_MESH fault48)
@@ -554,7 +576,7 @@ function(seissol_add_rupture)
       SNAPSHOT_KEY "{configuration}-{dr-quad-rule}"
       FILES ${RUP_FAULT} faultreceiver.dat ${RUP_FILES}
       STEPS 64
-      REQUIRE equations=elastic
+      REQUIRE equations=elastic ${RUP_REQUIRE}
       SET "DynamicRupture.FL=${RUP_FL}"
           "DynamicRupture.ModelFileName='${RUP_FAULT}'"
           ${RUP_SET}
@@ -611,7 +633,7 @@ function(seissol_add_fault1d)
   if (NOT F1D_REQUIRE)
     set(F1D_REQUIRE "equations=elastic|anisotropic")
   endif()
-  if (F1D_MESH STREQUAL "fault2d-periodic")
+  if (F1D_MESH MATCHES "^fault2d-periodic")
     list(APPEND F1D_REQUIRE "scipy=true" "precision=double" "fused=1")
     list(APPEND F1D_LABELS spectral)
   endif()
@@ -650,7 +672,7 @@ function(seissol_add_fault1d)
       "case.${SEISSOL_VERIFICATION_CONFIG}.${F1D_NAME};minimesh.${F1D_MESH};verification"
       TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
       LABELS "verification;dr;exact;${F1D_LABELS}")
-  if (F1D_MESH STREQUAL "fault2d-periodic")
+  if (F1D_MESH MATCHES "^fault2d-periodic")
     set_tests_properties(verification.exact.${F1D_NAME}${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
         RESOURCE_LOCK verification.spectral.${F1D_NAME})
   endif()

@@ -75,6 +75,12 @@ The meshes
    inclined. A spontaneous rupture runs out on it from a nucleation along
    :math:`y`.
 
+``fault1d-relabel``, ``fault2d-periodic-relabel``
+   The meshes with their vertices numbered at random, which puts their fault
+   faces on 11 and on all 14 pairs of the faces of their cells (see
+   :doc:`verification-suite`). With a quadrature rule on the faces that is not
+   fully symmetric, the points of a face lie elsewhere as well.
+
 The exact solutions
 -------------------
 
@@ -116,8 +122,16 @@ The cases
 ---------
 
 On ``fault1d``, the cases cover every friction law above, each with an exact
-solution of its own, in isotropic and in anisotropic media; on ``fault2d``,
-``fault2d-supershear`` holds a forced supershear front. On
+solution of its own, in isotropic and in anisotropic media. Variants of them
+hold what a production run does differently from a fault along an axis:
+
+====================================================== =========================================================
+Case                                                   What it adds
+====================================================== =========================================================
+``fault1d-lsw-relabel``, ``fault1d-rs-fvw-tp-relabel`` other faces of the cells (``fault1d-relabel``)
+====================================================== =========================================================
+
+On ``fault2d``, ``fault2d-supershear`` holds a forced supershear front. On
 ``fault2d-periodic``:
 
 =========================================== ====== ==========================================
@@ -132,6 +146,7 @@ Case                                        FL     What it adds
 ``fault2d-antiplane-imposed-*``             33, 34 an imposed slip that runs out along y
 ``fault2d-inplane``                         16     a spontaneous in-plane rupture
 ``fault2d-inplane-supershear``              16     its transition to supershear
+``fault2d-antiplane-relabel``               16     other faces of the cells
 =========================================== ====== ==========================================
 
 The imposed slip rate FL=35 imposes all of the slip within the sub-step of the
