@@ -13,9 +13,9 @@ The verification suite
 generates itself (``minimesh.py``), in each configuration of the executable
 that ``SEISSOL_VERIFICATION_CONFIGS`` names (see :doc:`build-parameters`), and
 holds the runs against exact solutions, against each other and against stored
-references. This page describes how to run the suite and which runs it holds
-against each other; :doc:`verification-exact-solutions` describes the cases of
-dynamic rupture.
+references. This page describes how to run the suite, which runs it holds
+against each other, and its cases of materials;
+:doc:`verification-exact-solutions` describes those of dynamic rupture.
 
 Running the suite
 -----------------
@@ -69,3 +69,21 @@ same problem in another form:
 The differences of the receivers are relative to the largest value of their
 column, as a value that passes through zero, as the shear stress of a wave
 does, would magnify a difference by rounding beyond any bound.
+
+Materials
+---------
+
+The convergence cases start a planar wave (:doc:`initial-condition`) on
+periodic meshes and hold the solution against the exact one, to the
+thresholds of ``tests/verification/cases/thresholds.json``. A viscoelastic
+build takes ``material-viscoelastic.yaml``, with strong attenuation
+(:math:`Q_p = 40`, :math:`Q_s = 20`) and the band of frequencies of its
+mechanisms about those of the waves (``SEISSOL_ANELASTIC_CENTRAL`` and
+``SEISSOL_ANELASTIC_RATIO``); a poroelastic build takes
+``material-poroelastic.yaml``. The exact solution is made of the eigenmodes of
+the plane-wave operator of the material, which the planar wave takes as well;
+so the unit tests of ``tests/Model/PlaneWaveDispersion.t.h`` hold the
+frequencies of that operator against the theory of the material: the phase
+velocity and the quality factor of the P and the S waves of a viscoelastic
+material, and the roots of Biot's dispersion relation for the fast and the slow
+P wave and the S wave of a poroelastic one, below and above Biot's frequency.

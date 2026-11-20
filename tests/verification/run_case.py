@@ -527,7 +527,19 @@ def check_outputs(
     return problems
 
 
-def read_analysis(path):
+# the indices of the velocities among the quantities of the analysis, by equation system; the
+# others are stresses or pressures (see the Quantities of the materials in src/Equations)
+ANALYSIS_VELOCITIES = {
+    "elastic": (6, 7, 8),
+    "anisotropic": (6, 7, 8),
+    "viscoelastic": (6, 7, 8),
+    "poroelastic": (6, 7, 8, 10, 11, 12),
+    "acoustic": (1, 2, 3),
+    "viscoacoustic": (1, 2, 3),
+}
+
+
+def read_analysis(path, velocities=()):
     """Read ``<prefix>-analysis.csv``, which SeisSol writes at the end of a run.
 
     The file holds one row per quantity, norm and simulation. SeisSol writes it
@@ -540,7 +552,13 @@ def read_analysis(path):
     A quantity the wave does not excite, e.g. a stress component off the plane
     of a plane wave along an axis, has no relative error: SeisSol divides by the
     zero norm of its analytical solution and writes inf or nan. Its relative
-    norms are left out; its deviation from zero stays in the absolute ones.
+    norms are left out; its deviation from zero stays in the absolute ones. So
+    are they where the norm of its analytical solution, the absolute norm over
+    the relative one, is the rounding of the eigenvectors of the wave, below
+    1e-8 of the largest of the quantities of its kind, the velocities (the
+    indices `velocities`) or the stresses and pressures: the memory variables
+    of an anelastic material, and the fluid of a porous one, leave such
+    rounding in components that the waves of an elastic solid leave zero.
     """
     norms = {}
     with path.open(encoding="utf-8", newline="") as stream:
@@ -562,17 +580,36 @@ def read_analysis(path):
             if math.isfinite(value)
             or not math.isfinite(absolute.get(variable, math.nan))
         }
+        # the norms of the analytical solution, by the kind of the quantity
+        analytical = {
+            variable: absolute[variable] / value
+            for variable, value in norms[norm].items()
+            if variable in absolute and math.isfinite(value) and value > 0.0
+        }
+
+        def kind(variable):
+            return int(variable.split("[")[0]) in velocities
+
+        largest = {}
+        for variable, value in analytical.items():
+            largest[kind(variable)] = max(largest.get(kind(variable), 0.0), value)
+        norms[norm] = {
+            variable: value
+            for variable, value in norms[norm].items()
+            if variable not in analytical
+            or analytical[variable] > 1e-8 * largest[kind(variable)]
+        }
     return norms
 
 
-def check_analysis(work, prefix, thresholds_file, key, record):
+def check_analysis(work, prefix, thresholds_file, key, record, equations=None):
     """Judge the analytical error, or record it when no threshold is set."""
     path = work / f"{prefix}-analysis.csv"
     if not path.exists():
         return [
             "no analysis output; the initial condition has no analytical solution"
         ], {}
-    norms = read_analysis(path)
+    norms = read_analysis(path, ANALYSIS_VELOCITIES.get(equations, ()))
     observed = {norm: max(values.values()) for norm, values in norms.items() if values}
 
     table = json.loads(Path(thresholds_file).read_text(encoding="utf-8"))
@@ -1090,7 +1127,10 @@ def _command_run(args):
     # the configuration is a gap in the suite, reported as a skip
     substitutions = {key: str(value) for key, value in capabilities.items()}
     files = [name.format(**substitutions) for name in args.file]
-    overrides = [entry.format(**substitutions) for entry in args.set]
+    # what only a build with anelastic mechanisms reads comes first, so that a
+    # case may override it; elsewhere it is not even part of the inputs
+    anelastic = args.set_anelastic if int(capabilities.get("mechanisms", 0)) > 0 else []
+    overrides = [entry.format(**substitutions) for entry in anelastic + args.set]
     restart_overrides = [entry.format(**substitutions) for entry in args.restart_set]
     missing = [name for name in files if not (case_dir / name).exists()]
     if missing:
@@ -1373,7 +1413,7 @@ def _command_run(args):
         if capabilities["fused"] > 1:
             key += "/s{}".format(capabilities["fused"])
         analysis_problems, observed = check_analysis(
-            work, prefix, args.thresholds, key, args.record
+            work, prefix, args.thresholds, key, args.record, capabilities["equations"]
         )
         problems += analysis_problems
         result["analysis"] = observed
@@ -3136,6 +3176,14 @@ def main(argv=None):
     run.add_argument("--threads", type=int, default=1)
     run.add_argument("--steps", type=int)
     run.add_argument("--timestep", type=float)
+    run.add_argument(
+        "--set-anelastic",
+        action="append",
+        default=[],
+        metavar="SECTION.KEY=VALUE",
+        help="an override that only a build with anelastic mechanisms takes, "
+        "before those of --set",
+    )
     run.add_argument(
         "--lts",
         action="store_true",

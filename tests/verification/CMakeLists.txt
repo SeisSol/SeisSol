@@ -74,6 +74,15 @@ set(SEISSOL_SNAPSHOT_TOLERANCE_SINGLE 0 CACHE STRING
 # N * dt and the accumulated time exact; the runner insists on both.
 set(SEISSOL_MINITEST_TIMESTEP 6.103515625e-05)
 
+# The band of frequencies over which an anelastic build fits the quality
+# factors of its mechanisms (FreqCentral, FreqRatio): 5 to 500 Hz, about the
+# waves of the cases, whose wavelengths of tens of metres in a medium of some
+# kilometres per second make for tens of Hz. The stability bound of
+# docs/attenuation.rst on the step, a quarter of 1 / (FreqCentral
+# sqrt(FreqRatio)) = 0.5 ms, lies far above the step.
+set(SEISSOL_ANELASTIC_CENTRAL 50.0)
+set(SEISSOL_ANELASTIC_RATIO 100.0)
+
 # ---------------------------------------------------------------------------
 # What this build can do.
 #
@@ -363,6 +372,9 @@ function(seissol_add_minitest)
   if (MT_LTS)
     list(APPEND arguments --lts)
   endif()
+  # the band of frequencies an anelastic build fits its mechanisms to
+  list(APPEND arguments --set-anelastic "equations.FreqCentral=${SEISSOL_ANELASTIC_CENTRAL}"
+                        --set-anelastic "equations.FreqRatio=${SEISSOL_ANELASTIC_RATIO}")
   if (MT_EXPECT_FAILURE)
     list(APPEND arguments "--expect-failure=${MT_EXPECT_FAILURE}")
   endif()
