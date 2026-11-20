@@ -71,7 +71,7 @@ Checks:
   - -google-upgrade-googletest-case                                # noise: the tests use doctest, not GoogleTest
 
   # the other llvm checks target the LLVM API, are aliases, or enforce the LLVM header guards
-  # (SeisSol checks its guards with .ci/header.py)
+  # (SeisSol checks its guards with scripts/ci/header.py)
   - llvm-include-order
   - llvm-namespace-comment
 

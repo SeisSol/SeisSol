@@ -56,6 +56,12 @@ docs/_build/*
 
 # Python
 *.py[cod]
+# what scripts/ci/jobs/pytest.sh leaves in tests/python
+.coverage
+coverage.xml
+pytest-results.xml
+# the checkout of easi that the CI jobs build (scripts/ci/build-easi.sh)
+/easi/
 
 # Scons
 *.dblite

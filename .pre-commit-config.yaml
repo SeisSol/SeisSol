@@ -92,13 +92,13 @@ repos:
     hooks:
     -   id: check-filename
         language: system
-        entry: .ci/filename.py --fix src app tests
+        entry: scripts/ci/filename.py --fix src app tests
         pass_filenames: false
         name: '[C++] filename check'
     -   id: check-headers
         name: check header conformity
         language: system
-        entry: .ci/header.py --fix src app tests
+        entry: scripts/ci/header.py --fix src app tests
         pass_filenames: false
         name: '[C++] header check'
 

@@ -7,8 +7,8 @@
 
 # Cross-compiles with the GNU compilers of a target, named by its triplet in the environment
 # variable SEISSOL_CROSS_TRIPLET (e.g. riscv64-linux-gnu), against the libraries that
-# .ci/emulated/dependencies.sh builds into the prefix in SEISSOL_CROSS_PREFIX. The compilers are
-# <triplet>-gcc and <triplet>-g++, unless CC and CXX name others.
+# scripts/ci/emulated/dependencies.sh builds into the prefix in SEISSOL_CROSS_PREFIX. The compilers
+# are <triplet>-gcc and <triplet>-g++, unless CC and CXX name others.
 #
 # CMake reads this file again for each of its checks, which see the same environment.
 

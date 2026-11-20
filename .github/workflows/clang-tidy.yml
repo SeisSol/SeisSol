@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         # with the set ci-cpu, clang-tidy takes about three and a half times as long as with one
-        # configuration; four jobs share the translation units (TIDY_SHARD of .ci/tidy.sh)
+        # configuration; four jobs share the translation units (TIDY_SHARD of scripts/ci/tidy.sh)
         shard: [0, 1, 2, 3]
     steps:
       - name: apt-get
@@ -40,34 +40,37 @@ jobs:
           sudo apt-get -y install clang-23 clang-tidy-23 libomp-23-dev
 
           sudo pip3 install numpy --break-system-packages
+          sudo apt-get -y install ninja-build
           sudo mkdir -p /opt/dependencies
-
-      - name: checkout-easi
-        uses: actions/checkout@master
-        with:
-          repository: SeisSol/easi
-
-      - name: build-easi
-        run: |
-          mkdir build && cd build
-          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
-          make -j $(nproc) && make install
+          sudo chown "$(id -u):$(id -g)" /opt/dependencies
 
       - name: checkout-seissol
         uses: actions/checkout@v6
         with:
           repository: SeisSol/SeisSol
 
+      - name: checkout-easi
+        uses: actions/checkout@v6
+        with:
+          repository: SeisSol/easi
+          path: easi
+
+      - name: build-easi
+        run: scripts/ci/build-easi.sh easi /opt/dependencies
+
+      # (the steps of the job are in scripts/ci/jobs/tidy.sh, which runs them locally as well)
       - name: clang-tidy
-        run: |
-          set -euo pipefail
-          clang-tidy-23 --version
-          which clang-tidy-23
-          git submodule update --init
-          mkdir -p build && cd build
-          CMAKE_PREFIX_PATH=/opt/dependencies cmake -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DCONFIGS=ci-cpu -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DGRAPH_PARTITIONING_LIBS=ptscotch ..
-          make -j $(nproc) seissol-codegen
-          TIDY_SHARD=${{ matrix.shard }}/4 ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-23) -quiet -j $(nproc)
+        run: scripts/ci/jobs/tidy.sh cpu ${{ matrix.shard }}/4
+
+      # the findings, for a look without logging in to GitHub (see scripts/ci/status.py)
+      - name: upload-findings
+        uses: actions/upload-artifact@v7
+        if: ${{ failure() }}
+        with:
+          name: tidy-cpu-${{ matrix.shard }}
+          path: build/tidy-*.txt
+          if-no-files-found: ignore
+          retention-days: 14
 
   clang-tidy-gpu:
     name: clang-tidy-gpu (${{ matrix.shard }}/4)
@@ -99,13 +102,16 @@ jobs:
         with:
           submodules: recursive
 
+      # (the steps of the job are in scripts/ci/jobs/tidy.sh, which runs them locally as well)
       - name: clang-tidy
-        # a step in a container runs in sh by default, which has no pipefail
-        shell: bash
-        run: |
-          set -euo pipefail
-          clang-tidy-23 --version
-          mkdir -p build && cd build
-          CC=gcc CXX=g++ cmake .. -GNinja -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DASAGI=OFF -DHDF5=ON -DDEVICE_BACKEND=acpp -DDEVICE_ARCH=sm_75 -DDEVICE_CODEGEN=tensorforge -DCONFIGS=ci-gpu -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-          ninja seissol-codegen
-          TIDY_SHARD=${{ matrix.shard }}/4 ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-23) -quiet -j $(nproc)
+        run: scripts/ci/jobs/tidy.sh gpu ${{ matrix.shard }}/4
+
+      # the findings, for a look without logging in to GitHub (see scripts/ci/status.py)
+      - name: upload-findings
+        uses: actions/upload-artifact@v7
+        if: ${{ failure() }}
+        with:
+          name: tidy-gpu-${{ matrix.shard }}
+          path: build/tidy-*.txt
+          if-no-files-found: ignore
+          retention-days: 14
