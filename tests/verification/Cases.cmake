@@ -79,6 +79,13 @@ seissol_add_minitest(
     ACTIVITY "v1:1e-12"
     LABELS "smoke;plasticity")
 
+# A uniform stress beyond the yield relaxes towards it by exp(-dt / Tv) in every
+# step, which plasticity-relaxation holds to rounding, over eight relaxation
+# times and in a single step each
+seissol_add_plastic_relaxation(NAME plasticity-relaxation SET "equations.Tv=4.8828125e-04")
+seissol_add_plastic_relaxation(NAME plasticity-relaxation-instant STEPS 8
+                               SET "equations.Tv=7.62939453125e-06")
+
 # without a fault file, the rupture is off, and the faces of the fault are
 # faces as any other
 seissol_add_minitest(

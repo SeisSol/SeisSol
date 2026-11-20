@@ -3108,6 +3108,145 @@ def _command_exact(args):
     return 1 if problems else 0
 
 
+def plastic_relaxation(initial, cohesion, friction, relaxation, times):
+    """The stress that a uniform state, the initial stress `initial` (a dict
+    of s_xx to s_xz) of a Drucker-Prager material, adds to it at `times`,
+    under viscoplastic relaxation with the time `relaxation`, as the
+    receivers record it: without the initial stress.
+
+    The yield is tau_c = max(0, c cos(phi) - sigma_m sin(phi)), with
+    phi = atan(`friction`), the cohesion c and the mean stress sigma_m, and
+    tau = sqrt(J2) of the deviator s. Beyond it, the relaxation turns
+    tau - tau_c down by exp(-dt / T_v) in each step, along s, and leaves the
+    mean stress; as long as nothing else changes the stress, that is the
+    exponential decay at the end of every step. The volume receivers sample
+    at those ends."""
+    import numpy as np
+
+    names = ("xx", "yy", "zz", "xy", "yz", "xz")
+    tensor = np.zeros((3, 3))
+    for (i, j), name in zip(((0, 0), (1, 1), (2, 2), (0, 1), (1, 2), (0, 2)), names):
+        tensor[i, j] = tensor[j, i] = float(initial.get(f"s_{name}", 0.0))
+    mean = np.trace(tensor) / 3.0
+    deviator = tensor - mean * np.eye(3)
+    tau = math.sqrt(0.5 * np.sum(deviator * deviator))
+    angle = math.atan(friction)
+    limit = max(0.0, cohesion * math.cos(angle) - mean * math.sin(angle))
+    times = np.asarray(times, dtype=float)
+    if tau <= limit:
+        return np.zeros((times.size, 3, 3)), tau, limit
+    drop = (1.0 - limit / tau) * -np.expm1(-times / relaxation)
+    return -drop[:, None, None] * deviator[None, :, :], tau, limit
+
+
+def _command_plastic(args):
+    """Hold a uniform state that yields against its exact relaxation (see
+    plastic_relaxation)."""
+    import fault1d
+    import numpy as np
+
+    result = {"name": f"exact-{args.name}"}
+    case_path = Path(args.case_result)
+    case = (
+        json.loads(case_path.read_text(encoding="utf-8"))
+        if case_path.exists()
+        else None
+    )
+    if case is None or case["status"] != "run":
+        result["status"] = "skipped"
+        result["reason"] = [
+            "the case was skipped" if case else "the case left no result behind"
+        ]
+        record(args.result, result)
+        print(f"skipped: {result['reason'][0]}")
+        return SKIP_RETURN_CODE
+    if case.get("problems"):
+        print(
+            "error: the case itself failed; there is nothing to compare",
+            file=sys.stderr,
+        )
+        return 1
+
+    work = Path(args.work)
+    parameters = ParameterFile((work / "parameters.par").read_text(encoding="utf-8"))
+    name = parameters.get("equations", "PlasticityFileName") or parameters.get(
+        "equations", "MaterialFileName"
+    )
+    maps = fault1d.read_constant_maps(work / name)
+    values = dict(maps.get(None, {}))
+    values.update(maps.get(1, {}))
+    relaxation = float(parameters.get("equations", "Tv"))
+    materials = fault1d.read_constant_maps(
+        work / parameters.get("equations", "MaterialFileName")
+    )
+    medium = dict(materials.get(None, {}))
+    medium.update(materials.get(1, {}))
+    impedance = math.sqrt(float(medium["rho"]) * float(medium["mu"]))
+    prefix = Path(parameters.get("Output", "OutputFile") or "output/out")
+    paths = sorted((work / prefix.parent).glob(f"{prefix.name}-receiver-*.dat"))
+    if not paths:
+        raise SystemExit("the case wrote no receivers")
+
+    capabilities = case["capabilities"]
+    tolerance = (
+        args.tolerance_single
+        if capabilities.get("precision") == "single"
+        else args.tolerance_double
+    )
+    pairs = (
+        (0, 0, "xx"),
+        (1, 1, "yy"),
+        (2, 2, "zz"),
+        (0, 1, "xy"),
+        (1, 2, "yz"),
+        (0, 2, "xz"),
+    )
+    worst = {"stress": 0.0, "velocity": 0.0}
+    for path in paths:
+        names, rows = read_receiver(path)
+        rows = np.array(rows)
+        expected, tau, limit = plastic_relaxation(
+            values,
+            float(values["plastCo"]),
+            float(values["bulkFriction"]),
+            relaxation,
+            rows[:, names.index("Time")],
+        )
+        scale = tau - limit
+        if scale <= 0.0:
+            raise SystemExit(
+                f"the initial stress does not yield: tau {tau:.6g}, tau_c {limit:.6g}"
+            )
+        for i, j, component in pairs:
+            recorded = rows[:, names.index(f"s_{component}")]
+            worst["stress"] = _larger(
+                worst["stress"],
+                float(np.max(np.abs(recorded - expected[:, i, j]))) / scale,
+            )
+        for component in ("v1", "v2", "v3"):
+            # a uniform state stays at rest; the velocity is held against the one
+            # that a shear wave would carry of the stress the relaxation releases
+            recorded = rows[:, names.index(component)]
+            worst["velocity"] = _larger(
+                worst["velocity"], float(np.max(np.abs(recorded))) * impedance / scale
+            )
+    print(
+        "deviations from the exact relaxation, relative to tau - tau_c: "
+        + ", ".join(f"{key}={value:.3g}" for key, value in sorted(worst.items()))
+    )
+    problems = []
+    for key, value in sorted(worst.items()):
+        if not value <= tolerance:
+            problems.append(f"the {key} deviates by {value:.3g}, above {tolerance:.3g}")
+    result["status"] = "run"
+    result["deviations"] = worst
+    result["problems"] = problems
+    record(args.result, result)
+    for problem in problems:
+        print(f"error: {problem}", file=sys.stderr)
+    return 1 if problems else 0
+
+
 def _command_coverage(args):
     """Check that every declared case was run somewhere, not just skipped."""
     declared = json.loads(Path(args.declared).read_text(encoding="utf-8"))
@@ -3378,6 +3517,17 @@ def main(argv=None):
     )
     exact.add_argument("--result")
     exact.set_defaults(func=_command_exact)
+
+    plastic = commands.add_parser(
+        "plastic", help="hold a uniform state that yields against its exact relaxation"
+    )
+    plastic.add_argument("--name", required=True)
+    plastic.add_argument("--case-result", required=True)
+    plastic.add_argument("--work", required=True)
+    plastic.add_argument("--result")
+    plastic.add_argument("--tolerance-double", type=float, required=True)
+    plastic.add_argument("--tolerance-single", type=float, required=True)
+    plastic.set_defaults(func=_command_plastic)
 
     coverage = commands.add_parser(
         "coverage", help="account for declared versus run cases"

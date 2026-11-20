@@ -14,7 +14,7 @@ generates itself (``minimesh.py``), in each configuration of the executable
 that ``SEISSOL_VERIFICATION_CONFIGS`` names (see :doc:`build-parameters`), and
 holds the runs against exact solutions, against each other and against stored
 references. This page describes how to run the suite, which runs it holds
-against each other, and its cases of materials;
+against each other, and its cases of materials and plasticity;
 :doc:`verification-exact-solutions` describes those of dynamic rupture.
 
 Running the suite
@@ -23,7 +23,7 @@ Running the suite
 The cases are tests of a build with ``TESTING=ON``, named after their
 configuration, as ``verification.smoke-box48<elastic-o6-f64>``, with labels by
 what they hold: ``ctest -L verification`` runs all of them, ``ctest -L dr``,
-``-L exact`` or ``-L identity`` a part of them, and
+``-L exact``, ``-L identity`` or ``-L plasticity`` a part of them, and
 ``ctest -LE spectral`` leaves out the cases that take minutes each.
 
 Identities
@@ -70,8 +70,8 @@ The differences of the receivers are relative to the largest value of their
 column, as a value that passes through zero, as the shear stress of a wave
 does, would magnify a difference by rounding beyond any bound.
 
-Materials
----------
+Materials and plasticity
+------------------------
 
 The convergence cases start a planar wave (:doc:`initial-condition`) on
 periodic meshes and hold the solution against the exact one, to the
@@ -87,3 +87,10 @@ frequencies of that operator against the theory of the material: the phase
 velocity and the quality factor of the P and the S waves of a viscoelastic
 material, and the roots of Biot's dispersion relation for the fast and the slow
 P wave and the S wave of a poroelastic one, below and above Biot's frequency.
+
+``plasticity-relaxation`` starts from a uniform stress beyond the yield of a
+Drucker-Prager material (``plasticity-overstress.yaml``) on a periodic mesh,
+where nothing sends out a wave: the stress relaxes towards the yield, by
+:math:`\exp(-\Delta t / T_v)` in each step, as ``run_case.py plastic``
+computes in closed form, to rounding; ``plasticity-relaxation-instant``
+relaxes within a step.

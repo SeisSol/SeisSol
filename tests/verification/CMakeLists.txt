@@ -626,6 +626,51 @@ function(seissol_add_rupture)
 endfunction()
 
 # ---------------------------------------------------------------------------
+# seissol_add_plastic_relaxation(NAME <name> [STEPS n] [SET ...] [LABELS ...])
+#
+# A uniform initial stress beyond the yield of its Drucker-Prager material
+# (cases/plasticity-overstress.yaml) on periodic162, which has no boundary to
+# send out a wave from: the stress relaxes towards the yield uniformly, as
+# run_case.py plastic computes it in closed form, which holds the volume
+# receivers to rounding.
+# ---------------------------------------------------------------------------
+
+function(seissol_add_plastic_relaxation)
+  cmake_parse_arguments(PR "" "NAME;STEPS" "SET;LABELS" ${ARGN})
+  if (NOT PR_STEPS)
+    set(PR_STEPS 64)
+  endif()
+  seissol_add_minitest(
+      NAME ${PR_NAME}
+      MESH periodic162
+      PARAMETERS wave.par
+      STEPS ${PR_STEPS}
+      REQUIRE equations=elastic
+      SET "IniCondition.cICType='Zero'" "equations.Plasticity=1"
+          "equations.PlasticityFileName='plasticity-overstress.yaml'" ${PR_SET}
+      FILES plasticity-overstress.yaml
+      ACTIVITY "s_xy:1e5"
+      NO_SNAPSHOT
+      LABELS "plasticity;exact;${PR_LABELS}")
+  add_test(NAME verification.exact.${PR_NAME}${SEISSOL_VERIFICATION_SUFFIX}
+           COMMAND ${Python3_EXECUTABLE}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/run_case.py plastic
+                   --name ${PR_NAME}
+                   --case-result ${SEISSOL_VERIFICATION_DIR}/results/${PR_NAME}.json
+                   --work ${SEISSOL_VERIFICATION_DIR}/work/${PR_NAME}
+                   --tolerance-double 1e-10
+                   --tolerance-single 1e-4
+                   --result ${SEISSOL_VERIFICATION_DIR}/results/exact-${PR_NAME}.json)
+  set_tests_properties(verification.exact.${PR_NAME}${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
+      SKIP_RETURN_CODE 77
+      FIXTURES_REQUIRED "case.${SEISSOL_VERIFICATION_CONFIG}.${PR_NAME};verification"
+      TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
+      LABELS "verification;plasticity;exact;${PR_LABELS}")
+  set_property(GLOBAL APPEND_STRING PROPERTY SEISSOL_DECLARED_CASES
+      "    {\"name\": \"exact-${PR_NAME}\", \"mesh\": \"periodic162\", \"requires\": []},\n")
+endfunction()
+
+# ---------------------------------------------------------------------------
 # seissol_add_fault1d(NAME <name> FL <law> FAULT <file> [MESH mesh] [STEPS n]
 #                     [MATERIAL file] [REQUIRE capability ...] [LTS]
 #                     [FILES file ...] [SET ...] [LABELS label ...])
