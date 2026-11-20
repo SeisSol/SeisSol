@@ -13,6 +13,22 @@ To keep up-to-date with changes in compute-centers and geoscientists' needs, bre
 
 All breaking changes for version 0.9.0 and later are listed here.
 
+The plastic strain
+~~~~~~~~~~~~~~~~~~
+(since the plastic strain takes the stress that the relaxation releases)
+
+The plastic strain, in the wave field output and in checkpoints, and the accumulated plastic strain
+:math:`\eta` with the plastic moment of the energy output, grow in a time step by the stress that the
+plastic relaxation of the step releases, over :math:`2\mu`. They used to grow by the rate of the
+plastic strain at the start of the relaxation times the time step, which exceeds that by the factor
+:math:`(\Delta t / T_v) / (1 - \exp(-\Delta t / T_v))`: by half a per cent for
+:math:`\Delta t / T_v = 0.01`, by 6 per cent for 0.125 and eightfold for 8; with :math:`T_v = 0`, the
+plastic strain was not a number. :math:`\eta` grows by
+:math:`\sqrt{\tfrac{1}{2} \Delta\epsilon^p_{ij} \Delta\epsilon^p_{ij}}` over all nine components of
+the tensor, as its definition has it (Wollherr et al., 2018), where it used to count each shear
+component once instead of twice: in pure shear, :math:`\eta` and the plastic moment came out
+:math:`1/\sqrt{2}` of what they are now. The stress, and with it the wave field, stays as it was.
+
 The samples of the on-fault receivers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the on-fault receivers sample at fixed times within the time steps)
