@@ -56,9 +56,9 @@ template <typename Cfg>
 TriangleQuadratureData<Cfg> generateTriangleQuadrature();
 
 /// Assigns to the receiver the quadrature point of its face, of the configuration `Cfg`, that is
-/// nearest to it.
+/// nearest to it in space, where `transform` maps the reference cell of the receiver to its cell.
 template <typename Cfg>
-void assignNearestGaussianPoint(Receiver& geoPoint);
+void assignNearestGaussianPoint(Receiver& geoPoint, const geometry::CellTransform& transform);
 
 int getClosestInternalStroudGp(int nearestGpIndex, int nPoly);
 

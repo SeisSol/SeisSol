@@ -34,10 +34,13 @@ of the cases on ``fault2d-periodic`` needs ``scipy``; without it, these cases
 are skipped, their runs as well as their comparisons. The cases run in the
 configurations of the elastic and the anisotropic equations, the latter with an
 anisotropic material that is isotropic in effect, and with media with tilted
-axes of their own. With fused simulations, each simulation runs the case, and
+axes of their own; those on ``fault1d-long`` run in the configurations of
+the viscoelastic and the poroelastic equations, and, with plasticity, of the
+elastic ones. With fused simulations, each
+simulation runs the case, and
 each is compared. The cases on ``fault2d-periodic``, which take minutes each,
-run in double precision without fused simulations only, and carry the label
-``spectral`` as well; ``ctest -LE spectral`` leaves them out.
+run in double precision, in order 6, without fused simulations only, and carry
+the label ``spectral`` as well; ``ctest -LE spectral`` leaves them out.
 
 ``fault1d.py self-test`` and ``antiplane.py self-test``
 (``verification.fault1d.self-test`` and ``verification.antiplane.self-test``)
@@ -75,6 +78,46 @@ The meshes
    inclined. A spontaneous rupture runs out on it from a nucleation along
    :math:`y`.
 
+``fault2d-surface``
+   The half :math:`y > 0` of ``fault2d-periodic``, with free surfaces at
+   :math:`y = 0` and :math:`y = 400` m in place of the period. An antiplane
+   rupture that nucleates about :math:`y = 0` is even in :math:`y` on
+   ``fault2d-periodic``, so that both planes carry no shear traction there, as
+   free surfaces do: the rupture breaks the surface, and the spectral method
+   takes the mirrored mesh.
+
+``fault1d-dip60``, ``fault1d-dip30``, ``fault1d-flat``
+   ``fault1d`` turned in space, for a fault that dips by 60 or 30 degrees and
+   a horizontal one, none of which strikes along an axis, and whose lattice
+   runs along neither its strike nor its dip. The runner turns the receivers,
+   the reference point and the stresses of the fault with the mesh, and the
+   exact solution the waves it predicts; the fault receivers report along the
+   strike and the dip of the turned fault, which on the horizontal one are
+   those of :doc:`left-lateral-right-lateral-normal-reverse`.
+
+``fault1d-long``, ``fault1d-long-bimaterial``
+   ``fault1d`` drawn out to 400 m across the fault, for anelastic and porous
+   media, and for plasticity without a yield. The outflow planes absorb the
+   shear wave of the unrelaxed impedance :math:`Z_U`, and reflect
+   :math:`(Z_U - Z) / (Z_U + Z)` of one whose impedance relaxes to :math:`Z`:
+   3 to 6 per cent below 50 Hz with the quality factors of the cases, 2.5 per
+   cent below the frequency of Biot in their porous medium, and nearly all of
+   what arrives well below :math:`1 / T_v` under plasticity, whose impedance
+   relaxes to zero. Six cells on either side keep what they reflect away from
+   the fault and the receivers for the time of the cases.
+
+``fault1d-lts``
+   ``fault1d`` with thin cells along the fault, whose time step is less than
+   half that of the cells beyond: local time stepping at the rate 2 puts the
+   fault in a cluster of its own, and its waves cross into the next cluster,
+   of the volume receivers.
+
+``fault1d-relabel``, ``fault2d-periodic-relabel``
+   The meshes with their vertices numbered at random, which puts their fault
+   faces on 11 and on all 14 pairs of the faces of their cells (see
+   :doc:`verification-suite`). With a quadrature rule on the faces that is not
+   fully symmetric, the points of a face lie elsewhere as well.
+
 The exact solutions
 -------------------
 
@@ -89,6 +132,41 @@ The exact solutions
    without, and the imposed slip rates FL=33 and 34. The friction laws follow
    :doc:`dynamic-rupture` and :doc:`slip-rate-on-dr` and the publications they
    point to, not the code they are meant to check.
+
+   In an anelastic medium (:doc:`attenuation`), the shear modulus relaxes as
+   :math:`M(s) = \mu_U (1 - \sum_l Y_l \omega_l / (s + \omega_l))` for the
+   Laplace variable :math:`s`, with the mechanisms fitted to the quality
+   factors as Emmerich and Korn (1987) fit them, and so does the impedance
+   :math:`Z(s) = \sqrt{\rho M(s)}`. The fault takes :math:`\eta` of the
+   unrelaxed media at once and the rest as a convolution with the slip rate,
+   whose kernel, analytic but on cuts along the negative real axis, a
+   quadrature on the cuts takes to a sum of exponentials that the integration
+   carries along. The waves disperse on their way to the receivers: their
+   propagator is a front at the unrelaxed speed, damped, and a tail, which an
+   inversion on Talbot's contour samples.
+
+   In a porous medium, as SeisSol poses Biot's equations, the pore fluid,
+   which a shear wave first leaves behind, follows the skeleton as Darcy's
+   friction drags it along: the density the wave moves relaxes from
+   :math:`\bar\rho - \rho_f^2 / m`, :math:`m = T \rho_f / \phi` with the
+   tortuosity :math:`T` and the porosity :math:`\phi`, to the density
+   :math:`\bar\rho` of the mixture as :math:`\rho(s) = \bar\rho - \rho_f^2 s
+   / (m s + \nu / \kappa)`, with the viscosity :math:`\nu` and the
+   permeability :math:`\kappa` of Darcy's friction, and the impedance
+   :math:`Z(s) = \sqrt{\mu \rho(s)}` with it,
+   which the same quadrature and inversion take. The integration takes steps
+   that resolve the frequency of Biot.
+
+   Under plasticity whose Drucker-Prager parameters have no cohesion, friction
+   or initial stress, the yield is zero, and every deviatoric stress relaxes
+   towards zero with the time :math:`T_v` (Wollherr et al., 2018), as in a
+   Maxwell body: the shear modulus relaxes as :math:`\mu s / (s + 1 / T_v)`,
+   the anelastic one of a single mechanism with the coefficient 1, to zero,
+   and the same quadrature and inversion take its impedance. SeisSol splits
+   each step into an elastic one and the relaxation, which leaves its
+   stresses by about :math:`\Delta t / (2 T_v)` from those of the Maxwell
+   body; a yield that is not zero makes the relaxation nonlinear, and has no
+   exact solution here.
 
 ``fault1d.Front``
    A forced rupture front that runs faster than the shear waves outruns all it
@@ -116,8 +194,29 @@ The cases
 ---------
 
 On ``fault1d``, the cases cover every friction law above, each with an exact
-solution of its own, in isotropic and in anisotropic media; on ``fault2d``,
-``fault2d-supershear`` holds a forced supershear front. On
+solution of its own, in isotropic and in anisotropic media. Variants of them
+hold what a production run does differently from a fault along an axis:
+
+====================================================== =========================================================
+Case                                                   What it adds
+====================================================== =========================================================
+``fault1d-lsw-oblique-*``                              a turned fault (``fault1d-dip60``, ``-dip30``, ``-flat``)
+``fault1d-rs-fvw-tp-dip30``                            rate and state with thermal pressurization on it
+``fault1d-lsw-traction``, ``-traction-*``              the stresses as tractions along the strike and the dip
+``fault1d-lsw-lts``, ``fault1d-rs-fvw-tp-lts``         local time stepping (``fault1d-lts``)
+``fault1d-lsw-relabel``, ``fault1d-rs-fvw-tp-relabel`` other faces of the cells (``fault1d-relabel``)
+``fault1d-viscoelastic-*``                             anelastic media (``fault1d-long``): slip weakening,
+                                                       two media with the Prakash-Clifton regularization, rate
+                                                       and state with thermal pressurization, an imposed slip
+                                                       rate
+``fault1d-poroelastic-*``                              porous media (``fault1d-long``), the same, with the
+                                                       frequency of Biot within the band of the rupture, and
+                                                       slip weakening with it at 17 kHz (``-stiff``)
+``fault1d-plastic-*``                                  plasticity without a yield (``fault1d-long``), with
+                                                       :math:`T_v` = 1/16 s: slip weakening and rate and state
+====================================================== =========================================================
+
+On ``fault2d``, ``fault2d-supershear`` holds a forced supershear front. On
 ``fault2d-periodic``:
 
 =========================================== ====== ==========================================
@@ -132,6 +231,8 @@ Case                                        FL     What it adds
 ``fault2d-antiplane-imposed-*``             33, 34 an imposed slip that runs out along y
 ``fault2d-inplane``                         16     a spontaneous in-plane rupture
 ``fault2d-inplane-supershear``              16     its transition to supershear
+``fault2d-antiplane-relabel``               16     other faces of the cells
+``fault2d-antiplane-surface``               16     a rupture that breaks a free surface
 =========================================== ====== ==========================================
 
 The imposed slip rate FL=35 imposes all of the slip within the sub-step of the
@@ -174,6 +275,51 @@ fault faster than shear waves, and sends out a jump of the field, which the
 method resolves only over the time the healing takes through a cell; the volume
 receivers are compared up to the time the fault first heals.
 
+The rupture velocity of a fault receiver (``Vr``) is the speed of the front
+over its face, from the gradient of the rupture times of the Gauss points of
+the face, once all of them have ruptured. It is compared with the speed of a
+forced front, and on ``fault2d-periodic`` with the slope of the rupture time of
+the spectral method, but where the front is faster than the fastest wave, as
+where the rupture nucleates: the fault fails there all at once, and the
+gradient of the rupture times is rounding.
+
+On ``fault1d``, the cases compare the elementwise output as well, on faces
+split in four, under the names of the quantities of the receivers prefixed
+with ``elementwise-``. It takes its values from the degrees of freedom at the
+end of a step, where the receivers take them from the expansion of the step in
+time, so that the two are not the same, yet both close to the exact solution.
+The energy output (:doc:`energy-output`) is compared there too, prefixed with
+``energy-``: the fault slips uniformly over its area :math:`A`, and sends out
+the traction :math:`-H V` of the radiation damping of its slip rate :math:`V`,
+which the energy output takes, rather than the stress the fault is loaded
+with. The potency is :math:`A` times the accumulated slip, the seismic moment
+that times the harmonic mean of the shear moduli of the two sides along the
+slip, the total frictional work the integral of :math:`A V \cdot H V` over
+time, the static frictional work :math:`A V \cdot H u / 2` with the slip
+:math:`u`; the kinetic and the strain energy, and the momentum, are those of
+the waves within the column, which leave it through its ends. The momentum is
+compared relative to the integral of :math:`\rho |v|`, as the momenta of the
+two sides cancel where their media are alike.
+
+In media that relax, the traction of the waves is :math:`-\eta V - g * V`,
+which the frictional work takes, and the energies of the volume follow from
+the propagators of the strain, the strains of the springs of the mechanisms
+and the velocity of the pore fluid, which multiply the one of the velocity
+(see ``fault1d.Problem.relaxing_fields``): an anelastic medium stores
+:math:`2 \mu_r \epsilon^2` in its relaxed stiffness, with the tensor
+components :math:`\epsilon` of the shear strain, and :math:`2 \mu_U Y_l
+e_l^2` in the spring of each mechanism, whose dashpot dissipates
+:math:`4 \omega_l \mu_U Y_l e_l^2` (:doc:`energy-output`); a porous medium
+moves the kinetic energy :math:`(\bar\rho v^2 + 2 \rho_f v w + m w^2) / 2`
+with the velocity :math:`w` of the fluid relative to the skeleton, and
+Darcy's friction dissipates :math:`\nu / \kappa\, w^2`; under plasticity
+without a yield, the stress turns into plastic strain at the rate
+:math:`\sigma / (2 \mu T_v)`, whose magnitude :math:`\eta` accumulates, and
+whose integral :math:`\mu \eta` is the plastic moment. The energies of the
+volume are compared until the first front reaches an end of the column: the
+outflow planes reflect what has relaxed, which the column holds from then
+on.
+
 Thresholds
 ----------
 
@@ -181,9 +327,9 @@ Thresholds
 case, quantity and key ``case/equations/o<order>/<precision>``. A key without
 thresholds passes, and prints the deviations. The thresholds are 1.5 times the
 largest deviation over the configurations of the key, rounded up to two digits,
-and no less than a millionth for the direction and the peak slip rate, which
-may deviate by no more than the rounding: they catch a change of the numerics,
-not only a gross error. On ``fault2d-periodic``, the four builds of order 6,
+and no less than a millionth for the direction, the peak slip rate and the
+momentum, which may deviate by no more than the rounding, and than a billionth
+for the others: they catch a change of the numerics, not only a gross error. On ``fault2d-periodic``, the four builds of order 6,
 elastic and anisotropic, in double and in single precision, deviated alike when
 the thresholds were taken, to a few per cent where the deviations exceed the
 rounding; the two builds in double precision, which run these cases, share the

@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# The Drucker-Prager parameters of material-plastic.yaml under an initial
+# stress beyond their yield: with the mean stress of -10 MPa and the friction
+# angle atan(0.6), the yield is tau_c = c cos(phi) - sigma_m sin(phi), some
+# 6.0 MPa, which the shear stress of 8 MPa, tau = sqrt(J2), exceeds.
+!Any
+components:
+  - !GroupFilter
+    groups: 1
+    components: !ConstantMap
+      map:
+        bulkFriction: 0.6
+        plastCo:      1.0e6
+        s_xx:         -1.0e7
+        s_yy:         -1.0e7
+        s_zz:         -1.0e7
+        s_xy:         8.0e6
+        s_yz:         0.0
+        s_xz:         0.0
