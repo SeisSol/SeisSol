@@ -7,6 +7,7 @@
 
 #include "Config.h"
 #include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Descriptor/Plasticity.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalKey.h"
@@ -25,7 +26,7 @@ void PlasticityRecorder<Cfg>::record(LTS::Layer& layer) {
   setUpContext(layer);
 
   real* qStressNodalScratch = static_cast<real*>(
-      currentLayer_->var<LTS::QStressNodalScratch>(Cfg(), AllocationPlace::Device));
+      currentLayer_->var<LTSPlasticity::QStressNodalScratch>(Cfg(), AllocationPlace::Device));
   const auto size = currentLayer_->size();
 
   std::size_t psize = 0;
@@ -42,7 +43,7 @@ void PlasticityRecorder<Cfg>::record(LTS::Layer& layer) {
     std::vector<real*> pstrainsPtrs(psize, nullptr);
     std::vector<real*> initialLoadPtrs(psize, nullptr);
     std::vector<real*> qStressNodalPtrs(psize, nullptr);
-    // the layer index of each plastic cell, for the per-cell LTS::Plasticity data
+    // the layer index of each plastic cell, for the per-cell LTSPlasticity::Plasticity data
     std::vector<unsigned> cellIndices(psize, 0);
 
     std::size_t pcell = 0;
@@ -52,9 +53,9 @@ void PlasticityRecorder<Cfg>::record(LTS::Layer& layer) {
 
       if (dataHost.template get<LTS::CellInformation>().plasticityEnabled) {
         dofsPtrs[pcell] = static_cast<real*>(data.template get<LTS::Dofs>());
-        pstrainsPtrs[pcell] = static_cast<real*>(data.template get<LTS::PStrain>());
+        pstrainsPtrs[pcell] = static_cast<real*>(data.template get<LTSPlasticity::PStrain>());
         initialLoadPtrs[pcell] =
-            static_cast<real*>(data.template get<LTS::Plasticity>().initialLoading);
+            static_cast<real*>(data.template get<LTSPlasticity::Plasticity>().initialLoading);
         qStressNodalPtrs[pcell] = qStressNodalScratch + pcell * tensor::QStressNodal<Cfg>::size();
         cellIndices[pcell] = static_cast<unsigned>(cell);
         ++pcell;

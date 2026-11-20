@@ -15,6 +15,7 @@
 #include "Core/Geometry/MeshReader.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Descriptor/Plasticity.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Tree/Colormap.h"
 #include "Core/Memory/Tree/LTSTree.h"
@@ -222,6 +223,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   auto& ltsStorage = seissolInstance.memoryManager().ltsStorage();
   auto& backmap = seissolInstance.memoryManager().backmap();
   LTS::addTo(ltsStorage, settings);
+  LTSPlasticity::addTo(ltsStorage, settings.plasticity);
   ltsStorage.setName("cluster");
   ltsStorage.setLayerCount(colorMap);
   // for the outputs on a thread of their own, which read the data while the device goes on

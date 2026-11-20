@@ -12,6 +12,7 @@
 #include "Core/Common/ConfigValue.h"
 #include "Core/Common/Constants.h"
 #include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Descriptor/Plasticity.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Tree/LTSTree.h"
 #include "Core/Memory/Tree/Layer.h"
@@ -201,7 +202,8 @@ void initializeCellMaterialOfConfig(
       }
     } else {
       auto* materialArray = layer.var<LTS::Material>();
-      auto* plasticityArray = withPlasticity ? layer.var<LTS::Plasticity>(Cfg()) : nullptr;
+      auto* plasticityArray =
+          withPlasticity ? layer.var<LTSPlasticity::Plasticity>(Cfg()) : nullptr;
       auto* energyDataArray = layer.var<LTS::EnergyData>(Cfg());
 
 #pragma omp parallel for schedule(static)

@@ -15,6 +15,7 @@
 #include "Core/Common/Constants.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Descriptor/Plasticity.h"
 #include "Core/Memory/GlobalData.h"
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Memory/Tree/Colormap.h"
@@ -181,6 +182,7 @@ void ProxyDataImpl<Cfg>::initDataStructures(bool enableDR) {
   const auto nullSettings =
       SimulationSettings(false, false, Cfg::NumSimulations, Cfg::NumSimulations);
   LTS::addTo(ltsStorage, nullSettings);
+  LTSPlasticity::addTo(ltsStorage, nullSettings.plasticity);
   ltsStorage.setLayerCount(map);
   ltsStorage.fixate();
 

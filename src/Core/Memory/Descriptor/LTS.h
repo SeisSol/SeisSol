@@ -23,7 +23,6 @@
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
-#include "Model/Plasticity.h"
 #include "Solver/Settings.h"
 
 #include <cstdint>
@@ -105,9 +104,6 @@ struct LTS {
   template <typename Cfg>
   using DofsAneArray = Real<Cfg>[zeroGuard(kernels::size<tensor::Qane<Cfg>>())];
   template <typename Cfg>
-  using PStrainArray =
-      Real<Cfg>[tensor::QStressNodal<Cfg>::size() + tensor::QEtaNodal<Cfg>::size()];
-  template <typename Cfg>
   using RealPtr = Real<Cfg>*;
   template <typename Cfg>
   using FaceRealPtrs = std::array<Real<Cfg>*, Cell::NumFaces>;
@@ -141,10 +137,8 @@ struct LTS {
   struct CouplingMatrices : public initializer::VariantBucket<Real> {};
   struct MaterialData : public initializer::VariantVariable<model::MaterialOf> {};
   struct Material : public initializer::Variable<CellMaterialData> {};
-  struct Plasticity : public initializer::VariantVariable<seissol::model::PlasticityData> {};
   struct DRMapping : public initializer::VariantVariable<FaceDRMappings> {};
   struct BoundaryMapping : public initializer::VariantVariable<FaceBoundaryMappings> {};
-  struct PStrain : public initializer::VariantVariable<PStrainArray> {};
   struct FaceDisplacements : public initializer::VariantVariable<FaceRealPtrs> {};
   struct Buffers : public initializer::VariantBucket<Real> {};
 
@@ -166,9 +160,6 @@ struct LTS {
   struct IDofsAneScratch : public initializer::VariantScratchpad<Real> {};
   struct DofsExtScratch : public initializer::VariantScratchpad<Real> {};
 
-  struct FlagScratch : public initializer::Scratchpad<unsigned> {};
-  struct QStressNodalScratch : public initializer::VariantScratchpad<Real> {};
-
   struct ZinvExtra : public initializer::VariantScratchpad<Real> {};
 
   // the time integrals of the neighbors of other configurations, in their configuration, in the
@@ -185,12 +176,6 @@ struct LTS {
 
   static void addTo(Storage& storage, const SimulationSettings& settings) {
     using namespace initializer;
-    LayerMask plasticityMask;
-    if (settings.plasticity) {
-      plasticityMask = LayerMask(Ghost);
-    } else {
-      plasticityMask = LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior);
-    }
     LayerMask integralMask;
     if (settings.integrate) {
       integralMask = LayerMask(Ghost);
@@ -235,14 +220,10 @@ struct LTS {
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::ConstantShared), true);
     storage.add<MaterialData>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<Material>(LayerMask(Ghost), Alignment, AllocationMode::HostOnly, true);
-    storage.add<Plasticity>(
-        plasticityMask, Alignment, allocationModeWP(AllocationPreset::Plasticity), true);
     storage.add<DRMapping>(
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::Constant), true);
     storage.add<BoundaryMapping>(
         LayerMask(Ghost), Alignment, allocationModeWP(AllocationPreset::Constant), true);
-    storage.add<PStrain>(
-        plasticityMask, PagesizeHeap, allocationModeWP(AllocationPreset::PlasticityData));
     storage.add<FaceDisplacements>(LayerMask(Ghost), PagesizeHeap, AllocationMode::HostOnly, true);
 
     // TODO(David): remove/rename "constant" flag (the data is temporary; and copying it for IO is
@@ -273,9 +254,6 @@ struct LTS {
       storage.add<NodalAvgDisplacements>(LayerMask(), Alignment, mode);
       storage.add<AnalyticScratch>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
 
-      storage.add<FlagScratch>(LayerMask(), Alignment, mode);
-      storage.add<QStressNodalScratch>(LayerMask(), Alignment, mode);
-
       storage.add<ZinvExtra>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
       storage.add<ConfigBoundaryScratch>(LayerMask(), Alignment, mode);
     }
@@ -291,10 +269,6 @@ struct LTS {
         manager.registerData<DofsAne>("dofsAne", storage);
       }
     });
-    // check plasticity usage over the layer mask (for now)
-    if (storage.info<Plasticity>().mask == initializer::LayerMask(Ghost)) {
-      manager.registerData<PStrain>("pstrain", storage);
-    }
     // the time integrals of the unknowns, if the output integrates them
     if (storage.info<Integrals>().mask == initializer::LayerMask(Ghost)) {
       manager.registerData<Integrals>("integrals", storage);

@@ -42,7 +42,6 @@ core-includes-feature Core/Kernels/BatchRecorders/Recorders.h Features/WavePropa
 core-includes-feature Core/Kernels/Touch.cpp Features/WavePropagation/Solver/SolverSelector.h
 core-includes-feature Core/Memory/Descriptor/DynamicRupture.h Features/DynamicRupture/Misc.h
 core-includes-feature Core/Memory/Descriptor/DynamicRupture.h Features/DynamicRupture/Typedefs.h
-core-includes-feature Core/Memory/Descriptor/LTS.h Features/Plasticity/Physics/Plasticity.h
 core-includes-feature Core/Memory/Descriptor/LTS.h Features/WavePropagation/Physics/Datastructures.h
 core-includes-feature Core/Memory/Typedefs.h Features/DynamicRupture/Misc.h
 core-includes-feature Core/Memory/Typedefs.h Features/WavePropagation/Physics/Datastructures.h
@@ -50,6 +49,7 @@ core-includes-feature Core/Memory/Typedefs.h Features/WavePropagation/Solver/Dat
 core-includes-feature Core/Memory/Typedefs.h Features/WavePropagation/Solver/SolverSelector.h
 core-includes-feature Core/TimeStepping/Clustering/Clustering.cpp Features/WavePropagation/Physics/Datastructures.h
 core-includes-feature Core/TimeStepping/Compute/CellCluster.cpp Features/Plasticity/Solver/Plasticity.h
+core-includes-feature Core/TimeStepping/Compute/CellCluster.cpp Features/Plasticity/Solver/Storage.h
 core-includes-feature Core/TimeStepping/Compute/CellCluster.cpp Features/SourceTerm/Solver/PointSourceCluster.h
 core-includes-feature Core/TimeStepping/Compute/CellCluster.cpp Features/WavePropagation/Output/Receiver.h
 core-includes-feature Core/TimeStepping/Compute/CellCluster.cpp Features/WavePropagation/Solver/Interface.h

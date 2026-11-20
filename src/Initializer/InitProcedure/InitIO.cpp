@@ -22,6 +22,7 @@
 #include "Core/IO/Writer/Writer.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Descriptor/Plasticity.h"
 #include "Core/Memory/Descriptor/Surface.h"
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Memory/Tree/Layer.h"
@@ -172,6 +173,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     }
     checkpoint.registerTree("lts", storage, globalIds);
     LTS::registerCheckpointVariables(checkpoint, storage, config);
+    LTSPlasticity::registerCheckpointVariables(checkpoint, storage);
   }
 
   {
@@ -545,7 +547,8 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
               namewrap(seissol::model::PlasticityData<Cfg>::Quantities[quantity], sim),
               [=](double* target, std::size_t index, std::size_t subcell) {
                 const auto position = backmap->get(cells->at(index), copy);
-                const auto* dofsAllQuantities = ltsStorage->lookup<LTS::PStrain>(Cfg(), position);
+                const auto* dofsAllQuantities =
+                    ltsStorage->lookup<LTSPlasticity::PStrain>(Cfg(), position);
                 const auto* pointsSingleQuantity = dofsAllQuantities + QDofPointsPadded * quantity;
                 runtime::kernel::projectNodalToVtkVolume vtkproj{};
                 memory::AlignedArray<real, Cfg::NumSimulations> simselect{};
@@ -664,7 +667,7 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   schedWriter.hostData = {};
   schedWriter.hostData.add<LTS::Dofs>(memoryManager.ltsStorage())
       .add<LTS::Integrals>(memoryManager.ltsStorage())
-      .add<LTS::PStrain>(memoryManager.ltsStorage());
+      .add<LTSPlasticity::PStrain>(memoryManager.ltsStorage());
   auto writer = io::instance::geometry::GeometryWriter(
       "wavefield",
       cells->size(),

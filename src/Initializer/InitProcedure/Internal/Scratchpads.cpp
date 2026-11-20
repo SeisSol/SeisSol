@@ -12,6 +12,7 @@
 #include "Core/Common/Typedefs.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Descriptor/Plasticity.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
@@ -125,9 +126,9 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
   layer.setEntrySize<LTS::ConfigBoundaryScratch>(configBoundaryBytes);
 
   if (plasticity) {
-    layer.setEntrySize<LTS::FlagScratch>(numPlasticCells * sizeof(unsigned));
-    layer.setEntrySize<LTS::QStressNodalScratch>(numPlasticCells * tensor::QStressNodal<Cfg>::Size *
-                                                 sizeof(real));
+    layer.setEntrySize<LTSPlasticity::FlagScratch>(numPlasticCells * sizeof(unsigned));
+    layer.setEntrySize<LTSPlasticity::QStressNodalScratch>(
+        numPlasticCells * tensor::QStressNodal<Cfg>::Size * sizeof(real));
   }
 
   if constexpr (Cfg::Solver == SolverType::STP) {

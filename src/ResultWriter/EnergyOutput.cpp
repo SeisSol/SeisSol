@@ -16,6 +16,7 @@
 #include "Core/IO/Writer/File/RunFiles.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Descriptor/Plasticity.h"
 #include "Core/Memory/Descriptor/Surface.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Modules/Modules.h"
@@ -393,7 +394,7 @@ void addVolumeEnergies(const LTS::Layer& layer,
   const auto* faceDisplacementsData = layer.var<LTS::FaceDisplacements>(Cfg());
   const auto* materialData = layer.var<LTS::MaterialData>(Cfg());
   const auto* boundaryMappingData = layer.var<LTS::BoundaryMapping>(Cfg());
-  const auto* pstrainData = layer.var<LTS::PStrain>(Cfg());
+  const auto* pstrainData = layer.var<LTSPlasticity::PStrain>(Cfg());
   const auto* dofsData = layer.var<LTS::Dofs>(Cfg());
   const auto* energyData = layer.var<LTS::EnergyData>(Cfg());
   // only allocated for materials with anelastic variables
@@ -688,7 +689,7 @@ void EnergyOutput::init(
   auto& memoryManager = seissolInstance_.memoryManager();
   hostData_.add<LTS::Dofs>(memoryManager.ltsStorage())
       .add<LTS::DofsAne>(memoryManager.ltsStorage())
-      .add<LTS::PStrain>(memoryManager.ltsStorage())
+      .add<LTSPlasticity::PStrain>(memoryManager.ltsStorage())
       .add<DynamicRupture::DREnergyOutputVar>(memoryManager.drStorage())
       .add<SurfaceLTS::DisplacementDofs>(memoryManager.surfaceStorage());
 

@@ -207,6 +207,7 @@ LAYOUT = [
         "Initializer/BatchRecorders/PlasticityRecorder.cpp",
         f"{PL}/Solver/PlasticityRecorder.cpp",
     ),
+    ("Core/Memory/Descriptor/Plasticity.h", f"{PL}/Solver/Storage.h"),
     # point sources
     ("SourceTerm/", f"{ST}/Setup/"),
     ("SourceTerm/Typedefs.h", f"{ST}/Typedefs.h"),

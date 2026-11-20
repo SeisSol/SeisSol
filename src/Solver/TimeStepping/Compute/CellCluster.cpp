@@ -19,6 +19,7 @@
 #include "Core/Common/Executor.h"
 #include "Core/Common/Marker.h"
 #include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Descriptor/Plasticity.h"
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Monitoring/ActorStateStatistics.h"
@@ -481,10 +482,10 @@ void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
   if (settings_.plasticity) {
     const auto plasticityGraphKey =
         initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
-    auto* plasticity =
-        clusterData_->var<LTS::Plasticity>(Cfg(), seissol::initializer::AllocationPlace::Device);
-    auto* isAdjustableVector =
-        clusterData_->var<LTS::FlagScratch>(seissol::initializer::AllocationPlace::Device);
+    auto* plasticity = clusterData_->var<LTSPlasticity::Plasticity>(
+        Cfg(), seissol::initializer::AllocationPlace::Device);
+    auto* isAdjustableVector = clusterData_->var<LTSPlasticity::FlagScratch>(
+        seissol::initializer::AllocationPlace::Device);
     auto& indicesTable = clusterData_->getConditionalTable<inner_keys::Indices>();
     streamRuntime_.runGraph(
         plasticityGraphKey,
@@ -816,10 +817,10 @@ void CellCluster<Cfg>::computeNeighboringIntegrationImplementation(const StepPar
   const auto* faceNeighbors = clusterData_->var<LTS::FaceNeighbors>();
   const auto* drMapping = clusterData_->var<LTS::DRMapping>(Cfg());
   const auto* cellInformation = clusterData_->var<LTS::CellInformation>();
-  const auto* plasticity = clusterData_->var<LTS::Plasticity>(Cfg());
+  const auto* plasticity = clusterData_->var<LTSPlasticity::Plasticity>(Cfg());
   // written only where the configuration uses plasticity
   // NOLINTNEXTLINE(misc-const-correctness)
-  auto* pstrain = clusterData_->var<LTS::PStrain>(Cfg());
+  auto* pstrain = clusterData_->var<LTSPlasticity::PStrain>(Cfg());
 
   // the cells whose plasticity yields, counted per range of cells and summed up (without
   // plasticity, neither counter changes)
