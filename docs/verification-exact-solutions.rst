@@ -75,6 +75,15 @@ The meshes
    inclined. A spontaneous rupture runs out on it from a nucleation along
    :math:`y`.
 
+``fault1d-dip60``, ``fault1d-dip30``, ``fault1d-flat``
+   ``fault1d`` turned in space, for a fault that dips by 60 or 30 degrees and
+   a horizontal one, none of which strikes along an axis, and whose lattice
+   runs along neither its strike nor its dip. The runner turns the receivers,
+   the reference point and the stresses of the fault with the mesh, and the
+   exact solution the waves it predicts; the fault receivers report along the
+   strike and the dip of the turned fault, which on the horizontal one are
+   those of :doc:`left-lateral-right-lateral-normal-reverse`.
+
 ``fault1d-relabel``, ``fault2d-periodic-relabel``
    The meshes with their vertices numbered at random, which puts their fault
    faces on 11 and on all 14 pairs of the faces of their cells (see
@@ -128,6 +137,9 @@ hold what a production run does differently from a fault along an axis:
 ====================================================== =========================================================
 Case                                                   What it adds
 ====================================================== =========================================================
+``fault1d-lsw-oblique-*``                              a turned fault (``fault1d-dip60``, ``-dip30``, ``-flat``)
+``fault1d-rs-fvw-tp-dip30``                            rate and state with thermal pressurization on it
+``fault1d-lsw-traction``, ``-traction-*``              the stresses as tractions along the strike and the dip
 ``fault1d-lsw-relabel``, ``fault1d-rs-fvw-tp-relabel`` other faces of the cells (``fault1d-relabel``)
 ====================================================== =========================================================
 

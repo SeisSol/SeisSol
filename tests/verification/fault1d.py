@@ -225,26 +225,16 @@ class Inputs:
         return float(default)
 
 
-def fault_frame(inputs):
-    """The map from the y and z components of a vector in the fault plane
-    x = 0 to the strike and dip components the fault receivers report.
-
-    As docs/dynamic-rupture.rst and docs/parameter-file.rst state it: the
-    normal n points from the side of the reference point (or, with
-    refPointMethod=1, against the reference direction) to the other side;
-    the strike is (n_y, -n_x, 0) / |.|, the dip
-    (-s_y n_z, s_x n_z, s_y n_x - n_y s_x) / |.|; the traction is sigma n,
-    and the slip rate the velocity on the side n points to minus that on
-    the other, which is the side of x > 0 for n = e_x.
-    """
-    reference = inputs.get("XRef", default=0.0)
-    if reference == 0.0:
-        raise Unsupported("the reference point does not tell the sides apart")
-    method = int(inputs.get("refPointMethod", default=0))
-    side = 1.0 if reference > 0.0 else -1.0
-    n_x = -side if method == 0 else side
-    normal = np.array((n_x, 0.0, 0.0))
-    strike = np.array((normal[1], -normal[0], 0.0)) / math.hypot(*normal[:2])
+def strike_and_dip(normal):
+    """The strike and the dip of a fault with the normal `normal`, as
+    docs/left-lateral-right-lateral-normal-reverse.rst states them: the
+    strike (n_y, -n_x, 0) / |.|, or (n_z, 0, 0) on a horizontal fault, and
+    the dip (-s_y n_z, s_x n_z, s_y n_x - n_y s_x) / |.|."""
+    horizontal = math.hypot(normal[0], normal[1])
+    if horizontal > 0.0:
+        strike = np.array((normal[1] / horizontal, -normal[0] / horizontal, 0.0))
+    else:
+        strike = np.array((1.0 if normal[2] > 0.0 else -1.0, 0.0, 0.0))
     dip = np.array(
         (
             -strike[1] * normal[2],
@@ -252,8 +242,35 @@ def fault_frame(inputs):
             strike[1] * normal[0] - normal[1] * strike[0],
         )
     )
-    dip /= np.linalg.norm(dip)
-    return n_x * np.array((strike[1:], dip[1:]))
+    return strike, dip / np.linalg.norm(dip)
+
+
+def fault_frame(inputs, rotation=None):
+    """The map from the y and z components of a vector in the fault plane
+    x = 0 to the strike and dip components the fault receivers report.
+
+    As docs/dynamic-rupture.rst and docs/parameter-file.rst state it: the
+    normal n points from the side of the reference point (or, with
+    refPointMethod=1, against the reference direction) to the other side;
+    the strike and the dip follow from n (see strike_and_dip); the traction
+    is sigma n, and the slip rate the velocity on the side n points to minus
+    that on the other, which is the side of x > 0 for n = e_x.
+
+    On a mesh that the matrix `rotation` turns, the fault is the plane x = 0
+    before the rotation, and so are the inputs: the reference point, and
+    with it the normal, turns with the mesh, and the strike and the dip
+    follow from the normal the rotation leaves.
+    """
+    reference = inputs.get("XRef", default=0.0)
+    if reference == 0.0:
+        raise Unsupported("the reference point does not tell the sides apart")
+    method = int(inputs.get("refPointMethod", default=0))
+    side = 1.0 if reference > 0.0 else -1.0
+    n_x = -side if method == 0 else side
+    rotation = np.eye(3) if rotation is None else np.asarray(rotation)
+    strike, dip = strike_and_dip(rotation @ np.array((n_x, 0.0, 0.0)))
+    # the strike and the dip in the coordinates before the rotation
+    return n_x * np.array(((rotation.T @ strike)[1:], (rotation.T @ dip)[1:]))
 
 
 # --------------------------------------------------------------------------
@@ -301,20 +318,29 @@ class Loading:
     The fault is the plane x = 0, so the traction of a stress tensor is its
     first column: the normal stress s_xx, negative in compression, and the
     shear traction (s_xy, s_xz) along y and z.
+
+    A stress given as a traction in fault coordinates, (T_n, T_s, T_d) or
+    (Tnuc_n, Tnuc_s, Tnuc_d), is the traction T_n n + T_s s + T_d d on the
+    face with the normal n; `frame`, called where such a traction is given,
+    returns the map of fault_frame, from y and z to the strike and the dip.
     """
 
-    def __init__(self, inputs):
-        if inputs.has(
-            "T_n", "T_s", "T_d", "Pn0", "Ts0", "Td0", "Tnuc_n", "Tnuc_s", "Tnuc_d"
-        ):
-            raise Unsupported("tractions in fault coordinates are not supported")
+    # the names of a traction in fault coordinates, by the prefix of the
+    # stress it replaces, with those SeisSol takes in their stead
+    _TRACTIONS = {"s_": (("T_n", "Pn0"), ("T_s", "Ts0"), ("T_d", "Td0"))}
+
+    def __init__(self, inputs, frame):
+        self._frame = frame
         self.initial = self._traction(inputs, "s_")
         self.sources = []
         count = int(inputs.get("nucleationcount", default=1))
         for index in range(count):
             suffix = "" if index == 0 else str(index + 1)
             prefix = f"nuc{suffix}_"
-            if not any(f"{prefix}{c}" in inputs.fault for c in ("xx", "xy", "xz")):
+            traction = self._names(prefix)
+            if not any(
+                f"{prefix}{c}" in inputs.fault for c in ("xx", "xy", "xz")
+            ) and not any(name in inputs.fault for names in traction for name in names):
                 continue
             rise = inputs.get(
                 f"nuc{suffix}_rise_time", f"t{suffix or ''}_0", default=0.0
@@ -322,12 +348,29 @@ class Loading:
             onset = inputs.get(f"nuc{suffix}_onset", f"s{suffix or ''}_0", default=0.0)
             self.sources.append((self._traction(inputs, prefix), onset, rise))
 
-    @staticmethod
-    def _traction(inputs, prefix):
-        return tuple(
-            inputs.get(f"{prefix}{component}", default=0.0)
-            for component in ("xx", "xy", "xz")
+    def _names(self, prefix):
+        if prefix in self._TRACTIONS:
+            return self._TRACTIONS[prefix]
+        index = prefix[len("nuc") : -1]
+        return tuple((f"Tnuc{index}_{c}",) for c in ("n", "s", "d"))
+
+    def _traction(self, inputs, prefix):
+        names = self._names(prefix)
+        if not inputs.has(*(name for alternatives in names for name in alternatives)):
+            return tuple(
+                inputs.get(f"{prefix}{component}", default=0.0)
+                for component in ("xx", "xy", "xz")
+            )
+        if any(
+            f"{prefix}{c}" in inputs.fault for c in ("xx", "yy", "zz", "xy", "yz", "xz")
+        ):
+            raise Unsupported(f"the stress {prefix}* is given twice")
+        normal, strike, dip = (
+            inputs.get(*alternatives, default=0.0) for alternatives in names
         )
+        # the frame is orthogonal: its transpose maps the strike and the dip back
+        along_y, along_z = np.asarray(self._frame()).T @ np.array((strike, dip))
+        return normal, float(along_y), float(along_z)
 
     def __call__(self, t):
         normal, along_y, along_z = self.initial
@@ -845,8 +888,9 @@ class Problem:
     isotropic medium, H_tt = eta I, and n is the direction of tau_load.
     """
 
-    def __init__(self, dynamic_rupture, fault, left, right, front=None):
+    def __init__(self, dynamic_rupture, fault, left, right, front=None, rotation=None):
         self.inputs = Inputs(dynamic_rupture, fault)
+        self.rotation = rotation
         self.law = int(self.inputs.get("FL"))
         self.left, self.right = left, right
         self.impedance = np.linalg.inv(left.admittance + right.admittance)
@@ -862,7 +906,7 @@ class Problem:
         )
         self.eta = float(self.eta_shear[0, 0])
         self._direction = None
-        self.loading = Loading(self.inputs)
+        self.loading = Loading(self.inputs, lambda: self.frame)
         self.front = None
         if front is not None:
             self._run_along(*front)
@@ -913,7 +957,7 @@ class Problem:
         """The map from the y and z components of a vector in the fault plane
         to the strike and dip components the fault receivers report; see
         fault_frame."""
-        return fault_frame(self.inputs)
+        return fault_frame(self.inputs, self.rotation)
 
     @property
     def imposed(self):
@@ -1573,7 +1617,77 @@ def self_test():
             ),
             1e-5,
         )
+
+    # the strike and the dip of docs/left-lateral-right-lateral-normal-reverse.rst,
+    # where a horizontal fault takes the limit of one that strikes along x and
+    # dips towards y
+    for normal, strike, dip in (
+        ((1.0, 0.0, 0.0), (0.0, -1.0, 0.0), (0.0, 0.0, -1.0)),
+        ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+        ((0.0, 0.0, -1.0), (-1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+        ((0.0, 1e-9, 1.0), (1.0, 0.0, 0.0), (0.0, 1.0, -1e-9)),
+    ):
+        found = strike_and_dip(np.array(normal) / np.linalg.norm(normal))
+        check(
+            f"the strike and the dip of the normal {normal}",
+            float(
+                largest(
+                    np.max(np.abs(found[0] - strike)), np.max(np.abs(found[1] - dip))
+                )
+            ),
+            1e-15,
+        )
+
+    # a traction in fault coordinates is the stress it is the traction of: on
+    # the fault x = 0 with the normal e_x, the strike is -e_y and the dip -e_z;
+    # on a mesh that turns the fault, they are the strike and the dip of the
+    # turned normal, whatever the rotation does within the fault plane
+    friction = {"mu_s": 0.677, "mu_d": 0.525, "d_c": 0.08}
+    cartesian = {"s_xx": -120.0e6, "s_xy": 70.0e6, "s_xz": 30.0e6, "nuc_xy": 20.0e6}
+    traction = {"T_n": -120.0e6, "T_s": -70.0e6, "T_d": -30.0e6, "Tnuc_s": -20.0e6}
+    rupture = {"FL": 16, "t_0": 0.0625, "XRef": -1.0e5}
+    # isotropic, so that the turn within the fault plane leaves the slip rate
+    solid = Medium.isotropic(2700.0, 3.24e10, 3.24e10)
+    expected = Problem(rupture, cartesian | friction, solid, solid).solve(0.09, 1e-5)
+    for label, rotation in (
+        ("", None),
+        (", on a turned mesh", _turn(((0, 0.3), (1, 0.4), (2, 0.9)))),
+        (", on a mesh turned flat", _turn(((1, 0.5 * math.pi), (2, 0.4)))),
+    ):
+        problem = Problem(rupture, traction | friction, solid, solid, rotation=rotation)
+        frame = problem.frame
+        # the turned fault sees the stress whose traction is the one given
+        loading = np.array(problem.loading(0.0))
+        stated = np.concatenate(([loading[0]], frame @ loading[1:]))
+        found = problem.solve(0.09, 1e-5)
+        check(
+            f"a traction in fault coordinates{label}",
+            float(
+                largest(
+                    np.max(np.abs(stated - (-120.0e6, -70.0e6, -30.0e6))) / 120.0e6,
+                    np.max(np.abs(frame @ frame.T - np.eye(2))),
+                    np.max(np.abs(found["slip-rate"] - expected["slip-rate"]))
+                    / np.max(expected["slip-rate"]),
+                )
+            ),
+            1e-12,
+        )
     return failures
+
+
+def _turn(rotations):
+    """The product of the rotations (axis, angle) about the coordinate axes,
+    the first acting first, as minimesh.rotation_matrix forms it."""
+    matrix = np.eye(3)
+    for axis, angle in rotations:
+        first, second = (axis + 1) % 3, (axis + 2) % 3
+        step = np.eye(3)
+        step[first, first] = step[second, second] = math.cos(angle)
+        step[second, first] = math.sin(angle)
+        step[first, second] = -math.sin(angle)
+        step[np.abs(step) < 1e-15] = 0.0
+        matrix = step @ matrix
+    return matrix
 
 
 def main(argv=None):

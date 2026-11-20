@@ -135,7 +135,8 @@ endfunction()
 
 foreach (preset box6 box48 skew48 fault48 faultskew48 fault1d fault1d-bimaterial fault2d
                 fault2d-periodic mat48 periodicx72 periodic162 open96
-                box48-relabel fault48-relabel fault1d-relabel fault2d-periodic-relabel)
+                box48-relabel fault48-relabel fault1d-relabel fault2d-periodic-relabel
+                fault1d-dip60 fault1d-dip30 fault1d-flat)
   seissol_add_minimesh(NAME ${preset} PRESET ${preset})
 endforeach()
 

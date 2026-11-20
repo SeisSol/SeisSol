@@ -28,6 +28,7 @@ import argparse
 import collections
 import hashlib
 import json
+import math
 import sys
 import tempfile
 from dataclasses import asdict, dataclass, replace
@@ -107,6 +108,9 @@ class Spec:
     # face. Along the lattice, every face of a fault plane x = const is face 3
     # of the cell at x < 0 and face 0 or 1 of the other.
     relabel: int = 0
+    # rotations of the whole mesh about the origin, applied in turn, each a
+    # pair of an axis and an angle in degrees
+    rotation: tuple = ()
 
     def resolved_origin(self):
         if self.origin is not None:
@@ -134,6 +138,34 @@ class Spec:
     def cell_count(self):
         nx, ny, nz = self.cells
         return 6 * nx * ny * nz
+
+    def rotation_matrix(self):
+        """The rotation of the mesh, as a matrix that maps the coordinates of
+        the lattice to those of the mesh."""
+        return rotation_matrix(self.rotation)
+
+
+def rotation_matrix(rotations):
+    """The product of rotations about the coordinate axes, each a pair of an
+    axis ("x", "y" or "z") and an angle in degrees, applied in turn: the
+    rotation listed first acts first."""
+    matrix = np.eye(3)
+    for axis, degrees in rotations:
+        index = AXES.index(axis)
+        angle = math.radians(float(degrees))
+        cosine, sine = math.cos(angle), math.sin(angle)
+        # right-handed: the rotation about the axis turns the next axis
+        # towards the one after it
+        first, second = (index + 1) % 3, (index + 2) % 3
+        step = np.eye(3)
+        step[first, first] = step[second, second] = cosine
+        step[second, first] = sine
+        step[first, second] = -sine
+        # an axis aligned rotation by a multiple of 90 degrees maps the axes
+        # onto each other exactly
+        step[np.abs(step) < 1e-15] = 0.0
+        matrix = step @ matrix
+    return matrix
 
 
 PRESETS = {
@@ -239,6 +271,22 @@ for _name, _seed in RELABELLED.items():
         PRESETS[_name], name=f"{_name}-relabel", relabel=_seed
     )
 del _name, _seed
+
+# fault1d turned in space, for a fault that dips by 60 or 30 degrees and a
+# horizontal one, each of which strikes along no axis. A turn about x first
+# turns the lattice within the fault plane, so that the strike and the dip of
+# SeisSol do not run along it either; the horizontal fault takes the strike
+# that docs/left-lateral-right-lateral-normal-reverse.rst states for it.
+TURNED = {
+    "dip60": (("x", 20.0), ("y", 30.0), ("z", 25.0)),
+    "dip30": (("x", -35.0), ("y", 60.0), ("z", -40.0)),
+    "flat": (("y", 90.0), ("z", 25.0)),
+}
+for _name, _rotation in TURNED.items():
+    PRESETS[f"fault1d-{_name}"] = replace(
+        PRESETS["fault1d"], name=f"fault1d-{_name}", rotation=_rotation
+    )
+del _name, _rotation
 
 
 # --------------------------------------------------------------------------
@@ -537,6 +585,10 @@ def build(spec):
     identify = _assign_identify(spec, lattice)
     if classes is not None:
         identify = classes[identify]
+    if spec.rotation:
+        # a rotation keeps the orientation of the cells, and the lattice, from
+        # which the tags and the periodicity follow
+        coords = coords @ spec.rotation_matrix().T
     return Mesh(
         spec=spec,
         coords=coords,
@@ -727,6 +779,10 @@ def manifest(mesh, mesh_path):
         },
         "datasets": digests,
     }
+    if mesh.spec.rotation:
+        # what maps the coordinates of the lattice to those of the mesh, for
+        # the runner, which turns the case with the mesh
+        info["rotation"] = mesh.spec.rotation_matrix().tolist()
     if np.any(mesh.tags == FACE_TYPES["dynamic-rupture"]):
         info["rupture-face-sides"] = {
             f"{plus}/{minus}": count
@@ -742,8 +798,8 @@ SUITE_REFERENCE_POINT = (-1.0e5, 0.0, 0.0)
 
 def rupture_sides_of(mesh):
     """rupture_face_sides of a generated mesh, for the reference point of the
-    cases."""
-    reference = np.array(SUITE_REFERENCE_POINT)
+    cases, rotated with the mesh."""
+    reference = mesh.spec.rotation_matrix() @ np.array(SUITE_REFERENCE_POINT)
     return rupture_face_sides(
         mesh.coords, mesh.connect, mesh.tags, mesh.identify, reference
     )
@@ -1138,6 +1194,13 @@ def _command_list(args):
             details.append("groups")
         if spec.relabel:
             details.append(f"vertex ids at random (seed {spec.relabel})")
+        if spec.rotation:
+            details.append(
+                "rotated "
+                + ", ".join(
+                    f"{degrees:g} deg about {axis}" for axis, degrees in spec.rotation
+                )
+            )
         print(f"{name:24s} {', '.join(details)}")
     return 0
 

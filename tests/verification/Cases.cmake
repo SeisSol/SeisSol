@@ -1317,6 +1317,33 @@ seissol_add_fault1d(NAME fault1d-rs-fvw-tp-relabel FL 103 FAULT fault1d-rs-fvw-t
                     SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
                     LABELS "convergence;relabel")
 
+# The same on fault1d turned in space (see minimesh.py, TURNED): the runner
+# turns the receivers, the reference point and the stresses of the fault with
+# the mesh, and the exact solution turns the waves it predicts. The fault
+# receivers report along the strike and the dip of the turned fault, which on
+# the horizontal one are those that
+# docs/left-lateral-right-lateral-normal-reverse.rst states for it.
+foreach (turn dip60 dip30 flat)
+  seissol_add_fault1d(NAME fault1d-lsw-oblique-${turn} FL 16 FAULT fault1d-lsw-oblique.yaml
+                      MESH fault1d-${turn} REQUIRE equations=elastic
+                      SET ${SEISSOL_FAULT1D_ELEMENTWISE} ${SEISSOL_FAULT1D_ELEMENTWISE_MASK}
+                      LABELS "convergence;turned")
+endforeach()
+seissol_add_fault1d(NAME fault1d-rs-fvw-tp-dip30 FL 103 FAULT fault1d-rs-fvw-tp.yaml
+                    MESH fault1d-dip30 STEPS 2048 REQUIRE equations=elastic
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
+                    LABELS "convergence;turned")
+# the stresses as tractions in fault coordinates, which SeisSol turns into a
+# stress along the strike and the dip of each face: on a turned fault, the same
+# tractions are another stress (see fault1d-lsw-traction.yaml)
+seissol_add_fault1d(NAME fault1d-lsw-traction FL 16 FAULT fault1d-lsw-traction.yaml
+                    LABELS convergence)
+foreach (turn dip60 flat)
+  seissol_add_fault1d(NAME fault1d-lsw-traction-${turn} FL 16 FAULT fault1d-lsw-traction.yaml
+                      MESH fault1d-${turn} REQUIRE equations=elastic
+                      LABELS "convergence;turned")
+endforeach()
+
 # the outputs of rupture1d.par and the rupture velocity Vr, which the fault
 # receivers take from the gradient of the rupture times of the Gauss points of
 # their face (see docs/fault-output.rst)

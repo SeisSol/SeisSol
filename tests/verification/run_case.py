@@ -191,6 +191,104 @@ def apply_overrides(parameters, overrides):
 
 
 # --------------------------------------------------------------------------
+# turned meshes
+# --------------------------------------------------------------------------
+
+# a stress tensor of a fault map: the initial stress and the nucleations
+_FAULT_STRESS = re.compile(r"^(s|nuc\d*)_(xx|yy|zz|xy|yz|xz)$")
+
+
+def turned_stresses(values, rotation):
+    """The values of a fault map with its stress tensors turned by the
+    matrix `rotation`, R sigma R^T. A traction in fault coordinates (T_n,
+    Tnuc_s, ...) stays as it is: it turns with the fault."""
+    import numpy as np
+
+    turned = dict(values)
+    prefixes = {match.group(1) for match in map(_FAULT_STRESS.match, values) if match}
+    for prefix in sorted(prefixes):
+        tensor = np.zeros((3, 3))
+        for i, j, name in (
+            (0, 0, "xx"), (1, 1, "yy"), (2, 2, "zz"),
+            (0, 1, "xy"), (1, 2, "yz"), (0, 2, "xz"),
+        ):  # fmt: skip
+            tensor[i, j] = tensor[j, i] = float(values.get(f"{prefix}_{name}", 0.0))
+        tensor = rotation @ tensor @ rotation.T
+        for i, j, name in (
+            (0, 0, "xx"), (1, 1, "yy"), (2, 2, "zz"),
+            (0, 1, "xy"), (1, 2, "yz"), (0, 2, "xz"),
+        ):  # fmt: skip
+            turned[f"{prefix}_{name}"] = float(tensor[i, j])
+    return turned
+
+
+def turned_point(values, rotation):
+    """The reference point (XRef, YRef, ZRef) of the DynamicRupture section
+    `values`, whose names are in lower case, turned by `rotation`; with
+    refPointMethod=1, it is a direction, which turns all the same."""
+    import numpy as np
+
+    point = np.array(
+        [float(values.get(name, 0.0)) for name in ("xref", "yref", "zref")]
+    )
+    return rotation @ point
+
+
+def turn_case(work, parameters, rotation):
+    """Turn a case with the mesh it runs on, which minimesh.py turned by the
+    matrix `rotation` (see TURNED there): the receivers, the reference point
+    of the fault and the stresses of the fault map are all given for the mesh
+    before the turn. The material has to be isotropic and at rest; anything
+    else that would have to turn as well is refused, rather than left as it
+    is."""
+    import numpy as np
+
+    rotation = np.asarray(rotation, dtype=float)
+    initial = (parameters.get("IniCondition", "cICType") or "'Zero'").strip("'\"")
+    if initial.lower() != "zero":
+        raise SystemExit(f"a turned mesh takes a case at rest, not {initial}")
+    material = parameters.get("equations", "MaterialFileName")
+    if material and re.search(
+        r"^\s*c\d\d\s*:", (work / material.strip("'\"")).read_text("utf-8"), re.M
+    ):
+        raise SystemExit("a turned mesh takes an isotropic material")
+
+    for section, key in (("Output", "RFileName"), ("Pickpoint", "PPFileName")):
+        name = parameters.get(section, key)
+        if not name:
+            continue
+        path = work / name.strip("'\"")
+        lines = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                point = rotation @ np.array([float(value) for value in line.split()])
+                lines.append(" ".join(repr(float(value)) for value in point))
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    rupture = parameters.values("DynamicRupture")
+    if not rupture:
+        return
+    for name, value in zip(("XRef", "YRef", "ZRef"), turned_point(rupture, rotation)):
+        parameters.set("DynamicRupture", name, repr(float(value)))
+    model = rupture.get("modelfilename")
+    if model:
+        import fault1d
+
+        path = work / model.strip("'\"")
+        maps = fault1d.read_constant_maps(path)
+        if set(maps) != {None}:
+            raise SystemExit(f"{path.name} is not a single constant map, to turn")
+        turned = turned_stresses(maps[None], rotation)
+        lines = [
+            f"# {path.name}, turned with the mesh by the runner",
+            "!ConstantMap",
+            "map:",
+        ]
+        lines += [f"  {name}: {value!r}" for name, value in turned.items()]
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+# --------------------------------------------------------------------------
 # capabilities
 # --------------------------------------------------------------------------
 
@@ -1034,6 +1132,8 @@ def _command_run(args):
         if args.steps is not None:
             parameters.set("AbortCriteria", "EndTime", repr(args.steps * args.timestep))
     apply_overrides(parameters, overrides)
+    if args.mesh_manifest and "rotation" in manifest:
+        turn_case(work, parameters, manifest["rotation"])
 
     prefix = parameters.get("Output", "OutputFile") or "output/out"
     (work / Path(prefix).parent).mkdir(parents=True, exist_ok=True)
@@ -1829,7 +1929,9 @@ def _gauss_point_deviations(column, exact, events, law, imposed, keep=None):
     return found
 
 
-def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers):
+def compare_fault1d(
+    problem, series, indices, fault_receivers, volume_receivers, rotation=None
+):
     """The deviations of the receivers from the exact solution, per quantity.
 
     The fault receivers are compared as magnitudes, of the slip rate, the
@@ -1837,7 +1939,9 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
     strike and dip of the documented fault frame; that the receivers use this
     frame is checked against the initial traction their header states. The
     volume receivers are compared component by component, as vectors of the
-    velocity and the stress in global coordinates.
+    velocity and the stress in global coordinates. On a mesh that the matrix
+    `rotation` turned, the problem is the one before the turn, and its waves
+    turn with the mesh.
 
     Where the receivers report something else than the physical quantity, they
     are held against what they report: with thermal pressurization, Pn0 is the
@@ -1905,16 +2009,20 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
         worst("direction", misalignment)
 
     step = series["time"][1] - series["time"][0]
+    turn = np.eye(3) if rotation is None else np.asarray(rotation)
     for position, (names, rows) in volume_receivers:
+        distance = (turn.T @ np.asarray(position, dtype=float))[0]
         found = _volume_deviations(
-            names, rows, step, problem.radiated(series, position[0])
+            names, rows, step, _turned_fields(problem.radiated(series, distance), turn)
         )
         for name, value in found.items():
             worst(name, value)
     return deviations
 
 
-def compare_fault1d_energies(problem, series, energies, simulation, area, extent):
+def compare_fault1d_energies(
+    problem, series, energies, simulation, area, extent, rotation=None
+):
     """The deviations of the energies that the energy output reports
     (docs/energy-output.rst) for the simulation `simulation` from those of
     the exact solution, each relative to the largest value of its exact
@@ -1931,9 +2039,9 @@ def compare_fault1d_energies(problem, series, energies, simulation, area, extent
     and the static frictional work A V . H u / 2 at a time, with u the slip
     by then. The kinetic and the strain energy, and the momentum, are those of
     the waves within the column, whose ends at x = `extent` they leave
-    through; the deviation of the momentum is relative to the integral of
-    rho |v| instead, as the momenta of the two sides cancel where their media
-    are alike.
+    through; the momentum turns with a mesh that the matrix `rotation` turned,
+    and its deviation is relative to the integral of rho |v| instead, as the
+    momenta of the two sides cancel where their media are alike.
     """
     import numpy as np
 
@@ -1992,6 +2100,9 @@ def compare_fault1d_energies(problem, series, energies, simulation, area, extent
                 magnitude += scale * medium.rho * np.linalg.norm(velocity, axis=1)
         exact["elastic_kinetic_energy"] = (times, kinetic)
         exact["elastic_strain_energy"] = (times, strain)
+        momentum = (
+            momentum @ (np.eye(3) if rotation is None else np.asarray(rotation)).T
+        )
         for axis, name in enumerate(("momentumX", "momentumY", "momentumZ")):
             exact[name] = (times, momentum[:, axis], float(np.max(magnitude)))
     deviations = {}
@@ -2037,6 +2148,22 @@ def _volume_deviations(names, rows, step, radiated, end=None):
     error = np.linalg.norm(recorded[:, index] - stress, axis=1)
     deviations["stress"] = float(error.max() / np.linalg.norm(stress, axis=1).max())
     return deviations
+
+
+def _turned_fields(fields, rotation):
+    """The velocity and the stress (in the order of fault1d.VOIGT) of
+    `fields`, per row, turned by the matrix `rotation`."""
+    import fault1d
+    import numpy as np
+
+    velocity, stress = fields
+    pairs = [("xyz".index(name[0]), "xyz".index(name[1])) for name in fault1d.VOIGT]
+    tensor = np.zeros((stress.shape[0], 3, 3))
+    for column, (i, j) in enumerate(pairs):
+        tensor[:, i, j] = tensor[:, j, i] = stress[:, column]
+    tensor = np.einsum("ik,tkl,jl->tij", rotation, tensor, rotation)
+    turned = np.column_stack([tensor[:, i, j] for i, j in pairs])
+    return velocity @ np.asarray(rotation).T, turned
 
 
 def _is_series(value):
@@ -2656,6 +2783,21 @@ def _command_exact(args):
         work / parameters.get("equations", "MaterialFileName")
     )
     manifest = json.loads(Path(args.mesh_manifest).read_text(encoding="utf-8"))
+    # the runner turned the case with a turned mesh (see turn_case); the exact
+    # solution takes it as it was before the turn, and turns what it predicts
+    rotation = manifest.get("rotation")
+    if rotation is not None:
+        import numpy as np
+
+        rotation = np.array(rotation)
+        if fault is None:
+            raise SystemExit("a turned mesh takes a uniform fault")
+        fault = turned_stresses(fault, rotation.T)
+        rupture = dict(rupture)
+        for name, value in zip(
+            ("xref", "yref", "zref"), turned_point(rupture, rotation.T)
+        ):
+            rupture[name] = repr(float(value))
     left, right = _fault1d_groups(manifest)
     if manifest["spec"]["periodic"][0] and importlib.util.find_spec("scipy") is None:
         result["status"] = "skipped"
@@ -2737,7 +2879,7 @@ def _command_exact(args):
                 for faults, volumes in simulations
             )
         else:
-            problem = fault1d.Problem(rupture, fault, left, right)
+            problem = fault1d.Problem(rupture, fault, left, right, rotation=rotation)
             energies = None
             if energy_file(work, prefix).exists():
                 energies = read_energies(energy_file(work, prefix))
@@ -2745,7 +2887,7 @@ def _command_exact(args):
             series = problem.solve(math.ceil(end / step) * step, step)
             indices = [round(t / step) for t in times]
             deviations = _worst(
-                compare_fault1d(problem, series, indices, faults, volumes)
+                compare_fault1d(problem, series, indices, faults, volumes, rotation)
                 for faults, volumes in simulations
             )
             elementwise = work / f"{prefix}-fault.xdmf"
@@ -2764,6 +2906,7 @@ def _command_exact(args):
                             ew_times, attributes, simulation, len(simulations)
                         ),
                         [],
+                        rotation,
                     )
                     for simulation in range(len(simulations))
                 )
@@ -2785,6 +2928,7 @@ def _command_exact(args):
                             simulation,
                             area,
                             extent,
+                            rotation,
                         )
                         for simulation in range(len(simulations))
                     ]
