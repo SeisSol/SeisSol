@@ -209,10 +209,9 @@ Case                                                   What it adds
                                                        two media with the Prakash-Clifton regularization, rate
                                                        and state with thermal pressurization, an imposed slip
                                                        rate
-``fault1d-poroelastic-*``                              porous media (``fault1d-long``), the same but thermal
-                                                       pressurization, with the frequency of Biot within the
-                                                       band of the rupture, and slip weakening with it at
-                                                       17 kHz (``-stiff``)
+``fault1d-poroelastic-*``                              porous media (``fault1d-long``), the same, with the
+                                                       frequency of Biot within the band of the rupture, and
+                                                       slip weakening with it at 17 kHz (``-stiff``)
 ``fault1d-plastic-*``                                  plasticity without a yield (``fault1d-long``), with
                                                        :math:`T_v` = 1/16 s: slip weakening and rate and state
 ====================================================== =========================================================

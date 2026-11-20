@@ -1370,10 +1370,13 @@ seissol_add_fault1d(NAME fault1d-viscoelastic-imposed FL 33 FAULT fault1d-impose
 # outflow planes reflect 2.5 per cent of what arrives below that frequency. In
 # material-poroelastic.yaml, it lies at 17 kHz, and the fluid follows within a
 # fraction of a step (fault1d-poroelastic-lsw-stiff). The faults take the pore
-# pressure on them, which a porous medium reads (fault1d-*-porous.yaml), and
-# leave out thermal pressurization, whose pore pressure SeisSol does not yet
-# combine with that of the medium. The energy output books the kinetic energy
-# of the pore fluid and the dissipation of Darcy's friction as well.
+# pressure on them, which a porous medium reads (fault1d-*-porous.yaml). With
+# thermal pressurization, the friction acts on the normal stress less the pore
+# pressure of the medium on the fault and that of the shear zone; a fault that
+# slips uniformly leaves the former at zero, so that fault1d-poroelastic-rs-fvw-tp
+# holds the latter in the medium that relaxes. The energy output books the
+# kinetic energy of the pore fluid and the dissipation of Darcy's friction as
+# well.
 seissol_add_fault1d(NAME fault1d-poroelastic-lsw FL 16 FAULT fault1d-lsw-porous.yaml
                     MESH fault1d-long MATERIAL material-fault1d-poroelastic.yaml
                     REQUIRE equations=poroelastic
@@ -1390,6 +1393,11 @@ seissol_add_fault1d(NAME fault1d-poroelastic-rs-fvw FL 103 FAULT fault1d-rs-fvw-
                     MESH fault1d-long STEPS 2048 MATERIAL material-fault1d-poroelastic.yaml
                     REQUIRE equations=poroelastic
                     SET ${SEISSOL_RS_FVW}
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-poroelastic-rs-fvw-tp FL 103
+                    FAULT fault1d-rs-fvw-tp-porous.yaml MESH fault1d-long STEPS 2048
+                    MATERIAL material-fault1d-poroelastic.yaml REQUIRE equations=poroelastic
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
                     LABELS convergence)
 seissol_add_fault1d(NAME fault1d-poroelastic-imposed FL 33 FAULT fault1d-imposed.yaml
                     MESH fault1d-long MATERIAL material-fault1d-poroelastic.yaml
