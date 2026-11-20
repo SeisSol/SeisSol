@@ -266,6 +266,14 @@ class BaseFrictionSolver : public FrictionSolverDetails<Cfg> {
                                                           ctx.data->peakSlipRate[ctx.ltsFace],
                                                           ctx.pointIndex);
 
+        if (isFrictionEnergyRequired && !ctx.data->drParameters.energiesFromAcrossFaultVelocities) {
+          common::accumulateSlipForEnergy<Cfg, GpuRangeType>(
+              ctx.data->energyData[ctx.ltsFace],
+              ctx.data->slipRateMagnitude[ctx.ltsFace],
+              ctx.args->timeWeights[timeIndex],
+              ctx.pointIndex);
+        }
+
         if (isFrictionEnergyRequired && isCheckAbortCriteraEnabled) {
           common::updateTimeSinceSlipRateBelowThreshold<Cfg, GpuRangeType>(
               ctx.data->slipRateMagnitude[ctx.ltsFace],
@@ -307,7 +315,6 @@ class BaseFrictionSolver : public FrictionSolverDetails<Cfg> {
                                                          ctx.args->timeWeights,
                                                          ctx.args->spaceWeights,
                                                          ctx.data->godunovData[ctx.ltsFace],
-                                                         ctx.data->slipRateMagnitude[ctx.ltsFace],
                                                          energiesFromAcrossFaultVelocities,
                                                          ctx.pointIndex);
       }
