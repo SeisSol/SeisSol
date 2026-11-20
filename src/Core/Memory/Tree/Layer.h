@@ -9,18 +9,22 @@
 #ifndef SEISSOL_SRC_CORE_MEMORY_TREE_LAYER_H_
 #define SEISSOL_SRC_CORE_MEMORY_TREE_LAYER_H_
 
+#include "Core/Common/TypeId.h"
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Memory/Tree/Colormap.h"
 #include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Initializer/DeviceGraph.h"
 
 #include <algorithm>
+#include <array>
 #include <bitset>
+#include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <limits>
 #include <type_traits>
-#include <typeindex>
+#include <typeinfo>
 #include <utils/logger.h>
 #include <vector>
 
@@ -381,74 +385,150 @@ bool layerFilter(const LayerIdentifier& filter) {
 }
 
 /**
-  A generic Varmap which does not have any type restrictions.
-  Slower in access than a SpecificVarmap, but it doesn't require any pre-defined type lists to work.
+  Where a storage keeps its variables, buckets and scratchpads: the slot of each, an index into the
+  tables of the storage and of its layers, by the id of its type (see TypeId). A storage gets its
+  variables at run time (see Storage::add), so that every part of the program can add its own.
  */
-struct GenericVarmap {
-  std::unordered_map<std::type_index, std::size_t> typemap;
-  std::size_t count = 0;
-
-  template <typename T>
+class SlotMap {
+  public:
+  /// The slot of `StorageT`, a new one if it has none yet.
+  template <typename StorageT>
   std::size_t add() {
-    const auto idx = count;
-    typemap[std::type_index(typeid(T))] = idx;
-    ++count;
-    return idx;
+    const auto id = TypeId<TypeDomain::Storage, StorageT>;
+    if (id >= slots_.size()) {
+      slots_.resize(id + 1, NoSlot);
+    }
+    if (slots_[id] == NoSlot) {
+      slots_[id] = static_cast<std::uint32_t>(ids_.size());
+      ids_.push_back(id);
+    }
+    return slots_[id];
   }
 
-  template <typename T>
-  [[nodiscard]] std::size_t index() const {
-    return typemap.at(std::type_index(typeid(T)));
+  /// Whether `StorageT` has a slot.
+  template <typename StorageT>
+  [[nodiscard]] bool has() const {
+    const auto id = TypeId<TypeDomain::Storage, StorageT>;
+    return id < slots_.size() && slots_[id] != NoSlot;
   }
 
-  static constexpr std::size_t MinSize = 0;
+  /// The slot of `StorageT`, which has to have one.
+  template <typename StorageT>
+  [[nodiscard]] std::size_t slot() const {
+    if (!has<StorageT>()) [[unlikely]] {
+      missing(typeid(StorageT));
+    }
+    return slots_[TypeId<TypeDomain::Storage, StorageT>];
+  }
 
-  [[nodiscard]] std::vector<void*> pointerContainer() const { return std::vector<void*>(count); }
+  /// The id of the type in the slot `slot` (see TypeId).
+  [[nodiscard]] std::uint32_t idOf(std::size_t slot) const { return ids_.at(slot); }
 
-  using PointerContainerT = std::vector<void*>;
+  /// The number of slots.
+  [[nodiscard]] std::size_t size() const { return ids_.size(); }
+
+  private:
+  [[noreturn]] static void missing(const std::type_info& type) {
+    logError() << "The storage has no slot for" << type.name()
+               << "; it has to be added (see Storage::add) before it is used.";
+  }
+
+  static constexpr std::uint32_t NoSlot = std::numeric_limits<std::uint32_t>::max();
+
+  // by the id of the type
+  std::vector<std::uint32_t> slots_;
+  // by the slot
+  std::vector<std::uint32_t> ids_;
 };
 
 /**
-  A Varmap with a type list. It is faster in accessing, but needs all types pre-registered (leading
-  to usually veeeeery long type lists; try to subclass to avoid the error messages being too long).
-  */
-template <typename... Types>
-struct SpecificVarmap {
-  template <typename T, typename Thead, typename... Ttail>
-  [[nodiscard]] std::size_t constexpr innerIndex(std::size_t value = 0) const {
-    if constexpr (std::is_same_v<T, Thead>) {
-      return value;
-    } else if constexpr (sizeof...(Ttail) == 0) {
-      static_assert(sizeof(T) == 0, "Type not found.");
-      return std::numeric_limits<std::size_t>::max();
-    } else {
-      return innerIndex<T, Ttail...>(value + 1);
-    }
+  The variables of a layer as one place (the host or the device) sees them (see Layer::view()):
+  where the first cell of each is, and how many bytes a cell takes, by the id of its type (see
+  TypeId). What the layer does not hold - filtered variables, buckets, scratchpads, the variables of
+  other storages - is a null pointer for every cell.
+
+  A copy can put single variables elsewhere (see relocate()), e.g. those of a cell gathered from the
+  device.
+ */
+class LayerView {
+  public:
+  /// The variable `StorageT` of the cell `cell`.
+  template <typename StorageT>
+  [[nodiscard]] void* address(std::size_t cell) const {
+    const auto id = TypeId<TypeDomain::Storage, StorageT>;
+    assert(id < variables_.size());
+    const auto& variable = variables_[id];
+    return variable.base + variable.bytes * cell;
   }
 
-  template <typename T>
-  std::size_t add() {
-    return index<T>();
+  /// Puts the variable `StorageT` of every cell at `address`.
+  template <typename StorageT>
+  void relocate(void* address) {
+    const auto id = TypeId<TypeDomain::Storage, StorageT>;
+    assert(id < variables_.size());
+    variables_[id] = Variable{static_cast<char*>(address), 0};
   }
 
-  template <typename T>
-  [[nodiscard]] std::size_t index() const {
-    return innerIndex<T, Types...>();
+  private:
+  friend class Layer;
+
+  struct Variable {
+    char* base{nullptr};
+    std::size_t bytes{0};
+  };
+
+  // by the id of the type: a table over the variables of all storages, so that a variable is found
+  // with a single lookup
+  std::vector<Variable> variables_;
+};
+
+/**
+  The variables of a cell, for passing fewer arguments (equivalent to the `LocalData` /
+  `NeighborData` in older SeisSol). It holds no more than the variables of its layer as one place
+  sees them (see LayerView) and the cell: a variable is found when it is asked for, so that making a
+  reference costs nothing.
+
+  The reference is to a cell of a configuration `Cfg`: a variable that holds a type per
+  configuration is seen as the one of `Cfg`.
+
+  Example: if you have a registered type Tx, then the following are equivalent:
+
+  const auto& data = layer.var<Tx>(Cfg(), AllocationPlace::Device)[123];
+
+  to:
+
+  const auto ref = layer.cellRef<Cfg>(123, AllocationPlace::Device);
+  const auto& data = ref.get<Tx>();
+ */
+template <typename Cfg>
+class CellRef {
+  public:
+  CellRef(const LayerView& view, std::size_t cell) : view_(&view), cell_(cell) {}
+
+  template <typename StorageT>
+  StorageType<StorageT, Cfg>& get() {
+    return *static_cast<StorageType<StorageT, Cfg>*>(view_->template address<StorageT>(cell_));
   }
 
-  static constexpr std::size_t MinSize = sizeof...(Types);
-
-  using PointerContainerT = std::array<void*, MinSize>;
-
-  [[nodiscard]] std::array<void*, MinSize> pointerContainer() const {
-    return std::array<void*, MinSize>();
+  template <typename StorageT>
+  [[nodiscard]] const StorageType<StorageT, Cfg>& get() const {
+    return *static_cast<const StorageType<StorageT, Cfg>*>(
+        view_->template address<StorageT>(cell_));
   }
+
+  /// The view of the layer of the cell, e.g. to derive another one (see LayerView::relocate()).
+  [[nodiscard]] const LayerView& view() const { return *view_; }
+
+  [[nodiscard]] std::size_t cell() const { return cell_; }
+
+  private:
+  const LayerView* view_;
+  std::size_t cell_;
 };
 
 /**
   A layer (i.e. contiguous array of data) in a Storage structure.
  */
-template <typename VarmapT = GenericVarmap>
 class Layer {
   private:
   LayerIdentifier identifier_;
@@ -458,7 +538,10 @@ class Layer {
 
   std::size_t posId_{0};
 
-  VarmapT varmap_;
+  SlotMap slots_;
+
+  // the variables as the host and as the device see them (see view())
+  std::array<LayerView, 2> views_;
 
 #ifdef ACL_DEVICE
   std::unordered_map<GraphKey, device::DeviceGraphHandle, GraphKeyHash> computeGraphHandles_;
@@ -468,82 +551,42 @@ class Layer {
   recording::DrConditionalPointersToRealsTable drConditionalPointersToRealsTable_;
   recording::ConditionalIndicesTable conditionalIndicesTable_;
 
+  static std::size_t placeIndex(AllocationPlace place) {
+    return place == AllocationPlace::Host ? 0 : 1;
+  }
+
+  /// Finds the variables anew for the views, once their memory is known.
+  void updateViews() {
+    const auto ids = typeCount(TypeDomain::Storage);
+    for (const auto place : {AllocationPlace::Host, AllocationPlace::Device}) {
+      auto& variables = views_[placeIndex(place)].variables_;
+      variables.assign(ids, LayerView::Variable{});
+      for (std::size_t slot = 0; slot < memoryInfo_.size(); ++slot) {
+        const auto& info = memoryInfo_[slot];
+        auto* base = static_cast<char*>(memoryContainer_[slot].get(place));
+        if (info.type == MemoryType::Variable && info.initialized && !info.filtered &&
+            base != nullptr) {
+          variables[slots_.idOf(slot)] = LayerView::Variable{base, info.bytes};
+        }
+      }
+    }
+  }
+
   public:
   Layer() = default;
   ~Layer() = default;
 
   [[nodiscard]] std::size_t id() const { return posId_; }
 
-  /**
-    Contains references to a specific cell for all stored internal data.
-    Useful e.g. for passing less arguments.
+  /// The variables of the layer as `place` sees them.
+  [[nodiscard]] const LayerView& view(AllocationPlace place = AllocationPlace::Host) const {
+    return views_[placeIndex(place)];
+  }
 
-    (equivalent to the `LocalData` / `NeighborData` in older SeisSol)
-
-    The reference is to a cell of a configuration `Cfg`: a variable that holds a type per
-    configuration is seen as the one of `Cfg`.
-
-    Example: if you have a registered type Tx, then the following are equivalent:
-
-    const auto& data = layer.var<Tx>(Cfg(), AllocationPlace::Device)[123];
-
-    to:
-
-    const auto ref = layer.cellRef<Cfg>(123, AllocationPlace::Device);
-    const auto& data = ref.get<Tx>();
-   */
-  template <typename Cfg>
-  class CellRef {
-public:
-    CellRef(std::size_t id,
-            const VarmapT& varmap,
-            Layer& layer,
-            AllocationPlace place = AllocationPlace::Host)
-        : varmap_(&varmap), pointers_(varmap.pointerContainer()) {
-      for (std::size_t i = 0; i < layer.memoryInfo_.size(); ++i) {
-        if (layer.memoryInfo_[i].type == MemoryType::Variable && !layer.memoryInfo_[i].filtered &&
-            layer.memoryInfo_[i].initialized) {
-          pointers_[i] = reinterpret_cast<void*>(
-              reinterpret_cast<char*>(layer.memoryContainer_[i].get(place)) +
-              layer.memoryInfo_[i].bytes * id);
-        } else {
-          pointers_[i] = nullptr;
-        }
-      }
-    }
-
-    template <typename StorageT>
-    StorageType<StorageT, Cfg>& get() {
-      return *reinterpret_cast<StorageType<StorageT, Cfg>*>(
-          pointers_[varmap_->template index<StorageT>()]);
-    }
-
-    template <typename StorageT>
-    [[nodiscard]] const StorageType<StorageT, Cfg>& get() const {
-      return *reinterpret_cast<const StorageType<StorageT, Cfg>*>(
-          pointers_[varmap_->template index<StorageT>()]);
-    }
-
-    template <typename StorageT>
-    void setPointer(StorageType<StorageT, Cfg>* value) {
-      pointers_[varmap_->template index<StorageT>()] = reinterpret_cast<void*>(value);
-    }
-
-    template <typename StorageT>
-    StorageType<StorageT, Cfg>* getPointer() {
-      return reinterpret_cast<StorageType<StorageT, Cfg>*>(
-          pointers_[varmap_->template index<StorageT>()]);
-    }
-
-private:
-    // the varmap of the layer: a GenericVarmap finds the variables by what it holds
-    const VarmapT* varmap_;
-    VarmapT::PointerContainerT pointers_;
-  };
-
+  /// The cell `id`, as a cell of the configuration `Cfg` (see CellRef).
   template <typename Cfg>
   CellRef<Cfg> cellRef(std::size_t id, AllocationPlace place = AllocationPlace::Host) {
-    return CellRef<Cfg>(id, varmap_, *this, place);
+    return CellRef<Cfg>(view(place), id);
   }
 
   void synchronizeTo(AllocationPlace place, void* stream) {
@@ -560,7 +603,7 @@ private:
 
   template <typename StorageT>
   StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
-    const auto index = varmap_.template index<StorageT>();
+    const auto index = slots_.slot<StorageT>();
     assert(memoryContainer_.size() > index);
     return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
@@ -571,14 +614,14 @@ private:
                                       AllocationPlace place = AllocationPlace::Host)
     requires(!std::is_same_v<ConfigT, AllocationPlace>)
   {
-    const auto index = varmap_.template index<StorageT>();
+    const auto index = slots_.slot<StorageT>();
     assert(memoryContainer_.size() > index);
     return static_cast<StorageType<StorageT, ConfigT>*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT>
   [[nodiscard]] const StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
-    const auto index = varmap_.template index<StorageT>();
+    const auto index = slots_.slot<StorageT>();
     assert(memoryContainer_.size() > index);
     return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
@@ -588,14 +631,14 @@ private:
       var(const ConfigT& /*config*/, AllocationPlace place = AllocationPlace::Host) const
     requires(!std::is_same_v<ConfigT, AllocationPlace>)
   {
-    const auto index = varmap_.template index<StorageT>();
+    const auto index = slots_.slot<StorageT>();
     assert(memoryContainer_.size() > index);
     return static_cast<StorageType<StorageT, ConfigT>*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT>
   void varSynchronizeTo(AllocationPlace place, void* stream) {
-    const auto index = varmap_.template index<StorageT>();
+    const auto index = slots_.slot<StorageT>();
     assert(memoryContainer_.size() > index);
     memoryContainer_[index].synchronizeTo(place, stream);
   }
@@ -613,7 +656,7 @@ private:
 
   void setNumberOfCells(std::size_t numberOfCells) { numCells_ = numberOfCells; }
 
-  void fixPointers(std::size_t id, const std::vector<MemoryInfo>& info, const VarmapT& varmap) {
+  void fixPointers(std::size_t id, const std::vector<MemoryInfo>& info, const SlotMap& slots) {
     posId_ = id;
     const auto count = info.size();
     memoryContainer_.resize(count);
@@ -632,12 +675,13 @@ private:
         }
       }
     }
-    this->varmap_ = varmap;
+    slots_ = slots;
+    updateViews();
   }
 
   template <typename StorageT>
   void setEntrySize(size_t size) {
-    const auto index = varmap_.template index<StorageT>();
+    const auto index = slots_.slot<StorageT>();
     assert(memoryInfo_.size() > index);
     static_assert(StorageT::Storage == MemoryType::Bucket ||
                   StorageT::Storage == MemoryType::Scratchpad);
@@ -646,7 +690,7 @@ private:
 
   template <typename StorageT>
   size_t getEntrySize() {
-    const auto index = varmap_.template index<StorageT>();
+    const auto index = slots_.slot<StorageT>();
     assert(memoryInfo_.size() > index);
     return memoryInfo_[index].size;
   }
@@ -683,6 +727,7 @@ private:
             memory[var], offsets[var], numCells_ * memoryInfo_[var].bytes);
       }
     }
+    updateViews();
   }
 
   void setMemoryRegionsForBuckets(const std::vector<DualMemoryContainer>& memory,

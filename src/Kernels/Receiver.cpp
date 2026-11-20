@@ -223,8 +223,10 @@ void ReceiverClusterImpl<Cfg>::sampleReceiver(std::size_t cell,
 
   std::vector<double> derivedValues;
 
+  // the variables of the cell, with the unknowns gathered from the device (when it computes them)
+  initializer::LayerView gatheredView;
+
   for (std::size_t copy = 0; copy < copies; ++copy) {
-    // Use device pointers where required.
     auto tmpReceiverData{receiverCell.dataHost[copy]};
 
     if (executor == Executor::Device) {
@@ -234,20 +236,18 @@ void ReceiverClusterImpl<Cfg>::sampleReceiver(std::size_t cell,
       const real* dofs = gathered == nullptr
                              ? deviceCollector_->get(gatherIndex)
                              : deviceCollector_->get(gatherIndex, bytes + dofsOffset_);
+      gatheredView = tmpReceiverData.view();
       // (only read)
-      tmpReceiverData.template setPointer<LTS::Dofs>(
-          reinterpret_cast<decltype(tmpReceiverData.template getPointer<LTS::Dofs>())>(
-              // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-              const_cast<real*>(dofs)));
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+      gatheredView.relocate<LTS::Dofs>(const_cast<real*>(dofs));
       if constexpr (kernels::size<tensor::Qane<Cfg>>() > 0) {
         const real* dofsAne = gathered == nullptr
                                   ? deviceCollectorAne_->get(gatherIndex)
                                   : deviceCollectorAne_->get(gatherIndex, bytes + dofsAneOffset_);
-        tmpReceiverData.template setPointer<LTS::DofsAne>(
-            reinterpret_cast<decltype(tmpReceiverData.template getPointer<LTS::DofsAne>())>(
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-                const_cast<real*>(dofsAne)));
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+        gatheredView.relocate<LTS::DofsAne>(const_cast<real*>(dofsAne));
       }
+      tmpReceiverData = LTS::Ref<Cfg>(gatheredView, tmpReceiverData.cell());
     }
 
     const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);

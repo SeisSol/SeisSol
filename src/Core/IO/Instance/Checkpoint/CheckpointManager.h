@@ -56,17 +56,16 @@ class CheckpointManager {
     fusedCount_ = fusedCount;
   }
 
-  template <typename VarmapT>
   void registerTree(const std::string& name,
-                    initializer::Storage<VarmapT>& storage,
+                    initializer::Storage& storage,
                     const std::vector<std::size_t>& ids) {
     dataRegistry_[&storage].name = name;
     dataRegistry_[&storage].cells = storage.size(Ghost);
     dataRegistry_[&storage].ids = ids;
   }
 
-  template <typename StorageT, typename VarmapT>
-  void registerData(const std::string& name, initializer::Storage<VarmapT>& storage) {
+  template <typename StorageT>
+  void registerData(const std::string& name, initializer::Storage& storage) {
     const auto& info = storage.template info<StorageT>();
     if (info.mask != initializer::LayerMask(Ghost)) {
       logError() << "Invalid layer mask for a checkpointing variable (i.e.: NYI).";
@@ -82,9 +81,9 @@ class CheckpointManager {
     });
   }
 
-  template <typename S, typename T, typename VarmapT>
+  template <typename S, typename T>
   void registerTransformedData(const std::string& name,
-                               initializer::Storage<VarmapT>& storage,
+                               initializer::Storage& storage,
                                initializer::Variable<T> var,
                                const std::function<void(void*, const void*)>& pack,
                                const std::function<void(void*, const void*)>& unpack) {
@@ -99,9 +98,9 @@ class CheckpointManager {
                                                                       unpack});
   }
 
-  template <std::size_t Pad, std::size_t Nopad, typename T, std::size_t Npad, typename VarmapT>
+  template <std::size_t Pad, std::size_t Nopad, typename T, std::size_t Npad>
   void registerPaddedData(const std::string& name,
-                          initializer::Storage<VarmapT>& storage,
+                          initializer::Storage& storage,
                           initializer::Variable<T[Npad]> var) {
     constexpr std::size_t Lines = (Npad / Pad);
     constexpr std::size_t Nnopad = Lines * Nopad;

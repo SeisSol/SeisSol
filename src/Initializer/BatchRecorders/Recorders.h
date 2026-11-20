@@ -28,12 +28,11 @@
 
 namespace seissol::recording {
 
-template <typename VarmapT>
 class AbstractRecorder {
   public:
   virtual ~AbstractRecorder() = default;
 
-  virtual void record(initializer::Layer<VarmapT>& layer) = 0;
+  virtual void record(initializer::Layer& layer) = 0;
 
   protected:
   void checkKey(const ConditionalKey& key) {
@@ -43,30 +42,29 @@ class AbstractRecorder {
     }
   }
 
-  virtual void setUpContext(initializer::Layer<VarmapT>& layer) {
-    currentTable_ = &layer.template getConditionalTable<inner_keys::Wp>();
-    currentDrTable_ = &layer.template getConditionalTable<inner_keys::Dr>();
-    currentIndicesTable_ = &layer.template getConditionalTable<inner_keys::Indices>();
+  virtual void setUpContext(initializer::Layer& layer) {
+    currentTable_ = &layer.getConditionalTable<inner_keys::Wp>();
+    currentDrTable_ = &layer.getConditionalTable<inner_keys::Dr>();
+    currentIndicesTable_ = &layer.getConditionalTable<inner_keys::Indices>();
     currentLayer_ = &layer;
   }
 
   ConditionalPointersToRealsTable* currentTable_{nullptr};
   DrConditionalPointersToRealsTable* currentDrTable_{nullptr};
   ConditionalIndicesTable* currentIndicesTable_{nullptr};
-  initializer::Layer<VarmapT>* currentLayer_{nullptr};
+  initializer::Layer* currentLayer_{nullptr};
 };
 
-template <typename VarmapT>
-class CompositeRecorder : public AbstractRecorder<VarmapT> {
+class CompositeRecorder : public AbstractRecorder {
   public:
-  void record(initializer::Layer<VarmapT>& layer) override {
+  void record(initializer::Layer& layer) override {
     for (const auto& recorder : concreteRecorders_) {
       recorder->record(layer);
     }
   }
 
-  void addRecorder(AbstractRecorder<VarmapT>* recorder) {
-    concreteRecorders_.push_back(std::shared_ptr<AbstractRecorder<VarmapT>>(recorder));
+  void addRecorder(AbstractRecorder* recorder) {
+    concreteRecorders_.push_back(std::shared_ptr<AbstractRecorder>(recorder));
   }
 
   void removeRecorder(size_t recorderIndex) {
@@ -76,12 +74,12 @@ class CompositeRecorder : public AbstractRecorder<VarmapT> {
   }
 
   private:
-  std::vector<std::shared_ptr<AbstractRecorder<VarmapT>>> concreteRecorders_;
+  std::vector<std::shared_ptr<AbstractRecorder>> concreteRecorders_;
 };
 
 /// Records the batches of the local integration of a layer of the configuration `Cfg`.
 template <typename Cfg>
-class LocalIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
+class LocalIntegrationRecorder : public AbstractRecorder {
   public:
   using real = Real<Cfg>;
 
@@ -115,7 +113,7 @@ class LocalIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
 
 /// Records the batches of the neighbor integration of a layer of the configuration `Cfg`.
 template <typename Cfg>
-class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
+class NeighIntegrationRecorder : public AbstractRecorder {
   public:
   using real = Real<Cfg>;
 
@@ -185,7 +183,7 @@ class NeighIntegrationRecorder : public AbstractRecorder<LTS::LTSVarmap> {
 
 /// Records the batches of the plasticity of a layer of the configuration `Cfg`.
 template <typename Cfg>
-class PlasticityRecorder : public AbstractRecorder<LTS::LTSVarmap> {
+class PlasticityRecorder : public AbstractRecorder {
   public:
   using real = Real<Cfg>;
 
@@ -198,7 +196,7 @@ class PlasticityRecorder : public AbstractRecorder<LTS::LTSVarmap> {
 
 /// Records the batches of a layer of dynamic rupture faces of the configuration `Cfg`.
 template <typename Cfg>
-class DynamicRuptureRecorder : public AbstractRecorder<DynamicRupture::DynrupVarmap> {
+class DynamicRuptureRecorder : public AbstractRecorder {
   public:
   using real = Real<Cfg>;
 

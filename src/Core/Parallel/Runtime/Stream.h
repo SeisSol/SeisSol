@@ -479,9 +479,9 @@ class StreamRuntime {
    * a single time and then kept forever, so the number of live graphs would grow with the
    * number of synchronization points.
    */
-  template <typename VarmapT, typename F>
+  template <typename F>
   void runGraph(seissol::initializer::GraphKey computeGraphKey,
-                initializer::Layer<VarmapT>& layer,
+                initializer::Layer& layer,
                 F&& handler,
                 bool cacheable = true,
                 GraphMode mode = GraphMode::Nodes) {

@@ -26,7 +26,7 @@ TEST_CASE("HostData" * doctest::test_suite("memory")) {
       initializer::EnumLayer(std::vector<std::size_t>{1}),
       initializer::EnumLayer(std::vector<ConfigId>{defaultConfig()}));
 
-  const auto setup = [&](initializer::Storage<initializer::GenericVarmap>& storage) {
+  const auto setup = [&](initializer::Storage& storage) {
     storage.add<TestDescriptor::Var1>(
         initializer::LayerMask(), sizeof(void*), initializer::AllocationMode::HostOnly);
     storage.add<TestDescriptor::Var2>(
@@ -38,8 +38,8 @@ TEST_CASE("HostData" * doctest::test_suite("memory")) {
     }
     storage.allocateVariables();
   };
-  initializer::Storage<initializer::GenericVarmap> storage;
-  initializer::Storage<initializer::GenericVarmap> otherStorage;
+  initializer::Storage storage;
+  initializer::Storage otherStorage;
   setup(storage);
   setup(otherStorage);
 

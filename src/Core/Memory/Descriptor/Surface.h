@@ -32,13 +32,10 @@ struct SurfaceLTS {
 
   struct DisplacementDofs : public seissol::initializer::VariantVariable<FaceDisplacementArray> {};
 
-  struct SurfaceVarmap
-      : public initializer::SpecificVarmap<Side, MeshId, CopyId, LocationFlag, DisplacementDofs> {};
-
-  using Storage = initializer::Storage<SurfaceVarmap>;
-  using Layer = initializer::Layer<SurfaceVarmap>;
+  using Storage = initializer::Storage;
+  using Layer = initializer::Layer;
   template <typename Cfg>
-  using Ref = initializer::Layer<SurfaceVarmap>::CellRef<Cfg>;
+  using Ref = initializer::CellRef<Cfg>;
   using Backmap = initializer::StorageBackmap<1>;
 
   static void addTo(Storage& storage) {

@@ -10,6 +10,7 @@
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Iterator.h"
 #include "Core/Common/Real.h"
+#include "Core/Common/TypeId.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Tree/Colormap.h"
 #include "Core/Memory/Tree/LTSTree.h"
@@ -19,6 +20,7 @@
 
 #include <cstddef>
 #include <type_traits>
+#include <typeinfo>
 #include <vector>
 
 namespace seissol::unit_test {
@@ -38,7 +40,7 @@ struct TestDescriptor {
 };
 
 TEST_CASE_TEMPLATE("Storage" * doctest::test_suite("memory"), Cfg, SEISSOL_CONFIG_TYPES) {
-  initializer::Storage<initializer::GenericVarmap> storage;
+  initializer::Storage storage;
 
   // NOTE: the LTSColorMap is hard-coded to the storage right now.
   const initializer::LTSColorMap colorMap(
@@ -133,7 +135,7 @@ TEST_CASE("Storage scratchpad sharing" * doctest::test_suite("memory")) {
       // the sharing does not depend on the configuration; any one built in does
       initializer::EnumLayer(std::vector<ConfigId>{defaultConfig()}));
 
-  const auto setup = [&](initializer::Storage<initializer::GenericVarmap>& storage) {
+  const auto setup = [&](initializer::Storage& storage) {
     storage.add<TestDescriptor::Scratchpad>(
         initializer::LayerMask(), sizeof(void*), initializer::AllocationMode::HostOnly);
     storage.setLayerCount(colorMap);
@@ -148,7 +150,7 @@ TEST_CASE("Storage scratchpad sharing" * doctest::test_suite("memory")) {
   };
 
   SUBCASE("Shared by all layers") {
-    initializer::Storage<initializer::GenericVarmap> storage;
+    initializer::Storage storage;
     setup(storage);
     storage.allocateScratchPads(initializer::ScratchpadSharing::Shared);
 
@@ -164,7 +166,7 @@ TEST_CASE("Storage scratchpad sharing" * doctest::test_suite("memory")) {
   }
 
   SUBCASE("One per layer") {
-    initializer::Storage<initializer::GenericVarmap> storage;
+    initializer::Storage storage;
     setup(storage);
     storage.allocateScratchPads(initializer::ScratchpadSharing::PerLayer);
 
@@ -202,6 +204,71 @@ TEST_CASE("Storage scratchpad sharing" * doctest::test_suite("memory")) {
           CHECK(scratchpad[k] == static_cast<float>(i));
         }
       }
+    }
+  }
+}
+
+TEST_CASE("Type numbering" * doctest::test_suite("memory")) {
+  // a numbering of its own: the ones of the process have given out ids already
+  TypeNumbering numbering;
+  CHECK(numbering.size() == 0);
+  CHECK(numbering.idOf(typeid(int)) == 0);
+  CHECK(numbering.idOf(typeid(float)) == 1);
+  CHECK(numbering.idOf(typeid(int)) == 0);
+  CHECK(numbering.size() == 2);
+
+  // the ids of the process cover the types the program names, each with an id of its own
+  const auto id1 = TypeId<TypeDomain::Storage, TestDescriptor::Var1>;
+  const auto id2 = TypeId<TypeDomain::Storage, TestDescriptor::Var2>;
+  CHECK(id1 != id2);
+  CHECK(id1 < typeCount(TypeDomain::Storage));
+  CHECK(id2 < typeCount(TypeDomain::Storage));
+}
+
+TEST_CASE_TEMPLATE("Storage views" * doctest::test_suite("memory"), Cfg, SEISSOL_CONFIG_TYPES) {
+  const initializer::LTSColorMap colorMap(
+      initializer::EnumLayer(
+          std::vector<HaloType>{HaloType::Interior, HaloType::Copy, HaloType::Ghost}),
+      initializer::EnumLayer(std::vector<std::size_t>{1}),
+      initializer::EnumLayer(std::vector<ConfigId>{configIdOf<Cfg>()}));
+
+  initializer::Storage storage;
+  // only on the interior layer
+  storage.add<TestDescriptor::Var1>(initializer::LayerMask(Ghost) | initializer::LayerMask(Copy),
+                                    sizeof(void*),
+                                    initializer::AllocationMode::HostOnly);
+  storage.add<TestDescriptor::Var4>(
+      initializer::LayerMask(), sizeof(void*), initializer::AllocationMode::HostOnly);
+  CHECK(storage.has<TestDescriptor::Var1>());
+  CHECK_FALSE(storage.has<TestDescriptor::Var2>());
+
+  storage.setLayerCount(colorMap);
+  storage.fixate();
+  for (auto& layer : storage.leaves()) {
+    layer.setNumberOfCells(3);
+  }
+  storage.allocateVariables();
+
+  for (auto& layer : storage.leaves()) {
+    auto ref = layer.cellRef<Cfg>(2);
+    CHECK(&ref.template get<TestDescriptor::Var4>() == &layer.var<TestDescriptor::Var4>(Cfg())[2]);
+
+    // what the layer does not hold is a null pointer: a filtered variable, and a variable that the
+    // storage does not have
+    const bool interior = layer.getIdentifier().halo == HaloType::Interior;
+    CHECK((layer.view().address<TestDescriptor::Var1>(2) != nullptr) == interior);
+    CHECK(layer.view().address<TestDescriptor::Var2>(2) == nullptr);
+
+    // a derived view puts single variables elsewhere, and leaves the layer as it is
+    PerConfigArray<Cfg> elsewhere{};
+    initializer::LayerView view = layer.view();
+    view.relocate<TestDescriptor::Var4>(&elsewhere);
+    const initializer::CellRef<Cfg> moved(view, 2);
+    CHECK(&moved.template get<TestDescriptor::Var4>() == &elsewhere);
+    CHECK(&ref.template get<TestDescriptor::Var4>() == &layer.var<TestDescriptor::Var4>(Cfg())[2]);
+    if (interior) {
+      CHECK(&moved.template get<TestDescriptor::Var1>() ==
+            &ref.template get<TestDescriptor::Var1>());
     }
   }
 }

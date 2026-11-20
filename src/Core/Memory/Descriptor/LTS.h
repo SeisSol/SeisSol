@@ -177,52 +177,10 @@ struct LTS {
 
   struct Integrals : public initializer::VariantVariable<DofsArray> {};
 
-  struct LTSVarmap : public initializer::SpecificVarmap<Dofs,
-                                                        DofsHalo,
-                                                        DofsAne,
-                                                        StepIntegrals,
-                                                        AccumulatedIntegrals,
-                                                        Derivatives,
-                                                        CellInformation,
-                                                        SecondaryInformation,
-                                                        FaceNeighbors,
-                                                        LocalIntegration,
-                                                        NeighboringIntegration,
-                                                        Coupling,
-                                                        CouplingMatrices,
-                                                        Material,
-                                                        MaterialData,
-                                                        Plasticity,
-                                                        DRMapping,
-                                                        BoundaryMapping,
-                                                        PStrain,
-                                                        FaceDisplacements,
-                                                        Buffers,
-                                                        StepIntegralsDevice,
-                                                        AccumulatedIntegralsDevice,
-                                                        DerivativesDevice,
-                                                        FaceNeighborsDevice,
-                                                        FaceDisplacementsDevice,
-                                                        CouplingDevice,
-                                                        DRMappingDevice,
-                                                        BoundaryMappingDevice,
-                                                        IntegratedDofsScratch,
-                                                        DerivativesScratch,
-                                                        NodalAvgDisplacements,
-                                                        AnalyticScratch,
-                                                        IDofsAneScratch,
-                                                        DofsExtScratch,
-                                                        FlagScratch,
-                                                        QStressNodalScratch,
-                                                        Integrals,
-                                                        EnergyData,
-                                                        ZinvExtra,
-                                                        ConfigBoundaryScratch> {};
-
-  using Storage = initializer::Storage<LTSVarmap>;
-  using Layer = initializer::Layer<LTSVarmap>;
+  using Storage = initializer::Storage;
+  using Layer = initializer::Layer;
   template <typename Cfg>
-  using Ref = initializer::Layer<LTSVarmap>::CellRef<Cfg>;
+  using Ref = initializer::CellRef<Cfg>;
   using Backmap = initializer::StorageBackmap<Cell::NumFaces>;
 
   static void addTo(Storage& storage, const SimulationSettings& settings) {

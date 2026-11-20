@@ -119,12 +119,10 @@ struct DynamicRupture {
   struct IdofsPlusOnDevice : public initializer::VariantScratchpad<Real> {};
   struct IdofsMinusOnDevice : public initializer::VariantScratchpad<Real> {};
 
-  struct DynrupVarmap : public initializer::GenericVarmap {};
-
-  using Storage = initializer::Storage<DynrupVarmap>;
-  using Layer = initializer::Layer<DynrupVarmap>;
+  using Storage = initializer::Storage;
+  using Layer = initializer::Layer;
   template <typename Cfg>
-  using Ref = initializer::Layer<DynrupVarmap>::CellRef<Cfg>;
+  using Ref = initializer::CellRef<Cfg>;
   using Backmap = initializer::StorageBackmap<1>;
 
   virtual void addTo(Storage& storage) {

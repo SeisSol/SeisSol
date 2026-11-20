@@ -81,12 +81,12 @@ void initAssign(T& target, const T& value) {
   into different chunks called "layers" for historic reasons. Each layer is associated to a color
   (cf. LTSColorMap) which identifies e.g. the halo type and the LTS cluster ID it belongs to.
 
-  The VarmapT is either GenericVarmap or SpecificVarmap.
+  The variables are identified by their types; a storage holds those added to it (see add()), so
+  that every part of the program can add its own.
 
   NOTE: currently hard-coded to the LTSColorMap type. If someone would need it, you could generalize
   that to arbitrary color maps or orderings. (we don't need that anywhere right now (late 2025))
  */
-template <typename VarmapT = GenericVarmap>
 class Storage {
   private:
   std::vector<DualMemoryContainer> memoryContainer_;
@@ -98,7 +98,10 @@ class Storage {
   seissol::memory::ManagedAllocator allocator_;
   std::string name_;
 
-  VarmapT varmap_;
+  SlotMap slots_;
+
+  // whether the layers are set up (see fixate()); variables can only be added before
+  bool fixated_{false};
 
   // whether the variables that change keep snapshots (see setSnapshots())
   bool snapshots_{false};
@@ -163,10 +166,10 @@ class Storage {
 
   std::optional<LTSColorMap> map_;
 
-  std::vector<Layer<VarmapT>> layers_;
+  std::vector<Layer> layers_;
 
   public:
-  Storage() { memoryInfo_.resize(VarmapT::MinSize); }
+  Storage() = default;
 
   ~Storage() = default;
 
@@ -216,18 +219,19 @@ class Storage {
     memoryContainer_.resize(memoryInfo_.size());
     std::size_t id = 0;
     for (auto& leaf : this->leaves()) {
-      leaf.fixPointers(id, memoryInfo_, varmap_);
+      leaf.fixPointers(id, memoryInfo_, slots_);
       ++id;
     }
+    fixated_ = true;
   }
 
-  Layer<VarmapT>& layer(std::size_t index) { return layers_.at(index); }
+  Layer& layer(std::size_t index) { return layers_.at(index); }
 
-  [[nodiscard]] const Layer<VarmapT>& layer(std::size_t index) const { return layers_.at(index); }
+  [[nodiscard]] const Layer& layer(std::size_t index) const { return layers_.at(index); }
 
-  Layer<VarmapT>& layer(const LayerIdentifier& id) { return layer(getColorMap().colorId(id)); }
+  Layer& layer(const LayerIdentifier& id) { return layer(getColorMap().colorId(id)); }
 
-  [[nodiscard]] const Layer<VarmapT>& layer(const LayerIdentifier& id) const {
+  [[nodiscard]] const Layer& layer(const LayerIdentifier& id) const {
     return layer(getColorMap().colorId(id));
   }
 
@@ -239,21 +243,21 @@ class Storage {
 
   template <typename StorageT>
   StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) {
-    const auto index = varmap_.template index<StorageT>();
+    const auto index = slots_.slot<StorageT>();
     assert(memoryContainer_.size() > index);
     return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT>
   const StorageT::Type* var(AllocationPlace place = AllocationPlace::Host) const {
-    const auto index = varmap_.template index<StorageT>();
+    const auto index = slots_.slot<StorageT>();
     assert(memoryContainer_.size() > index);
     return static_cast<StorageT::Type*>(memoryContainer_[index].get(place));
   }
 
   template <typename StorageT>
   void varSynchronizeTo(AllocationPlace place, void* stream) {
-    const auto index = varmap_.template index<StorageT>();
+    const auto index = slots_.slot<StorageT>();
     assert(memoryContainer_.size() > index);
     memoryContainer_[index].synchronizeTo(place, stream);
   }
@@ -261,7 +265,7 @@ class Storage {
   /// Adds the memory of the variable (or bucket) `StorageT` (cf. HostData).
   template <typename StorageT>
   void varContainers(std::vector<const DualMemoryContainer*>& containers) const {
-    const auto index = varmap_.template index<StorageT>();
+    const auto index = slots_.slot<StorageT>();
     assert(memoryContainer_.size() > index);
     containers.push_back(&memoryContainer_[index]);
   }
@@ -285,7 +289,7 @@ class Storage {
 
   template <typename StorageT>
   [[nodiscard]] const MemoryInfo& info() const {
-    const auto index = varmap_.template index<StorageT>();
+    const auto index = slots_.slot<StorageT>();
     assert(memoryInfo_.size() > index);
     return memoryInfo_[index];
   }
@@ -340,8 +344,18 @@ class Storage {
            AllocationMode allocMode,
            bool constant = false,
            std::size_t count = 1) {
-    const auto index = varmap_.template add<StorageT>();
+    if (fixated_) {
+      logError() << "A variable was added to the storage" << name_
+                 << "after its layers were set up; add all variables before (see fixate()).";
+    }
+    const auto index = slots_.add<StorageT>();
     addInternal<StorageT>(index, mask, alignment, allocMode, constant, count);
+  }
+
+  /// Whether the variable (bucket, scratchpad) `StorageT` was added.
+  template <typename StorageT>
+  [[nodiscard]] bool has() const {
+    return slots_.has<StorageT>();
   }
 
   void allocateVariables() {
@@ -570,18 +584,19 @@ class Storage {
   // : leaves())`
   class IteratorWrapper {
 private:
-    Storage<VarmapT>& node_;
-    std::function<bool(const Layer<VarmapT>&)> filter_;
+    Storage& node_;
+    std::function<bool(const Layer&)> filter_;
 
 public:
-    IteratorWrapper(Storage<VarmapT>& node, std::function<bool(const Layer<VarmapT>&)> filter)
+    IteratorWrapper(Storage& node, std::function<bool(const Layer&)> filter)
         : node_(node), filter_(std::move(filter)) {}
 
-    auto begin() {
+    // (the types are named, as the storage uses them before the end of its definition)
+    common::FilteredIterator<std::vector<Layer>::iterator> begin() {
       return common::FilteredIterator(node_.layers_.begin(), node_.layers_.end(), filter_);
     }
 
-    auto end() {
+    common::FilteredIterator<std::vector<Layer>::iterator> end() {
       return common::FilteredIterator(node_.layers_.end(), node_.layers_.end(), filter_);
     }
   };
@@ -590,19 +605,18 @@ public:
   // (auto x : leaves())`
   class IteratorWrapperConst {
 private:
-    const Storage<VarmapT>& node_;
-    std::function<bool(const Layer<VarmapT>&)> filter_;
+    const Storage& node_;
+    std::function<bool(const Layer&)> filter_;
 
 public:
-    IteratorWrapperConst(const Storage<VarmapT>& node,
-                         std::function<bool(const Layer<VarmapT>&)> filter)
+    IteratorWrapperConst(const Storage& node, std::function<bool(const Layer&)> filter)
         : node_(node), filter_(std::move(filter)) {}
 
-    [[nodiscard]] auto begin() const {
+    [[nodiscard]] common::FilteredIterator<std::vector<Layer>::const_iterator> begin() const {
       return common::FilteredIterator(node_.layers_.begin(), node_.layers_.end(), filter_);
     }
 
-    [[nodiscard]] auto end() const {
+    [[nodiscard]] common::FilteredIterator<std::vector<Layer>::const_iterator> end() const {
       return common::FilteredIterator(node_.layers_.end(), node_.layers_.end(), filter_);
     }
   };
@@ -626,13 +640,13 @@ public:
   }
 
   IteratorWrapper leaves(LayerMask mask = LayerMask()) {
-    return filter([mask](const Layer<VarmapT>& layer) {
+    return filter([mask](const Layer& layer) {
       return !mask.test(static_cast<int>(layer.getIdentifier().halo));
     });
   }
 
   [[nodiscard]] IteratorWrapperConst leaves(LayerMask mask = LayerMask()) const {
-    return filter([mask](const Layer<VarmapT>& layer) {
+    return filter([mask](const Layer& layer) {
       return !mask.test(static_cast<int>(layer.getIdentifier().halo));
     });
   }

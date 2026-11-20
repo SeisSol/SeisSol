@@ -320,7 +320,7 @@ void ProxyDataImpl<Cfg>::initDataStructuresOnDevice(bool enableDR) {
   seissol::initializer::internal::deriveRequiredScratchpadMemoryForWp(false, ltsStorage);
   ltsStorage.allocateScratchPads();
 
-  seissol::recording::CompositeRecorder<LTS::LTSVarmap> recorder;
+  seissol::recording::CompositeRecorder recorder;
   recorder.addRecorder(new seissol::recording::LocalIntegrationRecorder<Cfg>(9.81));
   recorder.addRecorder(new seissol::recording::NeighIntegrationRecorder<Cfg>);
 
@@ -333,7 +333,7 @@ void ProxyDataImpl<Cfg>::initDataStructuresOnDevice(bool enableDR) {
     seissol::initializer::internal::deriveRequiredScratchpadMemoryForDr(drStorage);
     drStorage.allocateScratchPads();
 
-    seissol::recording::CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
+    seissol::recording::CompositeRecorder drRecorder;
     drRecorder.addRecorder(new seissol::recording::DynamicRuptureRecorder<Cfg>);
 
     auto& drLayer = drStorage.layer(layerId);

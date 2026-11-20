@@ -25,7 +25,7 @@ void setupRecorders(LTS::Storage& ltsStorage,
     for (auto& layer : ltsStorage.leaves(Ghost)) {
       dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
         using Cfg = decltype(cfg);
-        recording::CompositeRecorder<LTS::LTSVarmap> recorder;
+        recording::CompositeRecorder recorder;
         recorder.addRecorder(new recording::LocalIntegrationRecorder<Cfg>(g));
         recorder.addRecorder(new recording::NeighIntegrationRecorder<Cfg>());
         if (usePlasticity) {
@@ -38,7 +38,7 @@ void setupRecorders(LTS::Storage& ltsStorage,
     for (auto& layer : drStorage.leaves(Ghost)) {
       dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
         using Cfg = decltype(cfg);
-        recording::CompositeRecorder<DynamicRupture::DynrupVarmap> drRecorder;
+        recording::CompositeRecorder drRecorder;
         drRecorder.addRecorder(new recording::DynamicRuptureRecorder<Cfg>());
         drRecorder.record(layer);
       });
