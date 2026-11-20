@@ -487,6 +487,9 @@ class Porosity:
             raise Unsupported("the porous medium has no positive density at once")
         self.excess = rho_fluid**2 / (m * self.unrelaxed)
         self.frequency = float(viscosity) / (float(permeability) * m)
+        # rho_bar, rho_f, m and nu / kappa, of the momentum and the energy
+        self.mixture, self.rho_fluid, self.inertia = mixture, rho_fluid, m
+        self.drag = float(viscosity) / float(permeability)
         # rho(s) maps the upper half-plane into the lower one
         self.upper = -1.0
         self.front_rate = 0.5 * self.excess * self.frequency
@@ -694,17 +697,23 @@ class Relaxation:
         """h(s), at the complex `s` off the negative real axis."""
         return 1.0 / sum(1.0 / _shear_impedance(medium, s) for medium in self.media)
 
-    def propagators(self, medium, distance, times):
+    def propagators(self, medium, distance, times, factors=()):
         """The velocity and the shear stress along the slip at the distance
         `distance` from the fault, on the side of `medium`, per slip rate: the
         weights of their fronts, and their tails at the `times` after the
-        front, of which the first is 0."""
+        front, of which the first is 0. Each of `factors`, a function F of s
+        and its limit for large s, adds the propagator of the velocity times
+        F(s), the one of a quantity that follows from the velocity."""
         speed = medium.shear_speed
         unrelaxed = medium.impedance[1, 1]
         dispersion = medium.dispersion
         rate = 0.0 if dispersion is None else dispersion.front_rate
         damped = math.exp(-distance * rate / speed)
-        fronts = np.array((self.eta / unrelaxed * damped, -self.eta * damped))
+        velocity_front = self.eta / unrelaxed * damped
+        fronts = np.array(
+            [velocity_front, -self.eta * damped]
+            + [limit * velocity_front for _, limit in factors]
+        )
 
         def transform(s):
             damping = self.damping(s)
@@ -717,11 +726,13 @@ class Relaxation:
                     -distance * s / speed * excess / (np.sqrt(1.0 + excess) + 1.0)
                 )
             waves = np.exp(exponent)
+            velocity = damping / impedance * waves
             return np.stack(
-                (
-                    damping / impedance * waves - fronts[0],
-                    -damping * waves - fronts[1],
-                )
+                [velocity - fronts[0], -damping * waves - fronts[1]]
+                + [
+                    factor(s) * velocity - front
+                    for (factor, _), front in zip(factors, fronts[2:])
+                ]
             )
 
         # the tail right behind the front, from where it has hardly changed
@@ -1719,29 +1730,98 @@ class Problem:
         stress = gradient @ medium.stiffness[:, _ALONG_X].T
         return velocity, stress
 
-    def _radiated_relaxing(self, series, x, medium, side):
+    def _radiated_relaxing(self, series, x, medium, side, factors=()):
         """The shear wave a side sends out into an isotropic medium that
         relaxes (see Relaxation): its velocity along the slip, -/+ that of
         the propagator on the side x < 0 / x > 0, and its shear stress, the
-        same on both."""
+        same on both. With `factors` (see Relaxation.propagators), the
+        quantities they make of the velocity follow, along y and z, those
+        that the velocity carries along the slip with its sign, those of the
+        strain along it without."""
         time = series["time"]
         step = time[1] - time[0]
         rate = np.column_stack((series["slip-rate-y"], series["slip-rate-z"]))
-        fronts, tails = self.relaxation.propagators(medium, abs(x), time)
+        fronts, tails = self.relaxation.propagators(
+            medium, abs(x), time, [(factor, limit) for factor, limit, _ in factors]
+        )
         arrival = abs(x) / medium.shear_speed
         velocity = np.zeros((time.size, 3))
         stress = np.zeros((time.size, 6))
+        extras = [np.zeros((time.size, 2)) for _ in factors]
         columns = (VOIGT.index("xy"), VOIGT.index("xz"))
         for front, tail, scale, field, where in (
             (fronts[0], tails[0], side, velocity, (1, 2)),
             (fronts[1], tails[1], 1.0, stress, columns),
+        ) + tuple(
+            (front, tail, side if signed else 1.0, extra, (0, 1))
+            for front, tail, (_, _, signed), extra in zip(
+                fronts[2:], tails[2:], factors, extras
+            )
         ):
             values = front * rate + _convolve(tail, rate, step)
             for column, index in zip(values.T, where):
                 field[:, index] = scale * np.interp(
                     time - arrival, time, column, left=0.0
                 )
+        if factors:
+            return velocity, stress, extras
         return velocity, stress
+
+    def relaxing_fields(self, series, x):
+        """The fields of the energy output at the distance x in a medium
+        whose shear wave relaxes (see Relaxation), along y and z: the velocity
+        and the shear stress, and of an anelastic medium the shear strain
+        eps_xy, eps_xz (the tensor components, half the shear) and the strain
+        e_l = theta_l / omega_l of the spring of each mechanism l, of a porous
+        one the velocity w of the pore fluid relative to the skeleton, in a
+        dict.
+
+        The strain rate is half the slope of the velocity across the fault,
+        whose Laplace transform is -kappa(s) / s times the one of the
+        velocity, kappa(s) = s sqrt(B(s)) / c_U; theta_l follows the strain
+        rate with omega_l / (s + omega_l), and w the velocity with
+        -rho_f s / (m s + nu / kappa)."""
+        medium = self.left if x < 0.0 else self.right
+        side = -1.0 if x < 0.0 else 1.0
+        dispersion = medium.dispersion
+        speed = medium.shear_speed
+        factors, names = [], []
+
+        def strain(s):
+            # -kappa / (2 s), the velocity along the slip turned into eps
+            return -np.sqrt(1.0 + dispersion.slowness_excess(s)) / (2.0 * speed)
+
+        if isinstance(dispersion, Anelasticity):
+            factors.append((strain, -0.5 / speed, False))
+            names.append("strain")
+            for index, omega in enumerate(dispersion.frequencies):
+                factors.append(
+                    (
+                        lambda s, omega=omega: strain(s) * s / (s + omega),
+                        -0.5 / speed,
+                        False,
+                    )
+                )
+                names.append(f"spring-{index}")
+        if isinstance(dispersion, Porosity):
+            factors.append(
+                (
+                    lambda s: -dispersion.rho_fluid
+                    * s
+                    / (dispersion.inertia * s + dispersion.drag),
+                    -dispersion.rho_fluid / dispersion.inertia,
+                    True,
+                )
+            )
+            names.append("fluid")
+        found = self._radiated_relaxing(series, x, medium, side, factors)
+        velocity, stress, extras = found if factors else found + ([],)
+        fields = {
+            "velocity": velocity[:, 1:],
+            "stress": stress[:, [VOIGT.index("xy"), VOIGT.index("xz")]],
+        }
+        fields.update(zip(names, extras))
+        return fields
 
     def _radiated_inclined(self, series, x, medium, side):
         """The plane wave behind a front, w = W(t - t_r(y) - |x| delay): its

@@ -2120,19 +2120,23 @@ def compare_fault1d_energies(
 
     On fault1d, the fault slips uniformly over its area A, and the traction
     of the waves it sends out is -H V, the radiation damping of the slip
-    rate V (see fault1d.Problem); the energy output takes the traction of the
-    waves, not the stress the fault is loaded with. The potency is A times
-    the accumulated slip, and the seismic moment that times the harmonic mean
-    of the shear moduli of the two sides along the slip so far, d^T Gamma d
-    with the Christoffel matrix Gamma of the side and the direction d of the
-    slip. The total frictional work is the integral of A V . H V over time,
-    and the static frictional work A V . H u / 2 at a time, with u the slip
-    by then. The kinetic and the strain energy, and the momentum, are those of
-    the waves within the column, whose ends at x = `extent` they leave
-    through; the momentum turns with a mesh that the matrix `rotation` turned,
-    and its deviation is relative to the integral of rho |v| instead, as the
-    momenta of the two sides cancel where their media are alike.
+    rate V (see fault1d.Problem), and in media that relax, -eta V - g * V;
+    the energy output takes the traction of the waves, not the stress the
+    fault is loaded with. The potency is A times the accumulated slip, and
+    the seismic moment that times the harmonic mean of the shear moduli of
+    the two sides along the slip so far, d^T Gamma d with the Christoffel
+    matrix Gamma of the side (of the unrelaxed medium) and the direction d of
+    the slip. The total frictional work is the integral of A V . H V over
+    time, and the static frictional work A V . H u / 2 at a time, with u the
+    slip by then and H V the traction of the waves. The kinetic and the
+    strain energy, and the momentum, are those of the waves within the
+    column, whose ends at x = `extent` they leave through; the momentum
+    turns with a mesh that the matrix `rotation` turned, and its deviation
+    is relative to the integral of rho |v| instead, as the momenta of the two
+    sides cancel where their media are alike. In media that relax, see
+    _relaxing_energies.
     """
+    import fault1d
     import numpy as np
 
     time = series["time"]
@@ -2143,7 +2147,6 @@ def compare_fault1d_energies(
             ([0.0], np.cumsum(0.5 * (values[1:] + values[:-1]) * np.diff(time)))
         )
 
-    damping = problem.eta_shear
     slip = np.column_stack([integral(column) for column in rate.T])
     length = np.linalg.norm(slip, axis=1)
     direction = np.where(
@@ -2154,17 +2157,26 @@ def compare_fault1d_energies(
         for medium in (problem.left, problem.right)
     )
     potency = area * series["accumulated-slip"]
+    if problem.relaxation is None:
+        resisted = rate @ problem.eta_shear.T
+    else:
+        # the traction the waves take off the fault, by their propagator at it
+        _, at_fault = problem.radiated(series, 0.0)
+        resisted = -at_fault[:, [fault1d.VOIGT.index("xy"), fault1d.VOIGT.index("xz")]]
     exact = {
         "potency": potency,
         "seismic_moment": 2.0 * left * right / (left + right) * potency,
-        "total_frictional_work": area
-        * integral(np.einsum("ti,ij,tj->t", rate, damping, rate)),
-        "static_frictional_work": 0.5
-        * area
-        * np.einsum("ti,ij,tj->t", rate, damping, slip),
+        "total_frictional_work": area * integral(np.einsum("ti,ti->t", rate, resisted)),
+        "static_frictional_work": 0.5 * area * np.einsum("ti,ti->t", resisted, slip),
     }
     wanted = ("elastic_kinetic_energy", "elastic_strain_energy")
-    if all((name, simulation) in energies for name in wanted):
+    if problem.relaxation is not None:
+        exact.update(
+            _relaxing_energies(
+                problem, series, energies, simulation, area, extent, rotation
+            )
+        )
+    elif all((name, simulation) in energies for name in wanted):
         # at the times of the output only, by Gauss-Legendre on either side
         times = np.asarray(energies[(wanted[0], simulation)][0])
         kinetic, strain = np.zeros(times.size), np.zeros(times.size)
@@ -2201,6 +2213,8 @@ def compare_fault1d_energies(
             raise SystemExit(f"the energy output holds no {name}")
         times, measured = energies[(name, simulation)]
         if isinstance(values, tuple):
+            # at the times of the output it gives, which are among those of the output
+            measured = np.interp(values[0], times, measured)
             expected = values[1]
             scale = values[2] if len(values) > 2 else float(np.max(np.abs(expected)))
         else:
@@ -2213,6 +2227,143 @@ def compare_fault1d_energies(
             largest / scale if scale > 0.0 else largest,
         )
     return deviations
+
+
+def _relaxing_energies(problem, series, energies, simulation, area, extent, rotation):
+    """The energies of the energy output within the column, of media whose
+    shear wave relaxes (see fault1d.Relaxation), at the times of the output
+    until the first front reaches an end of the column: the outflow planes
+    absorb the unrelaxed wave, and reflect what has relaxed (see
+    minimesh.py), which the column then holds as well. By Gauss-Legendre on
+    either side, from the fields of fault1d.Problem.relaxing_fields, as
+    docs/energy-output.rst defines the energies:
+
+    * an anelastic medium stores 2 mu_r eps^2 in its relaxed stiffness, mu_r
+      = mu_U (1 - sum_l Y_l), and 2 mu_U Y_l e_l^2 in the spring of each
+      mechanism l, whose dashpot dissipates 4 omega_l mu_U Y_l e_l^2, with
+      the tensor components eps and e_l of the shear strains, summed over
+      xy and xz;
+    * a porous medium moves the kinetic energy
+      (rho_bar v^2 + 2 rho_f v . w + m w^2) / 2 with the velocity w of the
+      fluid relative to the skeleton, stores sigma^2 / (2 mu) of its shear
+      stress, the pressure staying zero, and Darcy's friction dissipates
+      nu / kappa w^2;
+    * plasticity without a yield stores sigma^2 / (2 mu), as the elastic
+      medium does, and turns the stress into the plastic strain at the rate
+      sigma / (2 mu T_v), whose eta grows at its magnitude: the plastic moment
+      is the integral of mu eta.
+
+    The momentum is rho v, of a porous medium rho_bar v + rho_f w."""
+    import fault1d
+    import numpy as np
+
+    kinetic_names = ("elastic_kinetic_energy", "poroelastic_kinetic_energy")
+    present = [name for name in kinetic_names if (name, simulation) in energies]
+    if not present:
+        return {}
+    output = np.asarray(energies[(present[0], simulation)][0])
+    leave = min(
+        abs(extent[0]) / problem.left.shear_speed,
+        abs(extent[1]) / problem.right.shear_speed,
+    )
+    times = output[output <= leave]
+    time = series["time"]
+    # the fields up to the last of these times, a step on
+    kept = int(np.searchsorted(time, times[-1])) + 2
+    reduced = {
+        name: values[:kept] if np.ndim(values) and len(values) == len(time) else values
+        for name, values in series.items()
+    }
+    fine = reduced["time"]
+    sums = {}
+    momentum, magnitude = np.zeros((times.size, 3)), np.zeros(times.size)
+
+    def add(name, values):
+        sums[name] = sums.get(name, 0.0) + values
+
+    nodes, weights = np.polynomial.legendre.leggauss(96)
+    for start, end in ((extent[0], 0.0), (0.0, extent[1])):
+        medium = problem.left if end <= 0.0 else problem.right
+        dispersion = medium.dispersion
+        mu = medium.stiffness[3, 3]
+        for node, weight in zip(nodes, weights):
+            x = 0.5 * (start + end) + 0.5 * (end - start) * node
+            fields = problem.relaxing_fields(reduced, x)
+
+            def at(field):
+                return np.column_stack(
+                    [np.interp(times, fine, column) for column in field.T]
+                )
+
+            scale = 0.5 * (end - start) * weight * area
+            velocity, stress = at(fields["velocity"]), at(fields["stress"])
+            if isinstance(dispersion, fault1d.Porosity):
+                fluid = at(fields["fluid"])
+                add(
+                    "poroelastic_kinetic_energy",
+                    scale
+                    * 0.5
+                    * np.sum(
+                        dispersion.mixture * velocity**2
+                        + 2.0 * dispersion.rho_fluid * velocity * fluid
+                        + dispersion.inertia * fluid**2,
+                        axis=1,
+                    ),
+                )
+                add(
+                    "poroelastic_strain_energy",
+                    scale * np.sum(stress**2, axis=1) / (2.0 * mu),
+                )
+                add(
+                    "darcy_dissipation_rate",
+                    scale * dispersion.drag * np.sum(fluid**2, axis=1),
+                )
+                carried = dispersion.mixture * velocity + dispersion.rho_fluid * fluid
+                moved = dispersion.mixture * np.linalg.norm(
+                    velocity, axis=1
+                ) + dispersion.rho_fluid * np.linalg.norm(fluid, axis=1)
+            else:
+                add(
+                    "elastic_kinetic_energy",
+                    scale * 0.5 * medium.rho * np.sum(velocity**2, axis=1),
+                )
+                carried = medium.rho * velocity
+                moved = medium.rho * np.linalg.norm(velocity, axis=1)
+            if isinstance(dispersion, fault1d.Anelasticity):
+                relaxed = mu * (1.0 - float(np.sum(dispersion.s_coefficients)))
+                strain = at(fields["strain"])
+                add(
+                    "elastic_strain_energy",
+                    scale * 2.0 * relaxed * np.sum(strain**2, axis=1),
+                )
+                stored, dissipated = 0.0, 0.0
+                for index, (omega, coefficient) in enumerate(
+                    zip(dispersion.frequencies, dispersion.s_coefficients)
+                ):
+                    spring = np.sum(at(fields[f"spring-{index}"]) ** 2, axis=1)
+                    stored = stored + 2.0 * mu * coefficient * spring
+                    dissipated = dissipated + 4.0 * omega * mu * coefficient * spring
+                add("anelastic_strain_energy", scale * stored)
+                add("viscous_dissipation_rate", scale * dissipated)
+            if isinstance(dispersion, fault1d.Yieldless):
+                add(
+                    "elastic_strain_energy",
+                    scale * np.sum(stress**2, axis=1) / (2.0 * mu),
+                )
+                rate = np.linalg.norm(fields["stress"], axis=1) * (
+                    dispersion.frequency / (2.0 * mu)
+                )
+                eta = np.concatenate(
+                    ([0.0], np.cumsum(0.5 * (rate[1:] + rate[:-1]) * np.diff(fine)))
+                )
+                add("plastic_moment", scale * mu * np.interp(times, fine, eta))
+            momentum[:, 1:] += scale * carried
+            magnitude += scale * moved
+    exact = {name: (times, values) for name, values in sums.items()}
+    momentum = momentum @ (np.eye(3) if rotation is None else np.asarray(rotation)).T
+    for axis, name in enumerate(("momentumX", "momentumY", "momentumZ")):
+        exact[name] = (times, momentum[:, axis], float(np.max(magnitude)))
+    return exact
 
 
 def _volume_deviations(names, rows, step, radiated, end=None):
@@ -3114,11 +3265,6 @@ def _command_exact(args):
                 )
                 deviations.update(
                     {f"elementwise-{name}": value for name, value in found.items()}
-                )
-            if energies is not None and problem.relaxation is not None:
-                raise SystemExit(
-                    "the energy output of an anelastic or a porous medium has no "
-                    "exact solution here; the case has to switch it off"
                 )
             if energies is not None:
                 spec = manifest["spec"]

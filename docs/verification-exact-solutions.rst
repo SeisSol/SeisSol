@@ -300,10 +300,26 @@ time, the static frictional work :math:`A V \cdot H u / 2` with the slip
 :math:`u`; the kinetic and the strain energy, and the momentum, are those of
 the waves within the column, which leave it through its ends. The momentum is
 compared relative to the integral of :math:`\rho |v|`, as the momenta of the
-two sides cancel where their media are alike. The cases in anelastic and
-porous media and under plasticity switch the energy output off: what it books
-for the anelastic variables, the pore fluid and the plastic strain has no
-exact solution there.
+two sides cancel where their media are alike.
+
+In media that relax, the traction of the waves is :math:`-\eta V - g * V`,
+which the frictional work takes, and the energies of the volume follow from
+the propagators of the strain, the strains of the springs of the mechanisms
+and the velocity of the pore fluid, which multiply the one of the velocity
+(see ``fault1d.Problem.relaxing_fields``): an anelastic medium stores
+:math:`2 \mu_r \epsilon^2` in its relaxed stiffness, with the tensor
+components :math:`\epsilon` of the shear strain, and :math:`2 \mu_U Y_l
+e_l^2` in the spring of each mechanism, whose dashpot dissipates
+:math:`4 \omega_l \mu_U Y_l e_l^2` (:doc:`energy-output`); a porous medium
+moves the kinetic energy :math:`(\bar\rho v^2 + 2 \rho_f v w + m w^2) / 2`
+with the velocity :math:`w` of the fluid relative to the skeleton, and
+Darcy's friction dissipates :math:`\nu / \kappa\, w^2`; under plasticity
+without a yield, the stress turns into plastic strain at the rate
+:math:`\sigma / (2 \mu T_v)`, whose magnitude :math:`\eta` accumulates, and
+whose integral :math:`\mu \eta` is the plastic moment. The energies of the
+volume are compared until the first front reaches an end of the column: the
+outflow planes reflect what has relaxed, which the column holds from then
+on.
 
 Thresholds
 ----------

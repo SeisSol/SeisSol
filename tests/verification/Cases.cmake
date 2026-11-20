@@ -1338,26 +1338,28 @@ seissol_add_fault1d(NAME fault1d-anisotropic-imposed FL 33 FAULT fault1d-imposed
 # impedance Z_U, and reflect (Z_U - Z) / (Z_U + Z) of one that relaxes to Z,
 # 3 to 6 per cent below 50 Hz in material-viscoelastic.yaml; fault1d-long
 # keeps what they reflect out of the time of the cases, that of the imposed
-# slip rate within 1536 steps. The energy output is off: what it books for the
-# anelastic variables has no exact solution here.
+# slip rate within 1536 steps. The energy output books the strain of the
+# springs of the mechanisms and the dissipation of their dashpots as well; the
+# energies of the volume are compared until the first front reaches an end of
+# the column, after which it holds what the outflow planes reflect.
 seissol_add_fault1d(NAME fault1d-viscoelastic-lsw FL 16 FAULT fault1d-lsw.yaml
                     MESH fault1d-long REQUIRE equations=viscoelastic
-                    SET "Output.EnergyOutput=0" ${SEISSOL_FAULT1D_ELEMENTWISE}
+                    SET ${SEISSOL_FAULT1D_ELEMENTWISE}
                         ${SEISSOL_FAULT1D_ELEMENTWISE_MASK}
                     LABELS convergence)
 seissol_add_fault1d(NAME fault1d-viscoelastic-lsw-bimaterial FL 6 FAULT fault1d-lsw.yaml
                     MESH fault1d-long-bimaterial REQUIRE equations=viscoelastic
-                    SET "Output.EnergyOutput=0" "DynamicRupture.pc_vstar=0.1"
+                    SET "DynamicRupture.pc_vstar=0.1"
                         "DynamicRupture.pc_prakashLength=0.1"
                     LABELS convergence)
 seissol_add_fault1d(NAME fault1d-viscoelastic-rs-fvw-tp FL 103 FAULT fault1d-rs-fvw-tp.yaml
                     MESH fault1d-long STEPS 2048 REQUIRE equations=viscoelastic
-                    SET "Output.EnergyOutput=0" ${SEISSOL_RS_FVW} ${SEISSOL_TP}
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP}
                         ${SEISSOL_FAULT1D_TP_OUTPUT}
                     LABELS convergence)
 seissol_add_fault1d(NAME fault1d-viscoelastic-imposed FL 33 FAULT fault1d-imposed.yaml
                     MESH fault1d-long REQUIRE equations=viscoelastic
-                    SET "Output.EnergyOutput=0" "DynamicRupture.SlipRateOutputType=0"
+                    SET "DynamicRupture.SlipRateOutputType=0"
                     LABELS convergence)
 
 # In a porous medium, the pore fluid, which a shear wave first leaves behind,
@@ -1370,29 +1372,34 @@ seissol_add_fault1d(NAME fault1d-viscoelastic-imposed FL 33 FAULT fault1d-impose
 # fraction of a step (fault1d-poroelastic-lsw-stiff). The faults take the pore
 # pressure on them, which a porous medium reads (fault1d-*-porous.yaml), and
 # leave out thermal pressurization, whose pore pressure SeisSol does not yet
-# combine with that of the medium. The energy output is off, as above.
+# combine with that of the medium. The energy output books the kinetic energy
+# of the pore fluid and the dissipation of Darcy's friction as well.
 seissol_add_fault1d(NAME fault1d-poroelastic-lsw FL 16 FAULT fault1d-lsw-porous.yaml
                     MESH fault1d-long MATERIAL material-fault1d-poroelastic.yaml
                     REQUIRE equations=poroelastic
-                    SET "Output.EnergyOutput=0" ${SEISSOL_FAULT1D_ELEMENTWISE}
+                    SET ${SEISSOL_FAULT1D_ELEMENTWISE}
                         ${SEISSOL_FAULT1D_ELEMENTWISE_MASK}
                     LABELS convergence)
 seissol_add_fault1d(NAME fault1d-poroelastic-lsw-bimaterial FL 6 FAULT fault1d-lsw-porous.yaml
                     MESH fault1d-long-bimaterial MATERIAL material-fault1d-poroelastic.yaml
                     REQUIRE equations=poroelastic
-                    SET "Output.EnergyOutput=0" "DynamicRupture.pc_vstar=0.1"
+                    SET "DynamicRupture.pc_vstar=0.1"
                         "DynamicRupture.pc_prakashLength=0.1"
                     LABELS convergence)
 seissol_add_fault1d(NAME fault1d-poroelastic-rs-fvw FL 103 FAULT fault1d-rs-fvw-porous.yaml
                     MESH fault1d-long STEPS 2048 MATERIAL material-fault1d-poroelastic.yaml
                     REQUIRE equations=poroelastic
-                    SET "Output.EnergyOutput=0" ${SEISSOL_RS_FVW}
+                    SET ${SEISSOL_RS_FVW}
                     LABELS convergence)
 seissol_add_fault1d(NAME fault1d-poroelastic-imposed FL 33 FAULT fault1d-imposed.yaml
                     MESH fault1d-long MATERIAL material-fault1d-poroelastic.yaml
                     REQUIRE equations=poroelastic
-                    SET "Output.EnergyOutput=0" "DynamicRupture.SlipRateOutputType=0"
+                    SET "DynamicRupture.SlipRateOutputType=0"
                     LABELS convergence)
+# The propagators of material-poroelastic.yaml, which relaxes within a fraction
+# of a step, do not invert on Talbot's contour beyond some 60 m from the fault,
+# where their exponent spans hundreds of orders of magnitude on it; the
+# energies of the column are left out there.
 seissol_add_fault1d(NAME fault1d-poroelastic-lsw-stiff FL 16 FAULT fault1d-lsw-porous.yaml
                     MESH fault1d-long REQUIRE equations=poroelastic
                     SET "Output.EnergyOutput=0"
@@ -1406,18 +1413,20 @@ seissol_add_fault1d(NAME fault1d-poroelastic-lsw-stiff FL 16 FAULT fault1d-lsw-p
 # The outflow planes reflect what has relaxed, at low frequencies nearly all of
 # it, hence fault1d-long. SeisSol splits each step into an elastic one and the
 # relaxation, which leaves its stresses by about dt / (2 Tv), 5e-4 here. The
-# energy output is off, as above.
+# energy output books the plastic moment as well, which accumulates the
+# magnitude of the stress: no error of the discrete waves cancels in it, and it
+# comes out 0.6 to 0.7 per cent above the exact one.
 set(SEISSOL_FAULT1D_YIELDLESS "equations.Plasticity=1" "equations.Tv=0.0625"
     "equations.PlasticityFileName='plasticity-maxwell.yaml'")
 seissol_add_fault1d(NAME fault1d-plastic-lsw FL 16 FAULT fault1d-lsw.yaml
                     MESH fault1d-long REQUIRE equations=elastic FILES plasticity-maxwell.yaml
-                    SET "Output.EnergyOutput=0" ${SEISSOL_FAULT1D_YIELDLESS}
+                    SET ${SEISSOL_FAULT1D_YIELDLESS}
                         ${SEISSOL_FAULT1D_ELEMENTWISE} ${SEISSOL_FAULT1D_ELEMENTWISE_MASK}
                     LABELS "convergence;plasticity")
 seissol_add_fault1d(NAME fault1d-plastic-rs-fvw FL 103 FAULT fault1d-rs-fvw.yaml
                     MESH fault1d-long STEPS 2048 REQUIRE equations=elastic
                     FILES plasticity-maxwell.yaml
-                    SET "Output.EnergyOutput=0" ${SEISSOL_FAULT1D_YIELDLESS} ${SEISSOL_RS_FVW}
+                    SET ${SEISSOL_FAULT1D_YIELDLESS} ${SEISSOL_RS_FVW}
                     LABELS "convergence;plasticity")
 
 # The same on fault1d with its vertices numbered at random, which puts its
