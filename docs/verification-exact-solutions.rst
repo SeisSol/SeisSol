@@ -174,6 +174,32 @@ fault faster than shear waves, and sends out a jump of the field, which the
 method resolves only over the time the healing takes through a cell; the volume
 receivers are compared up to the time the fault first heals.
 
+The rupture velocity of a fault receiver (``Vr``) is the speed of the front
+over its face, from the gradient of the rupture times of the Gauss points of
+the face, once all of them have ruptured. It is compared with the speed of a
+forced front, and on ``fault2d-periodic`` with the slope of the rupture time of
+the spectral method, but where the front is faster than the fastest wave, as
+where the rupture nucleates: the fault fails there all at once, and the
+gradient of the rupture times is rounding.
+
+On ``fault1d``, the cases compare the elementwise output as well, on faces
+split in four, under the names of the quantities of the receivers prefixed
+with ``elementwise-``. It takes its values from the degrees of freedom at the
+end of a step, where the receivers take them from the expansion of the step in
+time, so that the two are not the same, yet both close to the exact solution.
+The energy output (:doc:`energy-output`) is compared there too, prefixed with
+``energy-``: the fault slips uniformly over its area :math:`A`, and sends out
+the traction :math:`-H V` of the radiation damping of its slip rate :math:`V`,
+which the energy output takes, rather than the stress the fault is loaded
+with. The potency is :math:`A` times the accumulated slip, the seismic moment
+that times the harmonic mean of the shear moduli of the two sides along the
+slip, the total frictional work the integral of :math:`A V \cdot H V` over
+time, the static frictional work :math:`A V \cdot H u / 2` with the slip
+:math:`u`; the kinetic and the strain energy, and the momentum, are those of
+the waves within the column, which leave it through its ends. The momentum is
+compared relative to the integral of :math:`\rho |v|`, as the momenta of the
+two sides cancel where their media are alike.
+
 Thresholds
 ----------
 
@@ -181,9 +207,9 @@ Thresholds
 case, quantity and key ``case/equations/o<order>/<precision>``. A key without
 thresholds passes, and prints the deviations. The thresholds are 1.5 times the
 largest deviation over the configurations of the key, rounded up to two digits,
-and no less than a millionth for the direction and the peak slip rate, which
-may deviate by no more than the rounding: they catch a change of the numerics,
-not only a gross error. On ``fault2d-periodic``, the four builds of order 6,
+and no less than a millionth for the direction, the peak slip rate and the
+momentum, which may deviate by no more than the rounding, and than a billionth
+for the others: they catch a change of the numerics, not only a gross error. On ``fault2d-periodic``, the four builds of order 6,
 elastic and anisotropic, in double and in single precision, deviated alike when
 the thresholds were taken, to a few per cent where the deviations exceed the
 rounding; the two builds in double precision, which run these cases, share the

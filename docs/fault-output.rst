@@ -39,6 +39,9 @@ The output type generated is determined by the **OutputPointType** variable in t
 | 4 : ParaView file
 | 5 : Both ASCII fault receivers and ParaView file
 
+The ParaView output takes the solution next to the fault from the degrees of freedom of its cells at the end of the step at the time of the output, the ASCII fault receivers from the prediction of the step, its expansion in time, at their own times.
+At the same time and place, the two agree up to the error of the discretization, not to the rounding.
+
 .. _paraview_output:
 
 Configuring ParaView output
@@ -86,7 +89,7 @@ Here's what each bit in the OutputMask array represents:
 4. **Mud**: Current effective friction coefficient, **StV**: State variable for RS friction
 5. **Ts0**,\ **Td0**,\ **Pn0**: Total shear and normal stresses, including initial stresses
 6. **Sls** and **Sld**: Fault slip in along-strike and -dip directions
-7. **Vr**: Rupture velocity, computed from the spatial derivatives of the rupture time
+7. **Vr**: Rupture velocity, :math:`1/|\nabla t_r|` of the rupture times of the Gauss points of the face, once the rupture has reached all of them, 0 before. Where it reaches them all at once, as where the rupture nucleates, the gradient is rounding, and **Vr** may be arbitrarily large.
 8. **ASl**: Accumulated slip
 9. **PSR**: Peak slip rate
 10. **RT**: Rupture time, the time at which the slip rate exceeds 1 mm/s, interpolated linearly between the time points of the friction solve. A point that slips from the start of the simulation on has a rupture time of 0.

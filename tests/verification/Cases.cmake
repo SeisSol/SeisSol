@@ -908,6 +908,38 @@ seissol_add_comparison(
     TOLERANCE 0
     LABELS "bitwise;mpi;dr")
 
+# The energy output, which sums over the cells and the faces of a rank and then
+# over the ranks, in another order on another number of them or of threads; the
+# cases of its own keep the parameters of the others, and with them their
+# snapshots. The momentum is reported, but not judged (see
+# run_case.compare_energies).
+set(SEISSOL_ENERGY_OUTPUT "Output.EnergyOutput=1" "Output.EnergyOutputInterval=9.765625e-04")
+set(SEISSOL_ENERGY_SUMS 1e-13)
+seissol_add_rupture(NAME rupture-lsw-energy FL 16 FAULT fault-lsw.yaml
+                    SET ${SEISSOL_ENERGY_OUTPUT} NO_SNAPSHOT LABELS energy)
+seissol_add_rupture(NAME rupture-lsw-energy-mpi4 FL 16 FAULT fault-lsw.yaml RANKS 4
+                    SET ${SEISSOL_ENERGY_OUTPUT} LABELS "energy;mpi")
+seissol_add_comparison(
+    NAME identity-rupture-lsw-energy-mpi4
+    REFERENCE rupture-lsw-energy
+    CANDIDATE rupture-lsw-energy-mpi4
+    TOLERANCE 0
+    ENERGIES ${SEISSOL_ENERGY_SUMS}
+    LABELS "identity;mpi;dr;energy")
+seissol_add_rupture(NAME rupture-rs-fvw-tp-energy FL 103 FAULT fault-rs-fvw-tp.yaml
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_ENERGY_OUTPUT}
+                    NO_SNAPSHOT LABELS energy)
+seissol_add_rupture(NAME rupture-rs-fvw-tp-energy-threads4 FL 103 FAULT fault-rs-fvw-tp.yaml
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_ENERGY_OUTPUT} THREADS 4
+                    LABELS "energy;threads")
+seissol_add_comparison(
+    NAME identity-rupture-rs-fvw-tp-energy-threads4
+    REFERENCE rupture-rs-fvw-tp-energy
+    CANDIDATE rupture-rs-fvw-tp-energy-threads4
+    TOLERANCE 0
+    ENERGIES ${SEISSOL_ENERGY_SUMS}
+    LABELS "identity;threads;dr;energy")
+
 # The clusters take their steps along the time stepping plan (SEISSOL_TIMESTEPPING_PLAN, see
 # TimeManager::followPlan) instead of deciding them as actors: the same run, bit for bit, with the
 # faces of a fault and through two epochs (the receivers write after 32 of the 64 steps).
@@ -1069,8 +1101,19 @@ seissol_add_comparison(
 # ---------------------------------------------------------------------------
 
 set(SEISSOL_FAULT1D_TP_OUTPUT "Pickpoint.OutputMask=1 1 1 1 1 1 0 1 1 1 1 1")
+# The elementwise output as well, every 64 steps and on faces split in four, which
+# takes its values from the degrees of freedom at the end of a step, where the
+# receivers take them from the expansion of the step in time; its deviations are
+# those of the receivers, prefixed with elementwise-
+set(SEISSOL_FAULT1D_ELEMENTWISE "DynamicRupture.OutputPointType=5"
+    "Elementwise.printtimeinterval_sec=3.90625e-03" "Elementwise.refinement_strategy=2"
+    "Elementwise.refinement=1")
+set(SEISSOL_FAULT1D_ELEMENTWISE_MASK "Elementwise.OutputMask=1 1 1 1 1 1 0 1 1 1 1 0")
+set(SEISSOL_FAULT1D_ELEMENTWISE_TP_MASK "Elementwise.OutputMask=1 1 1 1 1 1 0 1 1 1 1 1")
 
-seissol_add_fault1d(NAME fault1d-lsw FL 16 FAULT fault1d-lsw.yaml LABELS convergence)
+seissol_add_fault1d(NAME fault1d-lsw FL 16 FAULT fault1d-lsw.yaml
+                    SET ${SEISSOL_FAULT1D_ELEMENTWISE} ${SEISSOL_FAULT1D_ELEMENTWISE_MASK}
+                    LABELS convergence)
 # the forced rupture weakens the fault over t_0
 seissol_add_fault1d(NAME fault1d-lsw-forced FL 16 FAULT fault1d-lsw-forced.yaml
                     SET ${SEISSOL_NO_NUCLEATION} "DynamicRupture.t_0=3.125e-02"
@@ -1097,6 +1140,7 @@ seissol_add_fault1d(NAME fault1d-rs-fvw FL 103 FAULT fault1d-rs-fvw.yaml
                     STEPS 2048 SET ${SEISSOL_RS_FVW} LABELS convergence)
 seissol_add_fault1d(NAME fault1d-rs-fvw-tp FL 103 FAULT fault1d-rs-fvw-tp.yaml
                     STEPS 2048 SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
+                        ${SEISSOL_FAULT1D_ELEMENTWISE} ${SEISSOL_FAULT1D_ELEMENTWISE_TP_MASK}
                     LABELS convergence)
 # the initial pore pressure lowers the effective normal stress the initial state
 # has to hold the traction under
@@ -1131,6 +1175,11 @@ seissol_add_fault1d(NAME fault1d-anisotropic-imposed FL 33 FAULT fault1d-imposed
                     MATERIAL material-fault1d-anisotropic.yaml REQUIRE equations=anisotropic
                     LABELS convergence)
 
+# the outputs of rupture1d.par and the rupture velocity Vr, which the fault
+# receivers take from the gradient of the rupture times of the Gauss points of
+# their face (see docs/fault-output.rst)
+set(SEISSOL_RUPTURE_VELOCITY_OUTPUT "Pickpoint.OutputMask=1 1 1 1 1 1 1 1 1 1 1 0")
+
 # A forced rupture front along y on fault2d, at 1.5 times the shear wave
 # speed. A front that outruns the shear waves outruns all it sends out, and
 # behind it, every point of the fault solves the 0D problem of fault1d,
@@ -1143,12 +1192,15 @@ seissol_add_fault1d(NAME fault1d-anisotropic-imposed FL 33 FAULT fault1d-imposed
 # compute at their position, from the jump of the velocity, and the volume
 # receivers. The other quantities of the fault receivers come from the Gauss
 # point of the fault nearest to them, a few metres away along the front,
-# which reaches it up to 0.4 ms earlier or later.
+# which reaches it up to 0.4 ms earlier or later; but for the rupture
+# velocity of their face, which the front sets at its own speed wherever it
+# is steady, so at all three receivers.
 seissol_add_fault1d(NAME fault2d-supershear FL 16 FAULT fault2d-supershear.yaml
                     MESH fault2d STEPS 2048 FILES faultreceiver2d.dat receiver2d.dat
                     SET "DynamicRupture.t_0=2.0e-02" "DynamicRupture.SlipRateOutputType=0"
                         "Pickpoint.PPFileName='faultreceiver2d.dat'"
                         "Output.RFileName='receiver2d.dat'"
+                        ${SEISSOL_RUPTURE_VELOCITY_OUTPUT}
                     LABELS convergence)
 # with twelve times the cells of fault1d, the case runs for a few minutes;
 # it gets four times the time the others get
@@ -1179,7 +1231,8 @@ set(SEISSOL_ANTIPLANE
 seissol_add_fault1d(NAME fault2d-antiplane FL 16 FAULT fault2d-antiplane.yaml
                     MESH fault2d-periodic STEPS 2560
                     FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
-                    SET ${SEISSOL_ANTIPLANE} LABELS convergence)
+                    SET ${SEISSOL_ANTIPLANE} ${SEISSOL_RUPTURE_VELOCITY_OUTPUT}
+                    LABELS convergence)
 # the comparison takes minutes as well, for the field at the volume receivers
 set_tests_properties(verification.fault2d-antiplane${SEISSOL_VERIFICATION_SUFFIX}
                      verification.exact.fault2d-antiplane${SEISSOL_VERIFICATION_SUFFIX}

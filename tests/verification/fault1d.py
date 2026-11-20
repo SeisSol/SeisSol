@@ -146,6 +146,8 @@ class Medium:
         self.rho = float(rho)
         self.stiffness = np.array(stiffness, dtype=float)
         christoffel = self.stiffness[np.ix_(_ALONG_X, _ALONG_X)]
+        # the Christoffel matrix of the waves along x, in the components x, y, z
+        self.christoffel = christoffel
         values, vectors = np.linalg.eigh(christoffel)
         if values[0] <= 0.0:
             raise Unsupported("the medium carries no wave along x")

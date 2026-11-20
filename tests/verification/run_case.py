@@ -582,6 +582,141 @@ def compare_receivers(
     return problems, worst
 
 
+def read_energies(path):
+    """The energy output of a run (EnergyOutput.cpp): per quantity and
+    simulation, the times and the values, in the order written."""
+    series = {}
+    with Path(path).open(encoding="utf-8", newline="") as handle:
+        for row in csv.DictReader(handle):
+            key = (row["variable"], int(row["simulation_index"]))
+            times, values = series.setdefault(key, ([], []))
+            times.append(float(row["time"]))
+            values.append(float(row["measurement"]))
+    return series
+
+
+def read_elementwise(path):
+    """The elementwise fault output of a run (prefix-fault.xdmf, written with
+    the posix backend): the times of its steps, the centroids of its
+    triangles and, per attribute, its values, a row per step and a column per
+    triangle."""
+    import xml.etree.ElementTree as ElementTree
+
+    import numpy as np
+
+    path = Path(path)
+    grids = ElementTree.parse(path).getroot().findall(".//Grid[@GridType='Uniform']")
+    times = [float(grid.find("Time").get("Value")) for grid in grids]
+
+    def binary(item):
+        kind = {"Float": "f", "Int": "i", "UInt": "u"}[item.get("NumberType")]
+        dtype = np.dtype(f"<{kind}{item.get('Precision')}")
+        if item.get("Format") != "Binary":
+            raise SystemExit(f"{path.name}: only binary data items are understood")
+        return np.fromfile(path.parent / item.text.strip(), dtype=dtype)
+
+    first = grids[0]
+    triangles = binary(first.find("Topology/DataItem")).reshape(-1, 3)
+    vertices = binary(first.find("Geometry/DataItem")).reshape(-1, 3)
+    attributes = {}
+    for attribute in first.findall("Attribute"):
+        # a series is a hyperslab of a binary item that holds all steps
+        items = attribute.findall(".//DataItem")
+        if items[0].get("ItemType") != "HyperSlab":
+            continue
+        values = binary(items[-1])
+        attributes[attribute.get("Name")] = values.reshape(-1, triangles.shape[0])[
+            : len(times)
+        ]
+    return times, vertices[triangles].mean(axis=1), attributes
+
+
+def elementwise_receivers(times, attributes, simulation, count):
+    """The triangles of the elementwise fault output as fault receivers, as
+    read_receiver and read_receiver_header give them, of the simulation
+    `simulation` of `count`: the names of the columns, the rows, a step
+    each, and the initial traction in the fault frame that the header of a
+    fault receiver states."""
+    suffix = f"-{simulation}" if count > 1 else ""
+    names = sorted(
+        name[: len(name) - len(suffix)]
+        for name in attributes
+        if name.endswith(suffix) and (count > 1 or "-" not in name)
+    )
+    triangles = next(iter(attributes.values())).shape[1]
+    receivers = []
+    for triangle in range(triangles):
+        columns = [attributes[f"{name}{suffix}"][:, triangle] for name in names]
+        rows = [
+            [time] + [float(column[k]) for column in columns]
+            for k, time in enumerate(times)
+        ]
+        header = {
+            name: [repr(float(attributes[f"{source}{suffix}"][0, triangle]))]
+            for name, source in (("T_s", "Ts0"), ("T_d", "Td0"))
+        }
+        receivers.append((["Time"] + names, rows, header))
+    return receivers
+
+
+def energy_file(root, prefix):
+    """The energy output of a run with the output prefix `prefix`."""
+    return Path(root) / f"{prefix}-energy.csv"
+
+
+def compare_energies(reference, candidate, prefix, tolerance):
+    """Compare the energy output of two runs, each quantity relative to its
+    largest value in the reference: the reduction over the ranks sums in
+    another order on another number of them, so that a sum that passes
+    through zero differs by rounding beyond any bound relative to itself.
+
+    The momentum is such a sum: the two sides of a fault, and the two halves
+    of a wave, carry opposite momenta, and what is left of their sum is its
+    rounding. It is reported, but not judged."""
+    problems = []
+    worst = {}
+    left_path = energy_file(reference, prefix)
+    right_path = energy_file(candidate, prefix)
+    for path, role in ((left_path, "reference"), (right_path, "candidate")):
+        if not path.exists():
+            return [f"the {role} run wrote no energy output"], worst
+    left, right = read_energies(left_path), read_energies(right_path)
+    if set(left) != set(right):
+        problems.append(
+            "the runs output other energies: " f"{sorted(set(left) ^ set(right))}"
+        )
+    for key in sorted(set(left) & set(right)):
+        (times_left, values_left), (times_right, values_right) = left[key], right[key]
+        if times_left != times_right:
+            problems.append(f"{key[0]}: the runs output it at other times")
+            continue
+        scale = max((abs(value) for value in values_left), default=0.0)
+        largest = max(
+            (abs(a - b) for a, b in zip(values_left, values_right)), default=0.0
+        )
+        relative = largest / scale if scale > 0.0 else largest
+        name = f"energy:{key[0]}" + (f"[{key[1]}]" if key[1] else "")
+        worst[name] = relative
+    exceeded = {
+        name: value
+        for name, value in worst.items()
+        if value > tolerance and not name.startswith("energy:momentum")
+    }
+    if exceeded:
+        problems.append(
+            f"energies differ by more than {tolerance:.3g}: "
+            + ", ".join(
+                f"{name}={value:.3g}" for name, value in sorted(exceeded.items())
+            )
+        )
+    else:
+        print(
+            "energies agree to "
+            + ", ".join(f"{name}={value:.3g}" for name, value in sorted(worst.items()))
+        )
+    return problems, worst
+
+
 def simulation_columns(names, rows, simulation):
     """The time and the quantities of one simulation of a receiver file.
 
@@ -1150,6 +1285,12 @@ def _command_compare(args):
             args.floor,
             kinds,
         )
+    if args.energies is not None:
+        energy_problems, energy_worst = compare_energies(
+            Path(args.reference), Path(args.candidate), args.prefix, args.energies
+        )
+        problems += energy_problems
+        worst.update(energy_worst)
     result["receivers"] = args.receivers
     result["status"] = "run"
     result["tolerance"] = args.tolerance
@@ -1741,6 +1882,106 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
     return deviations
 
 
+def compare_fault1d_energies(problem, series, energies, simulation, area, extent):
+    """The deviations of the energies that the energy output reports
+    (docs/energy-output.rst) for the simulation `simulation` from those of
+    the exact solution, each relative to the largest value of its exact
+    series.
+
+    On fault1d, the fault slips uniformly over its area A, and the traction
+    of the waves it sends out is -H V, the radiation damping of the slip
+    rate V (see fault1d.Problem); the energy output takes the traction of the
+    waves, not the stress the fault is loaded with. The potency is A times
+    the accumulated slip, and the seismic moment that times the harmonic mean
+    of the shear moduli of the two sides along the slip so far, d^T Gamma d
+    with the Christoffel matrix Gamma of the side and the direction d of the
+    slip. The total frictional work is the integral of A V . H V over time,
+    and the static frictional work A V . H u / 2 at a time, with u the slip
+    by then. The kinetic and the strain energy, and the momentum, are those of
+    the waves within the column, whose ends at x = `extent` they leave
+    through; the deviation of the momentum is relative to the integral of
+    rho |v| instead, as the momenta of the two sides cancel where their media
+    are alike.
+    """
+    import numpy as np
+
+    time = series["time"]
+    rate = np.column_stack((series["slip-rate-y"], series["slip-rate-z"]))
+
+    def integral(values):
+        return np.concatenate(
+            ([0.0], np.cumsum(0.5 * (values[1:] + values[:-1]) * np.diff(time)))
+        )
+
+    damping = problem.eta_shear
+    slip = np.column_stack([integral(column) for column in rate.T])
+    length = np.linalg.norm(slip, axis=1)
+    direction = np.where(
+        length[:, None] > 0.0, slip / np.maximum(length, 1e-300)[:, None], (1.0, 0.0)
+    )
+    left, right = (
+        np.einsum("ti,ij,tj->t", direction, medium.christoffel[1:, 1:], direction)
+        for medium in (problem.left, problem.right)
+    )
+    potency = area * series["accumulated-slip"]
+    exact = {
+        "potency": potency,
+        "seismic_moment": 2.0 * left * right / (left + right) * potency,
+        "total_frictional_work": area
+        * integral(np.einsum("ti,ij,tj->t", rate, damping, rate)),
+        "static_frictional_work": 0.5
+        * area
+        * np.einsum("ti,ij,tj->t", rate, damping, slip),
+    }
+    wanted = ("elastic_kinetic_energy", "elastic_strain_energy")
+    if all((name, simulation) in energies for name in wanted):
+        # at the times of the output only, by Gauss-Legendre on either side
+        times = np.asarray(energies[(wanted[0], simulation)][0])
+        kinetic, strain = np.zeros(times.size), np.zeros(times.size)
+        momentum, magnitude = np.zeros((times.size, 3)), np.zeros(times.size)
+        nodes, weights = np.polynomial.legendre.leggauss(96)
+        for start, end in ((extent[0], 0.0), (0.0, extent[1])):
+            medium = problem.left if end <= 0.0 else problem.right
+            compliance = np.linalg.inv(medium.stiffness)
+            for node, weight in zip(nodes, weights):
+                x = 0.5 * (start + end) + 0.5 * (end - start) * node
+                velocity, stress = (
+                    np.column_stack(
+                        [np.interp(times, time, column) for column in field.T]
+                    )
+                    for field in problem.radiated(series, x)
+                )
+                scale = 0.5 * (end - start) * weight * area
+                kinetic += scale * 0.5 * medium.rho * np.sum(velocity**2, axis=1)
+                strain += (
+                    scale * 0.5 * np.einsum("ti,ij,tj->t", stress, compliance, stress)
+                )
+                momentum += scale * medium.rho * velocity
+                magnitude += scale * medium.rho * np.linalg.norm(velocity, axis=1)
+        exact["elastic_kinetic_energy"] = (times, kinetic)
+        exact["elastic_strain_energy"] = (times, strain)
+        for axis, name in enumerate(("momentumX", "momentumY", "momentumZ")):
+            exact[name] = (times, momentum[:, axis], float(np.max(magnitude)))
+    deviations = {}
+    for name, values in exact.items():
+        if (name, simulation) not in energies:
+            raise SystemExit(f"the energy output holds no {name}")
+        times, measured = energies[(name, simulation)]
+        if isinstance(values, tuple):
+            expected = values[1]
+            scale = values[2] if len(values) > 2 else float(np.max(np.abs(expected)))
+        else:
+            expected = np.interp(times, time, values)
+            scale = float(np.max(np.abs(values)))
+        largest = float(np.max(np.abs(np.asarray(measured) - expected)))
+        key = "momentum" if name.startswith("momentum") else name.replace("_", "-")
+        deviations[f"energy-{key}"] = _larger(
+            deviations.get(f"energy-{key}", 0.0),
+            largest / scale if scale > 0.0 else largest,
+        )
+    return deviations
+
+
 def _volume_deviations(names, rows, step, radiated, end=None):
     """The deviations of what a volume receiver records from the velocity
     and the stress of the exact solution, which `radiated` gives per step of
@@ -1818,6 +2059,16 @@ def compare_front(front, step, fault_receivers, volume_receivers):
 
     for names, rows, header in fault_receivers:
         point = [float(header[name][0]) for name in ("x1", "x2", "x3")]
+        if "Vr" in names:
+            # the rupture velocity of the face of the receiver, from the
+            # gradient of the rupture times of its Gauss points, which the
+            # front sets once, at its own speed (see docs/fault-output.rst);
+            # zero until it has passed all of them
+            speed = rows[-1][names.index("Vr")]
+            deviations["rupture-velocity"] = _larger(
+                deviations.get("rupture-velocity", 0.0),
+                abs(speed - front.speed) / front.speed,
+            )
         problem, series, rows = solve(point, rows, 0)
         indices = [round(row[0] / step) for row in rows]
         merge(compare_fault1d(problem, series, indices, [(names, rows, header)], []))
@@ -2042,6 +2293,24 @@ def compare_antiplane(
             )
             for name, value in found.items():
                 worst(name, value)
+            expected = reference.get("rupture-velocity")
+            if (
+                "Vr" in names
+                and expected is not None
+                # a front faster than the fastest wave is where the fault
+                # fails all at once, as where it nucleates; the speed of the
+                # front tells nothing there, and the gradient of the rupture
+                # times that SeisSol takes it from is rounding
+                and expected[point] <= solver.fastest
+            ):
+                # the rupture velocity of the face, from the gradient of the
+                # rupture times of its Gauss points at the one of the
+                # receiver, once all of them have ruptured
+                speed = column("Vr")[-1]
+                worst(
+                    "rupture-velocity",
+                    abs(speed - float(expected[point])) / float(expected[point]),
+                )
 
         # the receivers state the initial traction of the load in the fault
         # frame, before the slip rate of t = 0 takes its part of it
@@ -2096,6 +2365,15 @@ def _antiplane_reference(solver, solution, points, positions, law):
             reference[name] = value[:, points]
         elif value.shape == (solver.y.size,):
             reference[name] = value[points]
+    if "rupture-time" in solution:
+        # the speed of the front, from the slope of the rupture time along y,
+        # by central differences across the period
+        ruptured = np.asarray(solution["rupture-time"], dtype=float)
+        spacing = solver.length / solver.count
+        slope = (np.roll(ruptured, -1) - np.roll(ruptured, 1)) / (2.0 * spacing)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            speed = np.where(np.abs(slope) > 0.0, 1.0 / np.abs(slope), np.nan)
+        reference["rupture-velocity"] = speed[points]
     healed = None
     if law in (2, 6, 16, 1058):
         healed = _first_rise(solution["time"], solution["friction"])
@@ -2426,12 +2704,57 @@ def _command_exact(args):
             )
         else:
             problem = fault1d.Problem(rupture, fault, left, right)
-            series = problem.solve(times[-1], step)
+            energies = None
+            if energy_file(work, prefix).exists():
+                energies = read_energies(energy_file(work, prefix))
+            end = max([times[-1]] + [max(t) for t, _ in (energies or {}).values()])
+            series = problem.solve(math.ceil(end / step) * step, step)
             indices = [round(t / step) for t in times]
             deviations = _worst(
                 compare_fault1d(problem, series, indices, faults, volumes)
                 for faults, volumes in simulations
             )
+            elementwise = work / f"{prefix}-fault.xdmf"
+            if elementwise.exists():
+                # the triangles of the elementwise output, whose values come from the
+                # degrees of freedom at the end of a step, where those of the receivers
+                # come from the expansion of the step in time
+                ew_times, _, attributes = read_elementwise(elementwise)
+                ew_indices = [round(t / step) for t in ew_times]
+                found = _worst(
+                    compare_fault1d(
+                        problem,
+                        series,
+                        ew_indices,
+                        elementwise_receivers(
+                            ew_times, attributes, simulation, len(simulations)
+                        ),
+                        [],
+                    )
+                    for simulation in range(len(simulations))
+                )
+                deviations.update(
+                    {f"elementwise-{name}": value for name, value in found.items()}
+                )
+            if energies is not None:
+                spec = manifest["spec"]
+                origin = (spec["origin"] or [-0.5 * spec["size"][0]])[0]
+                extent = (origin, origin + spec["size"][0])
+                area = spec["size"][1] * spec["size"][2]
+                deviations = _worst(
+                    [deviations]
+                    + [
+                        compare_fault1d_energies(
+                            problem,
+                            series,
+                            energies,
+                            simulation,
+                            area,
+                            extent,
+                        )
+                        for simulation in range(len(simulations))
+                    ]
+                )
     except fault1d.Unsupported as reason:
         raise SystemExit(f"the case has no exact solution here: {reason}") from reason
 
@@ -2639,6 +2962,13 @@ def main(argv=None):
         choices=sorted(RECEIVER_KINDS),
         default="all",
         help="compare the receivers of this kind only",
+    )
+    compare.add_argument(
+        "--energies",
+        type=float,
+        metavar="TOLERANCE",
+        help="compare the energy output as well, each quantity to this "
+        "tolerance relative to its largest value",
     )
     compare.add_argument("--result")
     compare.set_defaults(func=_command_compare)

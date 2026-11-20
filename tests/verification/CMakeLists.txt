@@ -438,22 +438,24 @@ endfunction()
 # ---------------------------------------------------------------------------
 # seissol_add_comparison(NAME <name> REFERENCE <case> CANDIDATE <case>
 #                        [TOLERANCE r] [PREFIX p] [SIMULATIONS r:c ...]
-#                        [RECEIVERS all|volume|fault] [LABELS label ...])
+#                        [RECEIVERS all|volume|fault] [ENERGIES tolerance]
+#                        [LABELS label ...])
 #
 # Holds two runs against each other. A tolerance of zero demands identical
 # output. With SIMULATIONS, only the simulations given as pairs are compared:
 # r:c holds the simulation c of the candidate against the simulation r of the
 # reference, counted from zero, so that runs of different numbers of
 # simulations can be compared. RECEIVERS restricts the comparison to the
-# volume or the on-fault receivers. The runner propagates a skip: if either
-# input was skipped because this build lacks the configuration, so is the
-# comparison.
+# volume or the on-fault receivers. ENERGIES compares the energy output as
+# well, each quantity to this tolerance relative to its largest value. The
+# runner propagates a skip: if either input was skipped because this build
+# lacks the configuration, so is the comparison.
 # ---------------------------------------------------------------------------
 
 function(seissol_add_comparison)
   cmake_parse_arguments(CMP
       ""
-      "NAME;REFERENCE;CANDIDATE;TOLERANCE;PREFIX;RECEIVERS"
+      "NAME;REFERENCE;CANDIDATE;TOLERANCE;PREFIX;RECEIVERS;ENERGIES"
       "SIMULATIONS;LABELS"
       ${ARGN})
   if (NOT CMP_TOLERANCE)
@@ -470,6 +472,9 @@ function(seissol_add_comparison)
   foreach (pair ${CMP_SIMULATIONS})
     list(APPEND simulations --simulations ${pair})
   endforeach()
+  if (DEFINED CMP_ENERGIES)
+    list(APPEND simulations --energies ${CMP_ENERGIES})
+  endif()
 
   set(directory ${SEISSOL_VERIFICATION_DIR})
   add_test(NAME verification.${CMP_NAME}${SEISSOL_VERIFICATION_SUFFIX}
