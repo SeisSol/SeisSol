@@ -185,6 +185,8 @@ def read_hdf5_receivers(filename: str, file_type: str) -> dict[int, pd.DataFrame
     import h5py
 
     with h5py.File(filename, "r") as handle:
+        if file_type == "receiver" and "ReceiverData" in handle:
+            return _read_first_hdf5_layout(handle)
         group = handle[_HDF5_NAMES[file_type]]
         index = group["Index"][:]
         numbers = group["PointId" if file_type == "receiver" else "ReceiverId"][:] + 1
@@ -218,6 +220,31 @@ def read_hdf5_receivers(filename: str, file_type: str) -> dict[int, pd.DataFrame
         ):
             receiver = receiver.iloc[1:].reset_index(drop=True)
         receivers[number] = receiver
+    return receivers
+
+
+def _read_first_hdf5_layout(handle) -> dict[int, pd.DataFrame]:
+    """The off-fault receivers of an HDF5 file in the layout SeisSol wrote from April
+    to September 2026, by the number of their text files.
+
+    One array, ReceiverData, holds the samples by time, receiver and quantity; its
+    attribute VariableNames names the quantities, and a receiver sits at its index
+    among the points of the input, the number of its text file less one. The rows a
+    receiver did not fill keep the fill value 0, the time included; they are dropped.
+    The on-fault receivers were text files then.
+    """
+    data = handle["ReceiverData"]
+    names = [
+        name.decode() if isinstance(name, bytes) else str(name)
+        for name in data.attrs["VariableNames"]
+    ]
+    values = np.asarray(data[:], dtype=np.float64)
+    receivers = {}
+    for point in range(values.shape[1]):
+        frame = pd.DataFrame(values[:, point, : len(names)], columns=names)
+        time = frame["Time"].to_numpy()
+        filled = np.isfinite(time) & ((np.arange(len(time)) == 0) | (time != 0))
+        receivers[point + 1] = frame[filled].reset_index(drop=True)
     return receivers
 
 
