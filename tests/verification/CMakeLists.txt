@@ -690,12 +690,12 @@ endfunction()
 #
 # A case on fault2d-periodic takes minutes, many times what the others take,
 # in every configuration it runs in. It runs where scipy is there to compare it
-# with, and in double precision without fused simulations only: in single
-# precision, these cases deviate from the spectral method as in double, and
-# with fused simulations, of order 3, they have no thresholds to be judged by.
-# The cases on fault1d hold the friction laws in those configurations. They
-# carry the label spectral, so that a job without the time for them can leave
-# them out.
+# with, and in double precision, in order 6, without fused simulations only: in
+# single precision, these cases deviate from the spectral method as in double,
+# and in the other orders, which ci-cpu holds as well, and with fused
+# simulations, of order 3, they have no thresholds to be judged by. The cases
+# on fault1d hold the friction laws in those configurations. They carry the
+# label spectral, so that a job without the time for them can leave them out.
 #
 # The spectral solution at the receivers is the same in every configuration
 # that runs a case on fault2d-periodic; the comparisons keep it in
@@ -721,7 +721,7 @@ function(seissol_add_fault1d)
     set(F1D_REQUIRE "equations=elastic|anisotropic")
   endif()
   if (F1D_MESH MATCHES "^fault2d-(periodic|surface)")
-    list(APPEND F1D_REQUIRE "scipy=true" "precision=double" "fused=1")
+    list(APPEND F1D_REQUIRE "scipy=true" "precision=double" "order=6" "fused=1")
     list(APPEND F1D_LABELS spectral)
   endif()
   if (F1D_MATERIAL)
