@@ -192,6 +192,9 @@ void computeEigenvalues(std::array<std::complex<T>, Dim * Dim>& m,
     Eigen::Index largest = 0;
     column.cwiseAbs().maxCoeff(&largest);
     column *= std::conj(column(largest)) / std::abs(column(largest));
+    // the product leaves the imaginary part of the largest component at its rounding, which
+    // xGEEV sets to zero, as this does
+    column(largest) = column(largest).real();
   }
 
   auto r = yateto::DenseTensorView<2, std::complex<T>>(output.vectors.data(), {Dim, Dim});
