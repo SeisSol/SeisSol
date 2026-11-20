@@ -2856,6 +2856,45 @@ def _compare_antiplane_case(
     return deviations, unavailable
 
 
+def judge_deviations(thresholds, key, deviations, record_them, unavailable=None):
+    """The problems of the deviations `deviations` of the configuration `key`
+    (case/equations/o<order>/<precision>) against the table `thresholds`: a
+    deviation above its threshold, one without a threshold, and a threshold
+    of a deviation that was not compared, unless `unavailable` gives a reason
+    why it could not be for its name. A configuration without thresholds is
+    judged by none. With `record_them`, the deviations are printed in a form
+    that can be pasted into the table."""
+    table = json.loads(Path(thresholds).read_text(encoding="utf-8"))
+    wanted = table.get("entries", {}).get(key)
+    problems = []
+    print(
+        "deviations from the exact solution: "
+        + ", ".join(f"{name}={value:.3g}" for name, value in sorted(deviations.items()))
+    )
+    if wanted is None:
+        print(f"no thresholds for {key}")
+    else:
+        for name, limit in sorted(wanted.items()):
+            seen = deviations.get(name)
+            reason = unavailable(name) if unavailable is not None else None
+            if seen is None and reason is not None:
+                print(f"{name} is not compared: {reason}")
+            elif seen is None:
+                problems.append(f"{name} has a threshold but was not compared")
+            elif limit is None:
+                print(f"{key} {name} = {seen:.6g} (no threshold set)")
+            elif not seen <= limit:
+                problems.append(
+                    f"{name} is {seen:.6g}, above the threshold {limit:.6g}"
+                )
+        unjudged = sorted(set(deviations) - set(wanted))
+        if unjudged:
+            problems.append(f"no threshold for {', '.join(unjudged)}")
+    if record_them:
+        print("record:", json.dumps({key: deviations}))
+    return problems
+
+
 def _command_exact(args):
     """Hold a rupture on a fault1d mesh against the exact solution of its 0D
     problem, a forced rupture front on fault2d against the one of the
@@ -3095,33 +3134,17 @@ def _command_exact(args):
         capabilities["order"],
         capabilities["precision"],
     )
-    table = json.loads(Path(args.thresholds).read_text(encoding="utf-8"))
-    wanted = table.get("entries", {}).get(key)
-    problems = []
-    print(
-        "deviations from the exact solution: "
-        + ", ".join(f"{name}={value:.3g}" for name, value in sorted(deviations.items()))
+    problems = judge_deviations(
+        args.thresholds,
+        key,
+        deviations,
+        args.record,
+        lambda name: (
+            unavailable
+            if unavailable is not None and name not in _AT_RECEIVER
+            else None
+        ),
     )
-    if wanted is None:
-        print(f"no thresholds for {key}")
-    else:
-        for name, limit in sorted(wanted.items()):
-            seen = deviations.get(name)
-            if seen is None and unavailable is not None and name not in _AT_RECEIVER:
-                print(f"{name} is not compared: {unavailable}")
-            elif seen is None:
-                problems.append(f"{name} has a threshold but was not compared")
-            elif limit is None:
-                print(f"{key} {name} = {seen:.6g} (no threshold set)")
-            elif not seen <= limit:
-                problems.append(
-                    f"{name} is {seen:.6g}, above the threshold {limit:.6g}"
-                )
-        unjudged = sorted(set(deviations) - set(wanted))
-        if unjudged:
-            problems.append(f"no threshold for {', '.join(unjudged)}")
-    if args.record:
-        print("record:", json.dumps({key: deviations}))
 
     result["status"] = "run"
     result["configuration"] = key
@@ -3164,9 +3187,166 @@ def plastic_relaxation(initial, cohesion, friction, relaxation, times):
     return -drop[:, None, None] * deviator[None, :, :], tau, limit
 
 
+def _matrix_exponential(matrix):
+    """exp(matrix) of a small square matrix, by scaling and squaring a
+    Taylor series."""
+    import numpy as np
+
+    norm = float(np.max(np.sum(np.abs(matrix), axis=1)))
+    squarings = max(0, math.ceil(math.log2(norm)) + 1) if norm > 0.5 else 0
+    scaled = matrix / 2.0**squarings
+    result = np.eye(matrix.shape[0], dtype=complex)
+    term = np.eye(matrix.shape[0], dtype=complex)
+    for order in range(1, 40):
+        term = term @ scaled / order
+        result = result + term
+        if np.max(np.abs(term)) <= 1e-18 * np.max(np.abs(result)):
+            break
+    for _ in range(squarings):
+        result = result @ result
+    return result
+
+
+def _elastic_jacobians(rho, mu, lam):
+    """The Jacobians A_d of q_t + sum_d A_d dq/dx_d = 0 for an isotropic
+    elastic solid, in the quantities of SeisSol (s_xx, s_yy, s_zz, s_xy, s_yz,
+    s_xz, v1, v2, v3; see getTransposedCoefficientMatrix of the elastic
+    material)."""
+    import numpy as np
+
+    pairs = {(0, 0): 0, (1, 1): 1, (2, 2): 2, (0, 1): 3, (1, 2): 4, (0, 2): 5}
+    stress = {**pairs, **{(j, i): index for (i, j), index in pairs.items()}}
+    jacobians = np.zeros((3, 9, 9))
+    for d in range(3):
+        # d sigma_ij / dt = lam delta_ij div v + mu (dv_i/dx_j + dv_j/dx_i)
+        for i in range(3):
+            jacobians[d, i, 6 + d] -= lam
+            if i != d:
+                jacobians[d, stress[(i, d)], 6 + i] -= mu
+        jacobians[d, d, 6 + d] -= 2.0 * mu
+        # rho dv_i / dt = d sigma_ij / dx_j
+        for i in range(3):
+            jacobians[d, 6 + i, stress[(i, d)]] -= 1.0 / rho
+    return jacobians
+
+
+def _canonical_eigenvectors(operator):
+    """The eigenvalues of `operator`, sorted by their real parts, and its
+    eigenvectors as Planarwave canonicalizes them (canonicalizeEigenvectors in
+    Scenarios.cpp): an eigenspace gets, one after the other, the projection of
+    the coordinate axis it holds the most of (the first of equal ones), of unit
+    length, its coordinate there real and positive."""
+    import numpy as np
+
+    values, vectors = np.linalg.eig(operator)
+    order = np.argsort(values.real, kind="stable")
+    values, vectors = values[order], vectors[:, order]
+    scale = float(np.max(np.abs(values)))
+    canonical = np.zeros_like(vectors, dtype=complex)
+    assigned = [False] * len(values)
+    for first in range(len(values)):
+        if assigned[first]:
+            continue
+        space = [
+            j
+            for j in range(first, len(values))
+            if not assigned[j] and abs(values[j] - values[first]) <= 1e-8 * scale
+        ]
+        for j in space:
+            assigned[j] = True
+        orthonormal, _ = np.linalg.qr(vectors[:, space])
+        projector = orthonormal @ orthonormal.conj().T
+        for column in space:
+            largest = float(np.max(projector.diagonal().real))
+            axis = 0
+            while projector[axis, axis].real < (1.0 - 1e-8) * largest:
+                axis += 1
+            vector = projector[:, axis] / math.sqrt(projector[axis, axis].real)
+            canonical[:, column] = vector
+            projector = projector - np.outer(vector, vector.conj())
+    return values, canonical
+
+
+def plastic_wave(rho, mu, lam, kvec, relaxation, step, steps):
+    """The planar wave of an elastic solid (Planarwave in Scenarios.cpp, which
+    sets up its modes -S2 and P) through Drucker-Prager parameters without
+    cohesion, friction and initial stress. Its yield is zero: every deviatoric
+    stress relaxes towards zero with the time `relaxation` T_v, which makes
+    the solid a Maxwell body in shear. The wave stays a single Fourier mode,
+    the real part of q(t) exp(-i k.x), which this returns as SeisSol steps it,
+    at the ends of the steps 0 to `steps` of the length `step`: each step an
+    elastic one, here exact, and then the plastic correction, which turns the
+    deviator down by exp(-dt / T_v). It returns as well the amplitudes of the
+    plastic strain each step adds, the stress the correction releases over
+    2 mu, and the amplitudes of the Maxwell body itself, without the split,
+    which the split leaves by about dt / (2 T_v)."""
+    import numpy as np
+
+    kvec = np.asarray(kvec, dtype=float)
+    operator = np.einsum("d,dij->ij", kvec, _elastic_jacobians(rho, mu, lam))
+    _, vectors = _canonical_eigenvectors(operator)
+    # the modes -S2 and P of Planarwave, at the amplitude 1 and the phase 0
+    state = vectors[:, 1] + vectors[:, 8]
+    deviator = np.zeros((9, 9))
+    deviator[:3, :3] = np.eye(3) - 1.0 / 3.0
+    deviator[3:6, 3:6] = np.eye(3)
+    # q(t) exp(-i k.x) solves q_t = i (k.A) q - P q / T_v, P the deviator
+    elastic = _matrix_exponential(1j * operator * step)
+    released = -math.expm1(-step / relaxation)
+    maxwell = _matrix_exponential((1j * operator - deviator / relaxation) * step)
+    split, continuous, strains = [state], [state], []
+    for _ in range(steps):
+        predicted = elastic @ split[-1]
+        drop = released * (deviator @ predicted)
+        strains.append(drop[:6] / (2.0 * mu))
+        split.append(predicted - drop)
+        continuous.append(maxwell @ continuous[-1])
+    return np.array(split), np.array(strains), np.array(continuous)
+
+
+def _plastic_moment(strains, mu, volume, samples=2048):
+    """The plastic moment mu int eta dV of the plastic strains `strains`, a
+    row per step of the amplitudes of a Fourier mode, by the steps up to each
+    row: eta grows by sqrt(0.5 dstrain_ij dstrain_ij) in a step, and its mean
+    over a volume of whole periods is the one over the phase."""
+    import numpy as np
+
+    phases = np.exp(1j * 2.0 * np.pi * np.arange(samples) / samples)
+    weights = np.array([0.5, 0.5, 0.5, 1.0, 1.0, 1.0])
+    eta = np.zeros(samples)
+    moments = [0.0]
+    for strain in strains:
+        values = (strain[:, None] * phases[None, :]).real
+        eta += np.sqrt(np.einsum("c,cp->p", weights, values**2))
+        moments.append(mu * volume * float(np.mean(eta)))
+    return np.array(moments)
+
+
+def _wave_energies(states, rho, mu, lam, volume):
+    """The kinetic and the elastic strain energy of a Fourier mode with the
+    amplitudes `states` (a row per time) over a volume of whole periods: the
+    mean of Re(a e^(i phi)) Re(b e^(i phi)) is Re(a conj(b)) / 2."""
+    import numpy as np
+
+    velocity = states[:, 6:]
+    kinetic = 0.25 * rho * volume * np.sum(np.abs(velocity) ** 2, axis=1)
+    stress = states[:, :6]
+    trace = stress[:, 0] + stress[:, 1] + stress[:, 2]
+    deviator = stress.copy()
+    deviator[:, :3] -= trace[:, None] / 3.0
+    contraction = np.sum(np.abs(deviator[:, :3]) ** 2, axis=1) + 2.0 * np.sum(
+        np.abs(deviator[:, 3:]) ** 2, axis=1
+    )
+    bulk = lam + 2.0 * mu / 3.0
+    density = np.abs(trace) ** 2 / (18.0 * bulk) + contraction / (4.0 * mu)
+    return kinetic, 0.5 * volume * density
+
+
 def _command_plastic(args):
-    """Hold a uniform state that yields against its exact relaxation (see
-    plastic_relaxation)."""
+    """Hold a Drucker-Prager material against its exact plastic relaxation:
+    a uniform state beyond the yield (see plastic_relaxation), or a planar
+    wave through the material without yield (see plastic_wave), and with the
+    energy output, the plastic moment, and the energies of the wave."""
     import fault1d
     import numpy as np
 
@@ -3206,18 +3386,19 @@ def _command_plastic(args):
     )
     medium = dict(materials.get(None, {}))
     medium.update(materials.get(1, {}))
-    impedance = math.sqrt(float(medium["rho"]) * float(medium["mu"]))
+    rho, mu = float(medium["rho"]), float(medium["mu"])
+    lam = float(medium["lambda"])
+    impedance = math.sqrt(rho * mu)
+    manifest = json.loads(Path(args.mesh_manifest).read_text(encoding="utf-8"))
+    volume = float(np.prod(manifest["spec"]["size"]))
     prefix = Path(parameters.get("Output", "OutputFile") or "output/out")
     paths = sorted((work / prefix.parent).glob(f"{prefix.name}-receiver-*.dat"))
     if not paths:
         raise SystemExit("the case wrote no receivers")
-
+    energies = None
+    if energy_file(work, prefix).exists():
+        energies = read_energies(energy_file(work, prefix))
     capabilities = case["capabilities"]
-    tolerance = (
-        args.tolerance_single
-        if capabilities.get("precision") == "single"
-        else args.tolerance_double
-    )
     pairs = (
         (0, 0, "xx"),
         (1, 1, "yy"),
@@ -3226,43 +3407,170 @@ def _command_plastic(args):
         (1, 2, "yz"),
         (0, 2, "xz"),
     )
-    worst = {"stress": 0.0, "velocity": 0.0}
-    for path in paths:
-        names, rows = read_receiver(path)
-        rows = np.array(rows)
-        expected, tau, limit = plastic_relaxation(
-            values,
-            float(values["plastCo"]),
-            float(values["bulkFriction"]),
-            relaxation,
-            rows[:, names.index("Time")],
+    initial = (parameters.get("IniCondition", "cICType") or "Zero").strip("'\"")
+    worst = {}
+
+    def measured(key):
+        if energies is None or (key, 0) not in energies:
+            raise SystemExit(f"the energy output holds no {key}")
+        times, series = energies[(key, 0)]
+        return np.asarray(times), np.asarray(series)
+
+    if initial.lower() == "zero":
+        # a uniform state beyond the yield; everything holds to rounding
+        worst.update({"stress": 0.0, "velocity": 0.0})
+        for path in paths:
+            names, rows = read_receiver(path)
+            rows = np.array(rows)
+            expected, tau, limit = plastic_relaxation(
+                values,
+                float(values["plastCo"]),
+                float(values["bulkFriction"]),
+                relaxation,
+                rows[:, names.index("Time")],
+            )
+            scale = tau - limit
+            if scale <= 0.0:
+                raise SystemExit(
+                    f"the initial stress does not yield: tau {tau:.6g}, tau_c {limit:.6g}"
+                )
+            for i, j, component in pairs:
+                recorded = rows[:, names.index(f"s_{component}")]
+                worst["stress"] = _larger(
+                    worst["stress"],
+                    float(np.max(np.abs(recorded - expected[:, i, j]))) / scale,
+                )
+            for component in ("v1", "v2", "v3"):
+                # a uniform state stays at rest; the velocity is held against the one
+                # that a shear wave would carry of the stress the relaxation releases
+                recorded = rows[:, names.index(component)]
+                worst["velocity"] = _larger(
+                    worst["velocity"],
+                    float(np.max(np.abs(recorded))) * impedance / scale,
+                )
+        if energies is not None:
+            # the relaxation releases tau - tau_c along the deviator, and turns it into the
+            # plastic strain (tau - tau_c) s / (2 mu tau) at the end, of which a share
+            # 1 - exp(-t / T_v) by the time t: its eta is that share of (tau - tau_c) / (2 mu),
+            # and what is left of the deviator, tau - that share of tau - tau_c, stores
+            # tau^2 / (2 mu) per volume
+            times, moment = measured("plastic_moment")
+            share = -np.expm1(-times / relaxation)
+            expected = volume * share * scale / 2.0
+            worst["plastic-moment"] = float(np.max(np.abs(moment - expected))) / (
+                volume * scale / 2.0
+            )
+            times, strain = measured("elastic_strain_energy")
+            # the energy output takes the stress of the unknowns, without the initial one
+            released = -np.expm1(-times / relaxation) * scale
+            expected = volume * released**2 / (2.0 * mu)
+            worst["energy-strain"] = float(np.max(np.abs(strain - expected))) / (
+                volume * scale**2 / (2.0 * mu)
+            )
+        tolerance = (
+            args.tolerance_single
+            if capabilities.get("precision") == "single"
+            else args.tolerance_double
         )
-        scale = tau - limit
-        if scale <= 0.0:
-            raise SystemExit(
-                f"the initial stress does not yield: tau {tau:.6g}, tau_c {limit:.6g}"
-            )
-        for i, j, component in pairs:
-            recorded = rows[:, names.index(f"s_{component}")]
-            worst["stress"] = _larger(
-                worst["stress"],
-                float(np.max(np.abs(recorded - expected[:, i, j]))) / scale,
-            )
-        for component in ("v1", "v2", "v3"):
-            # a uniform state stays at rest; the velocity is held against the one
-            # that a shear wave would carry of the stress the relaxation releases
-            recorded = rows[:, names.index(component)]
-            worst["velocity"] = _larger(
-                worst["velocity"], float(np.max(np.abs(recorded))) * impedance / scale
-            )
-    print(
-        "deviations from the exact relaxation, relative to tau - tau_c: "
-        + ", ".join(f"{key}={value:.3g}" for key, value in sorted(worst.items()))
-    )
-    problems = []
-    for key, value in sorted(worst.items()):
-        if not value <= tolerance:
-            problems.append(f"the {key} deviates by {value:.3g}, above {tolerance:.3g}")
+        print(
+            "deviations from the exact relaxation, relative to tau - tau_c: "
+            + ", ".join(f"{key}={value:.3g}" for key, value in sorted(worst.items()))
+        )
+        problems = [
+            f"the {key} deviates by {value:.3g}, above {tolerance:.3g}"
+            for key, value in sorted(worst.items())
+            if not value <= tolerance
+        ]
+    elif initial.lower() == "planarwave":
+        for key in ("plastCo", "bulkFriction") + tuple(f"s_{c}" for *_, c in pairs):
+            if float(values.get(key, 0.0)) != 0.0:
+                raise SystemExit(
+                    "a planar wave has an exact solution here only where the "
+                    f"material does not yield or always does: {key} is not zero"
+                )
+        kvec = [float(v) for v in parameters.get("IniCondition", "kVec").split()]
+        step = float(parameters.get("Discretization", "FixTimeStep"))
+        records = []
+        for path in paths:
+            names, rows = read_receiver(path)
+            header = read_receiver_header(path)
+            point = np.array([float(header[f"x{axis}"][0]) for axis in (1, 2, 3)])
+            records.append((point, names, np.array(rows)))
+        end = max(float(rows[-1, names.index("Time")]) for _, names, rows in records)
+        if energies is not None:
+            end = max([end] + [max(times) for times, _ in energies.values()])
+        steps = round(end / step)
+        split, strains, continuous = plastic_wave(
+            rho, mu, lam, kvec, relaxation, step, steps
+        )
+        scales = (
+            float(np.max(np.abs(split[0, :6]))),
+            float(np.max(np.abs(split[0, 6:]))),
+        )
+        worst.update({"stress": 0.0, "velocity": 0.0})
+        unsplit = 0.0
+        for point, names, rows in records:
+            indices = np.rint(rows[:, names.index("Time")] / step).astype(int)
+            phase = np.exp(-1j * float(np.dot(kvec, point)))
+            columns = [f"s_{c}" for *_, c in pairs] + ["v1", "v2", "v3"]
+            for quantity, column in enumerate(columns):
+                kind, scale = (
+                    ("stress", scales[0]) if quantity < 6 else ("velocity", scales[1])
+                )
+                expected = (split[indices, quantity] * phase).real
+                recorded = rows[:, names.index(column)]
+                worst[kind] = _larger(
+                    worst[kind], float(np.max(np.abs(recorded - expected))) / scale
+                )
+                unsplit = max(
+                    unsplit,
+                    float(
+                        np.max(
+                            np.abs(
+                                (
+                                    continuous[indices, quantity]
+                                    - split[indices, quantity]
+                                )
+                            )
+                        )
+                    )
+                    / scale,
+                )
+        print(
+            "the exact Maxwell body, without the split of the steps, lies "
+            f"{unsplit:.3g} from the split"
+        )
+        result["unsplit"] = unsplit
+        if energies is not None:
+            kinetic, strain = _wave_energies(split, rho, mu, lam, volume)
+            moment = _plastic_moment(strains, mu, volume)
+            for key, series in (
+                ("energy-kinetic", kinetic),
+                ("energy-strain", strain),
+                ("plastic-moment", moment),
+            ):
+                name = {
+                    "energy-kinetic": "elastic_kinetic_energy",
+                    "energy-strain": "elastic_strain_energy",
+                    "plastic-moment": "plastic_moment",
+                }[key]
+                times, values_measured = measured(name)
+                indices = np.rint(times / step).astype(int)
+                worst[key] = float(
+                    np.max(np.abs(values_measured - series[indices]))
+                ) / float(np.max(np.abs(series)))
+        key = "{}/{}/o{}/{}".format(
+            args.name,
+            capabilities["equations"],
+            capabilities["order"],
+            capabilities["precision"],
+        )
+        problems = judge_deviations(args.thresholds, key, worst, args.record)
+        result["configuration"] = key
+    else:
+        raise SystemExit(
+            f"no exact plastic solution for the initial condition {initial}"
+        )
     result["status"] = "run"
     result["deviations"] = worst
     result["problems"] = problems
@@ -3544,14 +3852,32 @@ def main(argv=None):
     exact.set_defaults(func=_command_exact)
 
     plastic = commands.add_parser(
-        "plastic", help="hold a uniform state that yields against its exact relaxation"
+        "plastic",
+        help="hold a uniform state that yields, or a planar wave through a material "
+        "without yield, against its exact relaxation",
     )
     plastic.add_argument("--name", required=True)
     plastic.add_argument("--case-result", required=True)
     plastic.add_argument("--work", required=True)
+    plastic.add_argument("--mesh-manifest", required=True)
     plastic.add_argument("--result")
-    plastic.add_argument("--tolerance-double", type=float, required=True)
-    plastic.add_argument("--tolerance-single", type=float, required=True)
+    plastic.add_argument(
+        "--tolerance-double",
+        type=float,
+        help="the tolerance of the uniform state in double precision",
+    )
+    plastic.add_argument(
+        "--tolerance-single",
+        type=float,
+        help="the tolerance of the uniform state in single precision",
+    )
+    plastic.add_argument("--thresholds", help="the thresholds of the planar wave")
+    plastic.add_argument(
+        "--record",
+        action="store_true",
+        default=bool(os.environ.get("SEISSOL_RECORD_THRESHOLDS")),
+        help="print the deviations in a form that can be pasted into the table",
+    )
     plastic.set_defaults(func=_command_plastic)
 
     coverage = commands.add_parser(

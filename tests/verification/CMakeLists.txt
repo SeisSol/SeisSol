@@ -635,7 +635,8 @@ endfunction()
 # (cases/plasticity-overstress.yaml) on periodic162, which has no boundary to
 # send out a wave from: the stress relaxes towards the yield uniformly, as
 # run_case.py plastic computes it in closed form, which holds the volume
-# receivers to rounding.
+# receivers, and the plastic moment and the strain energy of the energy output,
+# to rounding.
 # ---------------------------------------------------------------------------
 
 function(seissol_add_plastic_relaxation)
@@ -650,7 +651,8 @@ function(seissol_add_plastic_relaxation)
       STEPS ${PR_STEPS}
       REQUIRE equations=elastic
       SET "IniCondition.cICType='Zero'" "equations.Plasticity=1"
-          "equations.PlasticityFileName='plasticity-overstress.yaml'" ${PR_SET}
+          "equations.PlasticityFileName='plasticity-overstress.yaml'"
+          "Output.EnergyOutput=1" "Output.EnergyOutputInterval=1.220703125e-04" ${PR_SET}
       FILES plasticity-overstress.yaml
       ACTIVITY "s_xy:1e5"
       NO_SNAPSHOT
@@ -661,6 +663,7 @@ function(seissol_add_plastic_relaxation)
                    --name ${PR_NAME}
                    --case-result ${SEISSOL_VERIFICATION_DIR}/results/${PR_NAME}.json
                    --work ${SEISSOL_VERIFICATION_DIR}/work/${PR_NAME}
+                   --mesh-manifest ${SEISSOL_MINIMESH_DIR}/periodic162.json
                    --tolerance-double 1e-10
                    --tolerance-single 1e-4
                    --result ${SEISSOL_VERIFICATION_DIR}/results/exact-${PR_NAME}.json)
@@ -671,6 +674,56 @@ function(seissol_add_plastic_relaxation)
       LABELS "verification;plasticity;exact;${PR_LABELS}")
   set_property(GLOBAL APPEND_STRING PROPERTY SEISSOL_DECLARED_CASES
       "    {\"name\": \"exact-${PR_NAME}\", \"mesh\": \"periodic162\", \"requires\": []},\n")
+endfunction()
+
+# ---------------------------------------------------------------------------
+# seissol_add_plastic_wave(NAME <name> TV <time> [STEPS n] [SET ...] [LABELS ...])
+#
+# The planar wave of wave.par on periodic162 through Drucker-Prager parameters
+# without cohesion, friction and initial stress (cases/plasticity-maxwell.yaml),
+# under which every deviatoric stress relaxes towards zero with the time TV: a
+# Maxwell body in shear, whose wave stays linear and disperses. run_case.py
+# plastic holds the volume receivers, and the energies and the plastic moment of
+# the energy output, against the wave as SeisSol splits each step into an
+# elastic one and the relaxation, to the thresholds of
+# cases/thresholds-plasticity.json, and reports how far the split lies from the
+# Maxwell body itself.
+# ---------------------------------------------------------------------------
+
+function(seissol_add_plastic_wave)
+  cmake_parse_arguments(PW "" "NAME;TV;STEPS" "SET;LABELS" ${ARGN})
+  if (NOT PW_STEPS)
+    set(PW_STEPS 512)
+  endif()
+  seissol_add_minitest(
+      NAME ${PW_NAME}
+      MESH periodic162
+      PARAMETERS wave.par
+      STEPS ${PW_STEPS}
+      REQUIRE equations=elastic
+      SET "equations.Plasticity=1" "equations.Tv=${PW_TV}"
+          "equations.PlasticityFileName='plasticity-maxwell.yaml'"
+          "Output.EnergyOutput=1" "Output.EnergyOutputInterval=9.765625e-04" ${PW_SET}
+      FILES plasticity-maxwell.yaml
+      ACTIVITY "s_xy:1e-3"
+      NO_SNAPSHOT
+      LABELS "plasticity;exact;${PW_LABELS}")
+  add_test(NAME verification.exact.${PW_NAME}${SEISSOL_VERIFICATION_SUFFIX}
+           COMMAND ${Python3_EXECUTABLE}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/run_case.py plastic
+                   --name ${PW_NAME}
+                   --case-result ${SEISSOL_VERIFICATION_DIR}/results/${PW_NAME}.json
+                   --work ${SEISSOL_VERIFICATION_DIR}/work/${PW_NAME}
+                   --mesh-manifest ${SEISSOL_MINIMESH_DIR}/periodic162.json
+                   --thresholds ${CMAKE_CURRENT_SOURCE_DIR}/cases/thresholds-plasticity.json
+                   --result ${SEISSOL_VERIFICATION_DIR}/results/exact-${PW_NAME}.json)
+  set_tests_properties(verification.exact.${PW_NAME}${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
+      SKIP_RETURN_CODE 77
+      FIXTURES_REQUIRED "case.${SEISSOL_VERIFICATION_CONFIG}.${PW_NAME};verification"
+      TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
+      LABELS "verification;plasticity;exact;${PW_LABELS}")
+  set_property(GLOBAL APPEND_STRING PROPERTY SEISSOL_DECLARED_CASES
+      "    {\"name\": \"exact-${PW_NAME}\", \"mesh\": \"periodic162\", \"requires\": []},\n")
 endfunction()
 
 # ---------------------------------------------------------------------------

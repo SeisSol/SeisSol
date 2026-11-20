@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# Drucker-Prager parameters without cohesion and friction, and without an
+# initial stress: the yield tau_c = c cos(phi) - sigma_m sin(phi) is zero, so
+# that every deviatoric stress exceeds it and relaxes towards zero with the
+# time Tv, and the solid is a Maxwell body in shear. Its waves are linear and
+# disperse; run_case.py plastic holds a planar wave through it against its
+# exact solution.
+!Any
+components:
+  - !GroupFilter
+    groups: 1
+    components: !ConstantMap
+      map:
+        bulkFriction: 0.0
+        plastCo:      0.0
+        s_xx:         0.0
+        s_yy:         0.0
+        s_zz:         0.0
+        s_xy:         0.0
+        s_yz:         0.0
+        s_xz:         0.0

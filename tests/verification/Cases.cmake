@@ -85,6 +85,11 @@ seissol_add_minitest(
 seissol_add_plastic_relaxation(NAME plasticity-relaxation SET "equations.Tv=4.8828125e-04")
 seissol_add_plastic_relaxation(NAME plasticity-relaxation-instant STEPS 8
                                SET "equations.Tv=7.62939453125e-06")
+# A planar wave through Drucker-Prager parameters without a yield relaxes as in
+# a Maxwell body, with Tv a quarter of the period of its S wave; its stresses
+# fall to a seventh over the 512 steps, and the split of the steps leaves them
+# by 0.3 per cent
+seissol_add_plastic_wave(NAME plasticity-wave TV 7.8125e-03)
 
 # without a fault file, the rupture is off, and the faces of the fault are
 # faces as any other

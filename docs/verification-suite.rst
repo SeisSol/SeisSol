@@ -119,4 +119,19 @@ Drucker-Prager material (``plasticity-overstress.yaml``) on a periodic mesh,
 where nothing sends out a wave: the stress relaxes towards the yield, by
 :math:`\exp(-\Delta t / T_v)` in each step, as ``run_case.py plastic``
 computes in closed form, to rounding; ``plasticity-relaxation-instant``
-relaxes within a step.
+relaxes within a step. The stress the relaxation releases, over :math:`2\mu`,
+is the plastic strain, whose accumulated measure :math:`\eta` the plastic
+moment of the energy output integrates; it and the strain energy hold to
+rounding as well.
+
+``plasticity-wave`` sends the planar wave through Drucker-Prager parameters
+without cohesion, friction and initial stress (``plasticity-maxwell.yaml``):
+their yield is zero, every deviatoric stress relaxes towards zero, and the
+solid is a Maxwell body in shear, whose wave stays linear. SeisSol takes each
+step as an elastic step followed by the relaxation, and so does the exact
+solution of ``run_case.py plastic``, a single Fourier mode, which holds the
+receivers, the kinetic and the strain energy and the plastic moment to the
+thresholds of ``tests/verification/cases/thresholds-plasticity.json``. The
+split itself leaves the stresses of the Maxwell body by about
+:math:`\Delta t / (2 T_v)`, 0.3 per cent in the case, which the comparison
+reports.
