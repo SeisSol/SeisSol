@@ -107,7 +107,7 @@ void StagedMpiHaloTransport::startSend() {
 
 bool StagedMpiHaloTransport::testSend() {
   const RegionTrace trace{.clusters = &regions_.copy, .send = true, .begin = sendBegin_};
-  return testRequests(sendRequests_.data(), sendQueue_, &trace);
+  return testRequests(sendRequests_, sendQueue_, &trace);
 }
 
 void StagedMpiHaloTransport::startReceive() {
