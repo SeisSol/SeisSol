@@ -15,6 +15,7 @@
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Parallel/Runtime/Stream.h"
 #include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/DynamicRupture/Output/ParametersInitializer.h"
 #include "Features/DynamicRupture/Output/PickpointSampling.h"
 #include "GeneratedCode/tensor.h"

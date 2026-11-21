@@ -22,16 +22,19 @@
 #include "Core/Monitoring/RunSummary.h"
 #include "Core/TimeStepping/Layout/GlobalTimestep.h"
 #include "Features/DynamicRupture/DRParameters.h"
+#include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/DynamicRupture/Output/OutputAux.h"
 #include "Features/InitialConditions/InitializationParameters.h"
 #include "Features/SourceTerm/Setup/FSRMReader.h"
 #include "Features/SourceTerm/SourceParameters.h"
 #include "Simulation/InitProcedure/Internal/FaceTypeCheck.h"
+#include "Simulation/Parameters/OutputParameters.h"
 #include "Simulation/Parameters/ParameterOverrides.h"
 #include "Simulation/Parameters/ParameterReader.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "Simulation/PreflightMesh.h"
 #include "Simulation/Reader/EasiReader.h"
+#include "WavePropagation/Output/ReceiverParameters.h"
 #include "WavePropagation/Output/ReceiverWriter.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h"
@@ -213,14 +216,11 @@ std::string joined(const std::vector<std::string>& parts) {
 bool runOpens(const std::vector<std::string>& field,
               const parameters::SeisSolParameters& parameters) {
   const auto name = joined(field);
-  const auto& faultOutput = parameters.drParameters.outputPointType;
   if (name == "output.rfilename") {
-    return parameters.output.receiverParameters.enabled;
+    return !parameters.output.outputsOf<parameters::ReceiverOutputParameters>().empty();
   }
   if (name == "pickpoint.ppfilename") {
-    return parameters.drParameters.isDynamicRuptureEnabled &&
-           (faultOutput == parameters::OutputType::AtPickpoint ||
-            faultOutput == parameters::OutputType::AtPickpointAndElementwise);
+    return !parameters.output.outputsOf<parameters::PickpointParameters>().empty();
   }
   if (name.starts_with("equations.plasticityfilename")) {
     return parameters.plasticity.enabled;
@@ -354,31 +354,27 @@ json::Value outputSection(const parameters::SeisSolParameters& parameters, Repor
                                 " cannot be created in " + existing.string() + ".");
   }
 
+  // the kinds of the outputs of the run
   auto& enabled = section["enabled"] = json::Value::array();
-  if (output.waveFieldParameters.enabled) {
+  if (!output.outputsOf<parameters::WaveFieldOutputParameters>().empty()) {
     enabled.push("wavefield");
   }
-  if (output.freeSurfaceParameters.enabled) {
+  if (!output.outputsOf<parameters::FreeSurfaceOutputParameters>().empty()) {
     enabled.push("freeSurface");
   }
-  if (output.receiverParameters.enabled) {
+  if (!output.outputsOf<parameters::ReceiverOutputParameters>().empty()) {
     enabled.push("receivers");
   }
-  const auto faultOutput = parameters.drParameters.outputPointType;
-  if (parameters.drParameters.isDynamicRuptureEnabled) {
-    if (faultOutput == parameters::OutputType::AtPickpoint ||
-        faultOutput == parameters::OutputType::AtPickpointAndElementwise) {
-      enabled.push("faultReceivers");
-    }
-    if (faultOutput == parameters::OutputType::Elementwise ||
-        faultOutput == parameters::OutputType::AtPickpointAndElementwise) {
-      enabled.push("faultElementwise");
-    }
+  if (!output.outputsOf<parameters::PickpointParameters>().empty()) {
+    enabled.push("faultReceivers");
   }
-  if (output.energyParameters.enabled) {
+  if (!output.outputsOf<parameters::ElementwiseFaultParameters>().empty()) {
+    enabled.push("faultElementwise");
+  }
+  if (output.energy.has_value()) {
     enabled.push("energy");
   }
-  if (output.checkpointParameters.enabled) {
+  if (output.checkpoint.has_value()) {
     enabled.push("checkpoint");
   }
   return section;
@@ -895,7 +891,8 @@ void checkScannedMesh(const parameters::SeisSolParameters& parameters,
     }
     return faces;
   }();
-  if (parameters.output.freeSurfaceParameters.enabled && freeSurfaces == 0) {
+  if (!parameters.output.outputsOf<parameters::FreeSurfaceOutputParameters>().empty() &&
+      freeSurfaces == 0) {
     report.warning("The free-surface output is on, but the mesh has no faces of the free surface.");
   }
 }
@@ -919,9 +916,13 @@ void checkMeshContent(const parameters::SeisSolParameters& parameters,
   meshscan::CellPoints sources;
   sources.tolerance = SourceTolerance;
   meshscan::FaultPoints faultReceivers;
-  const auto& receiverFile = output.receiverParameters.fileName;
+  // a run has at most one output of each of the kinds with points for now (see
+  // OutputParameters::singleOutputOf)
+  const auto receiverOutputs = output.outputsOf<parameters::ReceiverOutputParameters>();
+  const auto receiverFile =
+      receiverOutputs.empty() ? std::string() : receiverOutputs.front()->fileName;
   const bool withReceivers =
-      output.receiverParameters.enabled && std::filesystem::is_regular_file(receiverFile, error);
+      !receiverOutputs.empty() && std::filesystem::is_regular_file(receiverFile, error);
   if (withReceivers) {
     try {
       receivers.points = writer::parseReceiverFile(receiverFile);
@@ -929,12 +930,12 @@ void checkMeshContent(const parameters::SeisSolParameters& parameters,
       report.problem("The receiver file " + receiverFile + " does not parse: " + exception.what());
     }
   }
-  const auto pickpointFile = output.pickpointParameters.pickpointFileName.value_or("");
+  const auto pickpointOutputs = output.outputsOf<parameters::PickpointParameters>();
+  const auto pickpointFile = pickpointOutputs.empty()
+                                 ? std::string()
+                                 : pickpointOutputs.front()->pickpointFileName.value_or("");
   const bool withFaultReceivers =
-      rupture.isDynamicRuptureEnabled &&
-      (rupture.outputPointType == parameters::OutputType::AtPickpoint ||
-       rupture.outputPointType == parameters::OutputType::AtPickpointAndElementwise) &&
-      std::filesystem::is_regular_file(pickpointFile, error);
+      !pickpointOutputs.empty() && std::filesystem::is_regular_file(pickpointFile, error);
   if (withFaultReceivers) {
     try {
       faultReceivers.points = dr::readPickpoints(pickpointFile);

@@ -17,11 +17,12 @@
 #include "WavePropagation/Output/ReceiverParameters.h"
 
 #include <array>
-#include <list>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <unordered_set>
-#include <utility>
+#include <utils/logger.h>
+#include <variant>
 #include <vector>
 
 namespace seissol::initializer::parameters {
@@ -43,12 +44,10 @@ enum class VolumeRefinement : int { NoRefine = 0, Refine4 = 1, Refine8 = 2, Refi
 enum class ProjectionMethod : int { Pointwise, L2 };
 
 struct CheckpointParameters {
-  bool enabled{false};
   double interval{0};
 };
 
 struct EnergyOutputParameters {
-  bool enabled{false};
   int computeVolumeEnergiesEveryOutput{0};
   double interval{0};
   bool terminalOutput{false};
@@ -58,7 +57,6 @@ struct EnergyOutputParameters {
 };
 
 struct FreeSurfaceOutputParameters {
-  bool enabled{false};
   unsigned refinement{0};
   double interval{0};
   int vtkorder{-1};
@@ -98,7 +96,6 @@ struct OutputBounds {
 };
 
 struct WaveFieldOutputParameters {
-  bool enabled{false};
   int vtkorder{-1};
   double interval{0};
   VolumeRefinement refinement{VolumeRefinement::NoRefine};
@@ -117,9 +114,21 @@ struct WaveFieldOutputParameters {
   std::optional<TimeSeriesMode> timeSeries;
 };
 
+/// One output of a run, and what it writes.
+struct OutputEntry {
+  //! unique among the outputs of the run; the outputs of the wave field and of the surface name
+  //! their writer and files after it
+  std::string name;
+  std::variant<WaveFieldOutputParameters,
+               FreeSurfaceOutputParameters,
+               ReceiverOutputParameters,
+               ElementwiseFaultParameters,
+               PickpointParameters>
+      settings;
+};
+
 struct OutputParameters {
-  OutputFormat format{OutputFormat::None};
-  XdmfBackend xdmfWriterBackend{};
+  XdmfBackend xdmfWriterBackend{XdmfBackend::Posix};
   uint32_t hdfcompress{0};
   //! the directory of the outputs; empty for the working directory
   std::string outputPath;
@@ -128,64 +137,70 @@ struct OutputParameters {
   //! whether each run writes into a directory of its own in outputPath, named by outputName and
   //! the ID of the run (see initprocedure::createOutputDirectory)
   bool outputDirPerSim{false};
-  CheckpointParameters checkpointParameters;
-  ElementwiseFaultParameters elementwiseParameters;
-  EnergyOutputParameters energyParameters;
-  FreeSurfaceOutputParameters freeSurfaceParameters;
-  PickpointParameters pickpointParameters;
-  ReceiverOutputParameters receiverParameters;
-  WaveFieldOutputParameters waveFieldParameters;
+  //! none if the run writes no checkpoints
+  std::optional<CheckpointParameters> checkpoint;
+  //! none if the run writes no energies
+  std::optional<EnergyOutputParameters> energy;
+  //! the outputs of the run; empty if it writes none
+  std::vector<OutputEntry> outputs;
   //! the simulated time after which a simulation epoch ends at the latest; zero for no limit
   double epochInterval{0};
   //! whether the run measures what its cells cost, and writes it to <prefix>-vertexweights.h5 at
   //! the end, for a later run to partition by (discretization.vertexweightfile)
   bool vertexWeightOutput{false};
 
-  OutputParameters() = default;
-  OutputParameters(OutputFormat format,
-                   XdmfBackend xdmfWriterBackend,
-                   uint32_t hdfcompress,
-                   std::string outputPath,
-                   std::string outputName,
-                   bool outputDirPerSim,
-                   const CheckpointParameters& checkpointParameters,
-                   const ElementwiseFaultParameters& elementwiseParameters,
-                   const EnergyOutputParameters& energyParameters,
-                   FreeSurfaceOutputParameters freeSurfaceParameters,
-                   PickpointParameters pickpointParameters,
-                   ReceiverOutputParameters receiverParameters,
-                   WaveFieldOutputParameters waveFieldParameters)
-      : format(format), xdmfWriterBackend(xdmfWriterBackend), hdfcompress(hdfcompress),
-        outputPath(std::move(outputPath)), outputName(std::move(outputName)),
-        outputDirPerSim(outputDirPerSim), checkpointParameters(checkpointParameters),
-        elementwiseParameters(elementwiseParameters), energyParameters(energyParameters),
-        freeSurfaceParameters(std::move(freeSurfaceParameters)),
-        pickpointParameters(std::move(pickpointParameters)),
-        receiverParameters(std::move(receiverParameters)),
-        waveFieldParameters(std::move(waveFieldParameters)) {}
+  /// The settings of the outputs of the kind `T`, in the order of `outputs`.
+  template <typename T>
+  [[nodiscard]] std::vector<const T*> outputsOf() const {
+    std::vector<const T*> found;
+    for (const auto& entry : outputs) {
+      if (const auto* settings = std::get_if<T>(&entry.settings); settings != nullptr) {
+        found.push_back(settings);
+      }
+    }
+    return found;
+  }
+
+  /// The settings of the output of the kind `T`, or none. The time clusters sample the outputs at
+  /// points (the receivers, those of the fault) into one place each, so a run can have at most one
+  /// of each of these kinds for now; `kind` names it in the error otherwise.
+  template <typename T>
+  [[nodiscard]] const T* singleOutputOf(const std::string& kind) const {
+    const auto found = outputsOf<T>();
+    if (found.size() > 1) {
+      logError() << "A run can have only one" << kind << "output for now, but this one has"
+                 << found.size() << ".";
+    }
+    return found.empty() ? nullptr : found.front();
+  }
 };
 
 void warnIntervalAndDisable(bool& enabled,
                             double interval,
                             const std::string& valName,
                             const std::string& intName);
-CheckpointParameters readCheckpointParameters(ParameterReader* baseReader);
-ElementwiseFaultParameters
-    readElementwiseParameters(ParameterReader* baseReader,
-                              std::optional<TimeSeriesMode> defaultTimeSeries);
-EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader);
-FreeSurfaceOutputParameters
+// Each of the following reads all fields of its output, and gives none if they switch it off.
+std::optional<CheckpointParameters> readCheckpointParameters(ParameterReader* baseReader);
+std::optional<EnergyOutputParameters> readEnergyParameters(ParameterReader* baseReader);
+std::optional<FreeSurfaceOutputParameters>
     readFreeSurfaceParameters(ParameterReader* baseReader,
                               std::optional<TimeSeriesMode> defaultTimeSeries,
                               const std::vector<ConfigId>& configs);
+std::optional<ReceiverOutputParameters> readReceiverParameters(ParameterReader* baseReader);
+std::optional<WaveFieldOutputParameters>
+    readWaveFieldParameters(ParameterReader* baseReader,
+                            std::optional<TimeSeriesMode> defaultTimeSeries,
+                            const std::vector<ConfigId>& configs);
+// The section of the rupture switches the outputs of the fault on (see readOutputParameters).
+ElementwiseFaultParameters
+    readElementwiseParameters(ParameterReader* baseReader,
+                              std::optional<TimeSeriesMode> defaultTimeSeries);
 PickpointParameters readPickpointParameters(ParameterReader* baseReader);
-ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader);
-WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
-                                                  std::optional<TimeSeriesMode> defaultTimeSeries,
-                                                  const std::vector<ConfigId>& configs);
-/// The output parameters of a run whose cells compute in the configurations `configs`.
+/// The output parameters of a run whose cells compute in the configurations `configs`; with the
+/// outputs of its fault only if it has one (`withFault`).
 OutputParameters readOutputParameters(ParameterReader* baseReader,
-                                      const std::vector<ConfigId>& configs);
+                                      const std::vector<ConfigId>& configs,
+                                      bool withFault);
 } // namespace seissol::initializer::parameters
 
 #endif // SEISSOL_SRC_SIMULATION_PARAMETERS_OUTPUTPARAMETERS_H_

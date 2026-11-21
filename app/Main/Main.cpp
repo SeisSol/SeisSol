@@ -17,7 +17,6 @@
 #include "Core/Parallel/MPI.h"
 #include "Core/Parallel/SystemInfo.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/MeasuredCellCosts.h"
-#include "Features/DynamicRupture/DRParameters.h"
 #include "Simulation/InitProcedure/Init.h"
 #include "Simulation/Parameters/OutputParameters.h"
 #include "Simulation/Parameters/ParameterOverrides.h"
@@ -111,17 +110,12 @@ void endOnTermination(const utils::LogSignal& signal) {
 seissol::initializer::parameters::SeisSolParameters
     measuringRun(const seissol::initializer::parameters::SeisSolParameters& parameters,
                  unsigned cycle) {
-  using namespace seissol::initializer::parameters;
   auto measuring = parameters;
   auto& output = measuring.output;
   output.outputName += "-cycle" + std::to_string(cycle + 1);
-  output.format = OutputFormat::None;
-  output.waveFieldParameters.enabled = false;
-  output.freeSurfaceParameters.enabled = false;
-  output.receiverParameters.enabled = false;
-  output.energyParameters.enabled = false;
-  output.checkpointParameters.enabled = false;
-  measuring.drParameters.outputPointType = OutputType::None;
+  output.outputs.clear();
+  output.energy.reset();
+  output.checkpoint.reset();
   return measuring;
 }
 

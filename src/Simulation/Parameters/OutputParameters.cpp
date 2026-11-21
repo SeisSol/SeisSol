@@ -10,17 +10,22 @@
 #include "Core/Common/ConfigLayout.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/InputAux.h"
+#include "Core/IO/WriterParameters.h"
+#include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/Plasticity/Physics/PlasticityQuantities.h"
 #include "Simulation/Parameters/ParameterReader.h"
+#include "WavePropagation/Output/ReceiverParameters.h"
 
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <limits>
 #include <optional>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -87,7 +92,7 @@ void warnIntervalAndDisable(bool& enabled,
   }
 }
 
-CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
+std::optional<CheckpointParameters> readCheckpointParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
   // a run writes checkpoints if it says how often, unless it switches them off
@@ -102,7 +107,10 @@ CheckpointParameters readCheckpointParameters(ParameterReader* baseReader) {
 
   reader->warnDeprecated({"checkpointbackend", "checkpointfile"});
 
-  return CheckpointParameters{.enabled = enabled, .interval = interval};
+  if (!enabled) {
+    return std::nullopt;
+  }
+  return CheckpointParameters{.interval = interval};
 }
 
 ElementwiseFaultParameters
@@ -133,7 +141,7 @@ ElementwiseFaultParameters
                                     .timeSeries = timeSeries};
 }
 
-EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
+std::optional<EnergyOutputParameters> readEnergyParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
   bool enabled = reader->readWithDefault("energyoutput", false);
@@ -151,8 +159,10 @@ EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
   const auto terminatorMomentRateThreshold = abortCriteriaReader->readWithDefault(
       "terminatormomentratethreshold", -std::numeric_limits<double>::infinity());
 
-  return EnergyOutputParameters{.enabled = enabled,
-                                .computeVolumeEnergiesEveryOutput =
+  if (!enabled) {
+    return std::nullopt;
+  }
+  return EnergyOutputParameters{.computeVolumeEnergiesEveryOutput =
                                     computeVolumeEnergiesEveryOutput,
                                 .interval = interval,
                                 .terminalOutput = terminalOutput,
@@ -161,7 +171,7 @@ EnergyOutputParameters readEnergyParameters(ParameterReader* baseReader) {
                                 .terminatorMomentRateThreshold = terminatorMomentRateThreshold};
 }
 
-FreeSurfaceOutputParameters
+std::optional<FreeSurfaceOutputParameters>
     readFreeSurfaceParameters(ParameterReader* baseReader,
                               std::optional<TimeSeriesMode> defaultTimeSeries,
                               const std::vector<ConfigId>& configs) {
@@ -205,8 +215,10 @@ FreeSurfaceOutputParameters
 
   const auto timeSeries = readTimeSeriesMode(reader, "surfacetimeseries", defaultTimeSeries);
 
-  return FreeSurfaceOutputParameters{.enabled = enabled,
-                                     .refinement = refinement,
+  if (!enabled) {
+    return std::nullopt;
+  }
+  return FreeSurfaceOutputParameters{.refinement = refinement,
                                      .interval = interval,
                                      .vtkorder = vtkorder,
                                      .outputMask = surfaceOutputMask,
@@ -268,7 +280,7 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
                              .samplingInterval = samplingInterval};
 }
 
-ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
+std::optional<ReceiverOutputParameters> readReceiverParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("output");
 
   const auto interval = reader->readWithDefault("receiveroutputinterval", VeryLongTime);
@@ -299,9 +311,10 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
     logError() << "The off-fault receiver output is enabled, but no receiver point file was given.";
   }
 
-  // note: we'll need to supply a filename, even if we don't use the receivers
-  return ReceiverOutputParameters{.enabled = enabled,
-                                  .format = format,
+  if (!enabled) {
+    return std::nullopt;
+  }
+  return ReceiverOutputParameters{.format = format,
                                   .computeRotation = computeRotation,
                                   .computeStrain = computeStrain,
                                   .writeInterval = interval,
@@ -311,9 +324,10 @@ ReceiverOutputParameters readReceiverParameters(ParameterReader* baseReader) {
                                   .samplechunk = samplechunk};
 }
 
-WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
-                                                  std::optional<TimeSeriesMode> defaultTimeSeries,
-                                                  const std::vector<ConfigId>& configs) {
+std::optional<WaveFieldOutputParameters>
+    readWaveFieldParameters(ParameterReader* baseReader,
+                            std::optional<TimeSeriesMode> defaultTimeSeries,
+                            const std::vector<ConfigId>& configs) {
   auto* reader = baseReader->readSubNode("output");
 
   bool enabled = false;
@@ -385,8 +399,10 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
     reader->warnDeprecated({"format"});
   }
 
-  return WaveFieldOutputParameters{.enabled = enabled,
-                                   .vtkorder = vtkorder,
+  if (!enabled) {
+    return std::nullopt;
+  }
+  return WaveFieldOutputParameters{.vtkorder = vtkorder,
                                    .interval = interval,
                                    .refinement = refinement,
                                    .bounds = bounds,
@@ -401,7 +417,8 @@ WaveFieldOutputParameters readWaveFieldParameters(ParameterReader* baseReader,
 }
 
 OutputParameters readOutputParameters(ParameterReader* baseReader,
-                                      const std::vector<ConfigId>& configs) {
+                                      const std::vector<ConfigId>& configs,
+                                      bool withFault) {
   auto* reader = baseReader->readSubNode("output");
 
   const auto hdfcompress = reader->readWithDefault("hdfcompress", 0);
@@ -409,8 +426,6 @@ OutputParameters readOutputParameters(ParameterReader* baseReader,
   // Each output has a field of its own that falls back to this one; where neither is given, the
   // writer chooses by the format of the output (see TimeSeriesMode).
   const auto defaultTimeSeries = readTimeSeriesMode(reader, "outputtimeseries", std::nullopt);
-  const auto format = reader->readWithDefaultEnum<OutputFormat>(
-      "format", OutputFormat::None, {OutputFormat::None, OutputFormat::Xdmf});
   const auto xdmfWriterBackend =
       reader->readWithDefaultStringEnum<XdmfBackend>("xdmfwriterbackend",
                                                      "posix",
@@ -445,18 +460,44 @@ OutputParameters readOutputParameters(ParameterReader* baseReader,
   const auto epochInterval = reader->readWithDefault("epochinterval", 0.0);
   const auto vertexWeightOutput = reader->readWithDefault("vertexweightoutput", false);
 
-  const auto checkpointParameters = readCheckpointParameters(baseReader);
-  if (checkpointParameters.enabled && configs.size() > 1) {
+  const auto checkpoint = readCheckpointParameters(baseReader);
+  if (checkpoint.has_value() && configs.size() > 1) {
     logError() << "Checkpoints are not supported yet for runs whose cells compute in several "
                   "configurations.";
   }
-  const auto elementwiseParameters = readElementwiseParameters(baseReader, defaultTimeSeries);
-  const auto energyParameters = readEnergyParameters(baseReader);
-  const auto freeSurfaceParameters =
-      readFreeSurfaceParameters(baseReader, defaultTimeSeries, configs);
-  const auto pickpointParameters = readPickpointParameters(baseReader);
-  const auto receiverParameters = readReceiverParameters(baseReader);
-  const auto waveFieldParameters = readWaveFieldParameters(baseReader, defaultTimeSeries, configs);
+  const auto energy = readEnergyParameters(baseReader);
+
+  // the outputs, each named as the files it has always written
+  std::vector<OutputEntry> outputs;
+  if (auto waveField = readWaveFieldParameters(baseReader, defaultTimeSeries, configs)) {
+    outputs.push_back({.name = "wavefield", .settings = std::move(waveField.value())});
+  }
+  if (auto surface = readFreeSurfaceParameters(baseReader, defaultTimeSeries, configs)) {
+    outputs.push_back({.name = "surface", .settings = std::move(surface.value())});
+  }
+  if (auto receivers = readReceiverParameters(baseReader)) {
+    outputs.push_back({.name = "receivers", .settings = std::move(receivers.value())});
+  }
+
+  // the outputs of the fault, which the section of the rupture switches on
+  const auto faultOutputs =
+      baseReader->readSubNode("dynamicrupture")
+          ->readWithDefaultEnum<OutputType>("outputpointtype",
+                                            OutputType::None,
+                                            {OutputType::None,
+                                             OutputType::AtPickpoint,
+                                             OutputType::Elementwise,
+                                             OutputType::AtPickpointAndElementwise});
+  const auto elementwise = readElementwiseParameters(baseReader, defaultTimeSeries);
+  auto pickpoints = readPickpointParameters(baseReader);
+  if (withFault && (faultOutputs == OutputType::Elementwise ||
+                    faultOutputs == OutputType::AtPickpointAndElementwise)) {
+    outputs.push_back({.name = "fault", .settings = elementwise});
+  }
+  if (withFault && (faultOutputs == OutputType::AtPickpoint ||
+                    faultOutputs == OutputType::AtPickpointAndElementwise)) {
+    outputs.push_back({.name = "faultreceivers", .settings = std::move(pickpoints)});
+  }
 
   reader->warnDeprecated({"projection",
                           "rotation",
@@ -468,21 +509,15 @@ OutputParameters readOutputParameters(ParameterReader* baseReader,
                           "faultoutputflag",
                           "loopstatisticsnetcdfoutput"});
 
-  auto parameters = OutputParameters(format,
-                                     xdmfWriterBackend,
-                                     hdfcompress,
-                                     outputDir,
-                                     outputName,
-                                     dirPerSim,
-                                     checkpointParameters,
-                                     elementwiseParameters,
-                                     energyParameters,
-                                     freeSurfaceParameters,
-                                     pickpointParameters,
-                                     receiverParameters,
-                                     waveFieldParameters);
-  parameters.epochInterval = epochInterval;
-  parameters.vertexWeightOutput = vertexWeightOutput;
-  return parameters;
+  return OutputParameters{.xdmfWriterBackend = xdmfWriterBackend,
+                          .hdfcompress = static_cast<std::uint32_t>(hdfcompress),
+                          .outputPath = outputDir,
+                          .outputName = outputName,
+                          .outputDirPerSim = dirPerSim,
+                          .checkpoint = checkpoint,
+                          .energy = energy,
+                          .outputs = std::move(outputs),
+                          .epochInterval = epochInterval,
+                          .vertexWeightOutput = vertexWeightOutput};
 }
 } // namespace seissol::initializer::parameters

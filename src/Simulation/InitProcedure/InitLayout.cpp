@@ -32,6 +32,7 @@
 #include "Simulation/InitProcedure/Internal/Buckets.h"
 #include "Simulation/InitProcedure/Internal/LtsSetup.h"
 #include "Simulation/InitProcedure/Internal/Scratchpads.h"
+#include "Simulation/Parameters/OutputParameters.h"
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Physics/Datastructures.h"
 
@@ -185,12 +186,15 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
         colorMap.color(halo, element.clusterId, runConfigs.configOfGroup(element.group));
   }
 
-  const auto& integrationMask = seissolParams.output.waveFieldParameters.integrationMask;
-  const auto needsIntegration =
-      std::ranges::any_of(
-          integrationMask,
-          [](const auto& mask) { return std::ranges::find(mask, true) != mask.end(); }) ||
-      seissolParams.output.waveFieldParameters.computeStrain;
+  // the time integrals of the cells, for the wave field outputs that write them or the strain
+  const auto waveFields =
+      seissolParams.output.outputsOf<seissol::initializer::parameters::WaveFieldOutputParameters>();
+  const auto needsIntegration = std::ranges::any_of(waveFields, [](const auto* waveField) {
+    return waveField->computeStrain ||
+           std::ranges::any_of(waveField->integrationMask, [](const auto& mask) {
+             return std::ranges::find(mask, true) != mask.end();
+           });
+  });
   const auto settings = SimulationSettings(seissolParams.plasticity.enabled,
                                            needsIntegration,
                                            runConfigs.simulationCount,

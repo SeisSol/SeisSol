@@ -39,6 +39,7 @@
 #include "Simulation/Parameters/OutputParameters.h"
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Output/FreeSurfaceIntegrator.h"
+#include "WavePropagation/Output/ReceiverParameters.h"
 #include "WavePropagation/Physics/Datastructures.h"
 
 #include <algorithm>
@@ -57,6 +58,7 @@
 #include <tuple>
 #include <utility>
 #include <utils/logger.h>
+#include <variant>
 #include <vector>
 
 namespace {
@@ -224,11 +226,11 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     seissolInstance.simulator().setCurrentTime(time);
   }
 
-  if (seissolInstance.parameters().output.checkpointParameters.enabled) {
+  if (const auto& checkpoint = seissolInstance.parameters().output.checkpoint;
+      checkpoint.has_value()) {
     // FIXME: for now, we allow only _one_ checkpoint interval which checkpoints everything
     // existent
-    seissolInstance.outputManager().setupCheckpoint(
-        seissolInstance.parameters().output.checkpointParameters.interval);
+    seissolInstance.outputManager().setupCheckpoint(checkpoint->interval);
   }
 }
 
@@ -324,8 +326,10 @@ struct WaveFieldOutputSetup {
 
 /// The outputs of the wave field of the cells of the configuration `Cfg`.
 template <typename Cfg>
-NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
-                                const WaveFieldOutputSetup& setup) {
+NamedOutputs waveFieldOutputsOf(
+    seissol::SeisSol& seissolInstance,
+    const WaveFieldOutputSetup& setup,
+    const seissol::initializer::parameters::WaveFieldOutputParameters& waveField) {
   using real = Real<Cfg>;
   using MaterialT = model::MaterialOf<Cfg>;
   constexpr auto Variant = configIdOf<Cfg>();
@@ -379,8 +383,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
   const auto proj = makeVolumeTable(projection::Source::Modal, {});
 
   std::array<std::shared_ptr<projection::Table<3, 3, real>>, Cell::Dim> projD{};
-  if (seissolParams.output.waveFieldParameters.computeStrain ||
-      seissolParams.output.waveFieldParameters.computeRotation) {
+  if (waveField.computeStrain || waveField.computeRotation) {
     for (std::size_t direction = 0; direction < Cell::Dim; ++direction) {
       projD[direction] = makeVolumeTable(projection::Source::Modal, direction);
     }
@@ -444,7 +447,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
 
     for (std::size_t quantity = 0; quantity < MaterialT::Quantities.size(); ++quantity) {
 
-      if (seissolParams.output.waveFieldParameters.outputMask[Variant][quantity]) {
+      if (waveField.outputMask[Variant][quantity]) {
         outputs.emplace_back(
             namewrap(MaterialT::Quantities[quantity], sim),
             [=](double* target, std::size_t index, std::size_t subcell) {
@@ -455,7 +458,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
             });
       }
 
-      if (seissolParams.output.waveFieldParameters.integrationMask[Variant][quantity]) {
+      if (waveField.integrationMask[Variant][quantity]) {
         outputs.emplace_back(
             namewrap("int-" + MaterialT::Quantities[quantity], sim),
             [=](double* target, std::size_t index, std::size_t subcell) {
@@ -469,7 +472,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
 
     using Idx = std::tuple<std::string, std::size_t, std::size_t>;
 
-    if (seissolParams.output.waveFieldParameters.computeStrain) {
+    if (waveField.computeStrain) {
       for (const auto& idxp : {Idx{"xx", 0, 0},
                                Idx{"yy", 1, 1},
                                Idx{"zz", 2, 2},
@@ -507,7 +510,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
       }
     }
 
-    if (seissolParams.output.waveFieldParameters.computeRotation) {
+    if (waveField.computeRotation) {
       for (const auto& idxp : {Idx{"1", 2, 1}, Idx{"2", 0, 2}, Idx{"3", 1, 0}}) {
         const auto& name = std::get<0>(idxp);
 
@@ -542,7 +545,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
       for (std::size_t quantity = 0;
            quantity < seissol::model::PlasticityData<Cfg>::Quantities.size();
            ++quantity) {
-        if (seissolParams.output.waveFieldParameters.plasticityMask[quantity]) {
+        if (waveField.plasticityMask[quantity]) {
           outputs.emplace_back(
               namewrap(seissol::model::PlasticityData<Cfg>::Quantities[quantity], sim),
               [=](double* target, std::size_t index, std::size_t subcell) {
@@ -574,9 +577,11 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
 
 /// Sets up the output of the wave field. Every cell is written in its configuration; with several
 /// configurations in the run, a quantity is written once for the cells of all of them.
-void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
+void setupWaveFieldOutput(
+    seissol::SeisSol& seissolInstance,
+    const seissol::initializer::parameters::WaveFieldOutputParameters& parameters,
+    const std::string& name) {
   const auto& seissolParams = seissolInstance.parameters();
-  const auto& parameters = seissolParams.output.waveFieldParameters;
   auto& memoryManager = seissolInstance.memoryManager();
   const auto* meshReader = &seissolInstance.meshReader();
 
@@ -661,7 +666,7 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   setup.cells = cells;
 
   io::writer::ScheduledWriter schedWriter;
-  schedWriter.name = "wavefield";
+  schedWriter.name = name;
   schedWriter.interval = parameters.interval;
   // the unknowns of the cells, their time integrals and their plastic strain
   schedWriter.hostData = {};
@@ -669,7 +674,7 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
       .add<LTS::Integrals>(memoryManager.ltsStorage())
       .add<LTSPlasticity::PStrain>(memoryManager.ltsStorage());
   auto writer = io::instance::geometry::GeometryWriter(
-      "wavefield",
+      name,
       cells->size(),
       io::instance::geometry::Shape::Tetrahedron,
       config,
@@ -716,7 +721,7 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
   std::vector<NamedOutputs> outputs(builtConfigCount());
   for (const auto runConfig : configs) {
     dispatchConfig(runConfig, [&](auto cfg) {
-      outputs[runConfig] = waveFieldOutputsOf<decltype(cfg)>(seissolInstance, setup);
+      outputs[runConfig] = waveFieldOutputsOf<decltype(cfg)>(seissolInstance, setup, parameters);
     });
   }
   addOutputsByName(writer, outputs, configs, configOf, setup.dataBase.size());
@@ -737,13 +742,15 @@ struct SurfaceOutputSetup {
 
 /// The outputs of the free surface of the faces of cells of the configuration `Cfg`.
 template <typename Cfg>
-NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOutputSetup& setup) {
+NamedOutputs
+    surfaceOutputsOf(seissol::SeisSol& seissolInstance,
+                     const SurfaceOutputSetup& setup,
+                     const seissol::initializer::parameters::FreeSurfaceOutputParameters& surface) {
   using real = Real<Cfg>;
   using MaterialT = model::MaterialOf<Cfg>;
   constexpr auto Variant = configIdOf<Cfg>();
   // the projection matrices of the configuration
   constexpr std::size_t MaxProjectionOrder = Cfg::ConvergenceOrder;
-  const auto& seissolParams = seissolInstance.parameters();
   auto& memoryManager = seissolInstance.memoryManager();
   const auto* ltsStorage = &memoryManager.ltsStorage();
   const auto* backmap = &memoryManager.backmap();
@@ -818,7 +825,7 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOu
     const auto fused = sim % Cfg::NumSimulations;
 
     for (std::size_t quantity = 0; quantity < MaterialT::Quantities.size(); ++quantity) {
-      if (seissolParams.output.freeSurfaceParameters.outputMask[Variant][quantity]) {
+      if (surface.outputMask[Variant][quantity]) {
         outputs.emplace_back(
             namewrap(MaterialT::Quantities[quantity], sim),
             [=](double* target, std::size_t index, std::size_t subcell) {
@@ -875,9 +882,11 @@ NamedOutputs surfaceOutputsOf(seissol::SeisSol& seissolInstance, const SurfaceOu
 /// Sets up the output of the free surface. Every face is written in the configuration of its
 /// cell; with several configurations in the run, a quantity is written once for the faces of all
 /// of them.
-void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
+void setupSurfaceOutput(
+    seissol::SeisSol& seissolInstance,
+    const seissol::initializer::parameters::FreeSurfaceOutputParameters& parameters,
+    const std::string& name) {
   const auto& seissolParams = seissolInstance.parameters();
-  const auto& parameters = seissolParams.output.freeSurfaceParameters;
   auto& memoryManager = seissolInstance.memoryManager();
 
   const auto orderIO = parameters.vtkorder;
@@ -886,7 +895,7 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
   auto* freeSurfaceIntegrator = &seissolInstance.freeSurfaceIntegrator();
   const auto* meshReader = &seissolInstance.meshReader();
   io::writer::ScheduledWriter schedWriter;
-  schedWriter.name = "surface";
+  schedWriter.name = name;
   schedWriter.interval = parameters.interval;
   // the unknowns of the cells at the surface, and its displacements
   schedWriter.hostData = {};
@@ -928,7 +937,7 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
       .compress = seissolParams.output.hdfcompress};
 
   auto writer = io::instance::geometry::GeometryWriter(
-      "surface",
+      name,
       freeSurfaceIntegrator->backmap.size(),
       io::instance::geometry::Shape::Triangle,
       config,
@@ -993,7 +1002,7 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
   std::vector<NamedOutputs> outputs(builtConfigCount());
   for (const auto runConfig : configs) {
     dispatchConfig(runConfig, [&](auto cfg) {
-      outputs[runConfig] = surfaceOutputsOf<decltype(cfg)>(seissolInstance, setup);
+      outputs[runConfig] = surfaceOutputsOf<decltype(cfg)>(seissolInstance, setup, parameters);
     });
   }
   addOutputsByName(writer, outputs, configs, configOf, setup.dataBase.size());
@@ -1006,25 +1015,32 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.parameters();
   auto& memoryManager = seissolInstance.memoryManager();
 
-  if (seissolParams.output.waveFieldParameters.enabled) {
-    setupWaveFieldOutput(seissolInstance);
+  for (const auto& entry : seissolParams.output.outputs) {
+    if (const auto* waveField =
+            std::get_if<seissol::initializer::parameters::WaveFieldOutputParameters>(
+                &entry.settings)) {
+      setupWaveFieldOutput(seissolInstance, *waveField, entry.name);
+    }
+    if (const auto* surface =
+            std::get_if<seissol::initializer::parameters::FreeSurfaceOutputParameters>(
+                &entry.settings)) {
+      setupSurfaceOutput(seissolInstance, *surface, entry.name);
+    }
   }
 
-  if (seissolParams.output.freeSurfaceParameters.enabled) {
-    setupSurfaceOutput(seissolInstance);
-  }
-
-  if (seissolParams.output.receiverParameters.enabled) {
+  if (const auto* receivers =
+          seissolParams.output
+              .singleOutputOf<seissol::initializer::parameters::ReceiverOutputParameters>(
+                  "receiver")) {
     auto& receiverWriter = seissolInstance.receiverWriter();
     // Initialize receiver output
-    receiverWriter.init(seissolInstance.outputPrefix(),
-                        seissolParams.timeStepping.endTime,
-                        seissolParams.output.receiverParameters);
+    receiverWriter.init(
+        seissolInstance.outputPrefix(), seissolParams.timeStepping.endTime, *receivers);
     receiverWriter.addPoints(seissolInstance.meshReader(), memoryManager.backmap());
     seissolInstance.timeManager().setReceiverClusters(receiverWriter);
   }
 
-  if (seissolParams.output.energyParameters.enabled) {
+  if (const auto& energy = seissolParams.output.energy; energy.has_value()) {
     auto& energyOutput = seissolInstance.energyOutput();
 
     energyOutput.init(memoryManager.drStorage(),
@@ -1032,7 +1048,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                       memoryManager.ltsStorage(),
                       seissolParams.plasticity.enabled,
                       seissolInstance.outputPrefix(),
-                      seissolParams.output.energyParameters);
+                      energy.value());
   }
 
   seissolInstance.flopCounter().init(seissolInstance.outputPrefix(), seissolInstance.runId());

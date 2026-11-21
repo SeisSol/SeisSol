@@ -52,8 +52,8 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
       readWavePropagationParameters(parameterReader, runConfigs);
   const PlasticityParameters plasticityParameters = readPlasticityParameters(parameterReader);
   const ITMParameters timeMirrorParameters = readITMParameters(parameterReader);
-  const OutputParameters outputParameters =
-      readOutputParameters(parameterReader, runConfigs.configs());
+  const OutputParameters outputParameters = readOutputParameters(
+      parameterReader, runConfigs.configs(), drParameters.isDynamicRuptureEnabled);
   const SourceParameters sourceParameters = readSourceParameters(parameterReader);
   const TimeSteppingParameters timeSteppingParameters =
       readTimeSteppingParameters(parameterReader, runConfigs.configs());

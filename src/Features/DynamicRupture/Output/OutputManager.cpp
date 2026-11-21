@@ -138,6 +138,26 @@ OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
 
 OutputManager::~OutputManager() = default;
 
+void OutputManager::setOutputs(
+    const seissol::initializer::parameters::ElementwiseFaultParameters* elementwise,
+    const seissol::initializer::parameters::PickpointParameters* pickpoints) {
+  elementwise_.reset();
+  if (elementwise != nullptr) {
+    elementwise_ = *elementwise;
+  }
+  pickpoints_.reset();
+  if (pickpoints != nullptr) {
+    pickpoints_ = *pickpoints;
+  }
+}
+
+double OutputManager::pickpointInterval(double stepSize) const {
+  const auto parameters =
+      pickpoints_.value_or(seissol::initializer::parameters::PickpointParameters{});
+  return parameters.samplingInterval > 0 ? parameters.samplingInterval
+                                         : parameters.printTimeInterval * stepSize;
+}
+
 void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   using namespace initializer;
   meshReader_ = &userMesher;
@@ -148,36 +168,28 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
   impl_->setDrParameters(&seissolParameters.drParameters);
   const auto& simulationSettings = seissolInstance_.memoryManager().simulationSettings();
 
-  const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
-                           seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
-  const bool pointEnabled = seissolParameters.drParameters.outputPointType ==
-                                seissol::initializer::parameters::OutputType::AtPickpoint ||
-                            bothEnabled;
-  const bool elementwiseEnabled = seissolParameters.drParameters.outputPointType ==
-                                      seissol::initializer::parameters::OutputType::Elementwise ||
-                                  bothEnabled;
-  if (pointEnabled) {
+  if (pickpoints_.has_value()) {
     logInfo() << "Enabling on-fault receiver output";
     ppOutputBuilder_ = std::make_unique<PickPointBuilder>();
     ppOutputBuilder_->setMeshReader(&userMesher);
-    ppOutputBuilder_->setParams(seissolParameters.output.pickpointParameters);
+    ppOutputBuilder_->setParams(pickpoints_.value());
     ppOutputBuilder_->setSimulationCount(simulationSettings.simulationCount,
                                          simulationSettings.fusedCount);
     // the shortest time between two samples, which sizes the cache of the samples between writes
-    const double pickdt = seissolParameters.output.pickpointParameters.samplingInterval;
+    const double pickdt = pickpoints_->samplingInterval;
     ppOutputBuilder_->setTimestep(
         pickdt > 0 ? pickdt : seissolInstance_.memoryManager().clusterLayout().minimumTimestep,
         seissolParameters.timeStepping.endTime);
   }
-  if (elementwiseEnabled) {
+  if (elementwise_.has_value()) {
     logInfo() << "Enabling 2D fault output";
     ewOutputBuilder_ = std::make_unique<ElementWiseBuilder>();
     ewOutputBuilder_->setMeshReader(&userMesher);
-    ewOutputBuilder_->setParams(seissolParameters.output.elementwiseParameters);
+    ewOutputBuilder_->setParams(elementwise_.value());
     ewOutputBuilder_->setSimulationCount(simulationSettings.simulationCount,
                                          simulationSettings.fusedCount);
   }
-  if (!elementwiseEnabled && !pointEnabled) {
+  if (!elementwise_.has_value() && !pickpoints_.has_value()) {
     logInfo() << "No dynamic rupture output enabled";
   }
 }
@@ -190,21 +202,12 @@ void OutputManager::setLtsData(LTS::Storage& userWpStorage,
   drStorage_ = &userDrStorage;
   impl_->setLtsData(userWpStorage, userWpBackmap, userDrStorage);
   initFaceToLtsMap();
-  const auto& seissolParameters = seissolInstance_.parameters();
-  const bool bothEnabled = seissolParameters.drParameters.outputPointType ==
-                           seissol::initializer::parameters::OutputType::AtPickpointAndElementwise;
-  const bool pointEnabled = seissolParameters.drParameters.outputPointType ==
-                                seissol::initializer::parameters::OutputType::AtPickpoint ||
-                            bothEnabled;
-  const bool elementwiseEnabled = seissolParameters.drParameters.outputPointType ==
-                                      seissol::initializer::parameters::OutputType::Elementwise ||
-                                  bothEnabled;
-  if (pointEnabled) {
+  if (pickpoints_.has_value()) {
     ppOutputBuilder_->setLtsData(userWpStorage, userWpBackmap, userDrStorage);
     ppOutputBuilder_->setVariableList(impl_->getOutputVariables());
     ppOutputBuilder_->setFaceToLtsMap(&faceToLtsMap_);
   }
-  if (elementwiseEnabled) {
+  if (elementwise_.has_value()) {
     ewOutputBuilder_->setLtsData(userWpStorage, userWpBackmap, userDrStorage);
     ewOutputBuilder_->setFaceToLtsMap(&faceToLtsMap_);
   }
@@ -256,9 +259,10 @@ void OutputManager::initElementwiseOutput() {
   // simulation
   const auto& outputOrder = ewOutputData_->outputOrder;
 
-  const double writeInterval = seissolParameters.output.elementwiseParameters.printTimeIntervalSec;
+  const auto& elementwise = elementwise_.value();
+  const double writeInterval = elementwise.printTimeIntervalSec;
 
-  const auto orderPre = seissolParameters.output.elementwiseParameters.vtkorder;
+  const auto orderPre = elementwise.vtkorder;
 
   const auto order = static_cast<uint32_t>(std::max(0, orderPre));
 
@@ -278,9 +282,7 @@ void OutputManager::initElementwiseOutput() {
                      ? io::instance::geometry::WriterBackend::Binary
                      : io::instance::geometry::WriterBackend::Hdf5,
       .time = io::instance::geometry::supportedWriterGroup(
-          writerGroupOf(seissolParameters.output.elementwiseParameters.timeSeries),
-          format,
-          "elementwise fault"),
+          writerGroupOf(elementwise.timeSeries), format, "elementwise fault"),
       .compress = seissolParameters.output.hdfcompress};
 
   auto writer = io::instance::geometry::GeometryWriter(
@@ -446,16 +448,14 @@ void OutputManager::initPickpointOutput() {
       data->extraRuntime.reset();
     }
   }
-  const auto& seissolParameters = seissolInstance_.parameters();
   const auto numSimulations = seissolInstance_.memoryManager().simulationSettings().simulationCount;
 
-  seissolInstance_.pickpointWriter().enable(
-      seissolInstance_.modules(), seissolParameters.output.pickpointParameters.writeInterval);
+  const auto& pickpoints = pickpoints_.value();
+  seissolInstance_.pickpointWriter().enable(seissolInstance_.modules(), pickpoints.writeInterval);
   seissolInstance_.pickpointWriter().setupWriter([&] { takePickpointText(); },
                                                  [&] { writePickpointText(); });
 
-  if (seissolParameters.output.pickpointParameters.format ==
-      seissol::initializer::parameters::ReceiverOutputFormat::Hdf5) {
+  if (pickpoints.format == seissol::initializer::parameters::ReceiverOutputFormat::Hdf5) {
     initPickpointTable();
     return;
   }
@@ -736,8 +736,7 @@ void OutputManager::finishPickpointStepNow(std::size_t layerId) {
 }
 
 void OutputManager::initPickpointTable() {
-  const auto& seissolParameters = seissolInstance_.parameters();
-
+  const auto& pickpoints = pickpoints_.value();
   // A receiver of the fault output is one point of one simulation, so what it records is the
   // time plus the active components -- the per-simulation column names the text files carry are
   // a row of their own here.
@@ -775,10 +774,7 @@ void OutputManager::initPickpointTable() {
   const std::vector<std::vector<io::instance::point::TableQuantity>> pointQuantities(
       ppTableRows_.size(), quantitySet);
   ppTable_ = std::make_unique<io::instance::point::Hdf5Table>(
-      "faultreceivers",
-      pointQuantities,
-      seissol::Mpi::mpi.comm(),
-      seissolParameters.output.pickpointParameters.samplechunk);
+      "faultreceivers", pointQuantities, seissol::Mpi::mpi.comm(), pickpoints.samplechunk);
 
   // what the header of a text file states about a receiver, as a column each
   std::vector<std::uint64_t> receiverIds;
@@ -825,7 +821,7 @@ void OutputManager::initPickpointTable() {
 
   io::writer::ScheduledWriter scheduled;
   scheduled.name = "faultreceivers";
-  scheduled.interval = seissolParameters.output.pickpointParameters.writeInterval;
+  scheduled.interval = pickpoints.writeInterval;
   // the fault receivers take their samples into buffers of their own
   scheduled.hostData = {};
   // the samples get taken into the table at the synchronization point, before the next epoch

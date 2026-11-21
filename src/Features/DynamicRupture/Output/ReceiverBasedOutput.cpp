@@ -27,6 +27,7 @@
 #include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Output/DataTypes.h"
+#include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/DynamicRupture/Output/ImposedSlipRates.h"
 #include "Features/DynamicRupture/Output/LinearSlipWeakening.h"
 #include "Features/DynamicRupture/Output/LinearSlipWeakeningBimaterial.h"

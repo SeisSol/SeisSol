@@ -14,6 +14,7 @@
 #include "Features/DynamicRupture/Output/Builders/ElementWiseBuilder.h"
 #include "Features/DynamicRupture/Output/Builders/PickPointBuilder.h"
 #include "Features/DynamicRupture/Output/DataTypes.h"
+#include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 
@@ -21,6 +22,7 @@
 #include <cstddef>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -40,6 +42,14 @@ class OutputManager {
 
   OutputManager() = delete;
   OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl, seissol::SeisSol& seissolInstance);
+  /// The settings of the outputs of the fault: of its whole surface (elementwise) and of its
+  /// receivers (pickpoints); none for those the run does not write.
+  void setOutputs(const seissol::initializer::parameters::ElementwiseFaultParameters* elementwise,
+                  const seissol::initializer::parameters::PickpointParameters* pickpoints);
+  /// The time between two samples of the receivers of the fault: pickdt, or else printtimeinterval
+  /// time steps of size `stepSize`, that of the finest time cluster with fault faces (for a run
+  /// without them, as their defaults say).
+  [[nodiscard]] double pickpointInterval(double stepSize) const;
   void setInputParam(seissol::geometry::MeshReader& userMesher);
   void setLtsData(LTS::Storage& userWpStorage,
                   LTS::Backmap& userWpBackmap,
@@ -151,6 +161,10 @@ class OutputManager {
   //! @brief The stress the fault starts out under at an on-fault receiver, aligned with strike
   //! and dip, as the six components of a symmetric tensor.
   std::array<double, 6> initialStress(const ReceiverOutputData& outputData, std::size_t index);
+
+  //! the settings of the outputs, none for those the run does not write
+  std::optional<seissol::initializer::parameters::ElementwiseFaultParameters> elementwise_;
+  std::optional<seissol::initializer::parameters::PickpointParameters> pickpoints_;
 
   std::unique_ptr<ElementWiseBuilder> ewOutputBuilder_{nullptr};
   std::unique_ptr<PickPointBuilder> ppOutputBuilder_{nullptr};

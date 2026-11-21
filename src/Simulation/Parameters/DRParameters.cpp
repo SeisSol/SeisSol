@@ -42,13 +42,6 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
   const auto refPointMethod = reader->readWithDefaultEnum<RefPointMethod>(
       "refpointmethod", defaults.refPointMethod, {RefPointMethod::Point, RefPointMethod::Normal});
 
-  const auto outputPointType =
-      reader->readWithDefaultEnum<OutputType>("outputpointtype",
-                                              defaults.outputPointType,
-                                              {OutputType::None,
-                                               OutputType::AtPickpoint,
-                                               OutputType::Elementwise,
-                                               OutputType::AtPickpointAndElementwise});
   auto frictionLawType = reader->readWithDefaultEnum<FrictionLawType>(
       "fl",
       defaults.frictionLawType,
@@ -222,7 +215,6 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
                       .isFrictionEnergyRequired = isFrictionEnergyRequired,
                       .isCheckAbortCriteraEnabled = isCheckAbortCriteraEnabled,
                       .energiesFromAcrossFaultVelocities = energiesFromAcrossFaultVelocities,
-                      .outputPointType = outputPointType,
                       .refPointMethod = refPointMethod,
                       .slipRateOutputType = slipRateOutputType,
                       .frictionLawType = frictionLawType,

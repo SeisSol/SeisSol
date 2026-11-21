@@ -10,16 +10,27 @@
 #include "Core/Common/ConfigLayout.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/IO/WriterParameters.h"
+#include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Simulation/Parameters/OutputParameters.h"
 #include "Simulation/Parameters/ParameterReader.h"
+#include "WavePropagation/Output/ReceiverParameters.h"
 
 #include <cstddef>
 #include <numeric>
+#include <string>
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol::unit_test {
 using namespace seissol::initializer::parameters;
+
+// the settings of the only output of the kind T
+template <typename T>
+const T& onlyOutputOf(const OutputParameters& params) {
+  const auto found = params.outputsOf<T>();
+  REQUIRE(found.size() == 1);
+  return *found.front();
+}
 
 TEST_CASE("readOutputParameters: without a time series setting, the format of an output decides" *
           doctest::test_suite("initializer")) {
@@ -27,14 +38,18 @@ TEST_CASE("readOutputParameters: without a time series setting, the format of an
     output:
       outputfile: 'out'
       receiveroutput: 0
+      wavefieldoutput: 1
       ioutputmask: '1'
+      surfaceoutput: 1
+    dynamicrupture:
+      outputpointtype: 4
   )");
   ParameterReader reader(node, "", false);
-  const auto params = readOutputParameters(&reader, {defaultConfig()});
+  const auto params = readOutputParameters(&reader, {defaultConfig()}, true);
 
-  CHECK_FALSE(params.waveFieldParameters.timeSeries.has_value());
-  CHECK_FALSE(params.freeSurfaceParameters.timeSeries.has_value());
-  CHECK_FALSE(params.elementwiseParameters.timeSeries.has_value());
+  CHECK_FALSE(onlyOutputOf<WaveFieldOutputParameters>(params).timeSeries.has_value());
+  CHECK_FALSE(onlyOutputOf<FreeSurfaceOutputParameters>(params).timeSeries.has_value());
+  CHECK_FALSE(onlyOutputOf<ElementwiseFaultParameters>(params).timeSeries.has_value());
 }
 
 TEST_CASE("readOutputParameters: epochs end at the outputs only by default" *
@@ -46,7 +61,7 @@ TEST_CASE("readOutputParameters: epochs end at the outputs only by default" *
       ioutputmask: '1'
   )");
   ParameterReader reader(node, "", false);
-  const auto params = readOutputParameters(&reader, {defaultConfig()});
+  const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
 
   CHECK(params.epochInterval == 0.0);
 }
@@ -61,7 +76,7 @@ TEST_CASE("readOutputParameters: an epoch interval of its own" *
       epochinterval: 0.25
   )");
   ParameterReader reader(node, "", false);
-  const auto params = readOutputParameters(&reader, {defaultConfig()});
+  const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
 
   CHECK(params.epochInterval == 0.25);
 }
@@ -72,15 +87,19 @@ TEST_CASE("readOutputParameters: one setting reaches every mesh output" *
     output:
       outputfile: 'out'
       receiveroutput: 0
+      wavefieldoutput: 1
       ioutputmask: '1'
+      surfaceoutput: 1
       outputtimeseries: 'monolith'
+    dynamicrupture:
+      outputpointtype: 4
   )");
   ParameterReader reader(node, "", false);
-  const auto params = readOutputParameters(&reader, {defaultConfig()});
+  const auto params = readOutputParameters(&reader, {defaultConfig()}, true);
 
-  CHECK(params.waveFieldParameters.timeSeries == TimeSeriesMode::Monolith);
-  CHECK(params.freeSurfaceParameters.timeSeries == TimeSeriesMode::Monolith);
-  CHECK(params.elementwiseParameters.timeSeries == TimeSeriesMode::Monolith);
+  CHECK(onlyOutputOf<WaveFieldOutputParameters>(params).timeSeries == TimeSeriesMode::Monolith);
+  CHECK(onlyOutputOf<FreeSurfaceOutputParameters>(params).timeSeries == TimeSeriesMode::Monolith);
+  CHECK(onlyOutputOf<ElementwiseFaultParameters>(params).timeSeries == TimeSeriesMode::Monolith);
 }
 
 TEST_CASE("readOutputParameters: an output keeps its own setting" *
@@ -89,19 +108,23 @@ TEST_CASE("readOutputParameters: an output keeps its own setting" *
     output:
       outputfile: 'out'
       receiveroutput: 0
+      wavefieldoutput: 1
       ioutputmask: '1'
+      surfaceoutput: 1
       outputtimeseries: 'incremental'
       wavefieldtimeseries: 'monolith'
       surfacetimeseries: 'snapshot'
     elementwise:
       timeseries: 'monolith'
+    dynamicrupture:
+      outputpointtype: 4
   )");
   ParameterReader reader(node, "", false);
-  const auto params = readOutputParameters(&reader, {defaultConfig()});
+  const auto params = readOutputParameters(&reader, {defaultConfig()}, true);
 
-  CHECK(params.waveFieldParameters.timeSeries == TimeSeriesMode::Monolith);
-  CHECK(params.freeSurfaceParameters.timeSeries == TimeSeriesMode::Snapshot);
-  CHECK(params.elementwiseParameters.timeSeries == TimeSeriesMode::Monolith);
+  CHECK(onlyOutputOf<WaveFieldOutputParameters>(params).timeSeries == TimeSeriesMode::Monolith);
+  CHECK(onlyOutputOf<FreeSurfaceOutputParameters>(params).timeSeries == TimeSeriesMode::Snapshot);
+  CHECK(onlyOutputOf<ElementwiseFaultParameters>(params).timeSeries == TimeSeriesMode::Monolith);
 }
 
 TEST_CASE("readOutputParameters: the fault output follows the shared setting" *
@@ -116,11 +139,13 @@ TEST_CASE("readOutputParameters: the fault output follows the shared setting" *
       outputtimeseries: 'incremental'
     elementwise:
       vtkorder: 2
+    dynamicrupture:
+      outputpointtype: 4
   )");
   ParameterReader reader(node, "", false);
-  const auto params = readOutputParameters(&reader, {defaultConfig()});
+  const auto params = readOutputParameters(&reader, {defaultConfig()}, true);
 
-  CHECK(params.elementwiseParameters.timeSeries == TimeSeriesMode::Incremental);
+  CHECK(onlyOutputOf<ElementwiseFaultParameters>(params).timeSeries == TimeSeriesMode::Incremental);
 }
 
 TEST_CASE("readOutputParameters: every configuration of the run masks its own quantities" *
@@ -129,19 +154,23 @@ TEST_CASE("readOutputParameters: every configuration of the run masks its own qu
     output:
       outputfile: 'out'
       receiveroutput: 0
+      wavefieldoutput: 1
       ioutputmask: '1 1 1 1 1 1 1 1 1'
       integrationmask: '0 1'
+      surfaceoutput: 1
   )");
   ParameterReader reader(node, "", false);
   std::vector<ConfigId> configs(builtConfigCount());
   std::iota(configs.begin(), configs.end(), 0);
-  const auto params = readOutputParameters(&reader, configs);
+  const auto params = readOutputParameters(&reader, configs, false);
 
+  const auto& waveField = onlyOutputOf<WaveFieldOutputParameters>(params);
+  const auto& surface = onlyOutputOf<FreeSurfaceOutputParameters>(params);
   for (const auto config : configs) {
     const auto& layout = configLayout(config);
-    const auto& outputMask = params.waveFieldParameters.outputMask.at(config);
-    const auto& integrationMask = params.waveFieldParameters.integrationMask.at(config);
-    const auto& surfaceMask = params.freeSurfaceParameters.outputMask.at(config);
+    const auto& outputMask = waveField.outputMask.at(config);
+    const auto& integrationMask = waveField.integrationMask.at(config);
+    const auto& surfaceMask = surface.outputMask.at(config);
     REQUIRE(outputMask.size() == layout.numQuantities);
     REQUIRE(integrationMask.size() == layout.numQuantities);
     REQUIRE(surfaceMask.size() == layout.numQuantities);
@@ -165,10 +194,10 @@ TEST_CASE("readOutputParameters: the receivers and the checkpoints are on where 
         ioutputmask: '1'
     )");
     ParameterReader reader(node, "", false);
-    const auto params = readOutputParameters(&reader, {defaultConfig()});
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
 
-    CHECK_FALSE(params.receiverParameters.enabled);
-    CHECK_FALSE(params.checkpointParameters.enabled);
+    CHECK(params.outputsOf<ReceiverOutputParameters>().empty());
+    CHECK_FALSE(params.checkpoint.has_value());
   }
 
   SUBCASE("the receivers with their points, the checkpoints with their interval") {
@@ -180,11 +209,11 @@ TEST_CASE("readOutputParameters: the receivers and the checkpoints are on where 
         checkpointinterval: 0.5
     )");
     ParameterReader reader(node, "", false);
-    const auto params = readOutputParameters(&reader, {defaultConfig()});
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
 
-    CHECK(params.receiverParameters.enabled);
-    CHECK(params.checkpointParameters.enabled);
-    CHECK(params.checkpointParameters.interval == 0.5);
+    CHECK(onlyOutputOf<ReceiverOutputParameters>(params).fileName == "receivers.dat");
+    REQUIRE(params.checkpoint.has_value());
+    CHECK(params.checkpoint.value().interval == 0.5);
   }
 
   SUBCASE("both of them switched off in spite of their parameters") {
@@ -198,10 +227,66 @@ TEST_CASE("readOutputParameters: the receivers and the checkpoints are on where 
         checkpointinterval: 0.5
     )");
     ParameterReader reader(node, "", false);
-    const auto params = readOutputParameters(&reader, {defaultConfig()});
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
 
-    CHECK_FALSE(params.receiverParameters.enabled);
-    CHECK_FALSE(params.checkpointParameters.enabled);
+    CHECK(params.outputsOf<ReceiverOutputParameters>().empty());
+    CHECK_FALSE(params.checkpoint.has_value());
+  }
+}
+
+TEST_CASE("readOutputParameters: the outputs of a run, each named as the files it writes" *
+          doctest::test_suite("initializer")) {
+  SUBCASE("none") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'out'
+        wavefieldoutput: 0
+        ioutputmask: '1'
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
+
+    CHECK(params.outputs.empty());
+    CHECK_FALSE(params.energy.has_value());
+  }
+
+  SUBCASE("all of them") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'out'
+        wavefieldoutput: 1
+        ioutputmask: '1'
+        surfaceoutput: 1
+        rfilename: 'receivers.dat'
+        energyoutput: 1
+      dynamicrupture:
+        outputpointtype: 5
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, true);
+
+    std::vector<std::string> names;
+    names.reserve(params.outputs.size());
+    for (const auto& entry : params.outputs) {
+      names.push_back(entry.name);
+    }
+    CHECK(names ==
+          std::vector<std::string>{"wavefield", "surface", "receivers", "fault", "faultreceivers"});
+    CHECK(params.energy.has_value());
+  }
+
+  SUBCASE("those of the fault only with a fault") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'out'
+        ioutputmask: '1'
+      dynamicrupture:
+        outputpointtype: 5
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
+
+    CHECK(params.outputs.empty());
   }
 }
 
@@ -216,7 +301,7 @@ TEST_CASE("readOutputParameters: the directory and the name of the outputs" *
         ioutputmask: '1'
     )");
     ParameterReader reader(node, "", false);
-    const auto params = readOutputParameters(&reader, {defaultConfig()});
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
 
     CHECK(params.outputPath == "runs/strong-16");
     CHECK(params.outputName == "data");
@@ -231,7 +316,7 @@ TEST_CASE("readOutputParameters: the directory and the name of the outputs" *
         ioutputmask: '1'
     )");
     ParameterReader reader(node, "", false);
-    const auto params = readOutputParameters(&reader, {defaultConfig()});
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
 
     CHECK(params.outputPath == "runs/strong-16");
     CHECK(params.outputName == "data");
@@ -245,7 +330,7 @@ TEST_CASE("readOutputParameters: the directory and the name of the outputs" *
         ioutputmask: '1'
     )");
     ParameterReader reader(node, "", false);
-    const auto params = readOutputParameters(&reader, {defaultConfig()});
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
 
     CHECK(params.outputPath.empty());
     CHECK(params.outputName == "data");
@@ -260,7 +345,7 @@ TEST_CASE("readOutputParameters: the directory and the name of the outputs" *
         ioutputmask: '1'
     )");
     ParameterReader reader(node, "", false);
-    const auto params = readOutputParameters(&reader, {defaultConfig()});
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
 
     CHECK(params.outputPath == "runs/strong-32");
     CHECK(params.outputName == "data");
@@ -275,7 +360,7 @@ TEST_CASE("readOutputParameters: the directory and the name of the outputs" *
         ioutputmask: '1'
     )");
     ParameterReader reader(node, "", false);
-    const auto params = readOutputParameters(&reader, {defaultConfig()});
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
 
     CHECK(params.outputPath == "runs/strong-16");
     CHECK(params.outputName == "other");
@@ -289,7 +374,7 @@ TEST_CASE("readOutputParameters: the directory and the name of the outputs" *
         ioutputmask: '1'
     )");
     ParameterReader reader(node, "", false);
-    const auto params = readOutputParameters(&reader, {defaultConfig()});
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
 
     CHECK(params.outputPath.empty());
     CHECK(params.outputName == "data");
@@ -306,7 +391,7 @@ TEST_CASE("readOutputParameters: the directory and the name of the outputs" *
         ioutputmask: '1'
     )");
     ParameterReader reader(node, "", false);
-    const auto params = readOutputParameters(&reader, {defaultConfig()});
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
 
     CHECK(params.outputPath == "runs");
     CHECK(params.outputName == "data");

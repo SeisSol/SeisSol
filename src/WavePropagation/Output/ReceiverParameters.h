@@ -18,7 +18,6 @@ namespace seissol::initializer::parameters {
 enum class ReceiverOutputFormat { Csv, Hdf5 };
 
 struct ReceiverOutputParameters {
-  bool enabled{false};
   ReceiverOutputFormat format{ReceiverOutputFormat::Csv};
   bool computeRotation{false};
   bool computeStrain{false};

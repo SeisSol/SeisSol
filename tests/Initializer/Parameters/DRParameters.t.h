@@ -10,6 +10,7 @@
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Geometry/FaultOrientation.h"
 #include "Features/DynamicRupture/DRParameters.h"
+#include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Simulation/Parameters/DRParameters.h"
 #include "Simulation/Parameters/ParameterReader.h"
 
@@ -81,7 +82,6 @@ TEST_CASE("readDRParameters defaults" * doctest::test_suite("initializer")) {
   auto params = readDRParameters(&reader, defaultConfig());
 
   CHECK(params.frictionLawType == FrictionLawType::NoFault);
-  CHECK(params.outputPointType == OutputType::None);
   CHECK(params.refPointMethod == RefPointMethod::Point);
   CHECK(params.slipRateOutputType == SlipRateOutputType::TractionsAndFailure);
   CHECK(params.isThermalPressureOn == false);

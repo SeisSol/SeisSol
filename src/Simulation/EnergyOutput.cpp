@@ -658,7 +658,7 @@ void EnergyOutput::init(
     bool newIsPlasticityEnabled,
     const std::string& outputFileNamePrefix,
     const seissol::initializer::parameters::EnergyOutputParameters& parameters) {
-  if (parameters.enabled && parameters.interval > 0) {
+  if (parameters.interval > 0) {
     isEnabled_ = true;
   } else {
     return;
@@ -669,6 +669,7 @@ void EnergyOutput::init(
   energyOutputInterval_ = parameters.interval;
   isFileOutputEnabled_ = rank == 0;
   isTerminalOutputEnabled_ = parameters.terminalOutput && (rank == 0);
+  terminalPrecision_ = parameters.terminalPrecision;
   terminatorMaxTimePostRupture_ = parameters.terminatorMaxTimePostRupture;
   terminatorMomentRateThreshold_ = parameters.terminatorMomentRateThreshold;
   // The slip-rate terminator is active exactly when a finite post-rupture time was
@@ -839,8 +840,7 @@ void EnergyOutput::reduceMinTimeSinceSlipRateBelowThreshold() {
 }
 
 void EnergyOutput::printEnergies() {
-  const auto outputPrecision =
-      seissolInstance_.parameters().output.energyParameters.terminalPrecision;
+  const auto outputPrecision = terminalPrecision_;
 
   std::vector<std::pair<std::size_t, std::string>> infnan;
 

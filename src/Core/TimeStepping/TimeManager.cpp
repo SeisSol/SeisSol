@@ -189,14 +189,10 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                     ? std::numeric_limits<double>::infinity()
                                     : clusterLayout.timestepRate(drClusterOutput);
 
-  // the on-fault receivers sample every pickdt, or else every printtimeinterval time steps of the
-  // finest cluster with fault faces, counted from time zero
-  const auto& pickpointParameters = seissolInstance_.parameters().output.pickpointParameters;
-  const double pickpointInterval = pickpointParameters.samplingInterval > 0
-                                       ? pickpointParameters.samplingInterval
-                                       : pickpointParameters.printTimeInterval * drOutputTimestep;
+  // the on-fault receivers sample at the multiples of their interval, counted from time zero
   const dr::output::PickpointSampling pickpointSampling(
-      pickpointInterval, seissolInstance_.parameters().timeStepping.endTime);
+      memoryManager.faultOutputManager()->pickpointInterval(drOutputTimestep),
+      seissolInstance_.parameters().timeStepping.endTime);
 
   std::vector<AbstractTimeCluster*> cellClusterBackmap(
       memoryManager.ltsStorage().getColorMap().size());

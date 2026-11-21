@@ -123,6 +123,7 @@ class EnergyOutput : public Module {
 
   bool isEnabled_ = false;
   bool isTerminalOutputEnabled_ = false;
+  int terminalPrecision_ = 0;
   bool isFileOutputEnabled_ = false;
   bool isPlasticityEnabled_ = false;
   bool isCheckAbortCriteraSlipRateEnabled_ = false;

@@ -18,6 +18,16 @@
 
 namespace seissol::initializer::parameters {
 
+/// The outputs of a fault: none, its on-fault receivers (pickpoints), its whole surface
+/// (elementwise), or both. As a setting (outputpointtype), only its values count; the fault output
+/// tells its two outputs apart by AtPickpoint and Elementwise.
+enum class OutputType : int {
+  None = 0,
+  AtPickpoint = 3,
+  Elementwise = 4,
+  AtPickpointAndElementwise = 5
+};
+
 enum class FaultRefinement { Triple = 1, Quad = 2, None = 3 };
 
 struct ElementwiseFaultParameters {

@@ -21,13 +21,6 @@
 
 namespace seissol::initializer::parameters {
 
-enum class OutputType : int {
-  None = 0,
-  AtPickpoint = 3,
-  Elementwise = 4,
-  AtPickpointAndElementwise = 5
-};
-
 enum class SlipRateOutputType : int {
   VelocityDifference = 0,
   TractionsAndFailure = 1,
@@ -39,7 +32,6 @@ struct DRParameters {
   bool isFrictionEnergyRequired{false};
   bool isCheckAbortCriteraEnabled{false};
   bool energiesFromAcrossFaultVelocities{false};
-  OutputType outputPointType{OutputType::None};
   RefPointMethod refPointMethod{RefPointMethod::Point};
   SlipRateOutputType slipRateOutputType{SlipRateOutputType::TractionsAndFailure};
   seissol::dr::misc::FrictionLawType frictionLawType{seissol::dr::misc::FrictionLawType::NoFault};
