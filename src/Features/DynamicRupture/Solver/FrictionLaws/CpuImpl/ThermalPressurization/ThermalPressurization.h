@@ -10,9 +10,9 @@
 
 #include "Core/Common/Real.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Physics/TPCommon.h"
-#include "Simulation/Parameters/DRParameters.h"
 
 #include <array>
 

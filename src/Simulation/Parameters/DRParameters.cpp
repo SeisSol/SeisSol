@@ -8,6 +8,8 @@
 #include "DRParameters.h"
 
 #include "Core/Common/ConfigRegistry.h"
+#include "Core/Geometry/FaultOrientation.h"
+#include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Simulation/Parameters/ModelParameters.h"
 #include "Simulation/Parameters/ParameterReader.h"

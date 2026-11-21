@@ -8,7 +8,7 @@
 #include "Misc.h"
 
 #include "Core/Geometry/MeshDefinition.h"
-#include "Simulation/Parameters/DRParameters.h"
+#include "Features/DynamicRupture/DRParameters.h"
 
 #include <cmath>
 #include <string_view>

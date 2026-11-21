@@ -9,8 +9,8 @@
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 
 #include "Core/Common/Real.h"
+#include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
-#include "Simulation/Parameters/DRParameters.h"
 
 namespace seissol::dr::friction_law::cpu {
 template <typename Cfg>

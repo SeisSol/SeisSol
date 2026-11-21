@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_CORE_TIMESTEPPING_CLUSTERING_VERTEXWEIGHTS_WEIGHTSFACTORY_H_
 
 #include "Core/TimeStepping/Clustering/VertexWeights/WeightsModels.h"
-#include "Simulation/Parameters/SeisSolParameters.h"
+#include "Core/TimeStepping/LtsParameters.h"
 
 #include <memory>
 #include <sstream>

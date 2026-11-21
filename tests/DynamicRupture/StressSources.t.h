@@ -10,8 +10,8 @@
 #include "Alignment.h"
 #include "Config.h"
 #include "Core/Common/Real.h"
+#include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
-#include "Simulation/Parameters/DRParameters.h"
 #include "TestConfigs.h"
 #include "TestHelper.h"
 

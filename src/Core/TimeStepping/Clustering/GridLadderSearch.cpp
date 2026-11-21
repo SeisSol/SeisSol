@@ -10,7 +10,7 @@
 #include "Core/TimeStepping/Clustering/ClusteringCost.h"
 #include "Core/TimeStepping/Clustering/ClusteringEvaluator.h"
 #include "Core/TimeStepping/Clustering/LadderSearch.h"
-#include "Simulation/Parameters/LtsParameters.h"
+#include "Core/TimeStepping/LtsParameters.h"
 
 #include <algorithm>
 #include <cassert>

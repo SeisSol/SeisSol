@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Features/InitialConditions/InitializationParameters.h"
 #include "Simulation/Parameters/InitializationParameters.h"
 #include "Simulation/Parameters/ParameterReader.h"
 

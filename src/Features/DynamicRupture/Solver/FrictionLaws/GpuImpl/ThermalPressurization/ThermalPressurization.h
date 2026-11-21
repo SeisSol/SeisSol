@@ -10,9 +10,9 @@
 
 #include "Core/Common/Real.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
-#include "Simulation/Parameters/DRParameters.h"
 
 #include <array>
 #include <cstddef>

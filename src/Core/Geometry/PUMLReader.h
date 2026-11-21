@@ -10,9 +10,9 @@
 #define SEISSOL_SRC_CORE_GEOMETRY_PUMLREADER_H_
 
 #include "Core/Geometry/FaceMap.h"
+#include "Core/Geometry/MeshParameters.h"
 #include "Core/Parallel/MPI.h"
 #include "MeshReader.h"
-#include "Simulation/Parameters/MeshParameters.h"
 
 #include <PUML/DataHandle.h>
 #include <PUML/PUML.h>

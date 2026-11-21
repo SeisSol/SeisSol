@@ -9,44 +9,10 @@
 #define SEISSOL_SRC_SIMULATION_PARAMETERS_INITIALIZATIONPARAMETERS_H_
 
 #include "Core/Common/ConfigRegistry.h"
-#include "Core/Common/InputAux.h"
+#include "Features/InitialConditions/InitializationParameters.h"
 #include "ParameterReader.h"
 
-#include <Eigen/Dense>
-#include <string>
-#include <vector>
-
 namespace seissol::initializer::parameters {
-
-enum class InitializationType : int {
-  Zero,
-  Planarwave,
-  SuperimposedPlanarwave,
-  Travelling,
-  AcousticTravellingWithITM,
-  Scholte,
-  Snell,
-  Ocean0,
-  Ocean1,
-  Ocean2,
-  PressureInjection,
-  Easi
-};
-
-struct InitializationParameters {
-  InitializationType type{InitializationType::Zero};
-  Eigen::Vector3d origin;
-  Eigen::Vector3d kVec;
-  // per quantity of the material of the configuration of the run
-  std::vector<double> ampField;
-  double magnitude{};
-  double width{};
-  double k{};
-  // the easi file of every simulation of the run, the one of the first if not given
-  std::vector<std::string> filenames;
-  bool hasTime{false};
-  bool avoidIC{false};
-};
 
 InitializationParameters readInitializationParameters(ParameterReader* baseReader, ConfigId config);
 } // namespace seissol::initializer::parameters

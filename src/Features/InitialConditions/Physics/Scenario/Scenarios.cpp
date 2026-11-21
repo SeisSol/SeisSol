@@ -13,7 +13,7 @@
 #include "Core/Common/ConfigValue.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Numerical/Eigenvalues.h"
-#include "Simulation/Parameters/InitializationParameters.h"
+#include "Features/InitialConditions/InitializationParameters.h"
 #include "WavePropagation/Physics/Common.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h"

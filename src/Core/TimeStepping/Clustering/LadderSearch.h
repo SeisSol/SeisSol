@@ -10,7 +10,7 @@
 
 #include "Core/TimeStepping/Clustering/ClusterCostModel.h"
 #include "Core/TimeStepping/Clustering/ClusteringEvaluator.h"
-#include "Simulation/Parameters/LtsParameters.h"
+#include "Core/TimeStepping/LtsParameters.h"
 
 #include <cstddef>
 #include <cstdint>

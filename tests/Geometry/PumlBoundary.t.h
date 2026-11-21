@@ -16,9 +16,9 @@
 #include <doctest.h>
 
 #include "Core/Common/Constants.h"
+#include "Core/Geometry/MeshParameters.h"
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/Parallel/MPI.h"
-#include "Simulation/Parameters/MeshParameters.h"
 #include "TestHelper.h"
 
 #include <cstddef>

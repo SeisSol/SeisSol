@@ -24,6 +24,7 @@
 #include "Core/Parallel/Runtime/HostActor.h"
 #include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Output/DataTypes.h"
 #include "Features/DynamicRupture/Output/ImposedSlipRates.h"
@@ -37,7 +38,6 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "Simulation/Parameters/DRParameters.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h" // IWYU pragma: keep
 #include "WavePropagation/Solver/Setup.h"           // IWYU pragma: keep

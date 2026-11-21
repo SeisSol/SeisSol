@@ -16,9 +16,9 @@
 #include "Core/Parallel/DataCollector.h"
 #include "Core/Parallel/Runtime/HostActor.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "Features/DynamicRupture/DRParameters.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry.h"
-#include "Simulation/Parameters/DRParameters.h"
 
 #include <Eigen/Dense>
 #include <array>

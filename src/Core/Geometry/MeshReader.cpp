@@ -10,10 +10,10 @@
 #include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/Iterator.h"
+#include "Core/Geometry/FaultOrientation.h"
 #include "Core/Parallel/MPI.h"
 #include "MeshDefinition.h"
 #include "MeshTools.h"
-#include "Simulation/Parameters/DRParameters.h"
 
 #include <Eigen/Core>
 #include <PUML/TypeInference.h>

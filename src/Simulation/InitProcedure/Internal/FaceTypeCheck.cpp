@@ -13,8 +13,8 @@
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Parallel/MPI.h"
+#include "Features/InitialConditions/InitializationParameters.h"
 #include "Features/InitialConditions/Physics/Scenario/Registry.h"
-#include "Simulation/Parameters/InitializationParameters.h"
 #include "WavePropagation/Physics/Common.h"
 #include "WavePropagation/Physics/Datastructures.h"
 #include "WavePropagation/Solver/Setup.h" // IWYU pragma: keep

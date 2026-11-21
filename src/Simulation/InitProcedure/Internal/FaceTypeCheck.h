@@ -9,7 +9,7 @@
 
 #include "Core/Common/BasicTypedefs.h"
 #include "Core/Memory/Descriptor/LTS.h"
-#include "Simulation/Parameters/InitializationParameters.h"
+#include "Features/InitialConditions/InitializationParameters.h"
 
 #include <cstdint>
 #include <string>

@@ -7,6 +7,7 @@
 
 #include "SourceParameters.h"
 
+#include "Features/SourceTerm/SourceParameters.h"
 #include "Simulation/Parameters/ParameterReader.h"
 
 #include <string>

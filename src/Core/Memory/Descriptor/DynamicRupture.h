@@ -17,10 +17,10 @@
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Parallel/Helper.h"
+#include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Typedefs.h"
 #include "GeneratedCode/tensor.h"
-#include "Simulation/Parameters/DRParameters.h"
 
 namespace seissol {
 

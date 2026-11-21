@@ -16,12 +16,12 @@
 #include "Core/Geometry/FaceMap.h"
 #include "Core/Geometry/GmshNodes.h"
 #include "Core/Geometry/MeshDefinition.h"
+#include "Core/Geometry/MeshParameters.h"
 #include "Core/Monitoring/Instrumentation.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/TimeStepping/Clustering/Clustering.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/VertexWeightModel.h"
 #include "PartitioningLib.h"
-#include "Simulation/Parameters/MeshParameters.h"
 
 #include <Eigen/Dense>
 #include <PUML/DataHandle.h>

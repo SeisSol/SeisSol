@@ -8,6 +8,8 @@
 #include <doctest.h>
 
 #include "Core/Common/ConfigRegistry.h"
+#include "Core/Geometry/FaultOrientation.h"
+#include "Features/DynamicRupture/DRParameters.h"
 #include "Simulation/Parameters/DRParameters.h"
 #include "Simulation/Parameters/ParameterReader.h"
 

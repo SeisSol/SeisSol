@@ -9,7 +9,9 @@
 
 #include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/Constants.h"
+#include "Core/Geometry/FaultOrientation.h"
 #include "Core/Geometry/MeshDefinition.h"
+#include "Core/Geometry/MeshParameters.h"
 #include "Core/Geometry/MeshTools.h"
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/Geometry/PointMapper.h"
@@ -17,8 +19,6 @@
 #include "Features/DynamicRupture/Output/Geometry.h"
 #include "Features/DynamicRupture/Output/OutputAux.h"
 #include "Simulation/InitProcedure/Internal/FaceTypeCheck.h"
-#include "Simulation/Parameters/DRParameters.h"
-#include "Simulation/Parameters/MeshParameters.h"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>

@@ -8,6 +8,11 @@
 #include "SeisSolParameters.h"
 
 #include "Core/Common/ConfigRegistry.h"
+#include "Core/Geometry/MeshParameters.h"
+#include "Core/TimeStepping/LtsParameters.h"
+#include "Features/DynamicRupture/DRParameters.h"
+#include "Features/InitialConditions/InitializationParameters.h"
+#include "Features/SourceTerm/SourceParameters.h"
 #include "Simulation/Parameters/CubeGeneratorParameters.h"
 #include "Simulation/Parameters/DRParameters.h"
 #include "Simulation/Parameters/InitializationParameters.h"

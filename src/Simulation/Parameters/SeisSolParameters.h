@@ -8,15 +8,15 @@
 #ifndef SEISSOL_SRC_SIMULATION_PARAMETERS_SEISSOLPARAMETERS_H_
 #define SEISSOL_SRC_SIMULATION_PARAMETERS_SEISSOLPARAMETERS_H_
 
+#include "Core/Geometry/MeshParameters.h"
+#include "Core/TimeStepping/LtsParameters.h"
 #include "CubeGeneratorParameters.h"
-#include "DRParameters.h"
-#include "InitializationParameters.h"
-#include "LtsParameters.h"
-#include "MeshParameters.h"
+#include "Features/DynamicRupture/DRParameters.h"
+#include "Features/InitialConditions/InitializationParameters.h"
+#include "Features/SourceTerm/SourceParameters.h"
 #include "ModelParameters.h"
 #include "OutputParameters.h"
 #include "ParameterReader.h"
-#include "SourceParameters.h"
 
 namespace seissol::initializer::parameters {
 

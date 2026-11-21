@@ -21,7 +21,7 @@
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/Parallel/SystemInfo.h"
-#include "Simulation/Parameters/LtsParameters.h"
+#include "Core/TimeStepping/LtsParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "Simulation/SeisSol.h"
 #include "TestHelper.h"

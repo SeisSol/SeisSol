@@ -11,10 +11,10 @@
 #include "Core/Common/Real.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Tree/Layer.h"
+#include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Physics/RateAndStateCommon.h"
 #include "Features/DynamicRupture/Setup/Initializer/BaseDRInitializer.h"
-#include "Simulation/Parameters/DRParameters.h"
 
 #include <cmath>
 #include <cstdint>

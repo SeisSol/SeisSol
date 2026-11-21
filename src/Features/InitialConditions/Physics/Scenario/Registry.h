@@ -10,8 +10,8 @@
 
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Memory/Typedefs.h"
+#include "Features/InitialConditions/InitializationParameters.h"
 #include "Features/InitialConditions/Physics/InitialField.h"
-#include "Simulation/Parameters/InitializationParameters.h"
 #include "Simulation/Parameters/ModelParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 

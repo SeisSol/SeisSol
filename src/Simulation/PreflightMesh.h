@@ -10,9 +10,9 @@
 
 #include "Core/Common/BasicTypedefs.h"
 #include "Core/Geometry/FaceMap.h"
+#include "Core/Geometry/FaultOrientation.h"
 #include "Core/Geometry/MeshDefinition.h"
-#include "Simulation/Parameters/DRParameters.h"
-#include "Simulation/Parameters/MeshParameters.h"
+#include "Core/Geometry/MeshParameters.h"
 
 #include <Eigen/Core>
 #include <array>

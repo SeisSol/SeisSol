@@ -8,6 +8,7 @@
 #include "MeshParameters.h"
 
 #include "Core/Common/InputAux.h"
+#include "Core/Geometry/MeshParameters.h"
 #include "Simulation/Parameters/ParameterReader.h"
 
 #include <Eigen/Core>

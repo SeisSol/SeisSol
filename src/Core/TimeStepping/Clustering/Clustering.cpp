@@ -21,7 +21,7 @@
 #include "Core/TimeStepping/Clustering/LadderSearch.h"
 #include "Core/TimeStepping/Clustering/LatticeDpSearch.h"
 #include "Core/TimeStepping/Layout/GlobalTimestep.h"
-#include "Simulation/Parameters/LtsParameters.h"
+#include "Core/TimeStepping/LtsParameters.h"
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Physics/Datastructures.h"
 

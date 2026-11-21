@@ -31,10 +31,10 @@
 #include "Features/SourceTerm/Physics/PointSource.h"
 #include "Features/SourceTerm/Solver/PointSourceCluster.h"
 #include "Features/SourceTerm/Solver/PointSourceClusterOnHost.h"
+#include "Features/SourceTerm/SourceParameters.h"
 #include "Features/SourceTerm/Typedefs.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "Simulation/Parameters/SourceParameters.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h"
 

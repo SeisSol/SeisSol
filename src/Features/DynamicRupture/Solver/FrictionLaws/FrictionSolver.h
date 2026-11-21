@@ -13,11 +13,11 @@
 #include "Core/Common/Real.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Typedefs.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include "Simulation/Parameters/DRParameters.h"
 
 #include <functional>
 #include <memory>

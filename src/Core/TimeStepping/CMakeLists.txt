@@ -36,6 +36,7 @@ add_library(seissol-timestepping OBJECT
     Layout/ClusterLayout.cpp
     Layout/GlobalTimestep.cpp
     Layout/Halo.cpp
+    LtsParameters.cpp
     Plan/SuperStepRecorder.cpp
     Plan/TimeSteppingPlan.cpp
     TimeManager.cpp
