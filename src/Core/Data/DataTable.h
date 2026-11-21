@@ -399,7 +399,7 @@ class DataTable {
     auto held = std::make_shared<T>(value);
     const auto accessor = [held](std::size_t, void* out) { *reinterpret_cast<T*>(out) = *held; };
     StridedView view;
-    view.base = const_cast<void*>(static_cast<const void*>(held.get()));
+    view.base = held.get();
     view.byteStride = 0;
     view.byteOffset = 0;
     view.writable = false;
@@ -500,7 +500,7 @@ class DataTable {
   /// ranges.
   template <typename T, typename F>
   void bindComputedBatch(std::string name, F&& fn) {
-    auto batch = std::make_shared<std::decay_t<F>>(std::forward<F>(fn));
+    const auto batch = std::make_shared<std::decay_t<F>>(std::forward<F>(fn));
 
     const auto accessor = [batch](std::size_t idx, void* out) {
       (*batch)(idx, std::size_t{1}, reinterpret_cast<T*>(out));
@@ -533,11 +533,11 @@ class DataTable {
     input.cellIndex = cellIndex;
     input.type = DataTypeTraits<T>::Type;
     input.length = length;
-    blockEntries_.push_back(BlockEntry{std::move(name), input});
+    blockEntries_.push_back(BlockEntry{.name = std::move(name), .input = input});
   }
 
   void bindBlock(std::string name, const BlockInput& input) {
-    blockEntries_.push_back(BlockEntry{std::move(name), input});
+    blockEntries_.push_back(BlockEntry{.name = std::move(name), .input = input});
   }
 
   /// A matrix with `rows` points per cell and `cols` coefficients (cf. MatrixInput).
@@ -553,7 +553,7 @@ class DataTable {
     input.rows = rows;
     input.cols = cols;
     input.leadingDimension = leadingDimension;
-    matrixEntries_.push_back(MatrixEntry{std::move(name), input});
+    matrixEntries_.push_back(MatrixEntry{.name = std::move(name), .input = input});
   }
 
   [[nodiscard]] std::size_t numPoints() const { return numPoints_; }
@@ -585,11 +585,11 @@ class DataTable {
     input.pointStride = pointStride * sizeof(T);
     input.cellIndex = cellIndex;
     input.type = DataTypeTraits<T>::Type;
-    stateEntries_.push_back(StateEntry{std::move(name), input});
+    stateEntries_.push_back(StateEntry{.name = std::move(name), .input = input});
   }
 
   void bindState(std::string name, const StateInput& input) {
-    stateEntries_.push_back(StateEntry{std::move(name), input});
+    stateEntries_.push_back(StateEntry{.name = std::move(name), .input = input});
   }
 
   [[nodiscard]] const std::vector<BlockEntry>& blockEntries() const { return blockEntries_; }
@@ -602,6 +602,9 @@ class DataTable {
   template <typename T>
   static StridedView makeView(T* base, std::size_t stride, std::size_t offset, bool writable) {
     StridedView view;
+    // (the view keeps one address for reading and writing; DataEntry::direction and `writable` keep
+    // the constness)
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
     view.base = const_cast<void*>(static_cast<const void*>(base));
     view.byteStride = stride * sizeof(T);
     view.byteOffset = offset * sizeof(T);
@@ -632,6 +635,9 @@ class DataTable {
   template <typename S, typename T>
   static StridedView makeMemberView(const S* base, T S::* member, bool writable) {
     StridedView view;
+    // (the view keeps one address for reading and writing; DataEntry::direction and `writable` keep
+    // the constness)
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
     view.base = const_cast<void*>(static_cast<const void*>(base));
     view.byteStride = sizeof(S);
     if (base != nullptr) {

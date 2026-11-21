@@ -9,6 +9,7 @@
 
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/Real.h"
+#include "Core/Data/DataReader.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Features/DynamicRupture/DRParameters.h"

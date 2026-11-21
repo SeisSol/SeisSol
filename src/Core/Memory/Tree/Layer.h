@@ -466,7 +466,7 @@ class LayerView {
   void relocate(void* address) {
     const auto id = TypeId<TypeDomain::Storage, StorageT>;
     assert(id < variables_.size());
-    variables_[id] = Variable{static_cast<char*>(address), 0};
+    variables_[id] = Variable{.base = static_cast<char*>(address), .bytes = 0};
   }
 
   private:
@@ -564,7 +564,7 @@ class Layer {
         auto* base = static_cast<char*>(memoryContainer_[slot].get(place));
         if (info.type == MemoryType::Variable && info.initialized && !info.filtered &&
             base != nullptr) {
-          variables[slots_.idOf(slot)] = LayerView::Variable{base, info.bytes};
+          variables[slots_.idOf(slot)] = LayerView::Variable{.base = base, .bytes = info.bytes};
         }
       }
     }

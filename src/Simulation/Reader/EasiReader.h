@@ -34,7 +34,7 @@ class EasiReader : public DataReader {
   /// Reads through the model of the easi file `script`, parsed already with the dimensions
   /// `inVars` (e.g. by a check that reports what does not parse rather than stopping).
   EasiReader(std::unique_ptr<easi::Component> component,
-             const std::string& script,
+             std::string script,
              const std::vector<std::string>& inVars);
 
   const std::vector<std::string>& inputVars() override { return inVars_; }

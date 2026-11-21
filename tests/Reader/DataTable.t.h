@@ -16,23 +16,19 @@
 
 namespace seissol::unit_test {
 
-namespace {
-
 // a struct with virtual functions, as the materials are: not standard-layout
-struct Polymorphic {
-  virtual ~Polymorphic() = default;
+struct DataTablePolymorphic {
+  virtual ~DataTablePolymorphic() = default;
   [[nodiscard]] virtual double sum() const { return a + b; }
   double a{0.0};
   double b{0.0};
 };
 
-} // namespace
-
 TEST_CASE("DataTable: a member view writes the member of a struct with virtual functions" *
           doctest::test_suite("reader")) {
-  std::vector<Polymorphic> structs(3);
+  std::vector<DataTablePolymorphic> structs(3);
   data::DataTable table(structs.size());
-  table.bindMemberView("b", data::Direction::Out, structs.data(), &Polymorphic::b);
+  table.bindMemberView("b", data::Direction::Out, structs.data(), &DataTablePolymorphic::b);
 
   const auto& entry = table.dataEntries().at(0);
   for (std::size_t i = 0; i < structs.size(); ++i) {
@@ -45,8 +41,9 @@ TEST_CASE("DataTable: a member view writes the member of a struct with virtual f
 
   // the view says the same as the setter
   REQUIRE(entry.view.has_value());
-  const auto* bytes = static_cast<const char*>(entry.view->base) + entry.view->byteOffset;
-  CHECK(reinterpret_cast<const double*>(bytes + entry.view->displacement(2)) == &structs[2].b);
+  const auto& view = entry.view.value();
+  const auto* bytes = static_cast<const char*>(view.base) + view.byteOffset;
+  CHECK(reinterpret_cast<const double*>(bytes + view.displacement(2)) == &structs[2].b);
 }
 
 TEST_CASE("DataTable: a cell point view with an index writes the points of the cells it names" *

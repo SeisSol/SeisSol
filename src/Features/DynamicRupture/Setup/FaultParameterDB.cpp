@@ -29,7 +29,6 @@
 #include <memory>
 #include <set>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace seissol::initializer {
@@ -47,7 +46,7 @@ data::DataTable FaultGPGenerator<Cfg>::generate() const {
   };
   const std::vector<Fault>& fault = meshReader_.getFault();
   const auto cellToVertex = CellToVertexArray::fromMeshReader(meshReader_);
-  auto faces = std::make_shared<std::vector<FaultFace>>();
+  const auto faces = std::make_shared<std::vector<FaultFace>>();
   faces->reserve(faceIDs_.size());
   for (const auto& faultId : faceIDs_) {
     const Fault& f = fault.at(faultId);

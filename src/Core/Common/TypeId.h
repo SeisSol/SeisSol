@@ -54,6 +54,9 @@ TypeNumbering& typeNumbering(TypeDomain domain);
  * initialization, so that typeCount() covers them all from then on.
  */
 template <TypeDomain Domain, typename T>
+// (clang substitutes an enum template argument as a C-style cast of its value, and the check does
+// not take the specializations of a variable template for instantiations)
+// NOLINTNEXTLINE(modernize-avoid-c-style-cast)
 inline const std::uint32_t TypeId = typeNumbering(Domain).idOf(typeid(T));
 
 /// The number of ids given out in `domain` so far.

@@ -17,7 +17,7 @@
 namespace seissol {
 
 std::uint32_t TypeNumbering::idOf(const std::type_info& type) {
-  const std::lock_guard lock(mutex_);
+  const std::scoped_lock lock(mutex_);
   // (std::type_index compares by the name of the type, so the copies of a type_info in several
   // libraries count as one)
   const auto [entry, inserted] =
@@ -26,7 +26,7 @@ std::uint32_t TypeNumbering::idOf(const std::type_info& type) {
 }
 
 std::uint32_t TypeNumbering::size() const {
-  const std::lock_guard lock(mutex_);
+  const std::scoped_lock lock(mutex_);
   return static_cast<std::uint32_t>(ids_.size());
 }
 

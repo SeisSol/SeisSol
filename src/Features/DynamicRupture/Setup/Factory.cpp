@@ -7,6 +7,7 @@
 
 #include "Factory.h"
 
+#include "Core/Data/DataReader.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"

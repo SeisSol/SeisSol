@@ -42,17 +42,13 @@
 
 namespace seissol::unit_test {
 
-namespace {
-
 /// The time steps of the cells with the materials of `parameters`, as the run computes them.
-seissol::initializer::TimestepFunction
+inline seissol::initializer::TimestepFunction
     materialTimesteps(const seissol::initializer::parameters::SeisSolParameters& parameters) {
   return [&parameters](const seissol::initializer::CellToVertexArray& cells) {
     return seissol::initializer::computeTimesteps(cells, parameters, data::modelLoader());
   };
 }
-
-} // namespace
 
 TEST_CASE("LTS Weights" * doctest::test_suite("initializer")) {
   std::cout.setstate(std::ios_base::failbit);

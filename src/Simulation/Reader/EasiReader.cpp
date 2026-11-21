@@ -77,7 +77,7 @@ class MixedResultsAdapter : public easi::ResultAdapter {
     for (std::size_t i = 0; i < entries.size(); ++i) {
       if (entries[i].direction != Direction::In) {
         indices_[entries[i].name] = i;
-        if (providedMap.find(entries[i].name) == providedMap.end()) {
+        if (!providedMap.contains(entries[i].name)) {
           logError() << "Easi script output parameter not found:" << entries[i].name;
         }
       }
@@ -114,14 +114,13 @@ class MixedResultsAdapter : public easi::ResultAdapter {
   }
   [[nodiscard]] bool isSubset(const std::set<std::string>& parameters) const override {
     const auto myParams = this->parameters();
-    return std::all_of(myParams.begin(), myParams.end(), [&](const auto& param) {
-      return parameters.find(param) != parameters.end();
-    });
+    return std::ranges::all_of(myParams,
+                               [&](const auto& param) { return parameters.contains(param); });
   }
   ResultAdapter* subsetAdapter(const std::set<std::string>& subset) override {
     std::vector<std::size_t> subIndices;
     for (const auto& [_, index] : indices_) {
-      if (subset.find(entries_[index].name) != subset.end()) {
+      if (subset.contains(entries_[index].name)) {
         subIndices.emplace_back(index);
       }
     }
@@ -168,9 +167,9 @@ EasiReader::EasiReader(const std::string& script, const std::vector<std::string>
 }
 
 EasiReader::EasiReader(std::unique_ptr<easi::Component> component,
-                       const std::string& script,
+                       std::string script,
                        const std::vector<std::string>& inVars)
-    : components_(std::move(component)), script_(script) {
+    : components_(std::move(component)), script_(std::move(script)) {
   const auto dimensionNames = std::set<std::string>(inVars.begin(), inVars.end());
   inVars_ = std::vector<std::string>(dimensionNames.begin(), dimensionNames.end());
   const auto outVarsPre = components_->suppliedParameters();
@@ -201,7 +200,7 @@ void EasiReader::call(const DataTable& table) {
       // special behavior: group is int
       groupEntry = i;
     }
-    if (inVarMap.find(entry.name) != inVarMap.end()) {
+    if (inVarMap.contains(entry.name)) {
       const auto index = inVarMap.at(entry.name);
       inVarToEntry[index] = i;
       found[index] = true;
@@ -227,24 +226,38 @@ void EasiReader::call(const DataTable& table) {
     auto adapter = MixedResultsAdapter(batch * CallBatchSize, entries, outVars_);
 
     // Read in chunks rather than per point, so a batch-computed column is asked once per chunk.
+    // An exception must not leave the parallel region: the first one is thrown after it.
     const std::size_t chunks = (size + QueryChunkSize - 1) / QueryChunkSize;
+    std::exception_ptr readError;
 #pragma omp parallel for schedule(static)
     for (std::size_t chunk = 0; chunk < chunks; ++chunk) {
-      const std::size_t first = chunk * QueryChunkSize;
-      const std::size_t count = std::min(QueryChunkSize, size - first);
-      std::vector<double> values(count);
-      for (std::size_t i = 0; i < inVars_.size(); ++i) {
-        readRange(entries[inVarToEntry[i]], base + first, count, values.data());
-        for (std::size_t point = 0; point < count; ++point) {
-          query.x(first + point, i) = values[point];
+      try {
+        const std::size_t first = chunk * QueryChunkSize;
+        const std::size_t count = std::min(QueryChunkSize, size - first);
+        std::vector<double> values(count);
+        for (std::size_t i = 0; i < inVars_.size(); ++i) {
+          readRange(entries[inVarToEntry[i]], base + first, count, values.data());
+          for (std::size_t point = 0; point < count; ++point) {
+            query.x(first + point, i) = values[point];
+          }
+        }
+        if (groupEntry.has_value()) {
+          readRange(entries[groupEntry.value()], base + first, count, values.data());
+          for (std::size_t point = 0; point < count; ++point) {
+            query.group(first + point) = static_cast<int>(values[point]);
+          }
+        }
+      } catch (...) {
+#pragma omp critical(seissol_easi_reader_read_error)
+        {
+          if (!readError) {
+            readError = std::current_exception();
+          }
         }
       }
-      if (groupEntry.has_value()) {
-        readRange(entries[groupEntry.value()], base + first, count, values.data());
-        for (std::size_t point = 0; point < count; ++point) {
-          query.group(first + point) = static_cast<int>(values[point]);
-        }
-      }
+    }
+    if (readError) {
+      std::rethrow_exception(readError);
     }
 
     try {

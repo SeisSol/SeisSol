@@ -14,7 +14,6 @@
 #include "Core/Data/DataReader.h"
 #include "Core/Data/DataTable.h"
 #include "Core/Geometry/CellToVertexArray.h"
-#include "Core/Geometry/CellTransform.h"
 #include "Core/Geometry/QueryGenerator.h"
 #include "Core/Numerical/Quadrature.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
@@ -31,6 +30,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <iterator>
 #include <memory>
 #include <set>

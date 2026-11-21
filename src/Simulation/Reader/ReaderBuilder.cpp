@@ -22,7 +22,7 @@ namespace {
 /// The file of a model path, without the prefix `easi:`.
 std::string fileOf(const std::string& path) {
   const std::string prefix = "easi:";
-  return path.compare(0, prefix.size(), prefix) == 0 ? path.substr(prefix.size()) : path;
+  return path.starts_with(prefix) ? path.substr(prefix.size()) : path;
 }
 
 } // namespace
