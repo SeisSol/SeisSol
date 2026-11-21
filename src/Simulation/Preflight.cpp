@@ -13,6 +13,7 @@
 #include "Core/Common/ConfigValue.h"
 #include "Core/Common/Filesystem.h"
 #include "Core/Common/Json.h"
+#include "Core/Data/DataReader.h"
 #include "Core/Geometry/FaceMap.h"
 #include "Core/Geometry/PointMapper.h"
 #include "Core/Monitoring/FailureReport.h"
@@ -30,6 +31,7 @@
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "Simulation/Parameters/SourceParameters.h"
 #include "Simulation/PreflightMesh.h"
+#include "Simulation/Reader/EasiReader.h"
 #include "WavePropagation/Output/ReceiverWriter.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h"
@@ -474,7 +476,7 @@ json::Value checkEasiModel(const std::string& parameter,
                            const std::string& modelFile,
                            const parameters::SeisSolParameters& parameters,
                            Report& report,
-                           std::unique_ptr<easi::Component>* parsed) {
+                           std::unique_ptr<data::DataReader>* parsed) {
   json::Value section;
   section["parameter"] = parameter;
   section["file"] = modelFile;
@@ -497,6 +499,8 @@ json::Value checkEasiModel(const std::string& parameter,
 
   const bool timeDependent =
       parameter.starts_with("inicondition.filename") && parameters.initialization.hasTime;
+  const auto dimensions = timeDependent ? std::vector<std::string>{"t", "x", "y", "z"}
+                                        : std::vector<std::string>{"x", "y", "z"};
   std::unique_ptr<easi::Component> component;
   try {
 #if defined(EASI_VERSION_MAJOR) && (EASI_VERSION_MINOR >= 5 || EASI_VERSION_MAJOR > 1)
@@ -557,7 +561,7 @@ json::Value checkEasiModel(const std::string& parameter,
     });
   }
   if (parsed != nullptr) {
-    *parsed = std::move(component);
+    *parsed = std::make_unique<data::EasiReader>(std::move(component), modelFile, dimensions);
   }
   return section;
 }
@@ -578,7 +582,7 @@ struct ModelEvaluation {
  * speed into @p evaluation .
  */
 void evaluateMaterial(const meshscan::CellChunk& chunk,
-                      easi::Component& material,
+                      data::DataReader& material,
                       const parameters::SeisSolParameters& parameters,
                       ModelEvaluation& evaluation) {
   std::vector<std::size_t> valid;
@@ -899,7 +903,7 @@ void checkScannedMesh(const parameters::SeisSolParameters& parameters,
  */
 void checkMeshContent(const parameters::SeisSolParameters& parameters,
                       CheckDepth depth,
-                      easi::Component* material,
+                      data::DataReader* material,
                       Report& report) {
   const auto& output = parameters.output;
   const auto& rupture = parameters.drParameters;
@@ -1193,7 +1197,7 @@ int preflight(const std::string& parameterFile,
   // the easi models: the files they refer to, whether they parse, and what they supply
   report.step("easi");
   auto& easiModels = report["easi"] = json::Value::array();
-  std::unique_ptr<easi::Component> material;
+  std::unique_ptr<data::DataReader> material;
   for (const auto& entry : paths) {
     std::error_code error;
     const auto name = joined(entry.field);

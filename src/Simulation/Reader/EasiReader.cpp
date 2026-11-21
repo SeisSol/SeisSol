@@ -24,6 +24,7 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -162,6 +163,16 @@ EasiReader::EasiReader(const std::string& script, const std::vector<std::string>
     logError() << "Error while parsing easi file" << script << ":" << std::string(error.what());
   }
 
+  const auto outVarsPre = components_->suppliedParameters();
+  outVars_ = std::vector<std::string>(outVarsPre.begin(), outVarsPre.end());
+}
+
+EasiReader::EasiReader(std::unique_ptr<easi::Component> component,
+                       const std::string& script,
+                       const std::vector<std::string>& inVars)
+    : components_(std::move(component)), script_(script) {
+  const auto dimensionNames = std::set<std::string>(inVars.begin(), inVars.end());
+  inVars_ = std::vector<std::string>(dimensionNames.begin(), dimensionNames.end());
   const auto outVarsPre = components_->suppliedParameters();
   outVars_ = std::vector<std::string>(outVarsPre.begin(), outVarsPre.end());
 }

@@ -12,13 +12,13 @@
 
 #include "Core/Common/Constants.h"
 #include "Core/Common/Real.h"
+#include "Core/Data/DataReader.h"
+#include "Core/Data/DataTable.h"
 #include "Core/Geometry/MeshReader.h"
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/Memory/Typedefs.h"
 #include "GeneratedCode/init.h"
 #include "WavePropagation/Physics/Datastructures.h"
-#include "easi/Query.h"
-#include "easi/ResultAdapter.h"
 
 #include <array>
 #include <cstddef>
@@ -35,10 +35,6 @@
 #endif
 
 #include <Eigen/Dense>
-
-namespace easi {
-class Component;
-} // namespace easi
 
 namespace seissol::initializer {
 
@@ -93,7 +89,7 @@ std::shared_ptr<QueryGenerator> getBestQueryGenerator(bool useCellHomogenizedMat
 class QueryGenerator {
   public:
   virtual ~QueryGenerator() = default;
-  [[nodiscard]] virtual easi::Query generate() const = 0;
+  [[nodiscard]] virtual data::DataTable generate() const = 0;
   [[nodiscard]] virtual std::size_t outputPerCell() const { return 1; }
 };
 
@@ -101,7 +97,7 @@ class ElementBarycenterGenerator : public QueryGenerator {
   public:
   explicit ElementBarycenterGenerator(CellToVertexArray cellToVertex)
       : cellToVertex_(std::move(cellToVertex)) {}
-  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] data::DataTable generate() const override;
 
   private:
   CellToVertexArray cellToVertex_;
@@ -111,7 +107,7 @@ class ElementBarycenterGenerator : public QueryGenerator {
 class ElementAverageGenerator : public QueryGenerator {
   public:
   ElementAverageGenerator(CellToVertexArray cellToVertex, std::size_t convergenceOrder);
-  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] data::DataTable generate() const override;
   [[nodiscard]] const std::vector<double>& getQuadratureWeights() const {
     return quadratureWeights_;
   };
@@ -130,25 +126,13 @@ class PlasticityPointGenerator : public QueryGenerator {
                            std::vector<std::array<double, Cell::Dim>> nodes,
                            bool pointwise = true)
       : cellToVertex_(std::move(cellToVertex)), nodes_(std::move(nodes)), pointwise_(pointwise) {}
-  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] data::DataTable generate() const override;
   [[nodiscard]] std::size_t outputPerCell() const override;
 
   private:
   CellToVertexArray cellToVertex_;
   std::vector<std::array<double, Cell::Dim>> nodes_;
   bool pointwise_{true};
-};
-
-class FaultBarycenterGenerator : public QueryGenerator {
-  public:
-  FaultBarycenterGenerator(const seissol::geometry::MeshReader& meshReader,
-                           std::size_t numberOfPoints)
-      : meshReader_(meshReader), numberOfPoints_(numberOfPoints) {}
-  [[nodiscard]] easi::Query generate() const override;
-
-  private:
-  const seissol::geometry::MeshReader& meshReader_;
-  std::size_t numberOfPoints_;
 };
 
 /// The quadrature points of the given fault faces, in the quadrature rule of the configuration
@@ -159,7 +143,7 @@ class FaultGPGenerator : public QueryGenerator {
   FaultGPGenerator(const seissol::geometry::MeshReader& meshReader,
                    const std::vector<std::size_t>& faceIDs)
       : meshReader_(meshReader), faceIDs_(faceIDs) {}
-  [[nodiscard]] easi::Query generate() const override;
+  [[nodiscard]] data::DataTable generate() const override;
 
   private:
   const seissol::geometry::MeshReader& meshReader_;
@@ -170,15 +154,16 @@ class ParameterDB {
   public:
   virtual ~ParameterDB() = default;
   virtual void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) = 0;
-  static easi::Component* loadModel(const std::string& fileName);
+  /// The model in the file `fileName`, which reads the position x, y, z (and the group).
+  static std::unique_ptr<data::DataReader> loadModel(const std::string& fileName);
 };
 
 template <class T>
 class MaterialParameterDB : public ParameterDB {
   public:
   void evaluateModel(const std::string& fileName, const QueryGenerator& queryGen) override;
-  //! @brief As evaluateModel, with the easi model @p model , loaded already.
-  void evaluate(easi::Component& model, const QueryGenerator& queryGen);
+  //! @brief As evaluateModel, with the model @p model , loaded already.
+  void evaluate(data::DataReader& model, const QueryGenerator& queryGen);
   void setMaterialVector(std::vector<T>* materials) { materials_ = materials; }
 
   private:
@@ -239,13 +224,7 @@ class DirichletCondition {
   public:
   explicit DirichletCondition(const std::string& fileName);
 
-  DirichletCondition() : model_(nullptr) {};
-  DirichletCondition(const DirichletCondition&) = delete;
-  DirichletCondition& operator=(const DirichletCondition&) = delete;
-  DirichletCondition(DirichletCondition&& other) noexcept;
-  DirichletCondition& operator=(DirichletCondition&& other) noexcept;
-
-  ~DirichletCondition();
+  DirichletCondition() = default;
 
   /// Samples the condition at the barycenter of a face of a cell of the configuration `Cfg`, for
   /// the fused simulations `simulations` of the cell, which take it: their constant terms are those
@@ -257,7 +236,7 @@ class DirichletCondition {
                                     const std::vector<std::size_t>& simulations) const;
 
   private:
-  easi::Component* model_;
+  std::unique_ptr<data::DataReader> model_;
 };
 
 } // namespace seissol::initializer
