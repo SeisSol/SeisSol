@@ -108,14 +108,15 @@ class ParameterReader {
     return defaultValue;
   }
 
+  // the value of the field if it is required, else `otherwise`
   template <typename T>
-  T readIfRequired(const std::string& field, bool required) {
+  T readIfRequired(const std::string& field, bool required, const T& otherwise = T{}) {
     if (required) {
       const std::string failMessage = "The field " + field + " is required.";
       return readOrFail<T>(field, failMessage);
     } else {
       markUnused({field});
-      return T{};
+      return otherwise;
     }
   }
 

@@ -29,13 +29,14 @@ struct WavePropagationParameters {
   // the flux at the faces of the cells next to a fault (one of the two cells has a fault face)
   NumericalFlux fluxNearFault{NumericalFlux::Godunov};
   // the attenuation of the viscoelastic and viscoacoustic materials: its central frequency, and
-  // the ratio of the highest to the lowest frequency of the band it holds for
+  // the ratio of the highest to the lowest frequency of the band it holds for (read only for runs
+  // with one of them)
   double freqCentral{};
   double freqRatio{1.0};
   // the material of a cell averaged over the cell, rather than taken at its barycenter
   bool useCellHomogenizedMaterial{true};
   // of the free surface with gravity
-  double gravitationalAcceleration{};
+  double gravitationalAcceleration{9.81};
 };
 
 } // namespace seissol::initializer::parameters

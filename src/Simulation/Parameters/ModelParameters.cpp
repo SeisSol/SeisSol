@@ -30,15 +30,16 @@
 namespace seissol::initializer::parameters {
 
 ITMParameters readITMParameters(ParameterReader* baseReader) {
+  const ITMParameters defaults{};
   auto* reader = baseReader->readSubNode("equations");
-  const auto itmEnabled = reader->readWithDefault<bool>("itmenable", false);
-  const auto itmStartingTime = reader->readWithDefault<double>("itmstartingtime", 0.0);
-  const auto itmDuration = reader->readWithDefault<double>("itmtime", 0.0);
+  const auto itmEnabled = reader->readWithDefault("itmenable", defaults.itmEnabled);
+  const auto itmStartingTime = reader->readWithDefault("itmstartingtime", defaults.itmStartingTime);
+  const auto itmDuration = reader->readWithDefault("itmtime", defaults.itmDuration);
   const auto itmVelocityScalingFactor =
-      reader->readWithDefault<double>("itmvelocityscalingfactor", 1.0);
+      reader->readWithDefault("itmvelocityscalingfactor", defaults.itmVelocityScalingFactor);
   const auto reflectionType =
       reader->readWithDefaultEnum<ReflectionType>("itmreflectiontype",
-                                                  ReflectionType::BothWaves,
+                                                  defaults.itmReflectionType,
                                                   {ReflectionType::BothWaves,
                                                    ReflectionType::BothWavesVelocity,
                                                    ReflectionType::Pwave,
@@ -218,27 +219,28 @@ ModelParameters readModelParameters(ParameterReader* baseReader, const RunConfig
 
 WavePropagationParameters readWavePropagationParameters(ParameterReader* baseReader,
                                                         const RunConfigs& runConfigs) {
+  const WavePropagationParameters defaults{};
   auto* reader = baseReader->readSubNode("equations");
 
   const bool useCellHomogenizedMaterial =
-      reader->readWithDefault("usecellhomogenizedmaterial", true);
+      reader->readWithDefault("usecellhomogenizedmaterial", defaults.useCellHomogenizedMaterial);
 
   const double gravitationalAcceleration =
-      reader->readWithDefault("gravitationalacceleration", 9.81);
+      reader->readWithDefault("gravitationalacceleration", defaults.gravitationalAcceleration);
 
   const bool isAnelastic = std::ranges::any_of(runConfigs.configs(), [](ConfigId config) {
     return configValue(config).relaxationMechanisms > 0;
   });
 
-  const auto freqCentral = reader->readIfRequired<double>("freqcentral", isAnelastic);
-  const auto freqRatio = reader->readIfRequired<double>("freqratio", isAnelastic);
+  const auto freqCentral = reader->readIfRequired("freqcentral", isAnelastic, defaults.freqCentral);
+  const auto freqRatio = reader->readIfRequired("freqratio", isAnelastic, defaults.freqRatio);
   if (isAnelastic && (freqRatio <= 0)) {
     logError() << "The freqratio parameter must be positive; but that is currently not the case.";
   }
 
   const auto flux =
       reader->readWithDefaultStringEnum<NumericalFlux>("numflux",
-                                                       "godunov",
+                                                       defaults.flux,
                                                        {
                                                            {"godunov", NumericalFlux::Godunov},
                                                            {"rusanov", NumericalFlux::Rusanov},
@@ -246,7 +248,7 @@ WavePropagationParameters readWavePropagationParameters(ParameterReader* baseRea
 
   const auto fluxNearFault =
       reader->readWithDefaultStringEnum<NumericalFlux>("numfluxnearfault",
-                                                       "godunov",
+                                                       defaults.fluxNearFault,
                                                        {
                                                            {"godunov", NumericalFlux::Godunov},
                                                            {"rusanov", NumericalFlux::Rusanov},
@@ -261,23 +263,24 @@ WavePropagationParameters readWavePropagationParameters(ParameterReader* baseRea
 }
 
 PlasticityParameters readPlasticityParameters(ParameterReader* baseReader) {
+  const PlasticityParameters defaults{};
   auto* reader = baseReader->readSubNode("equations");
 
-  const bool plasticity = reader->readWithDefault("plasticity", false);
+  const bool plasticity = reader->readWithDefault("plasticity", defaults.enabled);
 
-  const bool plasticityPointwise = reader->readWithDefault("plasticitypointwise", true);
+  const bool plasticityPointwise =
+      reader->readWithDefault("plasticitypointwise", defaults.pointwise);
 
-  const auto plasticityDisabledGroupsRaw =
-      reader->readWithDefault<std::string>("plasticitydisabledgroups", "");
-  std::unordered_set<int> plasticityDisabledGroups;
-  {
-    const auto groups = utils::StringUtils::split(plasticityDisabledGroupsRaw, ',');
-    for (const auto& group : groups) {
-      plasticityDisabledGroups.emplace(std::stoi(group));
-    }
-  }
+  const auto plasticityDisabledGroups = reader->readWithDefaultConverted(
+      "plasticitydisabledgroups", defaults.disabledGroups, [](const std::string& text) {
+        std::unordered_set<int> groups;
+        for (const auto& group : utils::StringUtils::split(text, ',')) {
+          groups.emplace(std::stoi(group));
+        }
+        return groups;
+      });
 
-  const double tv = reader->readWithDefault("tv", 0.1);
+  const double tv = reader->readWithDefault("tv", defaults.tv);
 
   return PlasticityParameters{.enabled = plasticity,
                               .pointwise = plasticityPointwise,

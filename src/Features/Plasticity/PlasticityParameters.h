@@ -19,7 +19,7 @@ struct PlasticityParameters {
   // the mesh groups whose cells have none
   std::unordered_set<int> disabledGroups;
   // the relaxation time
-  double tv{};
+  double tv{0.1};
 };
 
 } // namespace seissol::initializer::parameters
