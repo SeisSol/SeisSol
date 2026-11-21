@@ -44,7 +44,6 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Core/Parallel/DeviceGraph.h"
 
 #include <Device/AbstractAPI.h>

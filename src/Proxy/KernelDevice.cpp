@@ -18,7 +18,6 @@
 #ifdef ACL_DEVICE
 #include "Constants.h"
 #include "Core/Common/BasicTypedefs.h"
-#include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Numerical/Quadrature.h"
