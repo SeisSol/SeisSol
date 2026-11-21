@@ -6,7 +6,8 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-"""Moves the sources of SeisSol into the layout of Core/, Features/ and Simulation/.
+"""Moves the sources of SeisSol into the layout of Core/, WavePropagation/, Features/ and
+Simulation/.
 
 A batch is a list of rules (old prefix, new prefix) on the paths below src/ as they are when the
 batch runs; a path takes the rule with the longest matching prefix. The batches run in order, and
@@ -36,7 +37,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from includegraph import Sources, read_includes, repo_root  # noqa: E402
 
-WP = "Features/WavePropagation"
+WP = "WavePropagation"
 DR = "Features/DynamicRupture"
 PL = "Features/Plasticity"
 ST = "Features/SourceTerm"
@@ -127,7 +128,7 @@ LAYOUT = [
     ("Solver/Estimator.", f"{SIM}/Estimator."),
     ("Kernels/BuiltConfigs.cpp", f"{SIM}/BuiltConfigs.cpp"),
     ("ResultWriter/EnergyOutput.", f"{SIM}/EnergyOutput."),
-    # wave propagation
+    # the wave propagation: the base of the features, with the equations and the schemes
     ("Equations/", f"{WP}/Physics/"),
     *[(f"Equations/{name}/Model/", f"{WP}/Physics/{name}/") for name in EQUATIONS],
     ("Model/", f"{WP}/Physics/"),

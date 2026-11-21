@@ -6,27 +6,31 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-"""Include ratchet for the layout of src/ into Core/, Features/ and Simulation/.
+"""Include ratchet for the layout of src/ into Core/, WavePropagation/, Features/ and Simulation/.
 
 Every file below src/ belongs to a unit and has a role, both given by its path; a file that has
 not moved yet counts with the path that .ci/restructure.py gives it.
 
   Core/<X>/...                       core of unit Core/<X>
-  Features/<F>/Physics/...           physics of feature F
-  Features/<F>/{Solver,Output}/...   solver of F
-  Features/<F>/Setup/...             setup of F
-  Features/<F>/<file>                root of F (configuration, basic types)
+  WavePropagation/...                the wave propagation: always there, as one of its equations
+                                     and schemes; the base of the features
+  Features/<F>/...                   feature F: can be left out, and the simulation still runs
+  .../Physics/...                    physics of the wave propagation or of a feature
+  .../{Solver,Output}/...            solver of it
+  .../Setup/...                      setup of it
+  .../<file>                         root of it (configuration, basic types)
   Simulation/..., Proxy/..., src/*   composition
 
 An include breaks a rule if
-  - the core includes a feature or the composition,
-  - the physics of a feature includes more of the core than Core/Common and Core/Numerical, or
-    the solver or setup of a feature, or an MPI, YAML, easi, device, or file format library,
-  - the solver of a feature includes its setup, or the root its solver or setup,
-  - a feature includes the composition,
-  - a feature includes another feature than Features/WavePropagation (which includes none),
+  - the core includes the wave propagation, a feature or the composition,
+  - the physics includes more of the core than Core/Common and Core/Numerical, or the solver or
+    setup, or an MPI, YAML, easi, device, or file format library,
+  - the solver includes the setup, or the root the solver or setup,
+  - the wave propagation or a feature includes the composition,
+  - the wave propagation includes a feature, or a feature another feature,
   - or a unit of the core includes one that comes later in CORE_ORDER (the core has no cycles).
-The composition may include anything. Together, the rules leave no cycles between the units.
+A feature may include the wave propagation (its physics only the physics and the root). The
+composition may include anything. Together, the rules leave no cycles between the units.
 
 Every rule break must be listed in the baseline (.ci/layering-baseline.txt), and the baseline must
 not list rule breaks that are gone: after removing some, run with --update. New rule breaks only
@@ -80,7 +84,7 @@ CORE_ORDER = (
     ("Core/TimeStepping",),
 )
 CORE_LEVEL = {unit: level for level, units in enumerate(CORE_ORDER) for unit in units}
-WAVEPROPAGATION = "Features/WavePropagation"
+WAVEPROPAGATION = "WavePropagation"
 ROLES = {"Physics": "physics", "Solver": "solver", "Output": "solver", "Setup": "setup"}
 PHYSICS_CORE = ("Core/Common", "Core/Numerical")
 RUNTIME_CORE = (
@@ -100,6 +104,9 @@ def classify(path):
     parts = path.split("/")
     if parts[0] == "Core" and len(parts) > 2:
         return "/".join(parts[:2]), "core"
+    if parts[0] == WAVEPROPAGATION and len(parts) > 1:
+        role = ROLES.get(parts[1], "root") if len(parts) > 2 else "root"
+        return WAVEPROPAGATION, role
     if parts[0] == "Features" and len(parts) > 2:
         role = ROLES.get(parts[2], "root") if len(parts) > 3 else "root"
         return "/".join(parts[:2]), role
@@ -110,29 +117,36 @@ def classify(path):
     return parts[0], "unplaced"
 
 
+def kind(unit, role):
+    """core, wavepropagation, feature, composition or unplaced."""
+    if role in ("core", "composition", "unplaced"):
+        return role
+    return "wavepropagation" if unit == WAVEPROPAGATION else "feature"
+
+
 def rule_break(source, destination):
     """The rule that an include from `source` to `destination` ((unit, role) each) breaks."""
     source_unit, source_role = source
     destination_unit, destination_role = destination
     if source_role in ("composition", "unplaced") or destination_role == "unplaced":
         return None
-    if source_role == "core":
-        if destination_role == "core":
+    source_kind, destination_kind = kind(*source), kind(*destination)
+    if source_kind == "core":
+        if destination_kind == "core":
             if CORE_LEVEL.get(destination_unit, 0) > CORE_LEVEL.get(source_unit, 0):
                 return "core-includes-later-core"
             return None
-        if destination_role == "composition":
-            return "core-includes-composition"
-        return "core-includes-feature"
-    if destination_role == "composition":
-        return "feature-includes-composition"
-    if destination_role == "core":
+        return f"core-includes-{destination_kind}"
+    if destination_kind == "composition":
+        return f"{source_kind}-includes-composition"
+    if destination_kind == "core":
         if source_role == "physics" and destination_unit not in PHYSICS_CORE:
             return "physics-includes-runtime"
         return None
     if destination_unit != source_unit:
-        if destination_unit != WAVEPROPAGATION or source_unit == WAVEPROPAGATION:
-            return "feature-includes-feature"
+        if destination_kind == "feature":
+            return f"{source_kind}-includes-feature"
+        # a feature includes the wave propagation
         if source_role == "physics" and destination_role not in ("physics", "root"):
             return "physics-includes-solver"
         return None
