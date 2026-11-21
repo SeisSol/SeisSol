@@ -78,6 +78,36 @@ class ParameterReader {
     return validValues.at(value);
   }
 
+  /// As above, with the default given as the value it stands for.
+  template <typename T>
+  T readWithDefaultStringEnum(const std::string& field,
+                              const T& defaultValue,
+                              const std::unordered_map<std::string, T>& validValues) {
+    const auto text = read<std::string>(field);
+    if (!text.has_value()) {
+      logDebug() << "The field" << field << "was not specified, using fallback.";
+      return defaultValue;
+    }
+    std::string value = text.value();
+    sanitize(value);
+    if (!validValues.contains(value)) {
+      logError() << "The field" << field << "had an invalid enum value:" << value;
+    }
+    return validValues.at(value);
+  }
+
+  /// The value of `field`, converted from its text by `convert`; `defaultValue` if it is not
+  /// given.
+  template <typename T, typename F>
+  T readWithDefaultConverted(const std::string& field, const T& defaultValue, F&& convert) {
+    const auto text = read<std::string>(field);
+    if (text.has_value()) {
+      return std::forward<F>(convert)(text.value());
+    }
+    logDebug() << "The field" << field << "was not specified, using fallback.";
+    return defaultValue;
+  }
+
   template <typename T>
   T readIfRequired(const std::string& field, bool required) {
     if (required) {

@@ -25,9 +25,9 @@ enum class LtsWeightsTypes : int {
 };
 
 struct VertexWeightParameters {
-  std::uint64_t weightElement;
-  std::uint64_t weightDynamicRupture;
-  std::uint64_t weightFreeSurfaceWithGravity;
+  std::uint64_t weightElement{100};
+  std::uint64_t weightDynamicRupture{100};
+  std::uint64_t weightFreeSurfaceWithGravity{100};
   //! the costs of the cells measured in a run before (output.vertexweightoutput), to partition by
   //! in place of the weights above; none if empty
   std::string measuredCosts;
@@ -55,13 +55,15 @@ enum class LtsClusteringSearch {
 
 class LtsParameters {
   private:
-  std::vector<uint64_t> rate_;
-  double wiggleFactorMinimum_{};
-  double wiggleFactorStepsize_{};
-  bool wiggleFactorEnforceMaximumDifference_{};
+  // a single rate of 1: global time stepping
+  std::vector<uint64_t> rate_{1};
+  double wiggleFactorMinimum_{1.0};
+  double wiggleFactorStepsize_{0.01};
+  bool wiggleFactorEnforceMaximumDifference_{true};
   int maxNumberOfClusters_{std::numeric_limits<int>::max() - 1};
-  bool autoMergeClusters_{};
-  double allowedPerformanceLossRatioAutoMerge_{};
+  bool autoMergeClusters_{false};
+  // no loss allowed
+  double allowedPerformanceLossRatioAutoMerge_{1.0};
   AutoMergeCostBaseline autoMergeCostBaseline_{AutoMergeCostBaseline::BestWiggleFactor};
   LtsWeightsTypes ltsWeightsType_{LtsWeightsTypes::ExponentialWeights};
   LtsClusteringSearch clusteringSearch_{LtsClusteringSearch::Legacy};
@@ -107,9 +109,10 @@ class LtsParameters {
 
 struct TimeSteppingParameters {
   VertexWeightParameters vertexWeight{};
-  double cfl{};
-  double maxTimestepWidth{};
-  double endTime{};
+  double cfl{0.5};
+  // without attenuation; with it, the reader derives the default from its central frequency
+  double maxTimestepWidth{5000.0};
+  double endTime{15.0};
   LtsParameters lts;
 
   TimeSteppingParameters() = default;

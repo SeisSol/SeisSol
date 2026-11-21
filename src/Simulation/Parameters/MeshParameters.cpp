@@ -17,18 +17,19 @@
 namespace seissol::initializer::parameters {
 
 MeshParameters readMeshParameters(ParameterReader* baseReader) {
+  const MeshParameters defaults{};
   auto* reader = baseReader->readSubNode("meshnml");
 
   const auto meshFormat = reader->readWithDefaultStringEnum<MeshFormat>(
       "meshgenerator",
-      "puml",
+      defaults.meshFormat,
       {{"puml", MeshFormat::PUML}, {"cubegenerator", MeshFormat::CubeGenerator}});
   const std::string meshFileName = reader->readPathOrFail("meshfile", "No mesh file given.");
   const std::string partitioningLib =
-      reader->readWithDefault("partitioninglib", std::string("Default"));
+      reader->readWithDefault("partitioninglib", defaults.partitioningLib);
   const auto pumlBoundaryFormat =
       reader->readWithDefaultStringEnum<BoundaryFormat>("pumlboundaryformat",
-                                                        "auto",
+                                                        defaults.pumlBoundaryFormat,
                                                         {
                                                             {"auto", BoundaryFormat::Auto},
                                                             {"i32", BoundaryFormat::I32},
@@ -37,7 +38,7 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
                                                         });
   const auto pumlTopologyFormat = reader->readWithDefaultStringEnum<TopologyFormat>(
       "pumltopologyformat",
-      "auto",
+      defaults.pumlTopologyFormat,
       {
           {"auto", TopologyFormat::Auto},
           {"geometric", TopologyFormat::Geometric},
@@ -45,20 +46,23 @@ MeshParameters readMeshParameters(ParameterReader* baseReader) {
           {"identify-vertex", TopologyFormat::IdentifyVertex},
       });
 
-  const auto displacementRaw = seissol::initializer::convertStringToArray<double, 3>(
-      reader->readWithDefault("displacement", std::string("0.0 0.0 0.0")));
-  const Eigen::Vector3d displacement(displacementRaw.data());
-  const auto scalingXRaw = seissol::initializer::convertStringToArray<double, 3>(
-      reader->readWithDefault("scalingmatrixx", std::string("1.0 0.0 0.0")));
-  const auto scalingYRaw = seissol::initializer::convertStringToArray<double, 3>(
-      reader->readWithDefault("scalingmatrixy", std::string("0.0 1.0 0.0")));
-  const auto scalingZRaw = seissol::initializer::convertStringToArray<double, 3>(
-      reader->readWithDefault("scalingmatrixz", std::string("0.0 0.0 1.0")));
+  const auto toVector = [](const std::string& text) {
+    const auto raw = seissol::initializer::convertStringToArray<double, 3>(text);
+    return Eigen::Vector3d(raw.data());
+  };
+  const Eigen::Vector3d displacement =
+      reader->readWithDefaultConverted("displacement", defaults.displacement, toVector);
+  // the scaling matrix, row by row
   Eigen::Matrix3d scaling;
-  scaling << scalingXRaw[0], scalingXRaw[1], scalingXRaw[2], scalingYRaw[0], scalingYRaw[1],
-      scalingYRaw[2], scalingZRaw[0], scalingZRaw[1], scalingZRaw[2];
+  Eigen::Index row = 0;
+  for (const auto* field : {"scalingmatrixx", "scalingmatrixy", "scalingmatrixz"}) {
+    const Eigen::Vector3d defaultRow = defaults.scaling.row(row).transpose();
+    scaling.row(row) = reader->readWithDefaultConverted(field, defaultRow, toVector).transpose();
+    ++row;
+  }
 
-  const bool showEdgeCutStatistics = reader->readWithDefault("showedgecutstatistics", false);
+  const bool showEdgeCutStatistics =
+      reader->readWithDefault("showedgecutstatistics", defaults.showEdgeCutStatistics);
 
   const auto faceMapPre = reader->readPath("facemapfile");
   const auto faceMap = faceMapPre == "" ? std::optional<std::string>{} : faceMapPre;

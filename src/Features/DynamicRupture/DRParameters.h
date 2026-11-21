@@ -39,14 +39,14 @@ struct DRParameters {
   bool isFrictionEnergyRequired{false};
   bool isCheckAbortCriteraEnabled{false};
   bool energiesFromAcrossFaultVelocities{false};
-  OutputType outputPointType{3};
-  RefPointMethod refPointMethod{0};
-  SlipRateOutputType slipRateOutputType{1};
-  seissol::dr::misc::FrictionLawType frictionLawType{0};
+  OutputType outputPointType{OutputType::None};
+  RefPointMethod refPointMethod{RefPointMethod::Point};
+  SlipRateOutputType slipRateOutputType{SlipRateOutputType::TractionsAndFailure};
+  seissol::dr::misc::FrictionLawType frictionLawType{seissol::dr::misc::FrictionLawType::NoFault};
   double healingThreshold{-1.0};
   std::array<double, seissol::dr::MaxNucleations> t0{};
   std::array<double, seissol::dr::MaxNucleations> s0{};
-  double tpProxyExponent{0.0};
+  double tpProxyExponent{1.0 / 3.0};
   double rsF0{0.0};
   double rsB{0.0};
   double rsSr0{0.0};
@@ -63,11 +63,11 @@ struct DRParameters {
   std::string faultFileName;
   // per fused simulation of the configuration of the run
   std::vector<std::optional<std::string>> faultFileNames;
-  Eigen::Vector3d referencePoint;
-  double terminatorSlipRateThreshold{0.0};
+  Eigen::Vector3d referencePoint{Eigen::Vector3d::Zero()};
+  double terminatorSlipRateThreshold{std::numeric_limits<double>::max()};
   double etaDamp{1.0};
   double etaDampEnd{std::numeric_limits<double>::infinity()};
-  std::uint32_t nucleationCount{0};
+  std::uint32_t nucleationCount{1};
   std::uint32_t rsMaxNumberSlipRateUpdates{60};
   std::uint32_t rsNumberStateVariableUpdates{10};
   double rsSlipRateTolerance{1e-8};

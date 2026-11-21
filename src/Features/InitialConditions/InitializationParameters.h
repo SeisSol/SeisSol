@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_FEATURES_INITIALCONDITIONS_INITIALIZATIONPARAMETERS_H_
 
 #include <Eigen/Dense>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -31,16 +32,16 @@ enum class InitializationType : int {
 
 struct InitializationParameters {
   InitializationType type{InitializationType::Zero};
-  Eigen::Vector3d origin;
-  Eigen::Vector3d kVec;
+  Eigen::Vector3d origin{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d kVec{Eigen::Vector3d::Zero()};
   // per quantity of the material of the configuration of the run
   std::vector<double> ampField;
-  double magnitude{};
-  double width{};
-  double k{};
+  double magnitude{0.0};
+  double width{std::numeric_limits<double>::infinity()};
+  double k{0.0};
   // the easi file of every simulation of the run, the one of the first if not given
   std::vector<std::string> filenames;
-  bool hasTime{false};
+  bool hasTime{true};
   bool avoidIC{false};
 };
 

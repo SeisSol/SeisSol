@@ -47,9 +47,9 @@ LtsClusteringSearch parseLtsClusteringSearch(std::string str) {
   throw std::invalid_argument(str + " is not a valid LTS clustering search");
 }
 
-LtsParameters readLtsParameters(ParameterReader* baseReader) {
-  auto* reader = baseReader->readSubNode("discretization");
-  const auto ratestr = reader->readWithDefault<std::string>("clusteredlts", "1");
+namespace {
+
+std::vector<uint64_t> parseRates(const std::string& ratestr) {
   std::vector<uint64_t> rates;
   auto parts = utils::StringUtils::split(ratestr, ' ');
   for (auto& part : parts) {
@@ -61,6 +61,15 @@ LtsParameters readLtsParameters(ParameterReader* baseReader) {
                  << ". Aborting.";
     }
   }
+  return rates;
+}
+
+} // namespace
+
+LtsParameters readLtsParameters(ParameterReader* baseReader) {
+  const LtsParameters defaults{};
+  auto* reader = baseReader->readSubNode("discretization");
+  auto rates = reader->readWithDefaultConverted("clusteredlts", defaults.getRate(), parseRates);
 
   if (rates.empty()) {
     logWarning() << "No LTS rate given. Assuming GTS.";
@@ -73,35 +82,42 @@ LtsParameters readLtsParameters(ParameterReader* baseReader) {
     }
   }
 
-  const double wiggleFactorMinimum = reader->readWithDefault("ltswigglefactormin", 1.0);
-  const double wiggleFactorStepsize = reader->readWithDefault("ltswigglefactorstepsize", 0.01);
+  const double wiggleFactorMinimum =
+      reader->readWithDefault("ltswigglefactormin", defaults.getWiggleFactorMinimum());
+  const double wiggleFactorStepsize =
+      reader->readWithDefault("ltswigglefactorstepsize", defaults.getWiggleFactorStepsize());
   const bool wiggleFactorEnforceMaximumDifference =
-      reader->readWithDefault("ltswigglefactorenforcemaximumdifference", true);
+      reader->readWithDefault("ltswigglefactorenforcemaximumdifference",
+                              defaults.getWiggleFactorEnforceMaximumDifference());
   const unsigned int maxNumberOfClusters =
-      reader->readWithDefault("ltsmaxnumberofclusters", std::numeric_limits<int>::max() - 1);
-  const bool autoMergeClusters = reader->readWithDefault("ltsautomergeclusters", false);
+      reader->readWithDefault("ltsmaxnumberofclusters", defaults.getMaxNumberOfClusters());
+  const bool autoMergeClusters =
+      reader->readWithDefault("ltsautomergeclusters", defaults.isAutoMergeUsed());
+  // (the parameter is the loss relative to the baseline, the ratio is one more than it)
   const double allowedRelativePerformanceLossAutoMerge =
-      reader->readWithDefault("ltsallowedrelativeperformancelossautomerge", 0.0);
+      reader->readWithDefault("ltsallowedrelativeperformancelossautomerge",
+                              defaults.getAllowedPerformanceLossRatioAutoMerge() - 1.0);
   const double allowedPerformanceLossRatioAutoMerge = allowedRelativePerformanceLossAutoMerge + 1.0;
-  const auto autoMergeCostBaseline = parseAutoMergeCostBaseline(
-      (reader->readWithDefault("ltsautomergecostbaseline", std::string("bestwigglefactor"))));
+  const auto autoMergeCostBaseline = reader->readWithDefaultConverted(
+      "ltsautomergecostbaseline", defaults.getAutoMergeCostBaseline(), parseAutoMergeCostBaseline);
   const LtsWeightsTypes ltsWeightsType =
       reader->readWithDefaultEnum("ltsweighttypeid",
-                                  LtsWeightsTypes::ExponentialWeights,
+                                  defaults.getLtsWeightsType(),
                                   {
                                       LtsWeightsTypes::ExponentialWeights,
                                       LtsWeightsTypes::ExponentialBalancedWeights,
                                       LtsWeightsTypes::EncodedBalancedWeights,
                                   });
 
-  const auto clusteringSearch = parseLtsClusteringSearch(
-      reader->readWithDefault("ltsclusteringsearch", std::string("legacy")));
-  // Defaults reproduce the update-count objective SeisSol has always minimized; see
+  const auto clusteringSearch = reader->readWithDefaultConverted(
+      "ltsclusteringsearch", defaults.getClusteringSearch(), parseLtsClusteringSearch);
+  // The defaults reproduce the update-count objective SeisSol has always minimized; see
   // ClusterCostModel.
-  const double costUpdate = reader->readWithDefault("ltscostupdate", 1.0);
-  const double costLaunch = reader->readWithDefault("ltscostlaunch", 0.0);
-  const double costFill = reader->readWithDefault("ltscostfill", 0.0);
-  const auto maxRate = static_cast<std::uint64_t>(reader->readWithDefault("ltsmaxrate", 0));
+  const auto defaultCosts = defaults.getClusterCostModel();
+  const double costUpdate = reader->readWithDefault("ltscostupdate", defaultCosts.updateCost);
+  const double costLaunch = reader->readWithDefault("ltscostlaunch", defaultCosts.launchCost);
+  const double costFill = reader->readWithDefault("ltscostfill", defaultCosts.fillThreshold);
+  const auto maxRate = reader->readWithDefault<std::uint64_t>("ltsmaxrate", defaults.getMaxRate());
 
   reader->warnDeprecated({"dgmethod"});
   return {rates,
@@ -122,20 +138,23 @@ LtsParameters readLtsParameters(ParameterReader* baseReader) {
 
 TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
                                                   const std::vector<ConfigId>& configs) {
+  const TimeSteppingParameters defaults{};
   auto* reader = baseReader->readSubNode("discretization");
   const auto weightElement =
-      static_cast<std::uint64_t>(reader->readWithDefault("vertexweightelement", 100));
-  const auto weightDynamicRupture =
-      static_cast<std::uint64_t>(reader->readWithDefault("vertexweightdynamicrupture", 100));
-  const auto weightFreeSurfaceWithGravity = static_cast<std::uint64_t>(
-      reader->readWithDefault("vertexweightfreesurfacewithgravity", 100));
-  const auto measuredCosts = reader->readWithDefault<std::string>("vertexweightfile", "");
-  const auto cycles = reader->readWithDefault<unsigned>("vertexweightcycles", 0);
-  const auto cycleSteps = reader->readWithDefault<unsigned>("vertexweightcyclesteps", 20);
+      reader->readWithDefault("vertexweightelement", defaults.vertexWeight.weightElement);
+  const auto weightDynamicRupture = reader->readWithDefault(
+      "vertexweightdynamicrupture", defaults.vertexWeight.weightDynamicRupture);
+  const auto weightFreeSurfaceWithGravity = reader->readWithDefault(
+      "vertexweightfreesurfacewithgravity", defaults.vertexWeight.weightFreeSurfaceWithGravity);
+  const auto measuredCosts =
+      reader->readWithDefault("vertexweightfile", defaults.vertexWeight.measuredCosts);
+  const auto cycles = reader->readWithDefault("vertexweightcycles", defaults.vertexWeight.cycles);
+  const auto cycleSteps =
+      reader->readWithDefault("vertexweightcyclesteps", defaults.vertexWeight.cycleSteps);
   if (cycles > 0 && cycleSteps == 0) {
     logError() << "vertexweightcyclesteps has to be positive.";
   }
-  const double cfl = reader->readWithDefault("cfl", 0.5);
+  const double cfl = reader->readWithDefault("cfl", defaults.cfl);
   double maxTimestepWidth = std::numeric_limits<double>::max();
 
   const bool isAnelastic = std::ranges::any_of(
@@ -158,11 +177,11 @@ TimeSteppingParameters readTimeSteppingParameters(ParameterReader* baseReader,
                 << "(less or equal to reference timestep" << maxTimestepWidthDefault << ")";
     }
   } else {
-    maxTimestepWidth = reader->readWithDefault("fixtimestep", 5000.0);
+    maxTimestepWidth = reader->readWithDefault("fixtimestep", defaults.maxTimestepWidth);
   }
 
   auto* timeReader = baseReader->readSubNode("abortcriteria");
-  const double endTime = timeReader->readWithDefault("endtime", 15.0);
+  const double endTime = timeReader->readWithDefault("endtime", defaults.endTime);
 
   const LtsParameters ltsParameters = readLtsParameters(baseReader);
 

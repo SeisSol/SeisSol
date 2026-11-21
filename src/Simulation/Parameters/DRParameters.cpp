@@ -31,26 +31,27 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
   using seissol::dr::misc::FrictionLawType;
   constexpr auto MaxNucleations = seissol::dr::MaxNucleations;
 
+  const DRParameters defaults{};
   auto* reader = baseReader->readSubNode("dynamicrupture");
 
-  const double xref = reader->readWithDefault("xref", 0.0);
-  const double yref = reader->readWithDefault("yref", 0.0);
-  const double zref = reader->readWithDefault("zref", 0.0);
+  const double xref = reader->readWithDefault("xref", defaults.referencePoint.x());
+  const double yref = reader->readWithDefault("yref", defaults.referencePoint.y());
+  const double zref = reader->readWithDefault("zref", defaults.referencePoint.z());
   const Eigen::Vector3d referencePoint = {xref, yref, zref};
 
   const auto refPointMethod = reader->readWithDefaultEnum<RefPointMethod>(
-      "refpointmethod", RefPointMethod::Point, {RefPointMethod::Point, RefPointMethod::Normal});
+      "refpointmethod", defaults.refPointMethod, {RefPointMethod::Point, RefPointMethod::Normal});
 
   const auto outputPointType =
       reader->readWithDefaultEnum<OutputType>("outputpointtype",
-                                              OutputType::None,
+                                              defaults.outputPointType,
                                               {OutputType::None,
                                                OutputType::AtPickpoint,
                                                OutputType::Elementwise,
                                                OutputType::AtPickpointAndElementwise});
   auto frictionLawType = reader->readWithDefaultEnum<FrictionLawType>(
       "fl",
-      FrictionLawType::NoFault,
+      defaults.frictionLawType,
       {FrictionLawType::NoFault,
        FrictionLawType::LinearSlipWeakening,
        FrictionLawType::LinearSlipWeakeningLegacy,
@@ -74,7 +75,7 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
   }
   auto slipRateOutputType = reader->readWithDefaultEnum<SlipRateOutputType>(
       "sliprateoutputtype",
-      SlipRateOutputType::TractionsAndFailure,
+      defaults.slipRateOutputType,
       {SlipRateOutputType::VelocityDifference, SlipRateOutputType::TractionsAndFailure});
   if (((frictionLawType == FrictionLawType::ImposedSlipRatesYoffe) or
        (frictionLawType == FrictionLawType::ImposedSlipRatesGaussian) or
@@ -84,10 +85,11 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
                     "switching to SlipRateOutputType=0";
     slipRateOutputType = SlipRateOutputType::VelocityDifference;
   }
-  const auto isThermalPressureOn = reader->readWithDefault("thermalpress", false);
+  const auto isThermalPressureOn =
+      reader->readWithDefault("thermalpress", defaults.isThermalPressureOn);
   const auto healingThreshold =
-      static_cast<double>(reader->readWithDefault("lsw_healingthreshold", -1.0));
-  const auto nucleationCount = reader->readWithDefault("nucleationcount", 1U);
+      reader->readWithDefault("lsw_healingthreshold", defaults.healingThreshold);
+  const auto nucleationCount = reader->readWithDefault("nucleationcount", defaults.nucleationCount);
   if (nucleationCount > MaxNucleations) {
     logError() << "You requested more nucleations than supported by this build of SeisSol. Either "
                   "adjust that yourself, or complain to the developers. :)";
@@ -96,12 +98,11 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
   std::array<double, MaxNucleations> s0{};
   for (std::uint32_t i = 0; i < nucleationCount; ++i) {
     const std::string t0name = i == 0 ? "t_0" : ("t" + std::to_string(i + 1) + "_0");
-    t0[i] = static_cast<double>(reader->readWithDefault(t0name, 0.0));
+    t0[i] = reader->readWithDefault(t0name, defaults.t0[i]);
     const std::string s0name = i == 0 ? "s_0" : ("s" + std::to_string(i + 1) + "_0");
-    s0[i] = static_cast<double>(reader->readWithDefault(s0name, 0.0));
+    s0[i] = reader->readWithDefault(s0name, defaults.s0[i]);
   }
-  const auto tpProxyExponent =
-      static_cast<double>(reader->readWithDefault("tpproxyexponent", 1. / 3.));
+  const auto tpProxyExponent = reader->readWithDefault("tpproxyexponent", defaults.tpProxyExponent);
 
   const bool isRateAndState =
       (frictionLawType == FrictionLawType::RateAndStateAgingLaw) or
@@ -159,13 +160,14 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
   isDynamicRuptureEnabled &= explicitEnabled.value_or(true);
 
   auto* outputReader = baseReader->readSubNode("output");
-  const bool isFrictionEnergyRequired = outputReader->readWithDefault("energyoutput", false);
-  const bool energiesFromAcrossFaultVelocities =
-      outputReader->readWithDefault("faultenergiesfromacrossfaultvelocities", false);
+  const bool isFrictionEnergyRequired =
+      outputReader->readWithDefault("energyoutput", defaults.isFrictionEnergyRequired);
+  const bool energiesFromAcrossFaultVelocities = outputReader->readWithDefault(
+      "faultenergiesfromacrossfaultvelocities", defaults.energiesFromAcrossFaultVelocities);
 
   auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
-  const auto terminatorSlipRateThreshold = static_cast<double>(abortCriteriaReader->readWithDefault(
-      "terminatorslipratethreshold", std::numeric_limits<double>::max()));
+  const auto terminatorSlipRateThreshold = abortCriteriaReader->readWithDefault(
+      "terminatorslipratethreshold", defaults.terminatorSlipRateThreshold);
   const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
       "terminatormaxtimepostrupture", std::numeric_limits<double>::max());
   const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
@@ -183,25 +185,27 @@ DRParameters readDRParameters(ParameterReader* baseReader, ConfigId config) {
                "removed in a future version of SeisSol. Put the parameter into the dynamicrupture "
                "section instead and name it \"etadamp\" instead.";
       }
-      return dampRead2.value_or(dampRead3.value_or(1.0));
+      return dampRead2.value_or(dampRead3.value_or(defaults.etaDamp));
     }
   }();
 
-  const auto etaDampEnd = reader->read<double>("etadampend")
-                              .value_or(reader->read<double>("etastop").value_or(
-                                  std::numeric_limits<double>::infinity()));
+  const auto etaDampEnd =
+      reader->read<double>("etadampend")
+          .value_or(reader->read<double>("etastop").value_or(defaults.etaDampEnd));
 
   const auto rsMaxNumberSlipRateUpdates =
-      reader->readWithDefault<uint32_t>("rsmaxsliprateupdates", 60);
-  const auto rsNumberStateVariableUpdates = reader->readWithDefault<uint32_t>("rsstateupdates", 10);
-  const auto rsSlipRateTolerance = reader->readWithDefault<double>("rsslipratetolerance", 1e-8);
-  const auto rsStateTolerance = reader->readWithDefault<double>("rsstatetolerance", 1e-8);
+      reader->readWithDefault("rsmaxsliprateupdates", defaults.rsMaxNumberSlipRateUpdates);
+  const auto rsNumberStateVariableUpdates =
+      reader->readWithDefault("rsstateupdates", defaults.rsNumberStateVariableUpdates);
+  const auto rsSlipRateTolerance =
+      reader->readWithDefault("rsslipratetolerance", defaults.rsSlipRateTolerance);
+  const auto rsStateTolerance =
+      reader->readWithDefault("rsstatetolerance", defaults.rsStateTolerance);
 
   // The grid spans a fixed wavenumber per point, so the count decides how far into the diffusive
   // tail the integration reaches: the smallest resolved wavenumber is
   // TpMaxWaveNumber * exp(-TpLogDz * (tpGridPoints - 1)).
-  const auto tpGridPoints = reader->readWithDefault<std::uint32_t>(
-      "tp_gridpoints", seissol::dr::misc::DefaultTpGridPoints);
+  const auto tpGridPoints = reader->readWithDefault("tp_gridpoints", defaults.tpGridPoints);
   if (tpGridPoints == 0) {
     logError() << "tp_gridpoints must be at least one.";
   }

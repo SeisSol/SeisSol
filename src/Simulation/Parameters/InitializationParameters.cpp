@@ -16,7 +16,6 @@
 
 #include <Eigen/Core>
 #include <cstddef>
-#include <limits>
 #include <string>
 #include <vector>
 
@@ -24,11 +23,12 @@ namespace seissol::initializer::parameters {
 
 InitializationParameters readInitializationParameters(ParameterReader* baseReader,
                                                       ConfigId config) {
+  const InitializationParameters defaults{};
   auto* reader = baseReader->readSubNode("inicondition");
 
   const auto type = reader->readWithDefaultStringEnum<InitializationType>(
       "cictype",
-      "zero",
+      defaults.type,
       {
           {"zero", InitializationType::Zero},
           {"planarwave", InitializationType::Planarwave},
@@ -43,12 +43,13 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
           {"pressureinjection", InitializationType::PressureInjection},
           {"easi", InitializationType::Easi},
       });
-  const auto originString = reader->readWithDefault("origin", std::string("0.0 0.0 0.0"));
-  const auto originRaw = seissol::initializer::convertStringToArray<double, 3>(originString);
-  const Eigen::Vector3d origin(originRaw.data());
-  const auto kVecString = reader->readWithDefault("kvec", std::string("0.0 0.0 0.0"));
-  const auto kVecRaw = seissol::initializer::convertStringToArray<double, 3>(kVecString);
-  const Eigen::Vector3d kVec(kVecRaw.data());
+  const auto toVector = [](const std::string& text) {
+    const auto raw = seissol::initializer::convertStringToArray<double, 3>(text);
+    return Eigen::Vector3d(raw.data());
+  };
+  const Eigen::Vector3d origin =
+      reader->readWithDefaultConverted("origin", defaults.origin, toVector);
+  const Eigen::Vector3d kVec = reader->readWithDefaultConverted("kvec", defaults.kVec, toVector);
   const auto numQuantities = configLayout(config).numQuantities;
   std::string defaultAmpFieldString;
   for (std::size_t i = 0; i < numQuantities; ++i) {
@@ -58,18 +59,18 @@ InitializationParameters readInitializationParameters(ParameterReader* baseReade
   const auto ampField =
       seissol::initializer::convertStringToVector<double>(ampFieldString, numQuantities);
 
-  const auto magnitude = reader->readWithDefault("magnitude", 0.0);
-  const auto width = reader->readWithDefault("width", std::numeric_limits<double>::infinity());
-  const auto k = reader->readWithDefault("k", 0.0);
+  const auto magnitude = reader->readWithDefault("magnitude", defaults.magnitude);
+  const auto width = reader->readWithDefault("width", defaults.width);
+  const auto k = reader->readWithDefault("k", defaults.k);
 
   std::vector<std::string> filenames(readSimulationCount(baseReader, config));
   filenames[0] = reader->readPath("filename").value_or("");
   for (std::size_t i = 1; i < filenames.size(); ++i) {
     filenames[i] = reader->readPath("filename" + std::to_string(i)).value_or(filenames[0]);
   }
-  const auto hasTime = reader->read<bool>("hastime").value_or(true);
+  const auto hasTime = reader->readWithDefault("hastime", defaults.hasTime);
 
-  const auto avoidIC = reader->read<bool>("avoidic").value_or(false);
+  const auto avoidIC = reader->readWithDefault("avoidic", defaults.avoidIC);
 
   return InitializationParameters{.type = type,
                                   .origin = origin,

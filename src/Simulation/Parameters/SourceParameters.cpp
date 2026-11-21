@@ -16,11 +16,12 @@
 namespace seissol::initializer::parameters {
 
 SourceParameters readSourceParameters(ParameterReader* baseReader) {
+  const SourceParameters defaults{};
   auto* reader = baseReader->readSubNode("sourcetype");
 
   const auto type = reader->readWithDefaultEnum(
       "type",
-      PointSourceType::None,
+      defaults.type,
       {PointSourceType::None, PointSourceType::FsrmSource, PointSourceType::NrfSource});
   const auto fileName = [&]() -> std::string {
     if (type == PointSourceType::None) {

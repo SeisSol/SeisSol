@@ -26,10 +26,10 @@ struct MeshParameters {
   TopologyFormat pumlTopologyFormat{TopologyFormat::Auto};
   MeshFormat meshFormat{MeshFormat::PUML};
   std::string meshFileName;
-  std::string partitioningLib;
+  std::string partitioningLib{"Default"};
   std::optional<std::string> faceMapFile;
-  Eigen::Vector3d displacement;
-  Eigen::Matrix3d scaling;
+  Eigen::Vector3d displacement{Eigen::Vector3d::Zero()};
+  Eigen::Matrix3d scaling{Eigen::Matrix3d::Identity()};
 };
 
 } // namespace seissol::initializer::parameters
