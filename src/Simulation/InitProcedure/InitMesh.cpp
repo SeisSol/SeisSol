@@ -7,6 +7,7 @@
 
 #include "InitMesh.h"
 
+#include "Core/Geometry/CellToVertexArray.h"
 #include "Core/Geometry/MeshDefinition.h"
 #include "Core/Monitoring/Instrumentation.h"
 #include "Core/Monitoring/RunSummary.h"
@@ -14,6 +15,8 @@
 #include "Simulation/Estimator.h"
 #include "Simulation/Parameters/MeshParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
+#include "Simulation/Reader/ReaderBuilder.h"
+#include "WavePropagation/Setup/Timesteps.h"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -70,7 +73,14 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
   meshReader.displaceMesh(displacement);
   meshReader.scaleMesh(scalingMatrix);
 
-  meshReader.computeTimestepIfNecessary(seissolInstance);
+  // a reader that does not cluster the cells while it reads them leaves their time steps to here
+  if (!meshReader.inlineTimestepCompute()) {
+    const auto timesteps = seissol::initializer::computeTimesteps(
+        seissol::initializer::CellToVertexArray::fromMeshReader(meshReader),
+        seissolInstance.parameters(),
+        seissol::data::modelLoader());
+    meshReader.setTimesteps(timesteps.cellTimeStepWidths);
+  }
 
   logInfo() << "Exchanging ghostlayer metadata.";
   meshReader.exchangeGhostlayerMetadata();
@@ -226,7 +236,13 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       .faceMap = &faceMap,
       .configCostFactors = std::move(configCostFactors)};
 
-  seissol::initializer::Clustering clustering(config, seissolInstance);
+  seissol::initializer::Clustering clustering(
+      config,
+      seissolInstance,
+      [&seissolParams](const seissol::initializer::CellToVertexArray& cells) {
+        return seissol::initializer::computeTimesteps(
+            cells, seissolParams, seissol::data::modelLoader());
+      });
   // the costs measured in a run before, if there are any, in place of the model: those of the run
   // before in this process, or else those of a file
   const auto& measuredCosts = seissolParams.timeStepping.vertexWeight.measuredCosts;

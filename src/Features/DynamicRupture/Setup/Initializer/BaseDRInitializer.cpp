@@ -16,10 +16,10 @@
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Numerical/Transformation.h"
 #include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Setup/FaultParameterDB.h"
 #include "GeneratedCode/general/init.h"
 #include "GeneratedCode/general/kernel.h"
 #include "Simulation/MemoryManager.h"
-#include "Simulation/ParameterDB.h"
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h"
@@ -448,7 +448,8 @@ void BaseDRInitializer::queryModel(
   {
     const seissol::initializer::FaultGPGenerator<Cfg> queryGen(seissolInstance_.meshReader(),
                                                                faceIDs);
-    faultParameterDB.evaluateModel(drParameters_->faultFileNames[simid].value(), queryGen);
+    const auto model = models_(drParameters_->faultFileNames[simid].value(), {"x", "y", "z"});
+    faultParameterDB.evaluate(*model, queryGen);
   }
 }
 

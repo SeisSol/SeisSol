@@ -9,8 +9,14 @@
 
 #include "Core/Data/DataTable.h"
 
+#include <exception>
+#include <functional>
+#include <memory>
+#include <set>
 #include <string>
+#include <utils/logger.h>
 #include <vector>
+
 namespace seissol::data {
 
 /**
@@ -39,6 +45,27 @@ class DataReader {
       */
   virtual void call(const DataTable& table) = 0;
 };
+
+/// Opens the model in the file `path`, which reads the columns `inputs` (e.g. x, y and z). The
+/// composition decides which readers there are; a part that reads a model is handed one of these,
+/// and does not know the formats.
+using ModelLoader = std::function<std::unique_ptr<DataReader>(
+    const std::string& path, const std::vector<std::string>& inputs)>;
+
+/// The columns that `model` supplies.
+inline std::set<std::string> suppliedParameters(DataReader& model) {
+  const auto& outputs = model.outputVars();
+  return {outputs.begin(), outputs.end()};
+}
+
+/// Evaluates `model` for the points of `table`; an error stops the run, naming `hint`.
+inline void evaluate(DataReader& model, const DataTable& table, const std::string& hint) {
+  try {
+    model.call(table);
+  } catch (const std::exception& error) {
+    logError() << "Error while evaluating a model for" << hint << ":" << std::string(error.what());
+  }
+}
 
 } // namespace seissol::data
 

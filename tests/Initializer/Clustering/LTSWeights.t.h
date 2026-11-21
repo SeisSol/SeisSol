@@ -8,6 +8,7 @@
 #include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Constants.h"
+#include "Core/Geometry/CellToVertexArray.h"
 #include "Core/Geometry/FaceMap.h"
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/Memory/Typedefs.h"
@@ -19,12 +20,13 @@
 #include "Core/TimeStepping/Clustering/VertexWeights/WeightsFactory.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/WeightsModels.h"
 #include "Core/TimeStepping/Layout/GlobalTimestep.h"
-#include "Simulation/ParameterDB.h"
 #include "Simulation/Parameters/LtsParameters.h"
 #include "Simulation/Parameters/MeshParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
+#include "Simulation/Reader/ReaderBuilder.h"
 #include "Simulation/SeisSol.h"
 #include "TestHelper.h"
+#include "WavePropagation/Setup/Timesteps.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -39,6 +41,18 @@
 #include <vector>
 
 namespace seissol::unit_test {
+
+namespace {
+
+/// The time steps of the cells with the materials of `parameters`, as the run computes them.
+seissol::initializer::TimestepFunction
+    materialTimesteps(const seissol::initializer::parameters::SeisSolParameters& parameters) {
+  return [&parameters](const seissol::initializer::CellToVertexArray& cells) {
+    return seissol::initializer::computeTimesteps(cells, parameters, data::modelLoader());
+  };
+}
+
+} // namespace
 
 TEST_CASE("LTS Weights" * doctest::test_suite("initializer")) {
   std::cout.setstate(std::ios_base::failbit);
@@ -74,7 +88,7 @@ TEST_CASE("LTS Weights" * doctest::test_suite("initializer")) {
   const seissol::SystemInfo systemInfo;
   seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
-  Clustering clustering(config, seissolInstance);
+  Clustering clustering(config, seissolInstance, materialTimesteps(seissolInstance.parameters()));
   ExponentialWeights weightModel;
   const auto pumlReader =
       seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
@@ -132,7 +146,7 @@ TEST_CASE("The cost of a cell follows its configuration" * doctest::test_suite("
     const seissol::SystemInfo systemInfo;
     seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
-    Clustering clustering(config, seissolInstance);
+    Clustering clustering(config, seissolInstance, materialTimesteps(seissolInstance.parameters()));
     ExponentialWeights weightModel;
     const auto pumlReader =
         seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
@@ -212,7 +226,7 @@ TEST_CASE("The LTS clustering sees the vertex order of the simulation" *
     const seissol::SystemInfo systemInfo;
     seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
-    Clustering clustering(config, seissolInstance);
+    Clustering clustering(config, seissolInstance, materialTimesteps(seissolInstance.parameters()));
     ExponentialWeights weightModel;
     const auto pumlReader =
         seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
@@ -222,8 +236,8 @@ TEST_CASE("The LTS clustering sees the vertex order of the simulation" *
                                       seissol::initializer::parameters::TopologyFormat::Geometric,
                                       &clustering,
                                       &weightModel);
-    const auto recomputed =
-        computeTimesteps(CellToVertexArray::fromMeshReader(pumlReader), seissolParameters);
+    const auto recomputed = computeTimesteps(
+        CellToVertexArray::fromMeshReader(pumlReader), seissolParameters, data::modelLoader());
     std::cout.clear();
 
     const auto& elements = pumlReader.getElements();
@@ -271,7 +285,7 @@ TEST_CASE("A cell takes the smallest time step of the materials of the simulatio
     const seissol::SystemInfo systemInfo;
     seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
-    Clustering clustering(config, seissolInstance);
+    Clustering clustering(config, seissolInstance, materialTimesteps(seissolInstance.parameters()));
     ExponentialWeights weightModel;
     const auto pumlReader =
         seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
@@ -281,7 +295,9 @@ TEST_CASE("A cell takes the smallest time step of the materials of the simulatio
                                       seissol::initializer::parameters::TopologyFormat::Geometric,
                                       &clustering,
                                       &weightModel);
-    return computeTimesteps(CellToVertexArray::fromMeshReader(pumlReader), seissolParameters)
+    return computeTimesteps(CellToVertexArray::fromMeshReader(pumlReader),
+                            seissolParameters,
+                            data::modelLoader())
         .cellTimeStepWidths;
   };
 
@@ -538,7 +554,7 @@ TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializ
   const seissol::SystemInfo systemInfo;
   seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
-  Clustering clustering(config, seissolInstance);
+  Clustering clustering(config, seissolInstance, materialTimesteps(seissolInstance.parameters()));
   ExponentialWeights weightModel;
   const auto pumlReader =
       seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),

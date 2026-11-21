@@ -15,6 +15,9 @@ add_library(seissol-wavepropagation OBJECT
     Physics/poroelastic/Datastructures.cpp
     Setup/BoundaryMappings.cpp
     Setup/CellLocalMatrices.cpp
+    Setup/DirichletCondition.cpp
+    Setup/MaterialParameterDB.cpp
+    Setup/Timesteps.cpp
     Solver/ConfigBoundary.cpp
     Solver/LocalIntegrationRecorder.cpp
     Solver/NeighIntegrationRecorder.cpp

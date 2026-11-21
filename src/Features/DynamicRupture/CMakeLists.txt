@@ -13,6 +13,7 @@ add_library(seissol-dynamicrupture OBJECT
     Output/OutputManager.cpp
     Output/ReceiverBasedOutput.cpp
     Setup/DynamicRuptureMatrices.cpp
+    Setup/FaultParameterDB.cpp
     Setup/Factory.cpp
     Setup/Initializer/BaseDRInitializer.cpp
     Setup/Initializer/ImposedSlipRatesInitializer.cpp

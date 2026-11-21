@@ -14,6 +14,7 @@
 #include "Core/Common/Filesystem.h"
 #include "Core/Common/Json.h"
 #include "Core/Data/DataReader.h"
+#include "Core/Geometry/CellToVertexArray.h"
 #include "Core/Geometry/FaceMap.h"
 #include "Core/Geometry/PointMapper.h"
 #include "Core/Monitoring/FailureReport.h"
@@ -22,7 +23,6 @@
 #include "Features/DynamicRupture/Output/OutputAux.h"
 #include "Features/SourceTerm/Setup/FSRMReader.h"
 #include "Simulation/InitProcedure/Internal/FaceTypeCheck.h"
-#include "Simulation/ParameterDB.h"
 #include "Simulation/Parameters/DRParameters.h"
 #include "Simulation/Parameters/InitializationParameters.h"
 #include "Simulation/Parameters/MeshParameters.h"
@@ -35,6 +35,7 @@
 #include "WavePropagation/Output/ReceiverWriter.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Setup/MaterialParameterDB.h"
 
 #include <Eigen/Core>
 #include <algorithm>

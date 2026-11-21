@@ -23,6 +23,7 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <utils/logger.h>
 #include <vector>
 
@@ -305,8 +306,9 @@ void ThermalPressurizationInitializer::addAdditionalParameters(
 
 RateAndStateThermalPressurizationInitializer::RateAndStateThermalPressurizationInitializer(
     const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-    SeisSol& instance)
-    : RateAndStateInitializer(drParameters, instance),
+    SeisSol& instance,
+    data::ModelLoader models)
+    : RateAndStateInitializer(drParameters, instance, std::move(models)),
       ThermalPressurizationInitializer(drParameters,
                                        RateAndStateInitializer::faultParameterNames_) {}
 
@@ -325,8 +327,9 @@ void RateAndStateThermalPressurizationInitializer::addAdditionalParameters(
 RateAndStateFastVelocityThermalPressurizationInitializer::
     RateAndStateFastVelocityThermalPressurizationInitializer(
         const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-        SeisSol& instance)
-    : RateAndStateFastVelocityInitializer(drParameters, instance),
+        SeisSol& instance,
+        data::ModelLoader models)
+    : RateAndStateFastVelocityInitializer(drParameters, instance, std::move(models)),
       ThermalPressurizationInitializer(drParameters,
                                        RateAndStateFastVelocityInitializer::faultParameterNames_) {}
 
@@ -345,8 +348,9 @@ void RateAndStateFastVelocityThermalPressurizationInitializer::addAdditionalPara
 RateAndStateSevereVelocityThermalPressurizationInitializer::
     RateAndStateSevereVelocityThermalPressurizationInitializer(
         const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-        SeisSol& instance)
-    : RateAndStateSevereVelocityInitializer(drParameters, instance),
+        SeisSol& instance,
+        data::ModelLoader models)
+    : RateAndStateSevereVelocityInitializer(drParameters, instance, std::move(models)),
       ThermalPressurizationInitializer(
           drParameters, RateAndStateSevereVelocityInitializer::faultParameterNames_) {}
 

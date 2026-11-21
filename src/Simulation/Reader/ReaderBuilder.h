@@ -21,6 +21,9 @@ namespace seissol::data {
 std::unique_ptr<DataReader> buildReader(const std::string& path,
                                         const std::vector<std::string>& defaultInArgs);
 
+/// The loader of the models of a run (material, fault and boundary condition files): buildReader.
+ModelLoader modelLoader();
+
 } // namespace seissol::data
 
 #endif // SEISSOL_SRC_SIMULATION_READER_READERBUILDER_H_

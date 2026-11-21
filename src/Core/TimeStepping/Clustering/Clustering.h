@@ -59,7 +59,10 @@ struct ClusteringResult {
 /// turning that into partitioner weights is a separate concern, see VertexWeightModel.
 class Clustering {
   public:
-  Clustering(const ClusteringConfig& config, seissol::SeisSol& seissolInstance);
+  /// `timesteps` computes the time steps of the cells, which the clustering starts from.
+  Clustering(const ClusteringConfig& config,
+             seissol::SeisSol& seissolInstance,
+             TimestepFunction timesteps);
 
   /// The arrays are those PUMLReader::read read with the cells of either mesh. vertexOrders is the
   /// canonical vertex order of every cell, the one the simulation uses later (see
@@ -78,6 +81,7 @@ class Clustering {
                               const geometry::PumlCellArrays& arrays) const;
 
   seissol::SeisSol& seissolInstance_;
+  TimestepFunction timesteps_;
   std::vector<std::uint64_t> rate_;
   std::uint64_t vertexWeightElement_{};
   std::uint64_t vertexWeightDynamicRupture_{};

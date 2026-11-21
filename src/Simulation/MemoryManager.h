@@ -27,7 +27,6 @@
 #include "Core/TimeStepping/Settings.h"
 #include "Features/DynamicRupture/Setup/Factory.h"
 #include "Features/InitialConditions/Physics/InitialField.h"
-#include "Simulation/ParameterDB.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 
 #include <memory>

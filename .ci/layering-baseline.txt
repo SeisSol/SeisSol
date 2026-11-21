@@ -8,16 +8,13 @@
 # The include rule breaks that .ci/layering.py tolerates (rule, includer, included;
 # paths in the target layout). Only ever shrinks: run .ci/layering.py --update after
 # removing rule breaks.
-core-includes-composition Core/Geometry/MeshReader.cpp Simulation/ParameterDB.h
 core-includes-composition Core/Geometry/MeshReader.cpp Simulation/Parameters/DRParameters.h
-core-includes-composition Core/Geometry/MeshReader.cpp Simulation/SeisSol.h
 core-includes-composition Core/Geometry/MeshReader.h Simulation/Parameters/DRParameters.h
 core-includes-composition Core/Geometry/PUMLReader.cpp Simulation/Parameters/MeshParameters.h
 core-includes-composition Core/Geometry/PUMLReader.h Simulation/Parameters/MeshParameters.h
 core-includes-composition Core/IO/Manager.cpp Simulation/SeisSol.h
 core-includes-composition Core/IO/Writer/Module/WriterModule.cpp Simulation/SeisSol.h
 core-includes-composition Core/Memory/Descriptor/DynamicRupture.h Simulation/Parameters/DRParameters.h
-core-includes-composition Core/TimeStepping/Clustering/Clustering.cpp Simulation/ParameterDB.h
 core-includes-composition Core/TimeStepping/Clustering/Clustering.cpp Simulation/Parameters/LtsParameters.h
 core-includes-composition Core/TimeStepping/Clustering/Clustering.cpp Simulation/SeisSol.h
 core-includes-composition Core/TimeStepping/Clustering/GridLadderSearch.cpp Simulation/Parameters/LtsParameters.h
@@ -26,11 +23,6 @@ core-includes-composition Core/TimeStepping/Clustering/VertexWeights/MeasuredWei
 core-includes-composition Core/TimeStepping/Clustering/VertexWeights/WeightsFactory.h Simulation/Parameters/SeisSolParameters.h
 core-includes-composition Core/TimeStepping/Compute/CellCluster.cpp Simulation/MemoryManager.h
 core-includes-composition Core/TimeStepping/Compute/CellCluster.cpp Simulation/SeisSol.h
-core-includes-composition Core/TimeStepping/Layout/GlobalTimestep.cpp Simulation/ParameterDB.h
-core-includes-composition Core/TimeStepping/Layout/GlobalTimestep.cpp Simulation/Parameters/ModelParameters.h
-core-includes-composition Core/TimeStepping/Layout/GlobalTimestep.cpp Simulation/Parameters/SeisSolParameters.h
-core-includes-composition Core/TimeStepping/Layout/GlobalTimestep.cpp Simulation/Parameters/SimulationFiles.h
-core-includes-composition Core/TimeStepping/Layout/GlobalTimestep.h Simulation/ParameterDB.h
 core-includes-composition Core/TimeStepping/TimeManager.cpp Simulation/MemoryManager.h
 core-includes-composition Core/TimeStepping/TimeManager.cpp Simulation/SeisSol.h
 core-includes-composition Core/TimeStepping/TimeManager.h Simulation/MemoryManager.h
@@ -52,7 +44,6 @@ core-includes-feature Core/TimeStepping/TimeManager.h Features/SourceTerm/Solver
 core-includes-feature Core/TimeStepping/TimeManager.h Features/SourceTerm/Typedefs.h
 core-includes-later-core Core/Common/PreProcessorMacros.h Core/Monitoring/Instrumentation.h
 core-includes-later-core Core/Geometry/MeshReader.cpp Core/Parallel/MPI.h
-core-includes-later-core Core/Geometry/MeshReader.cpp Core/TimeStepping/Layout/GlobalTimestep.h
 core-includes-later-core Core/Geometry/PUMLReader.cpp Core/Monitoring/Instrumentation.h
 core-includes-later-core Core/Geometry/PUMLReader.cpp Core/Parallel/MPI.h
 core-includes-later-core Core/Geometry/PUMLReader.cpp Core/TimeStepping/Clustering/Clustering.h
@@ -115,7 +106,6 @@ core-includes-wavepropagation Core/TimeStepping/Compute/CellCluster.h WavePropag
 core-includes-wavepropagation Core/TimeStepping/Compute/CellCluster.h WavePropagation/Solver/ConfigBoundary.h
 core-includes-wavepropagation Core/TimeStepping/Compute/CellCluster.h WavePropagation/Solver/Solver.h
 core-includes-wavepropagation Core/TimeStepping/Compute/CellCluster.h WavePropagation/Solver/TimeCommon.h
-core-includes-wavepropagation Core/TimeStepping/Layout/GlobalTimestep.cpp WavePropagation/Physics/Datastructures.h
 core-includes-wavepropagation Core/TimeStepping/TimeManager.cpp WavePropagation/Output/ReceiverWriter.h
 core-includes-wavepropagation Core/TimeStepping/TimeManager.h WavePropagation/Output/FreeSurfaceIntegrator.h
 core-includes-wavepropagation Core/TimeStepping/TimeManager.h WavePropagation/Output/ReceiverWriter.h
@@ -135,9 +125,7 @@ feature-includes-composition Features/DynamicRupture/Output/ReceiverBasedOutput.
 feature-includes-composition Features/DynamicRupture/Output/ReceiverBasedOutput.h Simulation/Parameters/SeisSolParameters.h
 feature-includes-composition Features/DynamicRupture/Setup/Factory.cpp Simulation/Parameters/DRParameters.h
 feature-includes-composition Features/DynamicRupture/Setup/Initializer/BaseDRInitializer.cpp Simulation/MemoryManager.h
-feature-includes-composition Features/DynamicRupture/Setup/Initializer/BaseDRInitializer.cpp Simulation/ParameterDB.h
 feature-includes-composition Features/DynamicRupture/Setup/Initializer/BaseDRInitializer.cpp Simulation/SeisSol.h
-feature-includes-composition Features/DynamicRupture/Setup/Initializer/BaseDRInitializer.h Simulation/ParameterDB.h
 feature-includes-composition Features/DynamicRupture/Setup/Initializer/BaseDRInitializer.h Simulation/Parameters/SeisSolParameters.h
 feature-includes-composition Features/DynamicRupture/Setup/Initializer/ImposedSlipRatesInitializer.cpp Simulation/SeisSol.h
 feature-includes-composition Features/DynamicRupture/Setup/Initializer/RateAndStateInitializer.cpp Simulation/Parameters/DRParameters.h
@@ -157,7 +145,6 @@ feature-includes-composition Features/InitialConditions/Physics/Scenario/Registr
 feature-includes-composition Features/InitialConditions/Physics/Scenario/Registry.h Simulation/Parameters/SeisSolParameters.h
 feature-includes-composition Features/InitialConditions/Physics/Scenario/Scenarios.cpp Simulation/Parameters/InitializationParameters.h
 feature-includes-composition Features/InitialConditions/Physics/Scenario/Scenarios.h Simulation/Parameters/SeisSolParameters.h
-feature-includes-composition Features/InitialConditions/Setup/InitialFieldProjection.cpp Simulation/ParameterDB.h
 feature-includes-composition Features/InitialConditions/Setup/InitialFieldProjection.cpp Simulation/Parameters/SimulationFiles.h
 feature-includes-composition Features/InitialConditions/Setup/InitialFieldProjection.cpp Simulation/Reader/AsagiReader.h
 feature-includes-composition Features/InitialConditions/Setup/InitialFieldProjection.h Simulation/MemoryManager.h
@@ -195,9 +182,11 @@ wavepropagation-includes-composition WavePropagation/Output/ReceiverWriter.h Sim
 wavepropagation-includes-composition WavePropagation/Physics/CommonDatastructures.h Simulation/Parameters/ModelParameters.h
 wavepropagation-includes-composition WavePropagation/Physics/viscoacoustic/Datastructures.h Simulation/Parameters/ModelParameters.h
 wavepropagation-includes-composition WavePropagation/Physics/viscoelastic/Datastructures.h Simulation/Parameters/ModelParameters.h
-wavepropagation-includes-composition WavePropagation/Setup/BoundaryMappings.cpp Simulation/ParameterDB.h
 wavepropagation-includes-composition WavePropagation/Setup/CellLocalMatrices.cpp Simulation/Parameters/ModelParameters.h
 wavepropagation-includes-composition WavePropagation/Setup/CellLocalMatrices.h Simulation/Parameters/ModelParameters.h
+wavepropagation-includes-composition WavePropagation/Setup/Timesteps.cpp Simulation/Parameters/ModelParameters.h
+wavepropagation-includes-composition WavePropagation/Setup/Timesteps.cpp Simulation/Parameters/SeisSolParameters.h
+wavepropagation-includes-composition WavePropagation/Setup/Timesteps.cpp Simulation/Parameters/SimulationFiles.h
 wavepropagation-includes-feature WavePropagation/Solver/AnalyticalBoundary.h Features/InitialConditions/Physics/InitialField.h
 wavepropagation-includes-feature WavePropagation/Solver/LinearCK/Local.h Features/InitialConditions/Physics/InitialField.h
 wavepropagation-includes-feature WavePropagation/Solver/LinearCKAnelastic/Local.h Features/InitialConditions/Physics/InitialField.h

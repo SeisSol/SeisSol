@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SETUP_FACTORY_H_
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SETUP_FACTORY_H_
 
+#include "Core/Data/DataReader.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Features/DynamicRupture/Output/Output.h"
 #include "Features/DynamicRupture/Setup/Initializer/Initializers.h"
@@ -39,18 +40,23 @@ class AbstractFactory {
   protected:
   std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters_;
   seissol::SeisSol& seissolInstance_;
+  data::ModelLoader models_;
 
   public:
+  /// `models` opens the fault parameter files.
   AbstractFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters,
-                  seissol::SeisSol& seissolInstance)
-      : drParameters_(std::move(drParameters)), seissolInstance_(seissolInstance) {};
+                  seissol::SeisSol& seissolInstance,
+                  data::ModelLoader models)
+      : drParameters_(std::move(drParameters)), seissolInstance_(seissolInstance),
+        models_(std::move(models)) {};
   virtual ~AbstractFactory() = default;
   virtual DynamicRuptureTuple produce() = 0;
 };
 
 std::unique_ptr<seissol::dr::factory::AbstractFactory>
     getFactory(const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-               seissol::SeisSol& seissolInstance);
+               seissol::SeisSol& seissolInstance,
+               const data::ModelLoader& models);
 
 } // namespace dr::factory
 } // namespace seissol

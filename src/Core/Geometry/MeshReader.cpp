@@ -11,12 +11,9 @@
 #include "Core/Common/Constants.h"
 #include "Core/Common/Iterator.h"
 #include "Core/Parallel/MPI.h"
-#include "Core/TimeStepping/Layout/GlobalTimestep.h"
 #include "MeshDefinition.h"
 #include "MeshTools.h"
-#include "Simulation/ParameterDB.h"
 #include "Simulation/Parameters/DRParameters.h"
-#include "Simulation/SeisSol.h"
 
 #include <Eigen/Core>
 #include <PUML/TypeInference.h>
@@ -363,17 +360,12 @@ void MeshReader::linearizeGhostlayer() {
   }
 }
 
-void MeshReader::computeTimestepIfNecessary(const seissol::SeisSol& seissolInstance) {
-  if (!inlineTimestepCompute()) {
-    const auto ctvarray = seissol::initializer::CellToVertexArray::fromMeshReader(*this);
-    const auto timesteps =
-        seissol::initializer::computeTimesteps(ctvarray, seissolInstance.parameters());
-    for (auto [cell, timestep] : seissol::common::zip(elements_, timesteps.cellTimeStepWidths)) {
-      cell.timestep = timestep;
+void MeshReader::setTimesteps(const std::vector<double>& cellTimesteps) {
+  for (auto [cell, timestep] : seissol::common::zip(elements_, cellTimesteps)) {
+    cell.timestep = timestep;
 
-      // enforce GTS in the case here
-      cell.clusterId = 0;
-    }
+    // enforce GTS in the case here
+    cell.clusterId = 0;
   }
 }
 

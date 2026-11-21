@@ -33,4 +33,6 @@ std::unique_ptr<DataReader> buildReader(const std::string& path,
   return std::make_unique<EasiReader>(fileOf(path), defaultInArgs);
 }
 
+ModelLoader modelLoader() { return &buildReader; }
+
 } // namespace seissol::data

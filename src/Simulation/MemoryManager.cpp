@@ -25,6 +25,7 @@
 #include "Features/DynamicRupture/Setup/Factory.h"
 #include "Simulation/Parameters/DRParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
+#include "Simulation/Reader/ReaderBuilder.h"
 #include "Simulation/SeisSol.h"
 
 #include <memory>
@@ -63,7 +64,8 @@ void MemoryManager::initializeFrictionLaw() {
             << static_cast<int>(drParameters->frictionLawType) << ")";
   logInfo() << "Thermal pressurization:" << (drParameters->isThermalPressureOn ? "on" : "off");
 
-  const auto factory = seissol::dr::factory::getFactory(drParameters, seissolInstance_);
+  const auto factory = seissol::dr::factory::getFactory(
+      drParameters, seissolInstance_, seissol::data::modelLoader());
   auto product = factory->produce();
   dynRup_ = std::move(product.storage);
   drInitializer_ = std::move(product.initializer);

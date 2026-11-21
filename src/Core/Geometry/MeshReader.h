@@ -18,10 +18,6 @@
 #include <unordered_map>
 #include <vector>
 
-namespace seissol {
-class SeisSol;
-} // namespace seissol
-
 namespace seissol::geometry {
 
 constexpr bool isCopy(const Element& element, int rank) {
@@ -96,7 +92,9 @@ class MeshReader {
 
   void displaceMesh(const Eigen::Vector3d& displacement);
 
-  void computeTimestepIfNecessary(const seissol::SeisSol& seissolInstance);
+  /// Sets the time steps of the cells, for a reader that does not compute them while reading (see
+  /// inlineTimestepCompute()); the cells all go into cluster 0 then (global time stepping).
+  void setTimesteps(const std::vector<double>& cellTimesteps);
 
   // scalingMatrix is stored column-major, i.e.
   // scalingMatrix_ij = scalingMatrix[j][i]

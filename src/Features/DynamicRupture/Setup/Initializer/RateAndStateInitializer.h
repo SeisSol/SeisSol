@@ -196,7 +196,8 @@ class RateAndStateThermalPressurizationInitializer : public RateAndStateInitiali
   public:
   RateAndStateThermalPressurizationInitializer(
       const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-      SeisSol& instance);
+      SeisSol& instance,
+      data::ModelLoader models);
 
   /**
    * Intializes temperature and pressure and sets compute grid to 0
@@ -221,7 +222,8 @@ class RateAndStateFastVelocityThermalPressurizationInitializer
   public:
   RateAndStateFastVelocityThermalPressurizationInitializer(
       const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-      SeisSol& instance);
+      SeisSol& instance,
+      data::ModelLoader models);
 
   /**
    * Intializes temperature and pressure and sets compute grid to 0
@@ -246,7 +248,8 @@ class RateAndStateSevereVelocityThermalPressurizationInitializer
   public:
   RateAndStateSevereVelocityThermalPressurizationInitializer(
       const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-      SeisSol& instance);
+      SeisSol& instance,
+      data::ModelLoader models);
 
   /**
    * Intializes temperature and pressure and sets compute grid to 0

@@ -12,6 +12,8 @@
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/ConfigValue.h"
 #include "Core/Common/Constants.h"
+#include "Core/Geometry/CellToVertexArray.h"
+#include "Core/Geometry/QueryGenerator.h"
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Backmap.h"
@@ -26,6 +28,7 @@
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Features/DynamicRupture/Setup/DynamicRuptureMatrices.h"
 #include "Features/Plasticity/Physics/Plasticity.h"
+#include "Features/Plasticity/Setup/PlasticityPointGenerator.h"
 #include "Features/Plasticity/Solver/Storage.h"
 #include "Features/TimeMirror/Solver/InstantaneousTimeMirrorManager.h"
 #include "GeneratedCode/init.h"
@@ -35,10 +38,10 @@
 #include "Simulation/InitProcedure/Internal/Recording.h"
 #include "Simulation/InitProcedure/Internal/Scratchpads.h"
 #include "Simulation/MemoryManager.h"
-#include "Simulation/ParameterDB.h"
 #include "Simulation/Parameters/ModelParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "Simulation/Parameters/SimulationFiles.h"
+#include "Simulation/Reader/ReaderBuilder.h"
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h"
@@ -46,6 +49,8 @@
 #include "WavePropagation/Physics/EnergyBase.h"
 #include "WavePropagation/Setup/BoundaryMappings.h"
 #include "WavePropagation/Setup/CellLocalMatrices.h"
+#include "WavePropagation/Setup/DirichletCondition.h"
+#include "WavePropagation/Setup/MaterialParameterDB.h"
 
 #include <array>
 #include <cstddef>
@@ -95,7 +100,7 @@ std::vector<T> queryDB(const std::shared_ptr<seissol::initializer::QueryGenerato
   std::vector<T> vectorDB;
   seissol::initializer::MaterialParameterDB<T> parameterDB;
   parameterDB.setMaterialVector(&vectorDB);
-  parameterDB.evaluateModel(fileName, *queryGen);
+  parameterDB.evaluate(*seissol::data::buildReader(fileName, {"x", "y", "z"}), *queryGen);
   return vectorDB;
 }
 
@@ -323,7 +328,8 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   std::vector<std::optional<DirichletCondition>> dirichletConditions(boundaryFiles.files.size());
   for (std::size_t i = 0; i < boundaryFiles.files.size(); ++i) {
     if (!boundaryFiles.files[i].empty()) {
-      dirichletConditions[i] = DirichletCondition(boundaryFiles.files[i]);
+      dirichletConditions[i] =
+          DirichletCondition(seissol::data::buildReader(boundaryFiles.files[i], {"x", "y", "z"}));
     }
   }
 

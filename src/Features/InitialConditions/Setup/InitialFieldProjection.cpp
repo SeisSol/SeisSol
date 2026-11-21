@@ -25,7 +25,6 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "Simulation/ParameterDB.h"
 #include "Simulation/Parameters/SimulationFiles.h"
 #include "WavePropagation/Physics/Datastructures.h"
 

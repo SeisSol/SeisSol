@@ -16,6 +16,7 @@
 // may depend on the order in which a cell lists its vertices.
 
 #include "Core/Common/CompactOptional.h"
+#include "Core/Geometry/CellToVertexArray.h"
 #include "Core/Geometry/FaceMap.h"
 #include "Core/Geometry/MeshDefinition.h"
 #include "Core/Geometry/PUMLReader.h"
@@ -27,8 +28,10 @@
 #include "Simulation/Parameters/LtsParameters.h"
 #include "Simulation/Parameters/MeshParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
+#include "Simulation/Reader/ReaderBuilder.h"
 #include "Simulation/SeisSol.h"
 #include "TestHelper.h"
+#include "WavePropagation/Setup/Timesteps.h"
 
 #include <PUML/PUML.h>
 #include <PUML/PartitionGraph.h>
@@ -64,7 +67,12 @@ inline std::unique_ptr<seissol::geometry::PUMLReader> readMesh(const std::string
                                 .vertexWeightFreeSurfaceWithGravity = 1,
                                 .faceMap = &FaceMap,
                                 .configCostFactors = {}};
-  Clustering clustering(config, seissolInstance);
+  Clustering clustering(
+      config,
+      seissolInstance,
+      [&parameters = seissolInstance.parameters()](const CellToVertexArray& cells) {
+        return computeTimesteps(cells, parameters, seissol::data::modelLoader());
+      });
   ExponentialWeights weightModel;
   return std::make_unique<seissol::geometry::PUMLReader>(
       tpath(file),

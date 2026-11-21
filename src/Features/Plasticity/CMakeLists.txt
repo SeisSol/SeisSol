@@ -6,6 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-plasticity OBJECT
+    Setup/PlasticityPointGenerator.cpp
     Solver/Plasticity.cpp
     Solver/PlasticityRecorder.cpp
 )

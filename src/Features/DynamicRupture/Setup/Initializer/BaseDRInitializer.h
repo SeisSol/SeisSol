@@ -10,11 +10,13 @@
 
 #include "Core/Common/InputAux.h"
 #include "Core/Common/Real.h"
+#include "Core/Data/DataReader.h"
+#include "Features/DynamicRupture/Setup/FaultParameterDB.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
-#include "Simulation/ParameterDB.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "WavePropagation/Physics/MaterialType.h"
 
+#include <utility>
 #include <yaml-cpp/yaml.h>
 
 namespace seissol {
@@ -35,6 +37,11 @@ class BaseDRInitializer {
   std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters_;
 
   /**
+   * opens the fault parameter files
+   */
+  data::ModelLoader models_;
+
+  /**
    * Set which contains all parameteres, which are provided by easi for the fault
    */
   std::set<std::string> faultParameterNames_;
@@ -48,12 +55,15 @@ class BaseDRInitializer {
   /**
    * @param drParameters reference to the DRParameters, which contain all information from the
    * DynamicRupture namelist in the parameters.par file
+   * @param models opens the fault parameter files
    */
   BaseDRInitializer(
       const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-      seissol::SeisSol& seissolInstance)
-      : seissolInstance_(seissolInstance), drParameters_(drParameters),
-        faultParameterNames_(seissol::initializer::faultProvides(drParameters->faultFileName)) {};
+      seissol::SeisSol& seissolInstance,
+      data::ModelLoader models)
+      : seissolInstance_(seissolInstance), drParameters_(drParameters), models_(std::move(models)),
+        faultParameterNames_(
+            seissol::initializer::faultProvides(models_, drParameters->faultFileName)) {};
 
   virtual ~BaseDRInitializer() = default;
 

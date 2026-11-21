@@ -24,7 +24,6 @@ add_library(seissol-simulation OBJECT
     InitProcedure/Internal/Recording.cpp
     InitProcedure/Internal/Scratchpads.cpp
     MemoryManager.cpp
-    ParameterDB.cpp
     Parameters/CubeGeneratorParameters.cpp
     Parameters/DRParameters.cpp
     Parameters/InitializationParameters.cpp

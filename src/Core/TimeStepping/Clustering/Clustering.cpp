@@ -11,6 +11,7 @@
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Constants.h"
+#include "Core/Geometry/CellToVertexArray.h"
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/TimeStepping/Clustering/ClusterLadder.h"
 #include "Core/TimeStepping/Clustering/ClusterSmoother.h"
@@ -20,7 +21,6 @@
 #include "Core/TimeStepping/Clustering/LadderSearch.h"
 #include "Core/TimeStepping/Clustering/LatticeDpSearch.h"
 #include "Core/TimeStepping/Layout/GlobalTimestep.h"
-#include "Simulation/ParameterDB.h"
 #include "Simulation/Parameters/LtsParameters.h"
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Physics/Datastructures.h"
@@ -39,8 +39,10 @@
 
 namespace seissol::initializer {
 
-Clustering::Clustering(const ClusteringConfig& config, seissol::SeisSol& seissolInstance)
-    : seissolInstance_(seissolInstance), rate_(config.rate),
+Clustering::Clustering(const ClusteringConfig& config,
+                       seissol::SeisSol& seissolInstance,
+                       TimestepFunction timesteps)
+    : seissolInstance_(seissolInstance), timesteps_(std::move(timesteps)), rate_(config.rate),
       vertexWeightElement_(config.vertexWeightElement),
       vertexWeightDynamicRupture_(config.vertexWeightDynamicRupture),
       vertexWeightFreeSurfaceWithGravity_(config.vertexWeightFreeSurfaceWithGravity),
@@ -71,8 +73,7 @@ const ClusteringResult&
   logInfo() << "Computing LTS weights.";
 
   auto details =
-      computeTimesteps(CellToVertexArray::fromPUML(meshGeometry, geometryArrays, vertexOrders),
-                       seissolInstance_.parameters());
+      timesteps_(CellToVertexArray::fromPUML(meshGeometry, geometryArrays, vertexOrders));
   auto cellCosts = computeCostsPerTimestep(meshTopology, topologyArrays);
 
   const auto& ltsParameters = seissolInstance_.parameters().timeStepping.lts;
