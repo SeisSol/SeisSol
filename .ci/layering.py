@@ -73,6 +73,7 @@ LICENSE_HEADER = (
 # the units of the core, from the bottom; a unit may include itself and the units before it
 CORE_ORDER = (
     ("src", "Core/Common"),
+    ("Core/Data",),
     ("Core/Geometry",),
     ("Core/Numerical",),
     ("Core/Parallel",),

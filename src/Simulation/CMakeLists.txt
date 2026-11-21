@@ -40,6 +40,8 @@ add_library(seissol-simulation OBJECT
     PreflightMesh.cpp
     Reader/AsagiModule.cpp
     Reader/AsagiReader.cpp
+    Reader/EasiReader.cpp
+    Reader/ReaderBuilder.cpp
     Simulator.cpp
 )
 

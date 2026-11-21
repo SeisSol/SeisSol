@@ -123,6 +123,11 @@ LAYOUT = [
     ("Initializer/ParameterDB.", f"{SIM}/ParameterDB."),
     ("Initializer/Preflight", f"{SIM}/Preflight"),
     ("Reader/", f"{SIM}/Reader/"),
+    # the data table and the easi reader of davschneller/easi-analytic, for a replay there
+    ("Reader/Scripting/DataTable.", "Core/Data/DataTable."),
+    ("Reader/Scripting/DataReader.", "Core/Data/DataReader."),
+    ("Reader/Scripting/EasiReader.", f"{SIM}/Reader/EasiReader."),
+    ("Reader/Scripting/ReaderBuilder.", f"{SIM}/Reader/ReaderBuilder."),
     ("SeisSol.", f"{SIM}/SeisSol."),
     ("Solver/Simulator.", f"{SIM}/Simulator."),
     ("Solver/Estimator.", f"{SIM}/Estimator."),

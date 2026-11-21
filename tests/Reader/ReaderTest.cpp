@@ -7,6 +7,8 @@
 
 #include <doctest.h>
 
+#include "DataTable.t.h"
+#include "EasiReader.t.h"
 #include "FSRMReader.t.h"
 
 #ifdef USE_NETCDF
