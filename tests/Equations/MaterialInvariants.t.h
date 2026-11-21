@@ -6,12 +6,12 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Config.h"
-#include "Equations/Datastructures.h"
 #include "GeneratedCode/quantities.h"
 #include "GeneratedCode/tensor.h"
-#include "Kernels/SolverSelector.h"
-#include "Model/Quantities.h"
 #include "TestConfigs.h"
+#include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Physics/Quantities.h"
+#include "WavePropagation/Solver/SolverSelector.h"
 
 #include <cstddef>
 

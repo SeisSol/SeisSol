@@ -1,0 +1,48 @@
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+// SPDX-FileCopyrightText: 2023 Intel Corporation
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include "PointSourceClusterOnDevice.h"
+
+#include "Config.h"
+#include "Core/Parallel/Runtime/Stream.h"
+#include "Features/SourceTerm/Solver/PointSourceCluster.h"
+#include "Features/SourceTerm/Typedefs.h"
+
+#include <cstddef>
+#include <memory>
+#include <utility>
+
+namespace seissol::kernels {
+
+template <typename Cfg>
+PointSourceClusterOnDevice<Cfg>::PointSourceClusterOnDevice(
+    std::shared_ptr<sourceterm::ClusterMapping> mapping,
+    std::shared_ptr<sourceterm::PointSources<Cfg>> sources)
+    : clusterMapping_(std::move(mapping)), sources_(std::move(sources)) {}
+
+template <typename Cfg>
+std::size_t PointSourceClusterOnDevice<Cfg>::size() const {
+  return sources_->numberOfSources;
+}
+
+template <typename Cfg>
+void PointSourceClusterOnDevice<Cfg>::addTimeIntegratedPointSources(
+    double from, double timeStepSize, seissol::parallel::runtime::StreamRuntime& runtime) {
+  pointSourceKernel<Cfg>(*clusterMapping_, *sources_, from, timeStepSize, clock_, runtime);
+}
+
+template <typename Cfg>
+void PointSourceClusterOnDevice<Cfg>::setClock(const double* deviceClock) {
+  clock_ = deviceClock;
+}
+
+#define SEISSOL_INSTANTIATE(Cfg) template class PointSourceClusterOnDevice<Cfg>;
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
+
+} // namespace seissol::kernels

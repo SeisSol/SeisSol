@@ -18,8 +18,8 @@
 #include "Config.h"
 #include "Core/Common/ConfigValue.h"
 #include "Core/Common/Typedefs.h"
-#include "Equations/Datastructures.h"
-#include "Model/MaterialType.h"
+#include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Physics/MaterialType.h"
 
 #include <string>
 #include <tuple>

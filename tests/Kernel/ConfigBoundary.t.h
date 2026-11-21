@@ -8,28 +8,28 @@
 #include <doctest.h>
 
 #include "Alignment.h"
+#include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/ConfigValue.h"
 #include "Core/Common/Constants.h"
+#include "Core/Common/MultipleSimulations.h"
 #include "Core/Common/Real.h"
-#include "Equations/Datastructures.h"
+#include "Core/Memory/CellLocalInformation.h"
+#include "Core/Memory/LtsSetup.h"
 #include "GeneratedCode/configboundary.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include "Initializer/BasicTypedefs.h"
-#include "Initializer/CellLocalInformation.h"
-#include "Initializer/LtsSetup.h"
-#include "Kernels/ConfigBoundary.h"
-#include "Solver/MultipleSimulations.h"
+#include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Solver/ConfigBoundary.h"
 
 #ifdef ACL_DEVICE
+#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Core/Memory/GlobalData.h"
 #include "Core/Memory/MemoryAllocator.h"
+#include "Core/Memory/Typedefs.h"
 #include "Core/Parallel/Runtime/Stream.h"
-#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
-#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
-#include "Initializer/Typedefs.h"
 
 #include <Device/device.h>
 #endif

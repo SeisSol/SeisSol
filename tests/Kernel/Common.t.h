@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Kernels/Common.h"
+#include "Core/Kernels/Common.h"
 
 namespace seissol::unit_test {
 using namespace seissol::kernels;

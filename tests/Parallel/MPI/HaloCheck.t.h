@@ -12,9 +12,9 @@
 
 #include "Core/Common/Real.h"
 #include "Core/Parallel/MPI.h"
-#include "Solver/TimeStepping/Halo/HaloCheck.h"
-#include "Solver/TimeStepping/Halo/HaloCommunication.h"
-#include "Solver/TimeStepping/Halo/Mpi/MpiHaloTransport.h"
+#include "Core/TimeStepping/Halo/HaloCheck.h"
+#include "Core/TimeStepping/Halo/HaloCommunication.h"
+#include "Core/TimeStepping/Halo/Mpi/MpiHaloTransport.h"
 
 #include <algorithm>
 #include <array>

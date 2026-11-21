@@ -7,16 +7,16 @@
 
 #include "MeshReader.h"
 
+#include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/Iterator.h"
 #include "Core/Parallel/MPI.h"
-#include "Initializer/BasicTypedefs.h"
-#include "Initializer/ParameterDB.h"
-#include "Initializer/Parameters/DRParameters.h"
-#include "Initializer/TimeStepping/GlobalTimestep.h"
+#include "Core/TimeStepping/Layout/GlobalTimestep.h"
 #include "MeshDefinition.h"
 #include "MeshTools.h"
-#include "SeisSol.h"
+#include "Simulation/ParameterDB.h"
+#include "Simulation/Parameters/DRParameters.h"
+#include "Simulation/SeisSol.h"
 
 #include <Eigen/Core>
 #include <PUML/TypeInference.h>

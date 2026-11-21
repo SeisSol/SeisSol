@@ -1,0 +1,157 @@
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_SIMULATION_ENERGYOUTPUT_H_
+#define SEISSOL_SRC_SIMULATION_ENERGYOUTPUT_H_
+
+#include "Core/Common/MultipleSimulations.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/IO/Instance/Point/Csv.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/HostData.h"
+#include "Core/Memory/MemoryAllocator.h"
+#include "Core/Memory/Typedefs.h"
+#include "Core/Modules/Module.h"
+#include "Core/Modules/Modules.h"
+#include "Core/Monitoring/Unit.h"
+#include "Core/Parallel/Runtime/Stream.h"
+#include "Simulation/Parameters/SeisSolParameters.h"
+#include "WavePropagation/Physics/Energy.h"
+
+#include <array>
+#include <iostream>
+#include <map>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
+
+namespace seissol {
+class SeisSol;
+namespace writer {
+
+/// Resolves an EnergyUnit to the SIUnit used for formatting.
+const SIUnit& siUnit(model::EnergyUnit unit);
+
+class EnergiesStorage {
+  public:
+  void setSimcount(size_t count);
+
+  /// Registers an energy. Registering the same name twice is a programming
+  /// error and aborts; so is an empty name.
+  size_t addEnergy(const model::EnergyDescriptor& descriptor);
+
+  double& energy(size_t handle, size_t sim);
+
+  [[nodiscard]] double energy(size_t handle, size_t sim) const;
+
+  double& energy(std::string_view name, size_t sim);
+
+  [[nodiscard]] double energy(std::string_view name, size_t sim) const;
+
+  [[nodiscard]] bool has(std::string_view name) const;
+
+  [[nodiscard]] const std::vector<model::EnergyDescriptor>& descriptors() const;
+
+  std::vector<double>& values();
+
+  void reset();
+
+  private:
+  [[nodiscard]] size_t handleOf(std::string_view name) const;
+
+  std::size_t simcount_{1};
+  std::vector<double> values_;
+  std::vector<model::EnergyDescriptor> descriptors_;
+  std::map<std::string, size_t, std::less<>> handles_;
+};
+
+class EnergyOutput : public Module {
+  public:
+  void init(const DynamicRupture::Storage& newDynRuptTree,
+            const seissol::geometry::MeshReader& newMeshReader,
+            const LTS::Storage& newStorage,
+            bool newIsPlasticityEnabled,
+            const std::string& outputFileNamePrefix,
+            const seissol::initializer::parameters::EnergyOutputParameters& parameters);
+
+  void processSyncPoint(double time) override;
+
+  [[nodiscard]] initializer::HostData hostData() const override { return hostData_; }
+
+  /// The energies come from the host copies of the data; an abort they ask for takes effect once
+  /// all ranks have processed the same synchronization points (see Simulator::abort()).
+  [[nodiscard]] bool processesAsynchronously() const override { return true; }
+
+  void simulationStart(std::optional<double> checkpointTime) override;
+
+  explicit EnergyOutput(seissol::SeisSol& seissolInstance) : seissolInstance_(seissolInstance) {}
+
+  ~EnergyOutput() override;
+
+  auto operator=(const EnergyOutput&) = delete;
+  auto operator=(EnergyOutput&&) = delete;
+  EnergyOutput(const EnergyOutput&) = delete;
+  EnergyOutput(EnergyOutput&&) = delete;
+
+  private:
+  void computeDynamicRuptureEnergies();
+
+  void computeVolumeEnergies();
+
+  void computeEnergies();
+
+  void reduceEnergies();
+
+  void reduceMinTimeSinceSlipRateBelowThreshold();
+
+  void printEnergies();
+
+  void checkAbortCriterion(const std::vector<double>& timeSinceThreshold,
+                           const std::string& prefixMessage);
+
+  void writeEnergies(double time);
+
+  seissol::SeisSol& seissolInstance_;
+
+  [[nodiscard]] bool shouldComputeVolumeEnergies() const;
+
+  bool isEnabled_ = false;
+  bool isTerminalOutputEnabled_ = false;
+  bool isFileOutputEnabled_ = false;
+  bool isPlasticityEnabled_ = false;
+  bool isCheckAbortCriteraSlipRateEnabled_ = false;
+  bool isCheckAbortCriteraMomentRateEnabled_ = false;
+  int computeVolumeEnergiesEveryOutput_ = 1;
+  int outputId_ = 0;
+
+  std::string outputFileName_;
+  //! The energies of every output, held by the rank that writes them.
+  std::optional<io::instance::point::Csv> table_;
+
+  const DynamicRupture::Storage* drStorage_ = nullptr;
+  const seissol::geometry::MeshReader* meshReader_ = nullptr;
+  const LTS::Storage* ltsStorage_ = nullptr;
+  //! what the energies get computed from
+  initializer::HostData hostData_;
+
+  //! The fused simulations of the run: the most that one of its configurations has.
+  std::size_t simulationCount_{1};
+  EnergiesStorage energiesStorage_{};
+  std::vector<double> minTimeSinceSlipRateBelowThreshold_;
+  std::vector<double> minTimeSinceMomentRateBelowThreshold_;
+  double terminatorMaxTimePostRupture_{};
+  double energyOutputInterval_{};
+  double terminatorMomentRateThreshold_{};
+  std::vector<double> seismicMomentPrevious_;
+};
+
+} // namespace writer
+} // namespace seissol
+
+#endif // SEISSOL_SRC_SIMULATION_ENERGYOUTPUT_H_

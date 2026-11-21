@@ -21,7 +21,7 @@ else()
 endif()
 
 target_sources(seissol-lib PRIVATE
-SeisSol.cpp
+Simulation/SeisSol.cpp
 )
 target_link_libraries(seissol-lib PUBLIC seissol-config)
 
@@ -31,40 +31,30 @@ target_link_libraries(seissol-lib PUBLIC seissol-config)
 # stp takes the local and neighbor kernels of linearck
 if ("linearck" IN_LIST SEISSOL_SOLVERS_USED OR "stp" IN_LIST SEISSOL_SOLVERS_USED)
   target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Local.cpp
-    Kernels/LinearCK/Neighbor.cpp
+    WavePropagation/Solver/LinearCK/Local.cpp
+    WavePropagation/Solver/LinearCK/Neighbor.cpp
     )
 endif()
 if ("linearck" IN_LIST SEISSOL_SOLVERS_USED)
   target_sources(seissol-lib PRIVATE
-    Kernels/LinearCK/Time.cpp
+    WavePropagation/Solver/LinearCK/Time.cpp
     )
   target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCK)
 endif()
 if ("linearckanelastic" IN_LIST SEISSOL_SOLVERS_USED)
   target_sources(seissol-lib PRIVATE
-    Kernels/LinearCKAnelastic/Neighbor.cpp
-    Kernels/LinearCKAnelastic/Local.cpp
-    Kernels/LinearCKAnelastic/Time.cpp
+    WavePropagation/Solver/LinearCKAnelastic/Neighbor.cpp
+    WavePropagation/Solver/LinearCKAnelastic/Local.cpp
+    WavePropagation/Solver/LinearCKAnelastic/Time.cpp
     )
   target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCKANELASTIC)
 endif()
 if ("stp" IN_LIST SEISSOL_SOLVERS_USED)
   target_sources(seissol-lib PRIVATE
-    Kernels/STP/Time.cpp
+    WavePropagation/Solver/STP/Time.cpp
     )
   target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_STP)
 endif()
-
-# the material headers of the equation of the first configuration
-if ("${EQUATIONS}" STREQUAL "elastic" OR "${EQUATIONS}" STREQUAL "acoustic" OR "${EQUATIONS}" STREQUAL "anisotropic")
-  target_include_directories(seissol-common-properties INTERFACE Equations/elastic)
-elseif ("${EQUATIONS}" STREQUAL "viscoelastic" OR "${EQUATIONS}" STREQUAL "viscoacoustic")
-  target_include_directories(seissol-common-properties INTERFACE Equations/viscoelastic)
-elseif ("${EQUATIONS}" STREQUAL "poroelastic")
-  target_include_directories(seissol-common-properties INTERFACE Equations/poroelastic)
-endif()
-
 
 # GPU code
 if (WITH_GPU)
@@ -73,24 +63,24 @@ if (WITH_GPU)
     set(DEVICE_SRC ${DEVICE_SRC}
       ${SEISSOL_CODEGEN_DEVICE}
       Core/Common/TypeId.cpp
-      Kernels/DeviceAux/cudahip/ClockAux.cpp
-      Kernels/DeviceAux/cudahip/GatherAux.cpp
-      Kernels/DeviceAux/cudahip/HostCopyAux.cpp
-      Kernels/DeviceAux/cudahip/PlasticityAux.cpp
-      Kernels/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
-      DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
-      Kernels/PointSourceClusterCudaHip.cpp)
+      Core/Kernels/DeviceAux/cudahip/ClockAux.cpp
+      Core/Kernels/DeviceAux/cudahip/GatherAux.cpp
+      Core/Kernels/DeviceAux/cudahip/HostCopyAux.cpp
+      Features/Plasticity/Solver/DeviceAux/cudahip/PlasticityAux.cpp
+      WavePropagation/Solver/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
+      Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
+      Features/SourceTerm/Solver/PointSourceClusterCudaHip.cpp)
   elseif ("${DEVICE_BACKEND}" STREQUAL "hipsycl" OR "${DEVICE_BACKEND}" STREQUAL "acpp" OR "${DEVICE_BACKEND}" STREQUAL "oneapi")
     set(DEVICE_SRC ${DEVICE_SRC}
           ${SEISSOL_CODEGEN_DEVICE}
           Core/Common/TypeId.cpp
-          Kernels/DeviceAux/sycl/ClockAux.cpp
-          Kernels/DeviceAux/sycl/GatherAux.cpp
-          Kernels/DeviceAux/sycl/HostCopyAux.cpp
-          Kernels/DeviceAux/sycl/PlasticityAux.cpp
-          Kernels/LinearCK/DeviceAux/sycl/KernelsAux.cpp
-          DynamicRupture/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp
-          Kernels/PointSourceClusterSycl.cpp)
+          Core/Kernels/DeviceAux/sycl/ClockAux.cpp
+          Core/Kernels/DeviceAux/sycl/GatherAux.cpp
+          Core/Kernels/DeviceAux/sycl/HostCopyAux.cpp
+          Features/Plasticity/Solver/DeviceAux/sycl/PlasticityAux.cpp
+          WavePropagation/Solver/LinearCK/DeviceAux/sycl/KernelsAux.cpp
+          Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp
+          Features/SourceTerm/Solver/PointSourceClusterSycl.cpp)
   endif()
 
   make_device_lib(seissol-device-lib "${DEVICE_SRC}")

@@ -1,0 +1,34 @@
+// SPDX-FileCopyrightText: 2015 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
+
+#ifndef SEISSOL_SRC_WAVEPROPAGATION_SOLVER_INTERFACE_H_
+#define SEISSOL_SRC_WAVEPROPAGATION_SOLVER_INTERFACE_H_
+
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "GeneratedCode/tensor.h"
+#include "WavePropagation/Solver/LinearCK/GravitationalFreeSurfaceBC.h"
+
+namespace seissol::kernels {
+/// The thread-local scratch data of the integration of a cell of the configuration `Cfg`.
+template <typename Cfg>
+struct LocalTmp {
+  using real = Real<Cfg>;
+
+  alignas(Alignment) real timeIntegratedAne[zeroGuard(kernels::size<tensor::Iane<Cfg>>())]{};
+  GravitationalFreeSurfaceBc<Cfg> gravitationalFreeSurfaceBc;
+  alignas(Alignment) std::array<
+      real,
+      tensor::averageNormalDisplacement<Cfg>::size()> nodalAvgDisplacements[Cell::NumFaces]{};
+  explicit LocalTmp(double graviationalAcceleration)
+      : gravitationalFreeSurfaceBc(graviationalAcceleration) {};
+};
+} // namespace seissol::kernels
+
+#endif // SEISSOL_SRC_WAVEPROPAGATION_SOLVER_INTERFACE_H_

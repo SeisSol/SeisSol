@@ -1,0 +1,89 @@
+// SPDX-FileCopyrightText: 2013 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+
+#ifndef SEISSOL_SRC_WAVEPROPAGATION_SOLVER_LOCAL_H_
+#define SEISSOL_SRC_WAVEPROPAGATION_SOLVER_LOCAL_H_
+
+#include "Core/Common/Real.h"
+#include "Core/Kernels/Common.h"
+#include "Core/Kernels/Kernel.h"
+#include "Core/Memory/Typedefs.h"
+#include "Core/Monitoring/Metric.h"
+#include "Core/Parallel/Runtime/Stream.h"
+#include "Features/InitialConditions/Physics/InitialField.h"
+#include "WavePropagation/Solver/Interface.h"
+
+#include <cassert>
+
+namespace seissol::kernels {
+
+template <typename Cfg>
+class LocalKernel : public Kernel<Cfg> {
+  public:
+  using real = Real<Cfg>;
+
+  protected:
+  double gravitationalAcceleration_{9.81};
+  const std::vector<std::unique_ptr<physics::InitialField>>* initConds_{nullptr};
+
+  public:
+  ~LocalKernel() override = default;
+  void setGravitationalAcceleration(double g) { gravitationalAcceleration_ = g; }
+  void setInitConds(decltype(initConds_) initConds) { this->initConds_ = initConds; }
+
+  physics::InitialField* getInitCond(size_t index) {
+    const auto& condition = this->initConds_->at(index);
+    return condition.get();
+  }
+
+  /**
+   * @brief Compute the volume integral over the ADER space-time evolution, as well as local
+   * boundary conditions as fluxes.
+   *
+   * This step equals the first part of the ADER-DG "corrector"; that is, we compute the local
+   * space-time volume integral, and add the flux contributions that depend on the local element.
+   * Also, we compute some boundary conditions that can be computed by only using the local cell
+   * data. The dynamic rupture faces are usually ignored in this step.
+   *
+   * @param timeIntegratedDoFs The time integral over the space-time predictor, as computed by the
+   * SpacetimeKernel or the TimeKernel.
+   * @param data Cell data reference object (contains references to all stored data arrays for that
+   * cell)
+   * @param tmp Cell-local temporary data from the SpacetimeKernel
+   * @param time The current time in the simulation (needed e.g. for time dependent boundary
+   * conditions)
+   * @param timeStepWidth The current time step width
+   */
+  virtual void computeIntegral(real* timeIntegratedDoFs,
+                               LTS::Ref<Cfg>& data,
+                               LocalTmp<Cfg>& tmp,
+                               double time,
+                               double timeStepWidth) = 0;
+
+  virtual void computeBatchedIntegral(recording::ConditionalTable& dataTable,
+                                      double timeStepWidth,
+                                      seissol::parallel::runtime::StreamRuntime& runtime) = 0;
+
+  /**
+   * Evaluates the time-dependent boundary conditions. The time at the start of the step is read
+   * from `time` when the evaluation runs.
+   */
+  virtual void
+      evaluateBatchedTimeDependentBc(recording::ConditionalTable& dataTable,
+                                     LTS::Layer& layer,
+                                     const double* time,
+                                     double timeStepWidth,
+                                     seissol::parallel::runtime::StreamRuntime& runtime) = 0;
+
+  [[nodiscard]] virtual PerformanceEstimate
+      metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const = 0;
+};
+
+} // namespace seissol::kernels
+
+#endif // SEISSOL_SRC_WAVEPROPAGATION_SOLVER_LOCAL_H_

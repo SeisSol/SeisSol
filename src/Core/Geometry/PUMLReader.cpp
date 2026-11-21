@@ -8,20 +8,20 @@
 
 #include "PUMLReader.h"
 
+#include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/CompactOptional.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/Iterator.h"
 #include "Core/Geometry/CellTransform.h"
+#include "Core/Geometry/FaceMap.h"
 #include "Core/Geometry/GmshNodes.h"
 #include "Core/Geometry/MeshDefinition.h"
 #include "Core/Monitoring/Instrumentation.h"
 #include "Core/Parallel/MPI.h"
-#include "Initializer/BasicTypedefs.h"
-#include "Initializer/Clustering/Clustering.h"
-#include "Initializer/Clustering/VertexWeights/VertexWeightModel.h"
-#include "Initializer/FaceMap.h"
-#include "Initializer/Parameters/MeshParameters.h"
+#include "Core/TimeStepping/Clustering/Clustering.h"
+#include "Core/TimeStepping/Clustering/VertexWeights/VertexWeightModel.h"
 #include "PartitioningLib.h"
+#include "Simulation/Parameters/MeshParameters.h"
 
 #include <Eigen/Dense>
 #include <PUML/DataHandle.h>

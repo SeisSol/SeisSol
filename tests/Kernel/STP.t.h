@@ -8,17 +8,17 @@
 #include "Core/Common/Real.h"
 #include "Core/Common/Typedefs.h"
 #include "Core/Geometry/CellTransform.h"
-#include "Equations/poroelastic/Model/Datastructures.h"
-#include "Equations/poroelastic/Model/Helper.h"
-#include "Equations/poroelastic/Model/Setup.h"
+#include "Core/Kernels/Common.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
-#include "Kernels/Common.h"
-#include "Kernels/STP/Setup.h"
-#include "Model/Common.h"
 #include "TestConfigs.h"
+#include "WavePropagation/Physics/Common.h"
+#include "WavePropagation/Physics/poroelastic/Datastructures.h"
+#include "WavePropagation/Physics/poroelastic/Helper.h"
+#include "WavePropagation/Physics/poroelastic/Setup.h"
+#include "WavePropagation/Solver/STP/Setup.h"
 
 #include <array>
 #include <cmath>

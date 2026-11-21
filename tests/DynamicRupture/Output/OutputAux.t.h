@@ -8,8 +8,8 @@
 #include <doctest.h>
 
 #include "Core/Common/Constants.h"
-#include "DynamicRupture/Output/Geometry.h"
-#include "DynamicRupture/Output/OutputAux.h"
+#include "Features/DynamicRupture/Output/Geometry.h"
+#include "Features/DynamicRupture/Output/OutputAux.h"
 
 #include <array>
 #include <cmath>

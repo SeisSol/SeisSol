@@ -8,11 +8,11 @@
 
 #include "Runner.h"
 
+#include "Core/Kernels/Common.h"
 #include "Core/Monitoring/Metric.h"
 #include "Core/Parallel/Runtime/Stream.h"
 #include "KernelDevice.h"
 #include "KernelHost.h"
-#include "Kernels/Common.h"
 #include "Proxy/Cycles.h"
 #include "Proxy/Kernel.h"
 

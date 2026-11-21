@@ -21,9 +21,9 @@
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/Parallel/SystemInfo.h"
-#include "Initializer/Parameters/LtsParameters.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "SeisSol.h"
+#include "Simulation/Parameters/LtsParameters.h"
+#include "Simulation/Parameters/SeisSolParameters.h"
+#include "Simulation/SeisSol.h"
 #include "TestHelper.h"
 #include "VertexOrderInvariance.t.h"
 

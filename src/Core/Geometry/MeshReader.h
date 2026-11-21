@@ -9,8 +9,8 @@
 #ifndef SEISSOL_SRC_CORE_GEOMETRY_MESHREADER_H_
 #define SEISSOL_SRC_CORE_GEOMETRY_MESHREADER_H_
 
-#include "Initializer/Parameters/DRParameters.h"
 #include "MeshDefinition.h"
+#include "Simulation/Parameters/DRParameters.h"
 
 #include <Eigen/Dense>
 #include <cmath>

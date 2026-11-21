@@ -1,0 +1,174 @@
+// SPDX-FileCopyrightText: 2020 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_WAVEPROPAGATION_SOLVER_LINEARCK_GRAVITATIONALFREESURFACEBC_H_
+#define SEISSOL_SRC_WAVEPROPAGATION_SOLVER_LINEARCK_GRAVITATIONALFREESURFACEBC_H_
+
+#include "Core/Common/Real.h"
+#include "Core/Memory/Typedefs.h"
+#include "Core/Monitoring/Metric.h"
+#include "Core/Numerical/ODEInt.h"
+#include "Core/Numerical/Quadrature.h"
+#include "Core/Parallel/Runtime/Stream.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/tensor.h"
+#include "WavePropagation/Physics/Datastructures.h"
+
+#include <utility>
+
+#ifdef ACL_DEVICE
+#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "WavePropagation/Solver/LinearCK/DeviceAux/KernelsAux.h"
+
+#include <Device/device.h>
+#include <tuple>
+#include <yateto.h>
+#endif
+
+namespace seissol {
+
+/// The gravitational free-surface boundary condition of the configuration `Cfg`.
+template <typename Cfg>
+class GravitationalFreeSurfaceBc {
+  public:
+  using real = Real<Cfg>;
+
+  private:
+  double gravitationalAcceleration_;
+
+  public:
+  explicit GravitationalFreeSurfaceBc(double gravitationalAcceleration)
+      : gravitationalAcceleration_(gravitationalAcceleration) {};
+
+  constexpr static PerformanceEstimate metrics(int8_t face) {
+    return PerformanceEstimate::fromKernel<kernel::fsgKernel<Cfg>>(face);
+  }
+
+  template <typename MappingKrnl>
+  void evaluate(int8_t faceIdx,
+                MappingKrnl&& fsgKernelBase,
+                const CellBoundaryMapping<Cfg>& boundaryMapping,
+                real* displacementNodalData,
+                real* integratedDisplacementNodalData,
+                const real* derivatives,
+                const real* /*power*/,
+                double timeStepWidth,
+                CellMaterialData& materialData) {
+    // The material constants are shared by every fused simulation, since those
+    // share the cell they run in.
+    kernel::fsgKernel<Cfg> kernel = std::forward<MappingKrnl>(fsgKernelBase);
+
+    assert(boundaryMapping.dataTinv != nullptr);
+    assert(boundaryMapping.dataT != nullptr);
+
+    kernel.T = boundaryMapping.dataT;
+    kernel.Tinv = boundaryMapping.dataTinv;
+    kernel.faceDisplacement = displacementNodalData;
+    kernel.Iint = integratedDisplacementNodalData;
+
+    double coeffTmp = 1;
+    double powerTmp = timeStepWidth;
+
+    kernel.fsgpower(0) = timeStepWidth;
+
+    for (std::size_t i = 0; i < Cfg::ConvergenceOrder; ++i) {
+      kernel.dQ(i) = derivatives + yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
+
+      coeffTmp *= timeStepWidth / static_cast<double>(i + 1);
+      powerTmp *= timeStepWidth / static_cast<double>(i + 2);
+
+      kernel.coeff(i + 1) = coeffTmp;
+      kernel.fsgpower(i + 1) = powerTmp;
+    }
+
+    const double rho = materialData.local->getDensity();
+    const double g = gravitationalAcceleration_; // [m/s^2]
+    const double z = std::sqrt(materialData.local->getLambdaBar() * rho);
+    const real invImp = 1 / z;
+    const real rhoG = rho * g;
+
+    kernel.invImp = &invImp;
+    kernel.rhoG = &rhoG;
+
+    kernel.execute(faceIdx);
+  }
+
+#ifdef ACL_DEVICE
+  template <typename MappingKrnl>
+  void evaluateOnDevice(unsigned faceIdx,
+                        MappingKrnl&& fsgKernelBase,
+                        recording::ConditionalTable& dataTable,
+                        double timeStepWidth,
+                        device::DeviceInstance& /*device*/,
+                        seissol::parallel::runtime::StreamRuntime& runtime) {
+
+    using namespace seissol::recording;
+    auto* deviceStream = runtime.stream();
+    const ConditionalKey key(
+        *KernelNames::BoundaryConditions, *ComputationKind::FreeSurfaceGravity, faceIdx);
+    if (dataTable.contains(key)) {
+      const size_t numElements{
+          dataTable[key].get<real*>(inner_keys::Wp::Id::Derivatives)->getSize()};
+
+      auto** constantData =
+          dataTable[key].get<real*>(inner_keys::Wp::Id::FSGData)->getDeviceDataPtr();
+
+      auto** tinvDataPtrs = dataTable[key].get<real*>(inner_keys::Wp::Id::Tinv)->getDeviceDataPtr();
+      auto** tDataPtrs = dataTable[key].get<real*>(inner_keys::Wp::Id::T)->getDeviceDataPtr();
+      auto** derivativesPtrs =
+          dataTable[key].get<real*>(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr();
+
+      auto** displacementsPtrs =
+          dataTable[key].get<real*>(inner_keys::Wp::Id::FaceDisplacement)->getDeviceDataPtr();
+      auto** integratedDisplacementNodalPtrs =
+          dataTable[key].get<real*>(inner_keys::Wp::Id::NodalAvgDisplacements)->getDeviceDataPtr();
+
+      kernel::gpu_fsgKernel<Cfg> kernel = std::forward<MappingKrnl>(fsgKernelBase);
+
+      kernel.invImp = const_cast<const real**>(constantData);
+      kernel.rhoG = const_cast<const real**>(constantData);
+      kernel.extraOffset_invImp = 0;
+      kernel.extraOffset_rhoG = 1;
+
+      for (std::size_t i = 0; i < yateto::numFamilyMembers<tensor::dQ<Cfg>>(); ++i) {
+        kernel.dQ(i) = const_cast<const real**>(derivativesPtrs);
+        kernel.extraOffset_dQ(i) = yateto::computeFamilySize<tensor::dQ<Cfg>>(1, i);
+      }
+      kernel.Tinv = const_cast<const real**>(tinvDataPtrs);
+      kernel.T = const_cast<const real**>(tDataPtrs);
+      kernel.faceDisplacement = displacementsPtrs;
+      kernel.Iint = integratedDisplacementNodalPtrs;
+
+      double coeffTmp = 1;
+      double powerTmp = timeStepWidth;
+
+      kernel.fsgpower(0) = timeStepWidth;
+
+      for (std::size_t i = 0; i < Cfg::ConvergenceOrder; ++i) {
+        coeffTmp *= timeStepWidth / static_cast<double>(i + 1);
+        powerTmp *= timeStepWidth / static_cast<double>(i + 2);
+
+        kernel.coeff(i + 1) = coeffTmp;
+        kernel.fsgpower(i + 1) = powerTmp;
+      }
+
+      const auto maxTmpMem = yateto::getMaxTmpMemRequired(kernel);
+      auto tmpMem = runtime.memoryHandle<real>((maxTmpMem * numElements) / sizeof(real));
+
+      kernel.numElements = numElements;
+      kernel.linearAllocator.initialize(tmpMem.get());
+      kernel.streamPtr = deviceStream;
+      kernel.execute(faceIdx);
+    }
+  }
+#endif // ACL_DEVICE
+};
+
+} // namespace seissol
+
+#endif // SEISSOL_SRC_WAVEPROPAGATION_SOLVER_LINEARCK_GRAVITATIONALFREESURFACEBC_H_

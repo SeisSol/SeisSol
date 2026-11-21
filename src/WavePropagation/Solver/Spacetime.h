@@ -1,0 +1,76 @@
+// SPDX-FileCopyrightText: 2013 SeisSol Group
+// SPDX-FileCopyrightText: 2014-2015 Intel Corporation
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
+
+#ifndef SEISSOL_SRC_WAVEPROPAGATION_SOLVER_SPACETIME_H_
+#define SEISSOL_SRC_WAVEPROPAGATION_SOLVER_SPACETIME_H_
+
+#include "Core/Common/Real.h"
+#include "Core/Kernels/Common.h"
+#include "Core/Kernels/Kernel.h"
+#include "Core/Memory/Typedefs.h"
+#include "Core/Monitoring/Metric.h"
+#include "Core/Numerical/BasisFunction.h"
+#include "Core/Parallel/Runtime/Stream.h"
+#include "WavePropagation/Solver/Interface.h"
+
+#include <cassert>
+#include <limits>
+#include <memory>
+
+namespace seissol::kernels {
+
+template <typename Cfg>
+class SpacetimeKernel : public Kernel<Cfg> {
+  public:
+  using real = Real<Cfg>;
+
+  ~SpacetimeKernel() override = default;
+
+  /**
+   * @brief Compute the space-time evolution (a.k.a. "derivatives") from the given DOFs.
+   *
+   * Includes an inline time integration; as that's needed for most subsequent operations.
+   *
+   * This step in essence equals the ADER-DG "predictor" step. Note that the exact method
+   * for computing the space-time evolution may vary (e.g. CK vs STP); see the respective subfolder
+   * names for more infos.
+   *
+   * @param coeffs The time basis coefficients used for the integrated integration.
+   * @param timeStepWidth The size of the current timestep
+   * @param data Cell data reference object (contains references to all stored data arrays for that
+   * cell)
+   * @param tmp Local integration temporary data object (contains thread-local data for a cell; to
+   * pass to the integration computation)
+   * @param timeIntegrated Output: time integration data.
+   * @param timeDerivativesOrSTP Output: space-time evoluion.
+   * @param updateDisplacement Update the face displacement (needed for elastic-acoustic)
+   */
+  virtual void computeAder(const real* coeffs,
+                           double timeStepWidth,
+                           LTS::Ref<Cfg>& data,
+                           LocalTmp<Cfg>& tmp,
+                           real* timeIntegrated,
+                           real* timeDerivativesOrSTP,
+                           bool updateDisplacement) = 0;
+
+  virtual void computeBatchedAder(const real* coeffs,
+                                  double timeStepWidth,
+                                  LTS::Layer& layer,
+                                  LocalTmp<Cfg>& tmp,
+                                  recording::ConditionalTable& dataTable,
+                                  bool updateDisplacement,
+                                  seissol::parallel::runtime::StreamRuntime& runtime) = 0;
+
+  [[nodiscard]] virtual PerformanceEstimate metrics() const = 0;
+};
+
+} // namespace seissol::kernels
+
+#endif // SEISSOL_SRC_WAVEPROPAGATION_SOLVER_SPACETIME_H_

@@ -16,18 +16,18 @@
 // may depend on the order in which a cell lists its vertices.
 
 #include "Core/Common/CompactOptional.h"
+#include "Core/Geometry/FaceMap.h"
 #include "Core/Geometry/MeshDefinition.h"
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/Geometry/PartitioningLib.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/Parallel/SystemInfo.h"
-#include "Initializer/Clustering/Clustering.h"
-#include "Initializer/Clustering/VertexWeights/WeightsModels.h"
-#include "Initializer/FaceMap.h"
-#include "Initializer/Parameters/LtsParameters.h"
-#include "Initializer/Parameters/MeshParameters.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "SeisSol.h"
+#include "Core/TimeStepping/Clustering/Clustering.h"
+#include "Core/TimeStepping/Clustering/VertexWeights/WeightsModels.h"
+#include "Simulation/Parameters/LtsParameters.h"
+#include "Simulation/Parameters/MeshParameters.h"
+#include "Simulation/Parameters/SeisSolParameters.h"
+#include "Simulation/SeisSol.h"
 #include "TestHelper.h"
 
 #include <PUML/PUML.h>

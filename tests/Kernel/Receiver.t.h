@@ -9,13 +9,13 @@
 
 #include "Config.h"
 #include "Core/Common/Constants.h"
+#include "Core/Common/MultipleSimulations.h"
 #include "Core/Common/Real.h"
-#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include "Kernels/Receiver.h"
-#include "Solver/MultipleSimulations.h"
 #include "TestConfigs.h"
+#include "WavePropagation/Output/Receiver.h"
+#include "WavePropagation/Physics/Datastructures.h"
 
 #include <array>
 #include <cstddef>

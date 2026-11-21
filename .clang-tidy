@@ -26,7 +26,7 @@ Checks:
 
   # clang-tidy runs the static analyzer only if it is listed
   - clang-analyzer-*
-  - -clang-analyzer-cplusplus.NewDeleteLeaks                       # noise: reports the aggregates of std::unique_ptr in DynamicRupture/Factory.cpp
+  - -clang-analyzer-cplusplus.NewDeleteLeaks                       # noise: reports the aggregates of std::unique_ptr in Features/DynamicRupture/Setup/Factory.cpp
   - -clang-analyzer-optin.performance.Padding                      # noise: the per-cell data is padded by alignas on purpose
 
   - clang-diagnostic-*

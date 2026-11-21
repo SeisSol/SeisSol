@@ -1,0 +1,75 @@
+// SPDX-FileCopyrightText: 2013 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Carsten Uphoff
+
+#ifndef SEISSOL_SRC_WAVEPROPAGATION_SOLVER_LINEARCKANELASTIC_LOCAL_H_
+#define SEISSOL_SRC_WAVEPROPAGATION_SOLVER_LINEARCKANELASTIC_LOCAL_H_
+
+#include "Core/Common/Real.h"
+#include "Features/InitialConditions/Physics/InitialField.h"
+#include "GeneratedCode/kernel.h"
+#include "WavePropagation/Solver/AnalyticalBoundary.h"
+#include "WavePropagation/Solver/Interface.h"
+#include "WavePropagation/Solver/Local.h"
+
+#include <memory>
+
+namespace seissol::kernels::solver::linearckanelastic {
+template <typename Cfg>
+class Local : public LocalKernel<Cfg> {
+  public:
+  using real = Real<Cfg>;
+
+  void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
+
+  void computeIntegral(real* timeIntegratedDoFs,
+                       LTS::Ref<Cfg>& data,
+                       LocalTmp<Cfg>& tmp,
+                       double time,
+                       double timeStepWidth) override;
+
+  void computeBatchedIntegral(recording::ConditionalTable& dataTable,
+                              double timeStepWidth,
+                              seissol::parallel::runtime::StreamRuntime& runtime) override;
+
+  void evaluateBatchedTimeDependentBc(recording::ConditionalTable& dataTable,
+                                      LTS::Layer& layer,
+                                      const double* time,
+                                      double timeStepWidth,
+                                      seissol::parallel::runtime::StreamRuntime& runtime) override;
+
+  [[nodiscard]] PerformanceEstimate
+      metrics(const std::array<FaceType, Cell::NumFaces>& faceTypes) const override;
+
+  protected:
+  kernel::volumeExt<Cfg> volumeKernelPrototype_;
+  kernel::localFluxExt<Cfg> localFluxKernelPrototype_;
+  kernel::local<Cfg> localKernelPrototype_;
+
+  kernel::fsgFlux<Cfg> fsgFlux_;
+  kernel::dirichletFlux<Cfg> dirichletFlux_;
+  kernel::localFluxNodal<Cfg> nodalLfKrnlPrototype_;
+
+  kernels::AnalyticalBoundary<Cfg> analyticalBoundary_;
+
+#ifdef ACL_DEVICE
+  kernel::gpu_volumeExt<Cfg> deviceVolumeKernelPrototype_;
+  kernel::gpu_localFluxExt<Cfg> deviceLocalFluxKernelPrototype_;
+  kernel::gpu_local<Cfg> deviceLocalKernelPrototype_;
+  kernel::gpu_fluxLocalAll<Cfg> deviceFluxLocalAllKernelPrototype_;
+
+  kernel::gpu_fsgFlux<Cfg> deviceFsgFlux_;
+  kernel::gpu_dirichletFlux<Cfg> deviceDirichletFlux_;
+  kernel::gpu_localFluxNodal<Cfg> deviceNodalLfKrnlPrototype_;
+  // folds the extended DOFs into the DOFs and the memory variables, as the neighbor integral does
+  kernel::gpu_neighbor<Cfg> deviceFoldKrnlPrototype_;
+#endif
+};
+} // namespace seissol::kernels::solver::linearckanelastic
+
+#endif // SEISSOL_SRC_WAVEPROPAGATION_SOLVER_LINEARCKANELASTIC_LOCAL_H_

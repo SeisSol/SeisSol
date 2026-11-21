@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Config.h"
+#include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Iterator.h"
@@ -15,7 +16,6 @@
 #include "Core/Memory/Tree/Colormap.h"
 #include "Core/Memory/Tree/LTSTree.h"
 #include "Core/Memory/Tree/Layer.h"
-#include "Initializer/BasicTypedefs.h"
 #include "TestConfigs.h"
 
 #include <cstddef>

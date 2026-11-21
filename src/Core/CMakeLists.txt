@@ -11,6 +11,8 @@ add_subdirectory(Geometry)
 
 add_subdirectory(IO)
 
+add_subdirectory(Kernels)
+
 add_subdirectory(Memory)
 
 add_subdirectory(Modules)
@@ -20,3 +22,5 @@ add_subdirectory(Monitoring)
 add_subdirectory(Numerical)
 
 add_subdirectory(Parallel)
+
+add_subdirectory(TimeStepping)

@@ -10,10 +10,10 @@
 #define SEISSOL_SRC_CORE_MEMORY_TREE_LAYER_H_
 
 #include "Core/Common/TypeId.h"
+#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Memory/Tree/Colormap.h"
-#include "Initializer/BatchRecorders/DataTypes/ConditionalTable.h"
-#include "Initializer/DeviceGraph.h"
+#include "Core/Parallel/DeviceGraph.h"
 
 #include <algorithm>
 #include <array>

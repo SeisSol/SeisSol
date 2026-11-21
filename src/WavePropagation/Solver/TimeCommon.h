@@ -1,0 +1,73 @@
+// SPDX-FileCopyrightText: 2016 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Carsten Uphoff
+
+#ifndef SEISSOL_SRC_WAVEPROPAGATION_SOLVER_TIMECOMMON_H_
+#define SEISSOL_SRC_WAVEPROPAGATION_SOLVER_TIMECOMMON_H_
+
+#include "Core/Common/Real.h"
+#include "Core/Memory/CellLocalInformation.h"
+#include "Core/Memory/LtsSetup.h"
+#include "Core/Memory/Typedefs.h"
+#include "GeneratedCode/tensor.h"
+#include "WavePropagation/Solver/Solver.h"
+
+namespace seissol::kernels {
+/// The time integration of the neighbors of a cell of the configuration `Cfg`.
+template <typename Cfg>
+struct TimeCommon {
+  using real = Real<Cfg>;
+
+  /**
+   * Either copies pointers to the DOFs in the time buffer or integrates the DOFs via time
+   derivatives.
+   *   Evaluation depends on bit 0-3  of the LTS setup.
+   *   0 -> copy buffer; 1 -> integrate via time derivatives
+   *     Example:
+
+   *     [     4 unused     | copy or int bits  ]
+   *     [ -    -    -    - |  0    1    1    0 ]
+   *     [ 7    6    5    4 |  3    2    1    0 ]
+   *
+   *   0 - 0: time integrated DOFs of cell 0 are copied from the buffer.
+   *   1 - 1: DOFs of cell 1 are integrated in time via time derivatives.
+   *   2 - 1: DOFs of cell 2 are integrated in time via time derivaitves.
+   *   3 - 0: time itnegrated DOFs of cell 3 are copied from the buffer.
+   *
+   * @param cellInformation the face types, the configurations of the face neighbors and the LTS
+   *setup (the bitmask above) of the cell; faces whose neighbor computes in another configuration
+   *are left to ConfigBoundary.
+   * @param timeCoeffs GTS time integration basis coefficients
+   * @param subtimeCoeffs LTS time integration basis coefficients (for neighbor.cluster >
+   local.cluster)
+   * @param timeDofs pointers to time integrated buffers or time derivatives of the four neighboring
+   *cells, in the reals and the layout the cell computes in.
+   * @param integrationBuffer memory where the time integration goes if derived from derivatives.
+   *Ensure thread safety!
+   * @param timeIntegrated pointers to the time integrated DOFs of the four neighboring cells
+   *(either local integration buffer or integration buffer of input).
+   **/
+  static void computeIntegrals(Time<Cfg>& time,
+                               const CellLocalInformation& cellInformation,
+                               const real* timeCoeffs,
+                               const real* subtimeCoeffs,
+                               const std::array<void*, Cell::NumFaces>& timeDofs,
+                               const std::array<real*, Cell::NumFaces>& integrationBuffer,
+                               std::array<real*, Cell::NumFaces>& timeIntegrated);
+
+  static void computeBatchedIntegrals(Time<Cfg>& time,
+                                      const real* timeCoeffs,
+                                      const real* subtimeCoeffs,
+                                      recording::ConditionalTable& table,
+                                      seissol::parallel::runtime::StreamRuntime& runtime);
+
+  TimeCommon() = delete;
+};
+} // namespace seissol::kernels
+
+#endif // SEISSOL_SRC_WAVEPROPAGATION_SOLVER_TIMECOMMON_H_

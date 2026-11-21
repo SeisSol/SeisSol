@@ -8,13 +8,13 @@
 #include "doctest.h"
 
 #include "Config.h"
+#include "Core/Common/MultipleSimulations.h"
 #include "Core/Common/Real.h"
 #include "Core/Numerical/Projection.h"
 #include "GeneratedCode/tensor.h"
-#include "Initializer/Model/BoundaryMappings.h"
-#include "Solver/MultipleSimulations.h"
 #include "TestConfigs.h"
 #include "TestHelper.h"
+#include "WavePropagation/Setup/BoundaryMappings.h"
 
 #include <algorithm>
 #include <cstddef>

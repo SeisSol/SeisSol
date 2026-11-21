@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_CORE_MONITORING_ACTORSTATESTATISTICS_H_
 #define SEISSOL_SRC_CORE_MONITORING_ACTORSTATESTATISTICS_H_
 
+#include "Core/TimeStepping/Actor/ActorState.h"
 #include "LoopStatistics.h"
-#include "Solver/TimeStepping/Actor/ActorState.h"
 
 #include <list>
 #include <optional>

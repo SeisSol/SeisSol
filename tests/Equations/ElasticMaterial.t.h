@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Equations/elastic/Model/Datastructures.h"
+#include "WavePropagation/Physics/elastic/Datastructures.h"
 
 #include <array>
 #include <cmath>

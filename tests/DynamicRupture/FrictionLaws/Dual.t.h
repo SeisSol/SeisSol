@@ -11,7 +11,7 @@
 #include <doctest.h>
 
 #include "Core/Common/Real.h"
-#include "DynamicRupture/FrictionLaws/Dual.h"
+#include "Features/DynamicRupture/Physics/Dual.h"
 #include "TestConfigs.h"
 #include "TestHelper.h"
 

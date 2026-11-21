@@ -8,15 +8,15 @@
 #include "Config.h"
 #include "Core/Common/Real.h"
 #include "Core/Numerical/Eigenvalues.h"
-#include "Equations/Datastructures.h"
-#include "Equations/Setup.h"
-#include "Equations/acoustic/Model/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include "Model/Common.h"
 #include "TestConfigs.h"
 #include "TestHelper.h"
 #include "Values.h"
+#include "WavePropagation/Physics/Common.h"
+#include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Physics/acoustic/Datastructures.h"
+#include "WavePropagation/Solver/Setup.h"
 
 #include <Eigen/Dense>
 #include <algorithm>

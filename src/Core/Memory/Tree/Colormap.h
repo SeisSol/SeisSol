@@ -7,9 +7,9 @@
 #ifndef SEISSOL_SRC_CORE_MEMORY_TREE_COLORMAP_H_
 #define SEISSOL_SRC_CORE_MEMORY_TREE_COLORMAP_H_
 
+#include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Templating.h"
-#include "Initializer/BasicTypedefs.h"
 
 #include <cstddef>
 #include <functional>

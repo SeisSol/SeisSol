@@ -1,0 +1,48 @@
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_OUTPUT_RATEANDSTATETHERMALPRESSURIZATION_H_
+#define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_OUTPUT_RATEANDSTATETHERMALPRESSURIZATION_H_
+
+#include "Core/Common/Real.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Features/DynamicRupture/Output/RateAndState.h"
+#include "Features/DynamicRupture/Output/ReceiverBasedOutput.h"
+
+namespace seissol::dr::output {
+class RateAndStateThermalPressurization
+    : public RateAndStateImpl<RateAndStateThermalPressurization> {
+  public:
+  template <typename Cfg>
+  Real<Cfg> computeFluidPressure(LocalInfo<Cfg>& local) {
+    return stateAt<LTSThermalPressurization::Pressure>(local, local.gpIndex);
+  }
+
+  template <typename Cfg>
+  void outputSpecifics(const std::shared_ptr<ReceiverOutputData>& outputData,
+                       const LocalInfo<Cfg>& local,
+                       size_t cacheLevel,
+                       size_t receiverIdx) {
+    auto& tpVariables = std::get<VariableID::ThermalPressurizationVariables>(outputData->vars);
+    if (tpVariables.isActive) {
+      tpVariables(TPID::Temperature, cacheLevel, receiverIdx) =
+          stateAt<LTSThermalPressurization::Temperature>(local, local.gpIndex);
+      tpVariables(TPID::Pressure, cacheLevel, receiverIdx) =
+          stateAt<LTSThermalPressurization::Pressure>(local, local.gpIndex);
+    }
+  }
+
+  [[nodiscard]] std::vector<std::size_t> getOutputVariables() const override {
+    auto baseVector = RateAndStateImpl::getOutputVariables();
+    baseVector.push_back(drStorage_->info<LTSThermalPressurization::Temperature>().index);
+    baseVector.push_back(drStorage_->info<LTSThermalPressurization::Pressure>().index);
+    return baseVector;
+  }
+};
+} // namespace seissol::dr::output
+
+#endif // SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_OUTPUT_RATEANDSTATETHERMALPRESSURIZATION_H_

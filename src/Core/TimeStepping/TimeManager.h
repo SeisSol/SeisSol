@@ -1,0 +1,334 @@
+// SPDX-FileCopyrightText: 2013 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Sebastian Rettenberger
+
+#ifndef SEISSOL_SRC_CORE_TIMESTEPPING_TIMEMANAGER_H_
+#define SEISSOL_SRC_CORE_TIMESTEPPING_TIMEMANAGER_H_
+#include "Core/Common/Json.h"
+#include "Core/Memory/HostData.h"
+#include "Core/Memory/HostSnapshot.h"
+#include "Core/Memory/Typedefs.h"
+#include "Core/Monitoring/DeviceTimeline.h"
+#include "Core/Monitoring/DeviceTimer.h"
+#include "Core/Monitoring/Stopwatch.h"
+#include "Core/Monitoring/Watchdog.h"
+#include "Core/Parallel/Helper.h"
+#include "Core/TimeStepping/Clustering/ClusteringWriter.h"
+#include "Core/TimeStepping/Compute/CellCluster.h"
+#include "Core/TimeStepping/Halo/GhostCluster.h"
+#include "Core/TimeStepping/HaloTransportFactory.h"
+#include "Core/TimeStepping/Layout/ClusterLayout.h"
+#include "Core/TimeStepping/Plan/SuperStepRecorder.h"
+#include "Core/TimeStepping/Plan/TimeSteppingPlan.h"
+#include "Features/DynamicRupture/Solver/DynamicRuptureCluster.h"
+#include "Features/SourceTerm/Solver/PointSourceCluster.h"
+#include "Features/SourceTerm/Typedefs.h"
+#include "Simulation/MemoryManager.h"
+#include "WavePropagation/Output/FreeSurfaceIntegrator.h"
+#include "WavePropagation/Output/ReceiverWriter.h"
+
+#include <array>
+#include <cassert>
+#include <chrono>
+#include <cstdint>
+#include <list>
+#include <memory>
+#include <optional>
+#include <queue>
+#include <set>
+#include <utils/logger.h>
+#include <vector>
+
+namespace seissol::solver {
+class AbstractCommunicationManager;
+
+/**
+ * What the device and the threads did in an epoch (or in all epochs so far).
+ */
+struct EpochActivity {
+  //! the device time, by kind (empty without timing on the device)
+  DeviceTimeline::Activity device;
+  //! the wall time of the epochs
+  double wall{0};
+  //! the time all threads spent in loops, and the number of threads
+  double threadLoops{0};
+  double threads{1};
+};
+
+/**
+ * Time manager, which takes care of the time stepping.
+ **/
+class TimeManager {
+  private:
+  seissol::SeisSol& seissolInstance_;
+
+  //! time stepping
+  std::optional<initializer::ClusterLayout> clusterLayout_;
+
+  //! what the device did in the current epoch; before the clusters, whose timers add to it
+  DeviceTimeline deviceTimeline_;
+
+  //! the clusters of the local (copy & interior) cells
+  std::vector<std::unique_ptr<CellClusterInterface>> cellClusters_;
+
+  //! what each cell and face cluster updates in a time step, for the counts of updates()
+  struct ClusterSize {
+    const AbstractTimeCluster* cluster;
+    std::size_t globalClusterId;
+    //! the cells of the cluster: each copy cell once, though it is stored once per neighbor
+    std::size_t cells;
+    //! the further copies of copy cells, which are computed as well
+    std::size_t duplicateCells;
+    std::size_t dynamicRuptureFaces;
+  };
+  std::vector<ClusterSize> clusterSizes_;
+
+  //! the clusters of the local (copy & interior) dynamic rupture faces
+  std::vector<std::unique_ptr<DynamicRuptureClusterInterface>> faceClusters_;
+
+  //! all cell and face clusters, i.e. all clusters under control of this time manager that do
+  //! local work; ordered by rate
+  std::vector<AbstractTimeCluster*> clusters_;
+  std::vector<AbstractTimeCluster*> highPrioClusters_;
+  std::vector<AbstractTimeCluster*> lowPrioClusters_;
+
+  //! what the halo transports share; outlives them
+  std::unique_ptr<HaloTransportFactory> haloTransports_;
+
+  //! all MPI (ghost) LTS clusters, which are under control of this time manager
+  std::unique_ptr<AbstractCommunicationManager> communicationManager_;
+
+  //! take the steps along the time stepping plan
+  bool followPlan_{false};
+
+  //! along the plan: all super-timesteps (steps of the largest cluster), those that reach a
+  //! synchronization point (one per interval), the full ones (all others) without output samples,
+  //! and the full ones in which no cluster takes an irregular step
+  std::size_t superSteps_{0};
+  std::size_t shortenedSuperSteps_{0};
+  std::size_t outputFreeSuperSteps_{0};
+  std::size_t regularSuperSteps_{0};
+  std::size_t recordedSuperSteps_{0};
+  std::size_t replayedSuperSteps_{0};
+  std::size_t launchedOnceSuperSteps_{0};
+  std::size_t mispredictedSuperSteps_{0};
+  //! whether the loop statistics hold the times of the kernels (see kernelTimesKnown())
+  bool kernelTimesKnown_{true};
+  //! the host time of the super-timesteps, by how they ran, and of ending their recordings (which
+  //! instantiates the graphs), in seconds
+  std::array<double, 4> superStepHostTimes_{};
+  //! the device time of the super-timesteps replayed, recorded (and replayed once), and recorded
+  //! and launched once, in seconds
+  std::array<double, 3> superStepDeviceTimes_{};
+  //! times the replays of the super-timesteps on the device
+  std::unique_ptr<DeviceTimer> superStepTimer_;
+
+  //! record regular super-timesteps into graphs and replay them
+  bool replay_{false};
+  SuperStepGraphMode graphMode_{SuperStepGraphMode::Replay};
+  std::unique_ptr<SuperStepRecorder> recorder_;
+  //! the regular super-timesteps that have run once without a recording, in this epoch and in the
+  //! one before; older ones get forgotten, as the recordings that an epoch has not replayed
+  std::set<SuperStepRecorder::Key> seenSuperSteps_;
+  std::set<SuperStepRecorder::Key> seenSuperStepsBefore_;
+
+  //! the ghost clusters act on a thread of their own
+  bool commThread_{false};
+
+  /**
+   * Takes the steps [begin, end) of the plan, and returns what their host parts have decided.
+   */
+  StepWork takeSteps(const std::vector<PlannedAction>& plan, std::size_t begin, std::size_t end);
+
+  //! the clusters only enqueue their device work
+  bool concurrent_{false};
+
+  //! looks at the progress from a thread of its own (see SEISSOL_WATCHDOG)
+  std::unique_ptr<monitoring::Watchdog> watchdog_;
+
+  //! the copies of the data for the outputs from its snapshots (see synchronizeToHost())
+  std::unique_ptr<initializer::HostSnapshot> hostSnapshot_;
+
+  void setUpWatchdog(const std::vector<AbstractTimeCluster*>& clusters);
+
+  //! the activity of the epoch that ended last, and of all so far
+  EpochActivity lastActivity_;
+  EpochActivity totalActivity_;
+
+  /// prints how busy the device and the threads were over the run; collective
+  [[nodiscard]] json::Value printActivity() const;
+
+  /// ends the timeline of the epoch that began at `epochBegin`, and counts its activity
+  void finishActivity(std::chrono::steady_clock::time_point epochBegin);
+
+  /// decides how the clusters run their work on the host (SEISSOL_HOST_TASK_GRAPH)
+  void setUpHostScheduling();
+
+  /// lets the clusters act until all of them have reached the synchronization point
+  void actUntilSynchronized();
+
+  /// with a task graph on the host, waits while too many actions wait for their work
+  void throttleHostWork();
+
+  //! the passes through the loops that wait for the clusters, for watchProgress()
+  std::size_t waitingPasses_{0};
+
+  /**
+   * Called on each pass through a loop that waits for the clusters. Now and then, reports the
+   * clusters that have not changed their state for too long: a cluster that has no action to take
+   * does not get acted on, and would not report by itself.
+   */
+  void watchProgress();
+
+  /**
+   * Takes all steps of the cell and face clusters up to the synchronization point in the order of
+   * the time stepping plan.
+   */
+  void followPlan();
+
+  //! Stopwatch
+  LoopStatistics loopStatistics_;
+  ActorStateStatisticsManager actorStateStatisticsManager_;
+
+  //! dynamic rupture output
+  dr::output::OutputManager* faultOutputManager_{};
+
+  //! the clusters as laid out, kept until the output is set up
+  std::optional<writer::ClusteringWriter> clusteringWriter_;
+
+  public:
+  /**
+   * Construct a new time manager.
+   **/
+  explicit TimeManager(seissol::SeisSol& seissolInstance);
+
+  /**
+   * Destruct the time manager.
+   **/
+  ~TimeManager();
+
+  /**
+   * Adds the time clusters to the time manager.
+   *
+   * @param i_timeStepping time stepping scheme.
+   * @param i_meshStructure mesh structure.
+   * @param memoryManager memory manager.
+   * @param i_meshToClusters mapping from the mesh to the clusters.
+   **/
+  void addClusters(const initializer::ClusterLayout& clusterLayout,
+                   const HaloCommunication& haloStructure,
+                   initializer::MemoryManager& memoryManager,
+                   const SimulationSettings& settings);
+
+  /**
+   * Writes the clustering table recorded by addClusters. Collective: every rank has to call it.
+   **/
+  void writeClustering() const;
+
+  //! The updates of cells and of dynamic rupture faces done on this rank, per global cluster.
+  struct Updates {
+    std::vector<double> cells;
+    //! the updates of the further copies of copy cells
+    std::vector<double> duplicateCells;
+    std::vector<double> dynamicRuptureFaces;
+  };
+
+  /**
+   * The updates done so far on this rank: each time step of a cluster updates all of its cells and
+   * dynamic rupture faces once, and the copy cells next to several neighbors once per neighbor.
+   **/
+  [[nodiscard]] Updates updates() const;
+
+  void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
+  seissol::dr::output::OutputManager* faultOutputManager();
+
+  /**
+   * Advance in time until all clusters reach the next synchronization time.
+   **/
+  void advanceInTime(const double& synchronizationTime);
+
+  /**
+   * Gets the time tolerance of the time manager (1E-5 of the CFL time step width).
+   **/
+  [[nodiscard]] double getTimeTolerance() const;
+
+  /**
+   * Distributes point sources pointers to clusters
+   *
+   * @param sourceClusters Collection of point sources for clusters
+   */
+  void setPointSourcesForClusters(
+      std::vector<seissol::kernels::PointSourceClusterPair> sourceClusters);
+
+  /**
+   * Returns the writer for the receivers
+   */
+  void setReceiverClusters(writer::ReceiverWriter& receiverWriter);
+
+  /**
+   * Sets the initial time (time DOFS/DOFs/receivers) of all time clusters.
+   * Required only if different from zero, for example in checkpointing.
+   *
+   * @param i_time time.
+   **/
+  void setInitialTimes(double time = 0);
+
+  /**
+   * Prints the time the compute kernels took, their throughput, and how busy the device and the
+   * threads were over the run. Collective; returns what it printed, for the run summary.
+   */
+  json::Value printComputationTime();
+
+  //! What the device and the threads did in the epoch that ended last.
+  [[nodiscard]] const EpochActivity& lastEpochActivity() const { return lastActivity_; }
+
+  //! What the device and the threads did in all epochs so far.
+  [[nodiscard]] const EpochActivity& totalEpochActivity() const { return totalActivity_; }
+
+  //! The time this rank spent in the compute kernels so far.
+  [[nodiscard]] double kernelTime() const { return loopStatistics_.kernelTime(); }
+
+  //! the times of the loops of the clusters
+  [[nodiscard]] LoopStatistics& loopStatistics() { return loopStatistics_; }
+
+  /**
+   * Whether kernelTime() and the loop statistics hold the times of the kernels, as
+   * printComputationTime() found it on all ranks. On a device that cannot time its work (HSA queues
+   * without DEVICE_HSA_QUEUE_TIMING=1), they only hold those of the launches on the host.
+   */
+  [[nodiscard]] bool kernelTimesKnown() const { return kernelTimesKnown_; }
+
+  void freeDynamicResources();
+
+  void synchronizeTo(seissol::initializer::AllocationPlace place);
+
+  /**
+   * Copies the given variables to the host; all of them if clusters compute on the host and on
+   * the device (see SEISSOL_DEVICE_HOST_SWITCH).
+   *
+   * With `fromSnapshot`, it takes the snapshots of them that the storages keep (see
+   * keepOutputSnapshots()), from which copySnapshotToHost() then copies them to the host, also
+   * while the device goes on with the next epoch.
+   */
+  void synchronizeToHost(const initializer::HostData& data, bool fromSnapshot = false);
+
+  /// Completes the copies of the last call of synchronizeToHost() from a snapshot; on any thread.
+  void copySnapshotToHost();
+
+  /// What the simulation does now, for the watchdog (see monitoring::Watchdog::setPhase()).
+  void setWatchdogPhase(monitoring::Watchdog::Phase phase, const char* label);
+
+  /// Whether all clusters compute on the device (see SEISSOL_DEVICE_HOST_SWITCH).
+  [[nodiscard]] bool clustersOnDevice() const;
+
+  const initializer::ClusterLayout& getClusterLayout() { return clusterLayout_.value(); }
+};
+
+} // namespace seissol::solver
+
+#endif // SEISSOL_SRC_CORE_TIMESTEPPING_TIMEMANAGER_H_

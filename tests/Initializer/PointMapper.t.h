@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Core/Geometry/PointMapper.h"
 #include "Geometry/MockReader.h"
-#include "Initializer/PointMapper.h"
 
 #include <Eigen/Dense>
 #include <random>

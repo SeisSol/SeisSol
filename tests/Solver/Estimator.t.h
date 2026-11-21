@@ -8,8 +8,8 @@
 #include <doctest.h>
 
 #include "Core/Common/ConfigRegistry.h"
-#include "Kernels/Common.h"
-#include "Solver/Estimator.h"
+#include "Core/Kernels/Common.h"
+#include "Simulation/Estimator.h"
 
 #include <cmath>
 #include <cstddef>

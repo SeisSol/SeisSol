@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "SourceTerm/FSRMReader.h"
+#include "Features/SourceTerm/Setup/FSRMReader.h"
 #include "TestHelper.h"
 
 #include <cstdlib>

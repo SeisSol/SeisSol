@@ -8,13 +8,13 @@
 #include "Config.h"
 #include "Core/Common/Real.h"
 #include "Core/Common/Typedefs.h"
-#include "Equations/Datastructures.h"
+#include "Features/SourceTerm/Physics/PointSource.h"
 #include "GeneratedCode/tensor.h"
-#include "Model/CommonDatastructures.h"
-#include "Model/MaterialType.h"
-#include "SourceTerm/PointSource.h"
 #include "TestConfigs.h"
 #include "TestHelper.h"
+#include "WavePropagation/Physics/CommonDatastructures.h"
+#include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Physics/MaterialType.h"
 
 #include <algorithm>
 #include <array>

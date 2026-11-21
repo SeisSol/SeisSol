@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "Initializer/Parameters/InitializationParameters.h"
-#include "Initializer/Parameters/ParameterReader.h"
+#include "Simulation/Parameters/InitializationParameters.h"
+#include "Simulation/Parameters/ParameterReader.h"
 
 #include <yaml-cpp/yaml.h>
 

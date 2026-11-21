@@ -16,15 +16,15 @@
 #include "Core/Monitoring/Instrumentation.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/Parallel/SystemInfo.h"
-#include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
-#include "Initializer/InitProcedure/Init.h"
-#include "Initializer/Parameters/DRParameters.h"
-#include "Initializer/Parameters/OutputParameters.h"
-#include "Initializer/Parameters/ParameterOverrides.h"
-#include "Initializer/Parameters/ParameterReader.h"
-#include "Initializer/Parameters/SeisSolParameters.h"
-#include "Initializer/Preflight.h"
-#include "SeisSol.h"
+#include "Core/TimeStepping/Clustering/VertexWeights/MeasuredCellCosts.h"
+#include "Simulation/InitProcedure/Init.h"
+#include "Simulation/Parameters/DRParameters.h"
+#include "Simulation/Parameters/OutputParameters.h"
+#include "Simulation/Parameters/ParameterOverrides.h"
+#include "Simulation/Parameters/ParameterReader.h"
+#include "Simulation/Parameters/SeisSolParameters.h"
+#include "Simulation/Preflight.h"
+#include "Simulation/SeisSol.h"
 
 #include <array>
 #include <async/Config.h>
@@ -49,7 +49,7 @@
 #include <yaml-cpp/yaml.h>
 
 #ifdef USE_ASAGI
-#include "Reader/AsagiModule.h"
+#include "Simulation/Reader/AsagiModule.h"
 #endif
 
 #ifdef ACL_DEVICE

@@ -8,8 +8,8 @@
 #include <doctest.h>
 
 #include "Config.h"
-#include "DynamicRupture/Output/Geometry.h"
-#include "DynamicRupture/Typedefs.h"
+#include "Features/DynamicRupture/Output/Geometry.h"
+#include "Features/DynamicRupture/Typedefs.h"
 #include "TestConfigs.h"
 
 #include <cmath>

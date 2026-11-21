@@ -18,10 +18,10 @@
 #include "Core/Memory/Tree/LTSTree.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Parallel/Runtime/Stream.h"
-#include "Kernels/DynamicRupture.h"
-#include "Kernels/Local.h"
-#include "Kernels/Neighbor.h"
-#include "Kernels/Solver.h"
+#include "Features/DynamicRupture/Solver/DynamicRupture.h"
+#include "WavePropagation/Solver/Local.h"
+#include "WavePropagation/Solver/Neighbor.h"
+#include "WavePropagation/Solver/Solver.h"
 
 #include <cstddef>
 #include <functional>
@@ -30,7 +30,7 @@
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
-#include "Initializer/BatchRecorders/Recorders.h"
+#include "Core/Kernels/BatchRecorders/Recorders.h"
 
 #include <Device/device.h>
 #endif

@@ -14,7 +14,7 @@
 #include "Core/Common/ConfigValue.h"
 #include "Core/Common/Real.h"
 #include "Core/Common/Typedefs.h"
-#include "Model/MaterialType.h"
+#include "WavePropagation/Physics/MaterialType.h"
 
 #include <cstddef>
 
@@ -26,7 +26,7 @@ inline constexpr DRQuadRuleType DRQuadRule = DRQuadRuleType::@SEISSOL_DR_QUAD_RU
 
 // contains everything that modifies the kernels in a numerical sense
 // (i.e. for which the user might re-build)
-// (the concept ConfigC in Model/Concepts.h describes a configuration; Kernels/BuiltConfigs.cpp
+// (the concept ConfigC in WavePropagation/Solver/Concepts.h describes a configuration; Simulation/BuiltConfigs.cpp
 // checks every configuration of the build against it)
 //
 // The solver follows from the material: the build chooses one per material for all of its

@@ -17,16 +17,16 @@
 
 #include "Alignment.h"
 #include "Core/Common/Real.h"
-#include "Equations/Datastructures.h"
-#include "Equations/Impedance.h"
-#include "Equations/ImpedanceBase.h"
-#include "Equations/Setup.h"
+#include "Features/DynamicRupture/Setup/DynamicRuptureImpedance.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "ImpedanceReference.h"
-#include "Initializer/Model/DynamicRuptureImpedance.h"
-#include "Model/MaterialType.h"
 #include "TestConfigs.h"
+#include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Physics/Impedance.h"
+#include "WavePropagation/Physics/ImpedanceBase.h"
+#include "WavePropagation/Physics/MaterialType.h"
+#include "WavePropagation/Solver/Setup.h"
 
 #include <Eigen/Dense>
 #include <array>

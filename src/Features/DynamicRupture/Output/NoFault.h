@@ -1,0 +1,24 @@
+// SPDX-FileCopyrightText: 2021 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_OUTPUT_NOFAULT_H_
+#define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_OUTPUT_NOFAULT_H_
+
+#include "Core/Common/Real.h"
+#include "Features/DynamicRupture/Output/ReceiverBasedOutput.h"
+
+namespace seissol::dr::output {
+class NoFault : public ReceiverOutputImpl<NoFault> {
+  public:
+  template <typename Cfg>
+  Real<Cfg> computeLocalStrength(LocalInfo<Cfg>& /*local*/) {
+    return 0.0;
+  }
+};
+} // namespace seissol::dr::output
+
+#endif // SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_OUTPUT_NOFAULT_H_

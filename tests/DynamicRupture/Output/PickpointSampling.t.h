@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "DynamicRupture/Output/PickpointSampling.h"
+#include "Features/DynamicRupture/Output/PickpointSampling.h"
 
 #include <cmath>
 #include <cstddef>

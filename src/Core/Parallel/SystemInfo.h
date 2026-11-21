@@ -15,7 +15,7 @@ namespace seissol {
 /**
  * Provides infos about the system we run on.
  * Also prints them on the command line on setup.
- * TODO: maybe move most printing code from SeisSol.h here.
+ * TODO: maybe move most printing code from Simulation/SeisSol.h here.
  */
 class SystemInfo {
   public:

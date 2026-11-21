@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2024 SeisSol Group
+# SPDX-FileCopyrightText: 2026 SeisSol Group
 #
 # SPDX-License-Identifier: BSD-3-Clause
 # SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
@@ -6,6 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-io OBJECT
+    AsyncIO.cpp
     Datatype/Datatype.cpp
     Datatype/HDF5Type.cpp
     Datatype/MPIType.cpp
@@ -21,8 +22,10 @@ add_library(seissol-io OBJECT
     Instance/Point/Hdf5Table.cpp
     Instance/Point/Pytables.cpp
     Instance/Point/TableWriter.cpp
-    Reader/File/Hdf5Reader.cpp
+    Manager.cpp
+    PickpointWriter.cpp
     Reader/Distribution.cpp
+    Reader/File/Hdf5Reader.cpp
     Writer/File/BinaryWriter.cpp
     Writer/File/Hdf5Writer.cpp
     Writer/Instructions/Binary.cpp
@@ -33,7 +36,6 @@ add_library(seissol-io OBJECT
     Writer/Module/BufferRegistry.cpp
     Writer/Module/WriterModule.cpp
     Writer/Writer.cpp
-    Manager.cpp
 )
 
 target_link_libraries(seissol-io PUBLIC seissol-common-properties)

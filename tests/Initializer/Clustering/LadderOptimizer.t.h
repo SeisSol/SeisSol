@@ -5,9 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Initializer/Clustering/ClusterCostModel.h"
-#include "Initializer/Clustering/LadderOptimizer.h"
-#include "Initializer/Clustering/TimestepHistogram.h"
+#include "Core/TimeStepping/Clustering/ClusterCostModel.h"
+#include "Core/TimeStepping/Clustering/LadderOptimizer.h"
+#include "Core/TimeStepping/Clustering/TimestepHistogram.h"
 #include "TestHelper.h"
 
 #include <cstdint>

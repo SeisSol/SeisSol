@@ -7,13 +7,13 @@
 
 #include <doctest.h>
 
+#include "Core/Common/BasicTypedefs.h"
 #include "Core/Geometry/MeshDefinition.h"
-#include "Equations/Datastructures.h"
-#include "Equations/poroelastic/Model/Impedance.h"
-#include "Initializer/BasicTypedefs.h"
-#include "Model/Common.h"
-#include "Model/FaceCoupling.h"
-#include "Model/Quantities.h"
+#include "WavePropagation/Physics/Common.h"
+#include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Physics/FaceCoupling.h"
+#include "WavePropagation/Physics/Quantities.h"
+#include "WavePropagation/Physics/poroelastic/Impedance.h"
 
 #include <Eigen/Dense>
 #include <array>
@@ -545,7 +545,7 @@ TEST_CASE("The state at a face is the one of the Godunov state of the materials 
   }
 
 // the Godunov state of a poroelastic solid needs its setup, which only a build with a configuration
-// of the STP kernels has (Equations/poroelastic/Model/Setup.h)
+// of the STP kernels has (WavePropagation/Physics/poroelastic/Setup.h)
 #ifdef SEISSOL_KERNELS_STP
   SUBCASE("Two poroelastic solids with open pores") {
     const auto reference = godunovState(sandstone(), porousSandstone());

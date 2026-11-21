@@ -15,8 +15,8 @@
 #include "Core/Memory/Descriptor/Boundary.h"
 #include "Core/Memory/Tree/LTSTree.h"
 #include "Core/Memory/Tree/Layer.h"
+#include "Core/Memory/Typedefs.h"
 #include "GeneratedCode/tensor.h"
-#include "Initializer/Typedefs.h"
 namespace seissol {
 
 struct SurfaceLTS {

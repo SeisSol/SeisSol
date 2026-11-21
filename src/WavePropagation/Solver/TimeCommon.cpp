@@ -1,0 +1,139 @@
+// SPDX-FileCopyrightText: 2016 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Carsten Uphoff
+
+#include "TimeCommon.h"
+
+#include "Config.h"
+#include "Core/Common/BasicTypedefs.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Marker.h"
+#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Core/Memory/CellLocalInformation.h"
+#include "Core/Memory/LtsSetup.h"
+#include "Core/Parallel/Runtime/Stream.h"
+#include "WavePropagation/Solver/Solver.h"
+
+#include <array>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+
+#ifdef ACL_DEVICE
+#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
+#endif
+
+#ifndef ACL_DEVICE
+#include <utils/logger.h>
+#endif
+
+#ifndef NDEBUG
+#include "Alignment.h"
+#endif
+
+namespace seissol::kernels {
+template <typename Cfg>
+void TimeCommon<Cfg>::computeIntegrals(Time<Cfg>& time,
+                                       const CellLocalInformation& cellInformation,
+                                       const real* timeCoeffs,
+                                       const real* subtimeCoeffs,
+                                       const std::array<void*, Cell::NumFaces>& timeDofs,
+                                       const std::array<real*, Cell::NumFaces>& integrationBuffer,
+                                       std::array<real*, Cell::NumFaces>& timeIntegrated) {
+  // call the more general assembly
+  /*
+   * assert valid input.
+   */
+
+#ifndef NDEBUG
+  // alignment of the time derivatives/integrated dofs and the buffer
+  for (std::size_t dofneighbor = 0; dofneighbor < Cell::NumFaces; dofneighbor++) {
+    assert(reinterpret_cast<uintptr_t>(timeDofs[dofneighbor]) % Vectorsize == 0);
+    assert(reinterpret_cast<uintptr_t>(integrationBuffer[dofneighbor]) % Vectorsize == 0);
+  }
+#endif
+
+  /*
+   * set/compute time integrated DOFs.
+   */
+  const auto& ltsSetup = cellInformation.ltsSetup;
+  for (std::size_t dofneighbor = 0; dofneighbor < Cell::NumFaces; ++dofneighbor) {
+    // collect information only in the case that neighboring element contributions are required;
+    // a neighbor of another configuration is integrated by ConfigBoundary
+    if (cellInformation.faceTypes[dofneighbor] == FaceType::Regular &&
+        cellInformation.neighborConfigIds[dofneighbor] == configIdOf<Cfg>()) {
+      // check if the time integration is already done (-> copy pointer)
+      if (ltsSetup.neighborBuffer(dofneighbor) != BufferType::Derivatives) {
+        timeIntegrated[dofneighbor] = static_cast<real*>(timeDofs[dofneighbor]);
+      }
+      // integrate the DOFs in time via the derivatives and set pointer to local buffer
+      else {
+        // select the time coefficients next: dependent on if we have GTS as a neighbor, use GTS
+        // coefficients (timeCoeffs); otherwise use LTS coefficients (subtimeCoeffs) for a large
+        // time cluster neighbor. IMPORTANT: make sure to not land in this code path if the neighbor
+        // time cluster is less than the local time cluster. It shouldn't happen with the current
+        // setup; but just be aware of it when changing things. In that case, enforce the "GTS
+        // relation" instead; then everything will work again.
+
+        const auto* coeffs = ltsSetup.neighborGTSRelation(dofneighbor) ? timeCoeffs : subtimeCoeffs;
+        time.evaluate(coeffs,
+                      static_cast<const real*>(timeDofs[dofneighbor]),
+                      integrationBuffer[dofneighbor]);
+
+        timeIntegrated[dofneighbor] = integrationBuffer[dofneighbor];
+      }
+    }
+  }
+}
+
+template <typename Cfg>
+void TimeCommon<Cfg>::computeBatchedIntegrals(
+    SEISSOL_GPU_PARAM Time<Cfg>& time,
+    SEISSOL_GPU_PARAM const real* timeCoeffs,
+    SEISSOL_GPU_PARAM const real* subtimeCoeffs,
+    SEISSOL_GPU_PARAM recording::ConditionalTable& table,
+    SEISSOL_GPU_PARAM seissol::parallel::runtime::StreamRuntime& runtime) {
+#ifdef ACL_DEVICE
+  using namespace seissol::recording;
+  // Compute time integrated dofs using neighbors derivatives using the GTS relation,
+  // i.e. the expansion point is around 'timeStepStart'
+  ConditionalKey key(*KernelNames::NeighborFlux, *ComputationKind::WithGtsDerivatives);
+  if (table.contains(key)) {
+    auto& entry = table[key];
+    time.evaluateBatched(timeCoeffs,
+                         const_cast<const real**>(
+                             entry.get<real*>(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr()),
+                         entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr(),
+                         entry.get<real*>(inner_keys::Wp::Id::Idofs)->getSize(),
+                         runtime);
+  }
+
+  // Compute time integrated dofs using neighbors derivatives using the LTS relation,
+  // i.e. the expansion point is around '0'
+  key = ConditionalKey(*KernelNames::NeighborFlux, *ComputationKind::WithLtsDerivatives);
+  if (table.contains(key)) {
+    auto& entry = table[key];
+    time.evaluateBatched(subtimeCoeffs,
+                         const_cast<const real**>(
+                             entry.get<real*>(inner_keys::Wp::Id::Derivatives)->getDeviceDataPtr()),
+                         entry.get<real*>(inner_keys::Wp::Id::Idofs)->getDeviceDataPtr(),
+                         entry.get<real*>(inner_keys::Wp::Id::Idofs)->getSize(),
+                         runtime);
+  }
+#else
+  logError() << "No GPU implementation provided";
+#endif
+}
+
+#define SEISSOL_INSTANTIATE(Cfg) template struct TimeCommon<Cfg>;
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
+
+} // namespace seissol::kernels

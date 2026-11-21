@@ -1,0 +1,52 @@
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_CORE_TIMESTEPPING_CLUSTERING_CLUSTERINGWRITER_H_
+#define SEISSOL_SRC_CORE_TIMESTEPPING_CLUSTERING_CLUSTERINGWRITER_H_
+
+#include "Core/Memory/Tree/Layer.h"
+
+#include <string>
+#include <type_traits>
+#include <vector>
+
+namespace seissol::writer {
+
+class ClusteringWriter {
+  public:
+  ClusteringWriter(std::string outputPrefix, std::string runId);
+  void addCluster(unsigned profilingId,
+                  unsigned localClusterId,
+                  HaloType layerType,
+                  std::size_t size,
+                  std::size_t dynRupSize,
+                  double timestep,
+                  long updateFactor);
+  void write() const;
+
+  // SoA that contains info about clusters
+  struct ClusteringInformation {
+    std::vector<int> ranks;
+    std::vector<int> localRanks;
+    std::vector<int> profilingIds;
+    std::vector<int> localClusterIds;
+    std::vector<std::underlying_type_t<HaloType>> layerTypes;
+    std::vector<std::size_t> sizes;
+    std::vector<std::size_t> dynamicRuptureSizes;
+    std::vector<double> timesteps;
+    std::vector<long> updateFactors;
+  };
+
+  private:
+  std::string outputPrefix_;
+  std::string runId_;
+  ClusteringInformation clusteringInformation_;
+};
+
+} // namespace seissol::writer
+
+#endif // SEISSOL_SRC_CORE_TIMESTEPPING_CLUSTERING_CLUSTERINGWRITER_H_

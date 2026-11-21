@@ -8,8 +8,8 @@
 #include <doctest.h>
 
 #include "Core/Parallel/MPI.h"
-#include "Initializer/Clustering/VertexWeights/MeasuredCellCosts.h"
-#include "Initializer/Clustering/VertexWeights/MeasuredWeights.h"
+#include "Core/TimeStepping/Clustering/VertexWeights/MeasuredCellCosts.h"
+#include "Core/TimeStepping/Clustering/VertexWeights/MeasuredWeights.h"
 #include "TestHelper.h"
 
 #include <algorithm>

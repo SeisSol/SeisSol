@@ -7,9 +7,9 @@
 
 #include "Core/Common/Real.h"
 #include "Core/Numerical/Quadrature.h"
-#include "DynamicRupture/FrictionLaws/FrictionSolver.h"
-#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
-#include "DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolverCommon.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "TestConfigs.h"

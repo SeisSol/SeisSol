@@ -8,8 +8,8 @@
 #include <doctest.h>
 
 #include "Core/Common/ConfigRegistry.h"
-#include "Initializer/Parameters/DRParameters.h"
-#include "Initializer/Parameters/ParameterReader.h"
+#include "Simulation/Parameters/DRParameters.h"
+#include "Simulation/Parameters/ParameterReader.h"
 
 #include <set>
 #include <yaml-cpp/yaml.h>

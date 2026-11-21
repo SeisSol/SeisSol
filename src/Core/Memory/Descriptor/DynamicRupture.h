@@ -11,16 +11,16 @@
 
 #include "Core/Common/Real.h"
 #include "Core/IO/Instance/Checkpoint/CheckpointManager.h"
+#include "Core/Kernels/Common.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Tree/LTSTree.h"
 #include "Core/Memory/Tree/Layer.h"
+#include "Core/Memory/Typedefs.h"
 #include "Core/Parallel/Helper.h"
-#include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Typedefs.h"
+#include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Typedefs.h"
 #include "GeneratedCode/tensor.h"
-#include "Initializer/Parameters/DRParameters.h"
-#include "Initializer/Typedefs.h"
-#include "Kernels/Common.h"
+#include "Simulation/Parameters/DRParameters.h"
 
 namespace seissol {
 

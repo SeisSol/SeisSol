@@ -11,8 +11,8 @@
 #include "Alignment.h"
 #include "Config.h"
 #include "Core/Memory/MemoryAllocator.h"
+#include "Core/Memory/Typedefs.h"
 #include "GeneratedCode/pool.h"
-#include "Initializer/Typedefs.h"
 
 #include <cstddef>
 

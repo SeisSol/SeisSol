@@ -8,7 +8,7 @@
 #include "Manager.h"
 
 #include "Core/IO/Writer/Writer.h"
-#include "SeisSol.h"
+#include "Simulation/SeisSol.h"
 #include "Writer/Module/WriterModule.h"
 
 #include <memory>

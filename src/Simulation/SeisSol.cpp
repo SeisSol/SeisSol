@@ -1,0 +1,161 @@
+// SPDX-FileCopyrightText: 2014 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Sebastian Rettenberger
+
+#include "Simulation/SeisSol.h"
+
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Modules/Modules.h"
+#include "Core/Monitoring/Unit.h"
+#include "Core/Parallel/Helper.h"
+#include "Core/Parallel/MPI.h"
+#include "Core/Parallel/OpenMP.h"
+#include "Core/Parallel/Pin.h"
+
+#include <cstddef>
+#include <memory>
+#include <optional>
+#include <utility>
+#include <utils/logger.h>
+
+#ifndef _WIN32
+#include <sys/resource.h>
+#endif
+
+namespace seissol {
+
+SeisSol::~SeisSol() = default;
+
+bool SeisSol::init() {
+  logInfo() << "Using MPI with #ranks:" << seissol::Mpi::mpi.size();
+  logInfo() << "Node-wide (shared memory) MPI with #ranks/node:"
+            << seissol::Mpi::mpi.sharedMemMpiSize();
+
+  printPersistentMpiInfo(env_);
+#ifdef ACL_DEVICE
+  printUSMInfo(env_);
+  printMPIUSMInfo(env_);
+#endif
+  printDeviceOptionInfo(env_);
+  pinning_.checkEnvVariables(env_);
+  if (OpenMP::enabled()) {
+    logInfo() << "Using OpenMP with #threads/rank:" << seissol::OpenMP::threadCount();
+  } else {
+    logInfo() << "OpenMP disabled. Using only a single thread.";
+  }
+  if (!parallel::Pinning::areAllCpusOnline()) {
+    logInfo() << "Some CPUs are offline. Only online CPUs are considered.";
+    logInfo() << "Online Mask            (this node)   :"
+              << parallel::Pinning::maskToString(pinning_.getOnlineMask()) << "("
+              << parallel::Pinning::maskToStringShort(pinning_.getOnlineMask()).c_str() << ")";
+  }
+  logInfo() << "OpenMP worker affinity (this process):"
+            << parallel::Pinning::maskToString(seissol::parallel::Pinning::getWorkerUnionMask())
+            << "("
+            << parallel::Pinning::maskToStringShort(
+                   seissol::parallel::Pinning::getWorkerUnionMask())
+                   .c_str()
+            << ")";
+  logInfo()
+      << "OpenMP worker affinity (this node)   :"
+      << parallel::Pinning::maskToString(seissol::parallel::Pinning::getNodeMask()) << "("
+      << parallel::Pinning::maskToStringShort(seissol::parallel::Pinning::getNodeMask()).c_str()
+      << ")";
+
+  seissol::printCommThreadInfo(seissol::Mpi::mpi, env_);
+  if (seissol::useCommThread(seissol::Mpi::mpi, env_)) {
+    const auto freeCpus = pinning_.getFreeCPUsMask();
+    logInfo() << "Communication thread affinity        :"
+              << parallel::Pinning::maskToString(freeCpus) << "("
+              << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
+    if (parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
+      logError()
+          << "There are no free CPUs left. Make sure to leave one for the communication thread. If "
+             "you want to run SeisSol without a communication thread (and instead use polling), "
+             "then try running with the environment variable \"SEISSOL_COMMTHREAD=0\". ";
+    }
+  }
+
+#ifndef _WIN32
+  // Check if the ulimit for the stacksize is reasonable.
+  // A low limit can lead to segmentation faults.
+  // (on Windows, there is no such limit; the stack size is fixed when linking the executable)
+  rlimit rlim{};
+  if (getrlimit(RLIMIT_STACK, &rlim) == 0) {
+    const auto rlimInKb = rlim.rlim_cur / 1024;
+    // Softlimit (rlim_cur) is enforced by the kernel.
+    // This limit is pretty arbitrarily set to 2GiB.
+    constexpr auto ReasonableStackLimitInKb = 0x200'000ULL;                    // [kiB] (2 GiB)
+    constexpr auto ReasonableStackLimit = ReasonableStackLimitInKb * 0x400ULL; // [B] (2 GiB)
+    if (rlim.rlim_cur == RLIM_INFINITY) {
+      logInfo() << "The stack size ulimit is unlimited.";
+    } else {
+      logInfo() << "The stack size ulimit is" << rlimInKb
+                << "[kiB] ( =" << UnitByte.formatPrefix(rlim.rlim_cur).c_str() << ").";
+    }
+    if (rlim.rlim_cur < ReasonableStackLimit) {
+      logWarning()
+          << "Stack size of" << rlimInKb
+          << "[kiB] ( =" << UnitByte.formatPrefix(rlim.rlim_cur).c_str()
+          << ") is lower than recommended minimum of" << ReasonableStackLimitInKb
+          << "[kiB] ( =" << UnitByte.formatPrefix(ReasonableStackLimit).c_str() << ")."
+          << "You can increase the stack size by running the command: ulimit -Ss unlimited.";
+    }
+  } else {
+    logError() << "Stack size cannot be determined because getrlimit syscall failed!";
+  }
+#endif
+
+  // Call post MPI initialization hooks
+  modules_.callHook<ModuleHook::PostMPIInit>();
+
+  // Initialize the ASYNC I/O library
+  if (!asyncIO_.initDispatcher(pinning_)) {
+    return false;
+  }
+
+  memoryManager_->initialize();
+
+  return true;
+}
+
+void SeisSol::finalize(bool finalizeMpi) {
+  // the writers are finalized while the dispatcher still runs, which takes them out together with
+  // its executors
+  modules_.callHook<ModuleHook::Shutdown>();
+
+  // Cleanup ASYNC I/O library
+  asyncIO_.finalizeDispatcher();
+
+  timeManager_.freeDynamicResources();
+
+  if (finalizeMpi) {
+    seissol::Mpi::mpi.finalize();
+    logInfo() << "SeisSol done. Goodbye.";
+  }
+}
+
+void SeisSol::setBackupTimeStamp(const std::string& stamp) {
+  backupTimeStamp_ = stamp;
+  seissol::Mpi::mpi.broadcastContainer(backupTimeStamp_, 0);
+}
+
+void SeisSol::loadCheckpoint(const std::string& file) {
+  checkpointLoadFile_ = std::make_optional<std::string>(file);
+}
+
+void SeisSol::setExecutionPlaceCutoff(std::size_t size) { executionPlaceCutoff_ = size; }
+
+void SeisSol::setMeshReader(std::unique_ptr<seissol::geometry::MeshReader> meshReader) {
+  if (meshReader_ != nullptr) {
+    logError() << "Mesh reader already initialized";
+  }
+
+  meshReader_ = std::move(meshReader);
+}
+
+} // namespace seissol

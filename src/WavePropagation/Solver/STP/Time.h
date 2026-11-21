@@ -1,0 +1,77 @@
+// SPDX-FileCopyrightText: 2013 SeisSol Group
+// SPDX-FileCopyrightText: 2014-2015 Intel Corporation
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Alexander Breuer
+// SPDX-FileContributor: Alexander Heinecke (Intel Corp.)
+
+#ifndef SEISSOL_SRC_WAVEPROPAGATION_SOLVER_STP_TIME_H_
+#define SEISSOL_SRC_WAVEPROPAGATION_SOLVER_STP_TIME_H_
+
+#include "Core/Common/Constants.h"
+#include "Core/Common/Real.h"
+#include "Core/Monitoring/Metric.h"
+#include "GeneratedCode/kernel.h"
+#include "WavePropagation/Solver/Spacetime.h"
+#include "WavePropagation/Solver/Time.h"
+
+#ifdef ACL_DEVICE
+#include <Device/device.h>
+#endif // ACL_DEVICE
+
+namespace seissol::kernels::solver::stp {
+
+template <typename Cfg>
+class Spacetime : public SpacetimeKernel<Cfg> {
+  public:
+  using real = Real<Cfg>;
+
+  void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
+  void computeAder(const real* coeffs,
+                   double timeStepWidth,
+                   LTS::Ref<Cfg>& data,
+                   LocalTmp<Cfg>& tmp,
+                   real* timeIntegrated,
+                   real* timeDerivativesOrSTP,
+                   bool updateDisplacement) override;
+  void computeBatchedAder(const real* coeffs,
+                          double timeStepWidth,
+                          LTS::Layer& layer,
+                          LocalTmp<Cfg>& tmp,
+                          recording::ConditionalTable& dataTable,
+                          bool updateDisplacement,
+                          seissol::parallel::runtime::StreamRuntime& runtime) override;
+
+  [[nodiscard]] PerformanceEstimate metrics() const override;
+
+  private:
+  void executeSTP(double timeStepWidth, LTS::Ref<Cfg>& data, real* timeIntegrated, real* stp);
+
+  kernel::spaceTimePredictor<Cfg> krnlPrototype_;
+
+#ifdef ACL_DEVICE
+  kernel::gpu_spaceTimePredictor<Cfg> deviceKrnlPrototype_;
+#endif
+};
+
+template <typename Cfg>
+class Time : public TimeKernel<Cfg> {
+  public:
+  using real = Real<Cfg>;
+
+  void setGlobalData(const CompoundGlobalData<Cfg>& global) override;
+  void evaluate(const real* coeffs, const real* timeDerivatives, real* timeEvaluated) override;
+  void evaluateBatched(const real* coeffs,
+                       const real** timeDerivatives,
+                       real** timeIntegratedDofs,
+                       std::size_t numElements,
+                       seissol::parallel::runtime::StreamRuntime& runtime) override;
+  [[nodiscard]] PerformanceEstimate metrics() const override;
+};
+
+} // namespace seissol::kernels::solver::stp
+
+#endif // SEISSOL_SRC_WAVEPROPAGATION_SOLVER_STP_TIME_H_

@@ -8,13 +8,13 @@
 #include "Config.h"
 #include "Core/Common/Real.h"
 #include "Core/Geometry/MeshDefinition.h"
-#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include "Kernels/SolverSelector.h"
-#include "Model/Common.h"
-#include "Model/Quantities.h"
 #include "TestConfigs.h"
+#include "WavePropagation/Physics/Common.h"
+#include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Physics/Quantities.h"
+#include "WavePropagation/Solver/SolverSelector.h"
 
 #include <array>
 #include <cmath>

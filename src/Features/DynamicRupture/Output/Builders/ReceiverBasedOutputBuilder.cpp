@@ -1,0 +1,563 @@
+// SPDX-FileCopyrightText: 2022 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include "Features/DynamicRupture/Output/Builders/ReceiverBasedOutputBuilder.h"
+
+#include "Config.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Iterator.h"
+#include "Core/Common/Real.h"
+#include "Core/Common/Typedefs.h"
+#include "Core/Geometry/CellTransform.h"
+#include "Core/Geometry/FaceTransform.h"
+#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Geometry/MeshTools.h"
+#include "Core/Kernels/Common.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Backmap.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Numerical/Transformation.h"
+#include "Core/Parallel/DataCollector.h"
+#include "Core/Parallel/Helper.h"
+#include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Output/DataTypes.h"
+#include "Features/DynamicRupture/Output/OutputAux.h"
+#include "GeneratedCode/init.h"
+#include "GeneratedCode/tensor.h"
+#include "WavePropagation/Physics/Common.h"
+#include "WavePropagation/Physics/Datastructures.h" // IWYU pragma: keep
+#include "WavePropagation/Solver/Setup.h"           // IWYU pragma: keep
+#include "WavePropagation/Solver/SolverSelector.h"
+
+#include <Eigen/Core>
+#include <algorithm>
+#include <array>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <map>
+#include <memory>
+#include <optional>
+#include <tuple>
+#include <unordered_map>
+#include <utility>
+#include <utils/logger.h>
+#include <vector>
+#include <yateto.h>
+
+namespace seissol::dr::output {
+void ReceiverBasedOutputBuilder::setMeshReader(const seissol::geometry::MeshReader* reader) {
+  meshReader_ = reader;
+  localRank_ = Mpi::mpi.rank();
+}
+
+void ReceiverBasedOutputBuilder::setLtsData(LTS::Storage& userWpStorage,
+                                            LTS::Backmap& userWpBackmap,
+                                            DynamicRupture::Storage& userDrStorage) {
+  wpStorage_ = &userWpStorage;
+  wpBackmap_ = &userWpBackmap;
+  drStorage_ = &userDrStorage;
+}
+
+void ReceiverBasedOutputBuilder::setVariableList(const std::vector<std::size_t>& variables) {
+  this->variables_ = variables;
+}
+
+void ReceiverBasedOutputBuilder::setFaceToLtsMap(
+    ::seissol::initializer::StorageBackmap<1>* faceToLtsMap) {
+  this->faceToLtsMap_ = faceToLtsMap;
+}
+
+ConfigId ReceiverBasedOutputBuilder::configOfFace(std::size_t faultFaceIndex) const {
+  // all copies of a face compute in the same configuration
+  const auto position = faceToLtsMap_->get(faultFaceIndex, 0);
+  return drStorage_->layer(position.color).getIdentifier().config;
+}
+
+namespace {
+struct GhostElement {
+  std::pair<std::size_t, int> data;
+  std::size_t copy{};
+  std::size_t index{};
+};
+
+template <typename T1, typename T2>
+struct HashPair {
+  std::size_t operator()(const std::pair<T1, T2>& data) const {
+    // Taken from: https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x
+    // (probably any other lcg-like hash function would work as well)
+    const std::hash<T1> hasher1;
+    const std::hash<T2> hasher2;
+    std::size_t seed = hasher1(data.first);
+    seed ^= hasher2(data.second) + 0x9e3779b9 + (seed << 6U) + (seed >> 2U);
+    return seed;
+  }
+};
+} // namespace
+
+void ReceiverBasedOutputBuilder::initTopology() {
+  auto& topology = outputData_->topology;
+
+  // Bucket the receivers by face and, within a face, by position. Buckets are created on first
+  // touch, so the order the generators produced is preserved: face-major for the elementwise
+  // output, file order for the pickpoint output. Only the copies of a face are faces of their own,
+  // which pulls the simulations of a point apart; outputOrder keeps the order of the generators.
+  struct PointBucket {
+    std::vector<std::size_t> receiverIds;
+    std::size_t nearestGpIndex{};
+    std::size_t nearestInternalGpIndex{};
+  };
+  struct FaceBucket {
+    std::size_t faultFaceIndex{};
+    std::size_t copy{};
+    std::size_t elementIndex{};
+    std::size_t localFaceSideId{};
+    std::vector<PointBucket> points;
+    std::map<std::array<double, 3>, std::size_t> pointIds;
+  };
+
+  std::vector<FaceBucket> faceBuckets;
+  std::unordered_map<std::size_t, std::size_t> faceIds;
+
+  for (const auto& [index, receiver] : common::enumerate(outputData_->receivers)) {
+    if (!receiver.isInside) {
+      continue;
+    }
+
+    const auto faceKey = faceToLtsMap_->get(receiver.faultFaceIndex.value(), receiver.copy).global;
+    if (!faceIds.contains(faceKey)) {
+      faceIds[faceKey] = faceBuckets.size();
+      auto& bucket = faceBuckets.emplace_back();
+      bucket.faultFaceIndex = receiver.faultFaceIndex.value();
+      bucket.copy = receiver.copy;
+      bucket.elementIndex = receiver.elementIndex.value();
+      bucket.localFaceSideId =
+          static_cast<std::size_t>(static_cast<std::uint8_t>(receiver.localFaceSideId.value()));
+    }
+    auto& faceBucket = faceBuckets[faceIds.at(faceKey)];
+
+    // Exact comparison is intended: receivers which share a position are generated from the very
+    // same coordinates -- fused simulations, or a point given twice in the parameter file. The
+    // lookup is scoped to the face, since the node points of two adjacent faces may coincide
+    // bit-for-bit (a corner of the reference face maps to a mesh vertex exactly).
+    //
+    // A point takes at most one receiver per simulation, though. A second receiver of the same
+    // simulation at the same position is a separate output which merely coincides with the first
+    // one -- a point given twice in the parameter file, or a corner which two sub-triangles of the
+    // refined elementwise output share. It starts a point of its own, so that the elementwise
+    // receivers keep the cell-major order which the elementwise writer indexes them by.
+    const std::array<double, 3> coords = receiver.global;
+    const auto existing = faceBucket.pointIds.find(coords);
+    bool joinsExisting = existing != faceBucket.pointIds.end();
+    if (joinsExisting) {
+      for (const auto other : faceBucket.points[existing->second].receiverIds) {
+        if (outputData_->receivers[other].simIndex == receiver.simIndex) {
+          joinsExisting = false;
+        }
+      }
+    }
+    if (!joinsExisting) {
+      faceBucket.pointIds[coords] = faceBucket.points.size();
+      auto& bucket = faceBucket.points.emplace_back();
+      bucket.nearestGpIndex = static_cast<std::size_t>(receiver.nearestGpIndex);
+      bucket.nearestInternalGpIndex = static_cast<std::size_t>(receiver.nearestInternalGpIndex);
+    }
+    faceBucket.points[faceBucket.pointIds.at(coords)].receiverIds.push_back(index);
+  }
+
+  // Flatten the buckets, renumbering the receivers on the way. This is what makes the point range
+  // of a face and the receiver range of a point contiguous, so that the topology needs offsets
+  // only.
+  std::vector<Receiver> receivers;
+  receivers.reserve(outputData_->receivers.size());
+  outputData_->outputOrder.resize(outputData_->receivers.size());
+
+  for (const auto& faceBucket : faceBuckets) {
+    OutputFace face{};
+    face.faultFaceIndex = faceBucket.faultFaceIndex;
+    face.copy = faceBucket.copy;
+    face.position = faceToLtsMap_->get(faceBucket.faultFaceIndex, faceBucket.copy);
+    face.elementIndex = faceBucket.elementIndex;
+    face.localFaceSideId = faceBucket.localFaceSideId;
+    topology.addFace(face);
+
+    for (const auto& pointBucket : faceBucket.points) {
+      OutputPoint point{};
+      point.faceId = topology.faceCount() - 1;
+      point.nearestGpIndex = pointBucket.nearestGpIndex;
+      point.nearestInternalGpIndex = pointBucket.nearestInternalGpIndex;
+      topology.addPoint(point, pointBucket.receiverIds.size());
+
+      for (const auto receiverId : pointBucket.receiverIds) {
+        outputData_->outputOrder[receiverId] = receivers.size();
+        receivers.push_back(outputData_->receivers[receiverId]);
+      }
+    }
+  }
+
+  outputData_->receivers = std::move(receivers);
+  assert(outputData_->receivers.size() == topology.receiverCount());
+}
+
+void ReceiverBasedOutputBuilder::initBasisFunctions() {
+  const auto& faultInfo = meshReader_->getFault();
+  const auto& elementsInfo = meshReader_->getElements();
+  const auto& verticesInfo = meshReader_->getVertices();
+  const auto& mpiGhostMetadata = meshReader_->getGhostlayerMetadata();
+
+  auto& topology = outputData_->topology;
+
+  for (std::size_t faceId = 0; faceId < topology.faceCount(); ++faceId) {
+    const auto& face = topology.faces[faceId];
+    assert(faultInfo[face.faultFaceIndex].element.hasValue());
+    const auto elementIndex = faultInfo[face.faultFaceIndex].element.value();
+    const auto& element = elementsInfo[elementIndex];
+    const auto neighborElementIndex = faultInfo[face.faultFaceIndex].neighborElement;
+
+    const auto transform = geometry::AffineTransform::fromMeshCell(elementIndex, *meshReader_);
+
+    std::array<CoordinateT, Cell::NumVertices> neighborElemCoords{};
+    if (neighborElementIndex.hasValue()) {
+      for (size_t vertexIdx = 0; vertexIdx < Cell::NumVertices; ++vertexIdx) {
+        const auto address = elementsInfo[neighborElementIndex.value()].vertices[vertexIdx];
+        neighborElemCoords[vertexIdx] = verticesInfo[address].coords;
+      }
+    } else {
+      const auto faultSide = faultInfo[face.faultFaceIndex].side;
+      const auto neighborRank = element.neighborRanks[faultSide];
+      const auto& ghostMetadataItr = mpiGhostMetadata.find(neighborRank);
+      assert(ghostMetadataItr != mpiGhostMetadata.end());
+
+      const auto neighborIndex = element.mpiIndices[faultSide];
+      for (size_t vertexIdx = 0; vertexIdx < Cell::NumVertices; ++vertexIdx) {
+        const auto& array3d = ghostMetadataItr->second[neighborIndex].vertices[vertexIdx];
+        neighborElemCoords[vertexIdx] = array3d;
+      }
+    }
+
+    const auto neighborTransform = geometry::AffineTransform(neighborElemCoords);
+
+    dispatchConfig(configOfFace(face.faultFaceIndex), [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      for (const auto pointId : topology.pointsOf(faceId)) {
+        const auto& receiver = outputData_->receivers[topology.representative(pointId)];
+        topology.points[pointId].basisFunctions =
+            getPlusMinusBasisFunctions<Cfg>(receiver.global, transform, neighborTransform);
+      }
+    });
+  }
+}
+
+void ReceiverBasedOutputBuilder::initDeviceCollectors(bool elementwise) {
+  const auto& faultInfo = meshReader_->getFault();
+  const auto& elementsInfo = meshReader_->getElements();
+
+  auto& topology = outputData_->topology;
+
+  // the copies of an element are gathered separately; hence, the keys carry the copy, too
+  const auto copyCount = wpBackmap_->copyCount();
+
+  std::unordered_map<std::size_t, std::size_t> elementIndices;
+  std::unordered_map<std::pair<int, std::size_t>, GhostElement, HashPair<int, std::size_t>>
+      elementIndicesGhost;
+
+  // The gather arrays are built per face: a face needs the derivatives of its own element and of
+  // its neighbour, no matter how many output points sit on it.
+  for (auto& face : topology.faces) {
+    assert(faultInfo[face.faultFaceIndex].element.hasValue());
+    const auto elementIndex = faultInfo[face.faultFaceIndex].element.value();
+    const auto& element = elementsInfo[elementIndex];
+
+    const auto elementKey = elementIndex * copyCount + face.copy;
+    if (!elementIndices.contains(elementKey)) {
+      elementIndices[elementKey] = elementIndices.size();
+    }
+    face.deviceDataPlus = elementIndices.at(elementKey);
+
+    const auto neighborElementIndex = faultInfo[face.faultFaceIndex].neighborElement;
+    if (neighborElementIndex.hasValue()) {
+      const auto neighborKey = neighborElementIndex.value() * copyCount + face.copy;
+      if (!elementIndices.contains(neighborKey)) {
+        elementIndices[neighborKey] = elementIndices.size();
+      }
+    } else {
+      const auto faultSide = faultInfo[face.faultFaceIndex].side;
+      const auto ghostIndex = std::pair<int, std::size_t>(
+          element.neighborRanks[faultSide], element.mpiIndices[faultSide] * copyCount + face.copy);
+      if (!elementIndicesGhost.contains(ghostIndex)) {
+        const auto index = elementIndicesGhost.size();
+        elementIndicesGhost[ghostIndex] =
+            GhostElement{.data = std::pair<std::size_t, int>(elementIndex, faultSide),
+                         .copy = face.copy,
+                         .index = index};
+      }
+    }
+  }
+
+  // the ghost entries are appended behind the local ones, so their offset is only known once all
+  // local elements have been seen
+  for (auto& face : topology.faces) {
+    const auto neighborElementIndex = faultInfo[face.faultFaceIndex].neighborElement;
+    if (neighborElementIndex.hasValue()) {
+      face.deviceDataMinus =
+          elementIndices.at(neighborElementIndex.value() * copyCount + face.copy);
+    } else {
+      const auto elementIndex = faultInfo[face.faultFaceIndex].element.value();
+      const auto& element = elementsInfo[elementIndex];
+      const auto faultSide = faultInfo[face.faultFaceIndex].side;
+      const auto ghostIndex = std::pair<int, std::size_t>(
+          element.neighborRanks[faultSide], element.mpiIndices[faultSide] * copyCount + face.copy);
+      face.deviceDataMinus = elementIndices.size() + elementIndicesGhost.at(ghostIndex).index;
+    }
+  }
+
+  outputData_->cellCount = elementIndices.size() + elementIndicesGhost.size();
+
+  if constexpr (isDeviceOn()) {
+    // the derivatives are gathered with one element size, which is the one of the configuration of
+    // the faces
+    std::optional<ConfigId> facesConfig;
+    for (const auto& face : topology.faces) {
+      const auto config = configOfFace(face.faultFaceIndex);
+      if (facesConfig.has_value() && facesConfig.value() != config) {
+        logError() << "The on-fault receiver output of a GPU build requires all fault faces with "
+                      "receivers to compute in the same configuration.";
+      }
+      facesConfig = config;
+    }
+    const auto derivativesBytes =
+        dispatchConfig(facesConfig.value_or(0), [](auto cfg) -> std::size_t {
+          using Cfg = decltype(cfg);
+          return seissol::kernels::SolverOf<Cfg>::DerivativesSize * sizeof(Real<Cfg>);
+        });
+
+    if (elementwise) {
+      // rely on the data that is copied anyways
+      // (deviceDataCollector needs to be set to avoid a nullptr call)
+      outputData_->deviceDataCollector = std::make_unique<seissol::parallel::DataCollectorUntyped>(
+          std::vector<void*>{}, derivativesBytes, true);
+    } else {
+      // setup (sparse) index arrays (for receivers)
+
+      std::vector<void*> indexPtrs(outputData_->cellCount);
+
+      for (const auto& [elementKey, arrayIndex] : elementIndices) {
+        const auto position = wpBackmap_->get(elementKey / copyCount, elementKey % copyCount);
+        const auto config = wpStorage_->layer(position.color).getIdentifier().config;
+        indexPtrs[arrayIndex] = dispatchConfig(config, [&](auto cfg) -> void* {
+          return wpStorage_->lookup<LTS::DerivativesDevice>(cfg, position);
+        });
+        assert(indexPtrs[arrayIndex] != nullptr);
+      }
+      for (const auto& [_, ghost] : elementIndicesGhost) {
+        const auto neighbor = ghost.data;
+        const auto arrayIndex = ghost.index + elementIndices.size();
+
+        const auto position = wpBackmap_->get(neighbor.first, ghost.copy);
+        indexPtrs[arrayIndex] =
+            wpStorage_->lookup<LTS::FaceNeighborsDevice>(position)[neighbor.second];
+        assert(indexPtrs[arrayIndex] != nullptr);
+      }
+
+      // The derivatives are in the host-accessible memory of the MPI buffers with
+      // SEISSOL_USM_MPI=1. But the samples get taken on a stream of their own, while the clusters
+      // go on and overwrite the derivatives: then only a copy gathered in the order of the stream
+      // of the cluster holds the data of the step.
+      const bool hostAccessible = useMPIUSM() && !outputData_->extraRuntime.has_value();
+      outputData_->deviceDataCollector = std::make_unique<seissol::parallel::DataCollectorUntyped>(
+          indexPtrs, derivativesBytes, hostAccessible);
+
+      std::vector<std::vector<void*>> variablePointers;
+      std::vector<std::size_t> variableSizes;
+      for (const auto& variable : variables_) {
+        std::size_t elementSize = 0;
+        std::vector<void*> dataPointers(topology.faceCount());
+        for (std::size_t faceId = 0; faceId < topology.faceCount(); ++faceId) {
+          const auto& position = topology.faces[faceId].position;
+          auto& layer = drStorage_->layer(position.color);
+          // a face holds the variable in the type of the configuration of its layer
+          elementSize = drStorage_->info(variable).bytesLayer(layer.getIdentifier());
+          dataPointers[faceId] = static_cast<uint8_t*>(layer.varUntyped(
+                                     variable, initializer::AllocationPlace::Device)) +
+                                 elementSize * position.cell;
+        }
+        outputData_->deviceVariableSets[variable] = variablePointers.size();
+        variablePointers.emplace_back(std::move(dataPointers));
+        variableSizes.push_back(elementSize);
+      }
+
+      // all variables with one kernel: a launch per variable cost the stream of the cluster more
+      // than the copies themselves
+      const bool variablesHostAccessible = useUSM() && !outputData_->extraRuntime.has_value();
+      outputData_->deviceVariables = std::make_unique<seissol::parallel::DataCollectorUntyped>(
+          variablePointers, variableSizes, variablesHostAccessible);
+    }
+  }
+}
+
+void ReceiverBasedOutputBuilder::initFaultDirections() {
+  const auto& faultInfo = meshReader_->getFault();
+
+  for (auto& face : outputData_->topology.faces) {
+    auto& faultDirections = face.faultDirections;
+    const auto globalIndex = face.faultFaceIndex;
+
+    std::copy_n(faultInfo[globalIndex].normal.data(), 3, faultDirections.faceNormal.begin());
+    std::copy_n(faultInfo[globalIndex].tangent1.data(), 3, faultDirections.tangent1.begin());
+    std::copy_n(faultInfo[globalIndex].tangent2.data(), 3, faultDirections.tangent2.begin());
+
+    misc::computeStrikeAndDipVectors(
+        faultDirections.faceNormal, faultDirections.strike, faultDirections.dip);
+  }
+}
+
+void ReceiverBasedOutputBuilder::initRotationMatrices() {
+  using namespace seissol::transformations;
+
+  for (auto& face : outputData_->topology.faces) {
+    const auto& faultDirections = face.faultDirections;
+    const auto& faceNormal = faultDirections.faceNormal;
+    const auto& strike = faultDirections.strike;
+    const auto& dip = faultDirections.dip;
+    const auto& tangent1 = faultDirections.tangent1;
+    const auto& tangent2 = faultDirections.tangent2;
+
+    dispatchConfig(configOfFace(face.faultFaceIndex), [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      using RotationMatrixViewT = yateto::DenseTensorView<2, Real<Cfg>, unsigned>;
+      auto& transform = face.transform.emplace<FaceTransform<Cfg>>();
+
+      {
+        auto* memorySpace = transform.stressGlbToDipStrikeAligned.data();
+        RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
+        inverseSymmetricTensor2RotationMatrix(faceNormal, strike, dip, rotationMatrixView, 0, 0);
+      }
+      {
+        auto* memorySpace = transform.stressFaceAlignedToGlb.data();
+        RotationMatrixViewT rotationMatrixView(memorySpace, {6, 6});
+        symmetricTensor2RotationMatrix(faceNormal, tangent1, tangent2, rotationMatrixView, 0, 0);
+      }
+      {
+        // the face-aligned-to-global direction is not part of the output; it is only needed to
+        // obtain its inverse
+        std::array<Real<Cfg>, seissol::tensor::T<Cfg>::size()> faceAlignedToGlbData{};
+        auto faceAlignedToGlb = init::T<Cfg>::view::create(faceAlignedToGlbData.data());
+        auto glbToFaceAligned =
+            init::Tinv<Cfg>::view::create(transform.glbToFaceAlignedData.data());
+
+        seissol::model::getFaceRotationMatrix<Cfg>(
+            faceNormal, tangent1, tangent2, faceAlignedToGlb, glbToFaceAligned);
+      }
+    });
+  }
+}
+
+void ReceiverBasedOutputBuilder::initOutputVariables(
+    std::array<bool, std::tuple_size_v<DrVarsT>>& outputMask) {
+  auto assignMask = [&outputMask](auto& var, int receiverId) {
+    var.isActive = outputMask[receiverId];
+  };
+  misc::forEach(outputData_->vars, assignMask);
+
+  auto allocateVariables = [this](auto& var, int) {
+    var.maxCacheLevel = outputData_->maxCacheLevel;
+    var.allocateData(this->outputData_->receivers.size());
+  };
+  misc::forEach(outputData_->vars, allocateVariables);
+}
+
+void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
+  const auto& faultInfo = meshReader_->getFault();
+
+  for (auto& outputFace : outputData_->topology.faces) {
+    // the two edge vectors spanning the face are the columns of its Jacobian
+    const auto faceJacobian = geometry::AffineFaceTransform::fromMeshCell(
+                                  outputFace.elementIndex, outputFace.localFaceSideId, *meshReader_)
+                                  .refToSpaceJacobian(geometry::FaceTransform::FaceVectorT::Zero());
+
+    CoordinateT xab{};
+    CoordinateT xac{};
+    for (std::size_t d = 0; d < Cell::Dim; ++d) {
+      xab[d] = faceJacobian(d, 0);
+      xac[d] = faceJacobian(d, 1);
+    }
+
+    const auto& tangent1 = faultInfo[outputFace.faultFaceIndex].tangent1;
+    const auto& tangent2 = faultInfo[outputFace.faultFaceIndex].tangent2;
+
+    dispatchConfig(configOfFace(outputFace.faultFaceIndex), [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      Eigen::Matrix<Real<Cfg>, 2, 2> matrix;
+      matrix(0, 0) = MeshTools::dot(tangent1, xab);
+      matrix(0, 1) = MeshTools::dot(tangent2, xab);
+      matrix(1, 0) = MeshTools::dot(tangent1, xac);
+      matrix(1, 1) = MeshTools::dot(tangent2, xac);
+      std::get<FaceTransform<Cfg>>(outputFace.transform).jacobianT2d = matrix.inverse();
+    });
+  }
+}
+
+void ReceiverBasedOutputBuilder::assignNearestGaussianPoints() {
+  for (auto& geoPoint : outputData_->receivers) {
+    dispatchConfig(configOfFace(geoPoint.faultFaceIndex.value()), [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      assignNearestGaussianPoint<Cfg>(geoPoint);
+    });
+  }
+}
+
+void ReceiverBasedOutputBuilder::assignNearestInternalGaussianPoints() {
+  auto& geoPoints = outputData_->receivers;
+
+  for (auto& geoPoint : geoPoints) {
+    assert(geoPoint.nearestGpIndex != -1 && "nearestGpIndex must be initialized first");
+    dispatchConfig(configOfFace(geoPoint.faultFaceIndex.value()), [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      constexpr int NumPoly = Cfg::ConvergenceOrder - 1;
+      if constexpr (seissol::DRQuadRule == DRQuadRuleType::Stroud) {
+        geoPoint.nearestInternalGpIndex =
+            getClosestInternalStroudGp(geoPoint.nearestGpIndex, NumPoly);
+      } else {
+        geoPoint.nearestInternalGpIndex = geoPoint.nearestGpIndex;
+      }
+    });
+  }
+}
+
+void ReceiverBasedOutputBuilder::assignFaultTags() {
+  auto& geoPoints = outputData_->receivers;
+  const auto& faultInfo = meshReader_->getFault();
+  for (auto& geoPoint : geoPoints) {
+    geoPoint.faultTag = faultInfo[geoPoint.faultFaceIndex.value()].tag;
+  }
+}
+
+void ReceiverBasedOutputBuilder::assignFusedIndices() {
+  auto& geoPoints = outputData_->receivers;
+  for (auto& geoPoint : geoPoints) {
+    dispatchConfig(configOfFace(geoPoint.faultFaceIndex.value()), [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      // the simulation among the fused ones of the copy of the face
+      const int fused = geoPoint.simIndex % static_cast<int>(Cfg::NumSimulations);
+      geoPoint.gpIndex = Cfg::NumSimulations * geoPoint.nearestGpIndex + fused;
+      geoPoint.internalGpIndexFused = Cfg::NumSimulations * geoPoint.nearestInternalGpIndex + fused;
+    });
+  }
+}
+
+void ReceiverBasedOutputBuilder::assignCopies() {
+  for (auto& geoPoint : outputData_->receivers) {
+    geoPoint.copy = static_cast<std::size_t>(geoPoint.simIndex) / fusedSimulations_;
+  }
+}
+
+} // namespace seissol::dr::output

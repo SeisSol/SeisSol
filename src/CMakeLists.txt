@@ -16,24 +16,10 @@ include(sources.cmake)
 
 add_subdirectory(Core)
 
-add_subdirectory(DynamicRupture)
-
-add_subdirectory(Equations)
-
-add_subdirectory(Initializer)
-
-add_subdirectory(Kernels)
-
-add_subdirectory(Model)
-
-add_subdirectory(Physics)
+add_subdirectory(Features)
 
 add_subdirectory(Proxy)
 
-add_subdirectory(Reader)
+add_subdirectory(Simulation)
 
-add_subdirectory(ResultWriter)
-
-add_subdirectory(Solver)
-
-add_subdirectory(SourceTerm)
+add_subdirectory(WavePropagation)

@@ -10,26 +10,26 @@
 
 #include "Alignment.h"
 #include "Config.h"
+#include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Constants.h"
+#include "Core/Kernels/Common.h"
+#include "Core/Kernels/Touch.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
-#include "Core/Memory/Descriptor/Plasticity.h"
 #include "Core/Memory/GlobalData.h"
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Memory/Tree/Colormap.h"
 #include "Core/Memory/Tree/Layer.h"
+#include "Core/Memory/Typedefs.h"
 #include "Core/Parallel/OpenMP.h"
+#include "Core/TimeStepping/Settings.h"
+#include "Features/Plasticity/Solver/Storage.h"
 #include "GeneratedCode/tensor.h"
-#include "Initializer/BasicTypedefs.h"
-#include "Initializer/Typedefs.h"
-#include "Kernels/Common.h"
-#include "Kernels/Solver.h"
-#include "Kernels/SolverSelector.h"
-#include "Kernels/Touch.h"
 #include "Proxy/Constants.h"
-#include "Solver/Settings.h"
+#include "WavePropagation/Solver/Solver.h"
+#include "WavePropagation/Solver/SolverSelector.h"
 
 #include <cstddef>
 #include <cstdlib>
@@ -38,8 +38,8 @@
 #ifdef ACL_DEVICE
 #include "Core/Common/Real.h"
 #include "Core/Common/Typedefs.h"
-#include "Initializer/BatchRecorders/Recorders.h"
-#include "Initializer/InitProcedure/Internal/Scratchpads.h"
+#include "Core/Kernels/BatchRecorders/Recorders.h"
+#include "Simulation/InitProcedure/Internal/Scratchpads.h"
 
 #include <Device/device.h>
 #include <memory>

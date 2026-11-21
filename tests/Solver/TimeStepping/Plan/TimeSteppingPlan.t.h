@@ -8,9 +8,9 @@
 #include <doctest.h>
 
 #include "Core/Common/Executor.h"
-#include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
-#include "Solver/TimeStepping/Actor/ActorState.h"
-#include "Solver/TimeStepping/Plan/TimeSteppingPlan.h"
+#include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
+#include "Core/TimeStepping/Actor/ActorState.h"
+#include "Core/TimeStepping/Plan/TimeSteppingPlan.h"
 
 #include <chrono>
 #include <cstddef>

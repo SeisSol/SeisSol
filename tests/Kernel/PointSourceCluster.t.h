@@ -8,7 +8,7 @@
 
 #include <doctest.h>
 
-#include "Kernels/PointSourceCluster.h"
+#include "Features/SourceTerm/Solver/PointSourceCluster.h"
 
 #include <cmath>
 #include <numbers>

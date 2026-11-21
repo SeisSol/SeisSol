@@ -5,10 +5,10 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Equations/Datastructures.h"
-#include "Equations/viscoelastic/Model/Attenuation.h"
-#include "Equations/viscoelastic/Model/Datastructures.h"
 #include "TestHelper.h"
+#include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Physics/viscoelastic/Attenuation.h"
+#include "WavePropagation/Physics/viscoelastic/Datastructures.h"
 
 #include <cstdlib>
 

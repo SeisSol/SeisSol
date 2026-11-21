@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Equations/acoustic/Model/Datastructures.h"
+#include "WavePropagation/Physics/acoustic/Datastructures.h"
 
 #include <cmath>
 #include <vector>

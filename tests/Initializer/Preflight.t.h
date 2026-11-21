@@ -8,7 +8,7 @@
 #include <doctest.h>
 
 #include "Core/Common/Filesystem.h"
-#include "Initializer/Preflight.h"
+#include "Simulation/Preflight.h"
 #include "TestHelper.h"
 
 #include <array>

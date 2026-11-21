@@ -8,9 +8,9 @@
 #include <doctest.h>
 
 #include "Core/Common/Real.h"
-#include "Solver/TimeStepping/Halo/HaloCheck.h"
-#include "Solver/TimeStepping/Halo/HaloCommunication.h"
-#include "Solver/TimeStepping/Halo/HaloTransport.h"
+#include "Core/TimeStepping/Halo/HaloCheck.h"
+#include "Core/TimeStepping/Halo/HaloCommunication.h"
+#include "Core/TimeStepping/Halo/HaloTransport.h"
 
 #include <algorithm>
 #include <chrono>

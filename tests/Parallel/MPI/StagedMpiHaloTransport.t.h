@@ -17,8 +17,8 @@
 
 #include "Core/Common/Real.h"
 #include "Core/Parallel/MPI.h"
-#include "Solver/TimeStepping/Halo/HaloCommunication.h"
-#include "Solver/TimeStepping/Halo/Mpi/StagedMpiHaloTransport.h"
+#include "Core/TimeStepping/Halo/HaloCommunication.h"
+#include "Core/TimeStepping/Halo/Mpi/StagedMpiHaloTransport.h"
 
 #include <Device/device.h>
 #include <array>

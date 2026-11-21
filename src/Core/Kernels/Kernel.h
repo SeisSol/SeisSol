@@ -1,0 +1,29 @@
+// SPDX-FileCopyrightText: 2025 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+#ifndef SEISSOL_SRC_CORE_KERNELS_KERNEL_H_
+#define SEISSOL_SRC_CORE_KERNELS_KERNEL_H_
+
+#include "Core/Common/Executor.h"
+#include "Core/Memory/Typedefs.h"
+#include "Core/Parallel/Runtime/Stream.h"
+
+namespace seissol::kernels {
+
+/// The common base of the kernels of the configuration `Cfg`.
+template <typename Cfg>
+class Kernel {
+  public:
+  virtual void setGlobalData(const CompoundGlobalData<Cfg>& global) {}
+  virtual ~Kernel() = default;
+
+#ifdef ACL_DEVICE
+  device::DeviceInstance& device = device::DeviceInstance::instance();
+#endif
+};
+
+} // namespace seissol::kernels
+#endif // SEISSOL_SRC_CORE_KERNELS_KERNEL_H_

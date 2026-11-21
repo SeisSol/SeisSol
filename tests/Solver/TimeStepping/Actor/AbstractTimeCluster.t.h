@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
+#include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "TestHelper.h"
 
 #include <chrono>

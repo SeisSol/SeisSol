@@ -5,11 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/Constants.h"
-#include "Initializer/BasicTypedefs.h"
-#include "Initializer/CellLocalInformation.h"
-#include "Initializer/InitProcedure/Internal/LtsSetup.h"
-#include "Initializer/LtsSetup.h"
+#include "Core/Memory/CellLocalInformation.h"
+#include "Core/Memory/LtsSetup.h"
+#include "Simulation/InitProcedure/Internal/LtsSetup.h"
 
 #include <array>
 #include <cstddef>

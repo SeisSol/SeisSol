@@ -10,7 +10,7 @@
 
 #include "Core/Common/Real.h"
 #include "Core/Common/Typedefs.h"
-#include "Model/MaterialType.h"
+#include "WavePropagation/Physics/MaterialType.h"
 
 #include <cstddef>
 #include <optional>

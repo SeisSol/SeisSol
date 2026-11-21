@@ -1,0 +1,41 @@
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifndef SEISSOL_SRC_SIMULATION_PARAMETERS_MESHPARAMETERS_H_
+#define SEISSOL_SRC_SIMULATION_PARAMETERS_MESHPARAMETERS_H_
+
+#include "Core/Common/InputAux.h"
+#include "ParameterReader.h"
+
+#include <Eigen/Dense>
+#include <optional>
+#include <string>
+
+namespace seissol::initializer::parameters {
+
+enum class MeshFormat : int { PUML, CubeGenerator };
+
+enum class BoundaryFormat : int { Auto, I32, I64, I32x4 };
+
+enum class TopologyFormat : int { Auto, Geometric, IdentifyFace, IdentifyVertex };
+
+struct MeshParameters {
+  bool showEdgeCutStatistics{false};
+  BoundaryFormat pumlBoundaryFormat{BoundaryFormat::Auto};
+  TopologyFormat pumlTopologyFormat{TopologyFormat::Auto};
+  MeshFormat meshFormat{MeshFormat::PUML};
+  std::string meshFileName;
+  std::string partitioningLib;
+  std::optional<std::string> faceMapFile;
+  Eigen::Vector3d displacement;
+  Eigen::Matrix3d scaling;
+};
+
+MeshParameters readMeshParameters(ParameterReader* baseReader);
+} // namespace seissol::initializer::parameters
+
+#endif // SEISSOL_SRC_SIMULATION_PARAMETERS_MESHPARAMETERS_H_

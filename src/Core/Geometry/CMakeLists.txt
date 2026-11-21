@@ -7,12 +7,14 @@
 
 add_library(seissol-geometry OBJECT
     CellTransform.cpp
+    FaceMap.cpp
     FaceTransform.cpp
     GmshNodes.cpp
     MeshReader.cpp
     MeshTools.cpp
-    PartitioningLib.cpp
     PUMLReader.cpp
+    PartitioningLib.cpp
+    PointMapper.cpp
 )
 
 target_link_libraries(seissol-geometry PUBLIC seissol-common-properties)

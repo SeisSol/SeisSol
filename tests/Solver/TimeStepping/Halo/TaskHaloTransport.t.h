@@ -8,8 +8,8 @@
 #include <doctest.h>
 
 #include "Core/Parallel/Runtime/HostRuntime.h"
-#include "Solver/TimeStepping/Halo/HaloTransport.h"
-#include "Solver/TimeStepping/Halo/TaskHaloTransport.h"
+#include "Core/TimeStepping/Halo/HaloTransport.h"
+#include "Core/TimeStepping/Halo/TaskHaloTransport.h"
 
 #include <atomic>
 #include <chrono>

@@ -10,8 +10,8 @@
 
 #include <doctest.h>
 
-#include "DynamicRupture/FrictionLaws/Dual.h"
-#include "DynamicRupture/FrictionLaws/RateAndStateCommon.h"
+#include "Features/DynamicRupture/Physics/Dual.h"
+#include "Features/DynamicRupture/Physics/RateAndStateCommon.h"
 #include "TestHelper.h"
 
 #include <algorithm>

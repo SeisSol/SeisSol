@@ -249,7 +249,7 @@ def emit_header(aderdg, output_dir, key):
         "",
         "#pragma once",
         "",
-        '#include "Model/Quantities.h"',
+        '#include "WavePropagation/Physics/Quantities.h"',
         "",
         '#include "Config.h"',
         "",

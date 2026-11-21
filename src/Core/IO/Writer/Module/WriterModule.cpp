@@ -15,7 +15,7 @@
 #include "Core/Parallel/Helper.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/Parallel/Pin.h"
-#include "SeisSol.h"
+#include "Simulation/SeisSol.h"
 
 #include <async/Config.h>
 #include <cassert>

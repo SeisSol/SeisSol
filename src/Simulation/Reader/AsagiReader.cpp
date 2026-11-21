@@ -1,0 +1,145 @@
+// SPDX-FileCopyrightText: 2016 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#ifdef USE_ASAGI
+
+#include "AsagiReader.h"
+
+#include "Core/Monitoring/Instrumentation.h"
+#include "Simulation/Reader/AsagiModule.h"
+
+#include <asagi.h>
+#include <cstddef>
+#include <mpi.h>
+#include <string>
+#include <utils/env.h>
+#include <utils/logger.h>
+
+namespace seissol::asagi {
+/**
+ *
+ * @param file File name of the netCDF file
+ * @param varname The variable name in the netCDF file
+ * @return ASAGI grid
+ */
+::asagi::Grid* AsagiReader::open(const char* file, const char* varname) {
+  SCOREP_USER_REGION("AsagiReader_open", SCOREP_USER_REGION_TYPE_FUNCTION);
+
+  auto& env = AsagiModule::getInstance().getEnv();
+
+  ::asagi::Grid* grid = ::asagi::Grid::createArray();
+
+  if (env.get<bool>("ASAGI_SPARSE", false)) {
+    grid->setParam("GRID", "CACHE");
+  }
+
+  // Set MPI mode
+  if (AsagiModule::mpiMode() != AsagiMPIMode::Off) {
+    // USE_MPI kept on purpose
+#ifdef USE_MPI
+    const ::asagi::Grid::Error err = grid->setComm(comm_);
+    if (err != ::asagi::Grid::SUCCESS) {
+      logError() << "Could not set ASAGI communicator:" << err;
+    }
+#endif // USE_MPI
+
+    if (AsagiModule::mpiMode() == AsagiMPIMode::CommThread) {
+      grid->setParam("MPI_COMMUNICATION", "THREAD");
+    }
+  }
+
+  // Set NUMA mode
+  asagiThreads_ = env.get("ASAGI_NUM_THREADS", 0U);
+  if (asagiThreads_ == 0) {
+    asagiThreads_ = AsagiModule::totalThreads();
+  } else if (static_cast<int>(asagiThreads_) > AsagiModule::totalThreads()) {
+    logWarning() << "Only" << AsagiModule::totalThreads()
+                 << "threads can be used for ASAGI initialization.";
+    asagiThreads_ = AsagiModule::totalThreads();
+  }
+
+  if (AsagiModule::mpiMode() == AsagiMPIMode::CommThread) {
+    // one thread is used for communication
+    --asagiThreads_;
+  }
+
+  grid->setThreads(asagiThreads_);
+
+  switch (getNumaMode()) {
+  case NumaCacheMode::On:
+    grid->setParam("NUMA_COMMUNICATION", "ON");
+    break;
+  case NumaCacheMode::Off:
+    grid->setParam("NUMA_COMMUNICATION", "OFF");
+    break;
+  case NumaCacheMode::Cache:
+    grid->setParam("NUMA_COMMUNICATION", "CACHE");
+    break;
+  }
+
+  // Set vertex centered grid
+  grid->setParam("VALUE_POSITION", "VERTEX_CENTERED");
+
+  // Set additional parameters
+  const std::string blockSize = env.get("ASAGI_BLOCK_SIZE", "64");
+
+  // just set it for a really large number of dimensions for now (we only know the exact count
+  // (usually 3) after opening the file)
+  for (std::size_t dim = 0; dim < 256; ++dim) {
+    grid->setParam(("BLOCK_SIZE_" + std::to_string(dim)).c_str(), blockSize.c_str());
+  }
+
+  const std::string cacheSize = env.get("ASAGI_CACHE_SIZE", "128");
+  grid->setParam("CACHE_SIZE", cacheSize.c_str());
+
+  grid->setParam("VARIABLE", varname);
+
+  bool abort = false;
+  // Read the data
+  // SCOREP_RECORDING_OFF();
+
+#pragma omp parallel shared(abort) num_threads(asagiThreads_)
+  {
+    const ::asagi::Grid::Error err = grid->open(file);
+    if (err != ::asagi::Grid::SUCCESS) {
+      abort = true;
+    }
+  }
+  // SCOREP_RECORDING_ON();
+  if (abort) {
+    logError() << "Could not open " << file << " with ASAGI.";
+    return nullptr;
+  }
+
+  return grid;
+}
+
+NumaCacheMode AsagiReader::getNumaMode() {
+  const std::string numaModeName =
+      AsagiModule::getInstance().getEnv().get("ASAGI_NUMA_MODE", "OFF");
+
+  if (numaModeName == "ON") {
+    return NumaCacheMode::On;
+  }
+  if (numaModeName == "OFF") {
+    return NumaCacheMode::Off;
+  }
+  if (numaModeName == "CACHE") {
+    return NumaCacheMode::Cache;
+  }
+
+  logError() << "Unknown NUMA mode:" << numaModeName;
+  return NumaCacheMode::Off;
+}
+
+unsigned AsagiReader::numberOfThreads() const { return asagiThreads_; }
+
+AsagiReader::AsagiReader(MPI_Comm comm) : comm_(comm) {}
+
+} // namespace seissol::asagi
+
+#endif

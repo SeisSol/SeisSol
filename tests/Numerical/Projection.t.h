@@ -9,6 +9,7 @@
 
 #include "Config.h"
 #include "Core/Common/Constants.h"
+#include "Core/Common/MultipleSimulations.h"
 #include "Core/Common/Real.h"
 #include "Core/Geometry/FaceTransform.h"
 #include "Core/IO/Instance/Geometry/Points.h"
@@ -17,7 +18,6 @@
 #include "Core/Numerical/Projection.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
-#include "Solver/MultipleSimulations.h"
 #include "TestConfigs.h"
 #include "TestHelper.h"
 

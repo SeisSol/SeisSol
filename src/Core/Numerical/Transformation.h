@@ -10,7 +10,7 @@
 #define SEISSOL_SRC_CORE_NUMERICAL_TRANSFORMATION_H_
 
 #include "Core/Geometry/MeshDefinition.h"
-#include "Initializer/Typedefs.h"
+#include "Core/Memory/Typedefs.h"
 
 #include <Eigen/Dense>
 #include <yateto.h>

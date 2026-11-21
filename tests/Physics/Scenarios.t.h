@@ -9,16 +9,16 @@
 
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Real.h"
-#include "Equations/Datastructures.h"
-#include "Initializer/Parameters/InitializationParameters.h"
-#include "Initializer/Parameters/ModelParameters.h"
-#include "Initializer/Parameters/ParameterReader.h"
-#include "Initializer/Typedefs.h"
-#include "Model/MaterialType.h"
-#include "Physics/Scenario/Registry.h"
-#include "Physics/Scenario/Scenarios.h"
+#include "Core/Memory/Typedefs.h"
+#include "Features/InitialConditions/Physics/Scenario/Registry.h"
+#include "Features/InitialConditions/Physics/Scenario/Scenarios.h"
+#include "Simulation/Parameters/InitializationParameters.h"
+#include "Simulation/Parameters/ModelParameters.h"
+#include "Simulation/Parameters/ParameterReader.h"
 #include "TestConfigs.h"
 #include "TestHelper.h"
+#include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Physics/MaterialType.h"
 
 #include <Eigen/Core>
 #include <algorithm>

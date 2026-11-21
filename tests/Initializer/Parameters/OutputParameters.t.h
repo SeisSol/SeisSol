@@ -9,8 +9,8 @@
 
 #include "Core/Common/ConfigLayout.h"
 #include "Core/Common/ConfigRegistry.h"
-#include "Initializer/Parameters/OutputParameters.h"
-#include "Initializer/Parameters/ParameterReader.h"
+#include "Simulation/Parameters/OutputParameters.h"
+#include "Simulation/Parameters/ParameterReader.h"
 
 #include <cstddef>
 #include <numeric>

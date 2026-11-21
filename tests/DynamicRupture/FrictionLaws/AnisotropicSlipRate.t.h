@@ -15,11 +15,11 @@
 #include <doctest.h>
 
 #include "Core/Common/Real.h"
-#include "DynamicRupture/FrictionLaws/FrictionSolverCommon.h"
-#include "DynamicRupture/Typedefs.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolverCommon.h"
+#include "Features/DynamicRupture/Typedefs.h"
 #include "GeneratedCode/init.h"
-#include "Model/MaterialType.h"
 #include "TestConfigs.h"
+#include "WavePropagation/Physics/MaterialType.h"
 
 #include <cmath>
 

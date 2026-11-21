@@ -9,7 +9,7 @@
 #ifndef SEISSOL_SRC_CORE_MEMORY_GLOBALDATA_H_
 #define SEISSOL_SRC_CORE_MEMORY_GLOBALDATA_H_
 
-#include "Initializer/Typedefs.h"
+#include "Core/Memory/Typedefs.h"
 #include "MemoryAllocator.h"
 
 namespace seissol::initializer {

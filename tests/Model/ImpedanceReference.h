@@ -8,9 +8,9 @@
 #ifndef SEISSOL_TESTS_MODEL_IMPEDANCEREFERENCE_H_
 #define SEISSOL_TESTS_MODEL_IMPEDANCEREFERENCE_H_
 
-#include "Equations/ImpedanceBase.h"
-#include "Equations/Setup.h" // IWYU pragma: keep
-#include "Model/Common.h"
+#include "WavePropagation/Physics/Common.h"
+#include "WavePropagation/Physics/ImpedanceBase.h"
+#include "WavePropagation/Solver/Setup.h" // IWYU pragma: keep
 
 #include <array>
 #include <cstddef>

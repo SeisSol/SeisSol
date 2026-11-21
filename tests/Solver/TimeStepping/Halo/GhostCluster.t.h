@@ -9,11 +9,11 @@
 
 #include "Core/Common/Executor.h"
 #include "Core/Common/Real.h"
-#include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
-#include "Solver/TimeStepping/Actor/ActorState.h"
-#include "Solver/TimeStepping/Halo/GhostCluster.h"
-#include "Solver/TimeStepping/Halo/HaloCommunication.h"
-#include "Solver/TimeStepping/Halo/HaloTransport.h"
+#include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
+#include "Core/TimeStepping/Actor/ActorState.h"
+#include "Core/TimeStepping/Halo/GhostCluster.h"
+#include "Core/TimeStepping/Halo/HaloCommunication.h"
+#include "Core/TimeStepping/Halo/HaloTransport.h"
 
 #include <algorithm>
 #include <chrono>

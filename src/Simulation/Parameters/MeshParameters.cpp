@@ -1,0 +1,77 @@
+// SPDX-FileCopyrightText: 2023 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include "MeshParameters.h"
+
+#include "Core/Common/InputAux.h"
+#include "Simulation/Parameters/ParameterReader.h"
+
+#include <Eigen/Core>
+#include <optional>
+
+namespace seissol::initializer::parameters {
+
+MeshParameters readMeshParameters(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("meshnml");
+
+  const auto meshFormat = reader->readWithDefaultStringEnum<MeshFormat>(
+      "meshgenerator",
+      "puml",
+      {{"puml", MeshFormat::PUML}, {"cubegenerator", MeshFormat::CubeGenerator}});
+  const std::string meshFileName = reader->readPathOrFail("meshfile", "No mesh file given.");
+  const std::string partitioningLib =
+      reader->readWithDefault("partitioninglib", std::string("Default"));
+  const auto pumlBoundaryFormat =
+      reader->readWithDefaultStringEnum<BoundaryFormat>("pumlboundaryformat",
+                                                        "auto",
+                                                        {
+                                                            {"auto", BoundaryFormat::Auto},
+                                                            {"i32", BoundaryFormat::I32},
+                                                            {"i64", BoundaryFormat::I64},
+                                                            {"i32x4", BoundaryFormat::I32x4},
+                                                        });
+  const auto pumlTopologyFormat = reader->readWithDefaultStringEnum<TopologyFormat>(
+      "pumltopologyformat",
+      "auto",
+      {
+          {"auto", TopologyFormat::Auto},
+          {"geometric", TopologyFormat::Geometric},
+          {"identify-face", TopologyFormat::IdentifyFace},
+          {"identify-vertex", TopologyFormat::IdentifyVertex},
+      });
+
+  const auto displacementRaw = seissol::initializer::convertStringToArray<double, 3>(
+      reader->readWithDefault("displacement", std::string("0.0 0.0 0.0")));
+  const Eigen::Vector3d displacement(displacementRaw.data());
+  const auto scalingXRaw = seissol::initializer::convertStringToArray<double, 3>(
+      reader->readWithDefault("scalingmatrixx", std::string("1.0 0.0 0.0")));
+  const auto scalingYRaw = seissol::initializer::convertStringToArray<double, 3>(
+      reader->readWithDefault("scalingmatrixy", std::string("0.0 1.0 0.0")));
+  const auto scalingZRaw = seissol::initializer::convertStringToArray<double, 3>(
+      reader->readWithDefault("scalingmatrixz", std::string("0.0 0.0 1.0")));
+  Eigen::Matrix3d scaling;
+  scaling << scalingXRaw[0], scalingXRaw[1], scalingXRaw[2], scalingYRaw[0], scalingYRaw[1],
+      scalingYRaw[2], scalingZRaw[0], scalingZRaw[1], scalingZRaw[2];
+
+  const bool showEdgeCutStatistics = reader->readWithDefault("showedgecutstatistics", false);
+
+  const auto faceMapPre = reader->readPath("facemapfile");
+  const auto faceMap = faceMapPre == "" ? std::optional<std::string>{} : faceMapPre;
+
+  reader->warnDeprecated({"periodic", "periodic_direction"});
+
+  return MeshParameters{.showEdgeCutStatistics = showEdgeCutStatistics,
+                        .pumlBoundaryFormat = pumlBoundaryFormat,
+                        .pumlTopologyFormat = pumlTopologyFormat,
+                        .meshFormat = meshFormat,
+                        .meshFileName = meshFileName,
+                        .partitioningLib = partitioningLib,
+                        .faceMapFile = faceMap,
+                        .displacement = displacement,
+                        .scaling = scaling};
+}
+} // namespace seissol::initializer::parameters

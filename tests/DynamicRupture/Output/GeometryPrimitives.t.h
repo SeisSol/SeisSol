@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "DynamicRupture/Output/Geometry.h"
+#include "Features/DynamicRupture/Output/Geometry.h"
 
 namespace seissol::unit_test {
 using seissol::dr::ExtTriangle;

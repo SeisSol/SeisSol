@@ -5,11 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Equations/Datastructures.h"
-#include "Equations/Energy.h"
-#include "Equations/EnergyBase.h"
-#include "ResultWriter/EnergyOutput.h"
+#include "Simulation/EnergyOutput.h"
 #include "TestConfigs.h"
+#include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Physics/Energy.h"
+#include "WavePropagation/Physics/EnergyBase.h"
 
 #include <algorithm>
 #include <array>

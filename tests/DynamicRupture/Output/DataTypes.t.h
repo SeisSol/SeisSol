@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "DynamicRupture/Output/DataTypes.h"
+#include "Features/DynamicRupture/Output/DataTypes.h"
 
 #include <cstddef>
 #include <string>

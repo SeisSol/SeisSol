@@ -1,0 +1,64 @@
+// SPDX-FileCopyrightText: 2017 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
+
+#ifndef SEISSOL_SRC_WAVEPROPAGATION_OUTPUT_FREESURFACEINTEGRATOR_H_
+#define SEISSOL_SRC_WAVEPROPAGATION_OUTPUT_FREESURFACEINTEGRATOR_H_
+
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Kernels/Common.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Descriptor/Surface.h"
+#include "Core/Memory/Tree/Layer.h"
+
+#include <memory>
+
+namespace seissol::solver {
+class FreeSurfaceIntegrator {
+  public:
+  static constexpr std::size_t NumComponents = 3;
+
+  private:
+  enum class LocationFlag : std::uint8_t {
+    Elastic = 0,
+    Acoustic = 1,
+    FreeSurface = 2,
+    FreeSurfaceWithGravity = 3
+  };
+
+  bool enabled_{false};
+
+  void initializeSurfaceStorage(LTS::Storage& ltsStorage);
+
+  static LocationFlag
+      getLocationFlag(CellMaterialData materialData, FaceType faceType, unsigned face);
+
+  public:
+  std::size_t totalNumberOfFreeSurfaces{0};
+  std::vector<std::size_t> backmap;
+
+  SurfaceLTS::Storage* surfaceStorage{nullptr};
+
+  explicit FreeSurfaceIntegrator();
+  ~FreeSurfaceIntegrator();
+
+  FreeSurfaceIntegrator(const FreeSurfaceIntegrator&) = delete;
+  auto operator=(const FreeSurfaceIntegrator&) -> FreeSurfaceIntegrator& = delete;
+
+  FreeSurfaceIntegrator(FreeSurfaceIntegrator&&) = delete;
+  auto operator=(FreeSurfaceIntegrator&&) -> FreeSurfaceIntegrator& = delete;
+
+  void initialize(LTS::Storage& ltsStorage, SurfaceLTS::Storage& surfaceStorage);
+
+  void calculateOutput() const;
+
+  [[nodiscard]] bool enabled() const { return enabled_; }
+};
+
+} // namespace seissol::solver
+
+#endif // SEISSOL_SRC_WAVEPROPAGATION_OUTPUT_FREESURFACEINTEGRATOR_H_

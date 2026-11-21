@@ -10,12 +10,12 @@
 
 #include <doctest.h>
 
-#include "Equations/Datastructures.h"
-#include "Equations/Impedance.h" // IWYU pragma: keep
-#include "Equations/ImpedanceBase.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "TestConfigs.h"
+#include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Physics/Impedance.h" // IWYU pragma: keep
+#include "WavePropagation/Physics/ImpedanceBase.h"
 
 #include <cstddef>
 

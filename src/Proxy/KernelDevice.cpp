@@ -17,14 +17,14 @@
 
 #ifdef ACL_DEVICE
 #include "Constants.h"
+#include "Core/Common/BasicTypedefs.h"
+#include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Numerical/Quadrature.h"
-#include "Initializer/BasicTypedefs.h"
-#include "Initializer/BatchRecorders/DataTypes/EncodedConstants.h"
-#include "Kernels/Interface.h"
-#include "Kernels/Solver.h"
-#include "Kernels/TimeCommon.h"
+#include "WavePropagation/Solver/Interface.h"
+#include "WavePropagation/Solver/Solver.h"
+#include "WavePropagation/Solver/TimeCommon.h"
 #endif
 
 using namespace seissol::recording;

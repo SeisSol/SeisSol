@@ -9,18 +9,18 @@
 
 #include "Alignment.h"
 #include "Config.h"
+#include "Core/Common/MultipleSimulations.h"
 #include "Core/Common/Real.h"
-#include "Equations/Datastructures.h"
-#include "Equations/elastic/Model/Datastructures.h"
+#include "Core/Memory/Typedefs.h"
+#include "Features/Plasticity/Physics/Plasticity.h"
+#include "Features/Plasticity/Solver/Plasticity.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
-#include "Initializer/Typedefs.h"
-#include "Kernels/Plasticity.h"
-#include "Model/CommonDatastructures.h"
-#include "Model/Plasticity.h"
-#include "Solver/MultipleSimulations.h"
 #include "TestConfigs.h"
+#include "WavePropagation/Physics/CommonDatastructures.h"
+#include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Physics/elastic/Datastructures.h"
 
 #include <algorithm>
 #include <array>

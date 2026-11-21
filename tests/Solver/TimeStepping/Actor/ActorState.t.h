@@ -8,7 +8,7 @@
 #include <doctest.h>
 
 #include "Core/Parallel/Runtime/EventPool.h"
-#include "Solver/TimeStepping/Actor/ActorState.h"
+#include "Core/TimeStepping/Actor/ActorState.h"
 
 #include <cmath>
 #include <cstddef>

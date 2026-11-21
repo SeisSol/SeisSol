@@ -10,11 +10,11 @@
 #include "Config.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/Real.h"
-#include "Equations/Datastructures.h"
-#include "Initializer/Typedefs.h"
-#include "Kernels/Common.h"
-#include "Kernels/Solver.h"
+#include "Core/Kernels/Common.h"
+#include "Core/Memory/Typedefs.h"
 #include "TestConfigs.h"
+#include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Solver/Solver.h"
 
 #include <array>
 #include <cstddef>

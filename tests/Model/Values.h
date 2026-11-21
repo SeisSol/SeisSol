@@ -8,8 +8,7 @@
 #ifndef SEISSOL_TESTS_MODEL_VALUES_H_
 #define SEISSOL_TESTS_MODEL_VALUES_H_
 
-#include "Equations/Datastructures.h"
-#include "Model/Datastructures.h"
+#include "WavePropagation/Physics/Datastructures.h"
 
 #include <algorithm>
 #include <array>

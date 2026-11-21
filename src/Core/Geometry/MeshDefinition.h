@@ -9,9 +9,9 @@
 #ifndef SEISSOL_SRC_CORE_GEOMETRY_MESHDEFINITION_H_
 #define SEISSOL_SRC_CORE_GEOMETRY_MESHDEFINITION_H_
 
+#include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/CompactOptional.h"
 #include "Core/Common/Constants.h"
-#include "Initializer/BasicTypedefs.h"
 
 #include <cstddef>
 #include <vector>

@@ -11,7 +11,7 @@
 
 #include "MemoryAllocator.h"
 
-#include "Kernels/Common.h"
+#include "Core/Kernels/Common.h"
 
 #include <cassert>
 #include <cstddef>

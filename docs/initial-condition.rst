@@ -179,6 +179,6 @@ The quantities are those of the configuration the cells compute in; e.g. the vel
 ``velocityOffset`` of its ``configLayout``.
 
 Furthermore, you will also need to add the new initial condition to the parameter file parser
-in ``src/Initializer/Parameters/InitializationParameters.cpp``, and register it in
-``src/Physics/Scenario/Registry.cpp``, with the materials it is meaningful for; SeisSol rejects it
+in ``src/Simulation/Parameters/InitializationParameters.cpp``, and register it in
+``src/Features/InitialConditions/Physics/Scenario/Registry.cpp``, with the materials it is meaningful for; SeisSol rejects it
 for all others.

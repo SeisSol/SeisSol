@@ -10,8 +10,8 @@
 
 #include <doctest.h>
 
-#include "DynamicRupture/FrictionLaws/TPCommon.h"
-#include "DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Physics/TPCommon.h"
 #include "TestHelper.h"
 
 #include <cmath>

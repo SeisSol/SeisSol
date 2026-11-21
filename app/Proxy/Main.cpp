@@ -8,7 +8,7 @@
 
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Executor.h"
-#include "Kernels/Common.h"
+#include "Core/Kernels/Common.h"
 #include "Proxy/Common.h"
 #include "Proxy/LikwidWrapper.h"
 #include "Proxy/Runner.h"

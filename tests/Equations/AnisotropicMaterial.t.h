@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "Equations/anisotropic/Model/Datastructures.h"
-#include "Equations/elastic/Model/Datastructures.h"
+#include "WavePropagation/Physics/anisotropic/Datastructures.h"
+#include "WavePropagation/Physics/elastic/Datastructures.h"
 
 #include <cmath>
 #include <vector>

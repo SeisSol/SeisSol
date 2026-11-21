@@ -14,8 +14,10 @@ add_library(seissol-monitoring OBJECT
     FlopCounter.cpp
     LoopStatistics.cpp
     Memory.cpp
+    MiniSeisSolWriter.cpp
     RunSummary.cpp
     Stopwatch.cpp
+    ThreadsPinningWriter.cpp
     Trace.cpp
     Unit.cpp
     Watchdog.cpp

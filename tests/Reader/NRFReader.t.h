@@ -5,9 +5,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Features/SourceTerm/Setup/NRF.h"
+#include "Features/SourceTerm/Setup/NRFReader.h"
 #include "SlipRatesData.h"
-#include "SourceTerm/NRF.h"
-#include "SourceTerm/NRFReader.h"
 #include "TestHelper.h"
 
 #include <cstdlib>

@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "ResultWriter/ReceiverWriter.h"
 #include "TestHelper.h"
+#include "WavePropagation/Output/ReceiverWriter.h"
 
 #include <string>
 

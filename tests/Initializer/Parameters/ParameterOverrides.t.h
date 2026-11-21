@@ -7,8 +7,8 @@
 
 #include <doctest.h>
 
-#include "Initializer/Parameters/ParameterOverrides.h"
-#include "Initializer/Parameters/ParameterReader.h"
+#include "Simulation/Parameters/ParameterOverrides.h"
+#include "Simulation/Parameters/ParameterReader.h"
 
 #include <fty/fty.hpp>
 #include <string>

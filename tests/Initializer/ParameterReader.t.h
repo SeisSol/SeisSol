@@ -8,7 +8,7 @@
 #include <doctest.h>
 
 #include "Core/Common/Filesystem.h"
-#include "Initializer/Parameters/ParameterReader.h"
+#include "Simulation/Parameters/ParameterReader.h"
 
 #include <fstream>
 #include <optional>

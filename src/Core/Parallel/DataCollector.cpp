@@ -6,8 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "DataCollector.h"
 
+#include "Core/Kernels/Common.h"
 #include "Core/Memory/MemoryAllocator.h"
-#include "Kernels/Common.h"
 
 #include <cassert>
 #include <cstddef>
@@ -15,7 +15,7 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include "Kernels/DeviceAux/GatherAux.h"
+#include "Core/Kernels/DeviceAux/GatherAux.h"
 
 #include <Device/device.h>
 #endif

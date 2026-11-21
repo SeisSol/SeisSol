@@ -1,0 +1,154 @@
+// SPDX-FileCopyrightText: 2017 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+// SPDX-FileContributor: Carsten Uphoff
+
+#include "FreeSurfaceIntegrator.h"
+
+#include "Core/Common/BasicTypedefs.h"
+#include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/Constants.h"
+#include "Core/Common/Iterator.h"
+#include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Descriptor/Surface.h"
+#include "Core/Memory/Tree/Layer.h"
+#include "Core/Memory/Typedefs.h"
+#include "WavePropagation/Setup/BoundaryHelper.h"
+
+#include <array>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <utils/logger.h>
+#include <vector>
+
+namespace seissol::solver {
+
+FreeSurfaceIntegrator::FreeSurfaceIntegrator() = default;
+
+FreeSurfaceIntegrator::~FreeSurfaceIntegrator() = default;
+
+void FreeSurfaceIntegrator::initialize(LTS::Storage& ltsStorage,
+                                       SurfaceLTS::Storage& surfaceStorage) {
+  this->surfaceStorage = &surfaceStorage;
+
+  enabled_ = true;
+
+  logInfo() << "Initializing free surface integrator.";
+  initializeSurfaceStorage(ltsStorage);
+  logInfo() << "Initializing free surface integrator. Done.";
+}
+
+FreeSurfaceIntegrator::LocationFlag FreeSurfaceIntegrator::getLocationFlag(
+    CellMaterialData materialData, FaceType faceType, unsigned int face) {
+  if (isAcousticSideOfElasticAcousticInterface(materialData, face)) {
+    return LocationFlag::Acoustic;
+  } else if (isElasticSideOfElasticAcousticInterface(materialData, face)) {
+    return LocationFlag::Elastic;
+  } else if (faceType == FaceType::FreeSurface) {
+    return LocationFlag::FreeSurface;
+  } else if (faceType == FaceType::FreeSurfaceGravity) {
+    return LocationFlag::FreeSurfaceWithGravity;
+  } else {
+    logError() << "Internal error in free surface integrator. Called for invalid cell.";
+  }
+}
+
+void FreeSurfaceIntegrator::initializeSurfaceStorage(LTS::Storage& ltsStorage) {
+  const seissol::initializer::LayerMask ghostMask(Ghost);
+
+  surfaceStorage->setLayerCount(ltsStorage.getColorMap());
+  // the displacements get read for the outputs as the unknowns do
+  surfaceStorage->setSnapshots(ltsStorage.snapshots());
+  surfaceStorage->fixate();
+
+  totalNumberOfFreeSurfaces = 0;
+  for (auto [layer, surfaceLayer] :
+       seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
+    const auto* cellInformation = layer.var<LTS::CellInformation>();
+    const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+    const auto* cellMaterialData = layer.var<LTS::Material>();
+
+    std::size_t numberOfFreeSurfaces = 0;
+    std::size_t numberOfOutputFreeSurfaces = 0;
+    const auto layerSize = layer.size();
+
+#pragma omp parallel for schedule(static)                                                          \
+    reduction(+ : numberOfFreeSurfaces, numberOfOutputFreeSurfaces)
+    for (std::size_t cell = 0; cell < layerSize; ++cell) {
+      for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+        if (requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
+          ++numberOfFreeSurfaces;
+
+          // the output takes the other copies of a cell from the first one
+          if (secondaryInformation[cell].duplicate == 0 && secondaryInformation[cell].copyId == 0) {
+            ++numberOfOutputFreeSurfaces;
+          }
+        }
+      }
+    }
+    surfaceLayer.setNumberOfCells(numberOfFreeSurfaces);
+    totalNumberOfFreeSurfaces += numberOfOutputFreeSurfaces;
+  }
+  backmap.resize(totalNumberOfFreeSurfaces);
+
+  surfaceStorage->allocateVariables();
+  surfaceStorage->touchVariables();
+
+  // NOTE: we store also for space storage duplicates here
+  // thus, we need a non-duplicate lookup table (backmap)
+
+  std::size_t surfaceCellOffset = 0; // Counts all surface cells of all layers
+  std::size_t surfaceCellGlobal = 0;
+  for (auto [ltsLayer, surfaceLtsLayer] :
+       seissol::common::zip(ltsStorage.leaves(ghostMask), surfaceStorage->leaves(ghostMask))) {
+    // (with OpenMP enabled, Clang 18 does not let a lambda capture a structured binding)
+    auto& layer = ltsLayer;
+    auto& surfaceLayer = surfaceLtsLayer;
+    // the displacements of a layer are held in the configuration of the layer
+    dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
+      auto* cellInformation = layer.var<LTS::CellInformation>();
+      auto* faceDisplacements = layer.var<LTS::FaceDisplacements>(cfg);
+      auto* faceDisplacementsDevice = layer.var<LTS::FaceDisplacementsDevice>(cfg);
+      auto* displacementDofs = surfaceLayer.var<SurfaceLTS::DisplacementDofs>(cfg);
+      auto* displacementDofsDevice =
+          surfaceLayer.var<SurfaceLTS::DisplacementDofs>(cfg, initializer::AllocationPlace::Device);
+      const auto* cellMaterialData = layer.var<LTS::Material>();
+      const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
+      auto* locationFlagLayer = surfaceLayer.var<SurfaceLTS::LocationFlag>();
+
+      auto* side = surfaceLayer.var<SurfaceLTS::Side>();
+      auto* meshId = surfaceLayer.var<SurfaceLTS::MeshId>();
+      auto* copyId = surfaceLayer.var<SurfaceLTS::CopyId>();
+      std::size_t surfaceCell = 0;
+      for (std::size_t cell = 0; cell < layer.size(); ++cell) {
+        for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
+          if (requiresDisplacement(cellInformation[cell], cellMaterialData[cell], face)) {
+            // NOTE: assign LTS::Storage data here
+            faceDisplacements[cell][face] = displacementDofs[surfaceCell];
+            faceDisplacementsDevice[cell][face] = displacementDofsDevice[surfaceCell];
+
+            side[surfaceCell] = face;
+            meshId[surfaceCell] = secondaryInformation[cell].meshId;
+            copyId[surfaceCell] = secondaryInformation[cell].copyId;
+            locationFlagLayer[surfaceCell] = static_cast<std::uint8_t>(getLocationFlag(
+                cellMaterialData[cell], cellInformation[cell].faceTypes[face], face));
+
+            if (secondaryInformation[cell].duplicate == 0 &&
+                secondaryInformation[cell].copyId == 0) {
+              backmap[surfaceCellOffset] = surfaceCellGlobal;
+              ++surfaceCellOffset;
+            }
+            ++surfaceCell;
+            ++surfaceCellGlobal;
+          }
+        }
+      }
+    });
+  }
+}
+
+} // namespace seissol::solver

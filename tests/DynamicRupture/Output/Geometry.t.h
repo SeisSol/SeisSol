@@ -13,11 +13,11 @@
 #include "Core/Geometry/CellTransform.h"
 #include "Core/Geometry/FaceTransform.h"
 #include "Core/Geometry/MeshReader.h"
+#include "Core/Geometry/PointMapper.h"
 #include "Core/Numerical/BasisFunction.h"
-#include "DynamicRupture/Misc.h"
-#include "DynamicRupture/Output/OutputAux.h"
+#include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Output/OutputAux.h"
 #include "Geometry/MockReader.h"
-#include "Initializer/PointMapper.h"
 #include "TestHelper.h"
 
 #include <Eigen/Dense>

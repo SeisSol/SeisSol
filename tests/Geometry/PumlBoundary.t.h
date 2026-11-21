@@ -18,7 +18,7 @@
 #include "Core/Common/Constants.h"
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/Parallel/MPI.h"
-#include "Initializer/Parameters/MeshParameters.h"
+#include "Simulation/Parameters/MeshParameters.h"
 #include "TestHelper.h"
 
 #include <cstddef>
