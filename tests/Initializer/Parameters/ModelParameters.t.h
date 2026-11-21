@@ -9,10 +9,14 @@
 
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/ConfigValue.h"
+#include "Core/Common/RunConfigs.h"
+#include "Core/Data/SimulationFiles.h"
+#include "Features/Plasticity/PlasticityParameters.h"
+#include "Features/TimeMirror/ITMParameters.h"
 #include "Simulation/Parameters/ModelParameters.h"
 #include "Simulation/Parameters/ParameterReader.h"
-#include "Simulation/Parameters/SimulationFiles.h"
 #include "TestHelper.h"
+#include "WavePropagation/WavePropagationParameters.h"
 
 #include <cstddef>
 #include <string>
@@ -153,12 +157,12 @@ TEST_CASE("readGroupConfigs reads the groups of each configuration" *
 }
 
 // ---------------------------------------------------------------------------
-// ModelParameters::configOfGroup, ModelParameters::configs
+// RunConfigs::configOfGroup, RunConfigs::configs
 // ---------------------------------------------------------------------------
 
 TEST_CASE("The groups without a configuration of their own take the one of the run" *
           doctest::test_suite("initializer")) {
-  ModelParameters params{};
+  RunConfigs params{};
   params.config = defaultConfig();
   params.groupConfigs = {{3, 5}, {1, 4}, {2, 5}};
   CHECK(params.configOfGroup(0) == defaultConfig());
@@ -192,17 +196,21 @@ TEST_CASE("readModelParameters parses YAML" * doctest::test_suite("initializer")
       freqratio: 1
   )");
   ParameterReader reader(node, "", false);
-  auto params = readModelParameters(&reader, defaultConfig(), {});
+  auto params = readModelParameters(&reader, readRunConfigs(&reader));
 
   CHECK(params.materialFileNames.front() == "material.yaml");
-  CHECK(params.plasticity == true);
-  CHECK(params.plasticityPointwise == false);
-  CHECK(params.useCellHomogenizedMaterial == false);
-  CHECK(params.gravitationalAcceleration == doctest::Approx(10.0));
-  CHECK(params.tv == doctest::Approx(0.2));
-  CHECK(params.flux == NumericalFlux::Rusanov);
-  CHECK(params.fluxNearFault == NumericalFlux::Godunov);
   CHECK(params.hasBoundaryFile == false);
+
+  const auto plasticity = readPlasticityParameters(&reader);
+  CHECK(plasticity.enabled == true);
+  CHECK(plasticity.pointwise == false);
+  CHECK(plasticity.tv == doctest::Approx(0.2));
+
+  const auto wavePropagation = readWavePropagationParameters(&reader, readRunConfigs(&reader));
+  CHECK(wavePropagation.useCellHomogenizedMaterial == false);
+  CHECK(wavePropagation.gravitationalAcceleration == doctest::Approx(10.0));
+  CHECK(wavePropagation.flux == NumericalFlux::Rusanov);
+  CHECK(wavePropagation.fluxNearFault == NumericalFlux::Godunov);
 }
 
 TEST_CASE("readModelParameters defaults" * doctest::test_suite("initializer")) {
@@ -215,16 +223,23 @@ TEST_CASE("readModelParameters defaults" * doctest::test_suite("initializer")) {
       freqratio: 1
   )");
   ParameterReader reader(node, "", false);
-  auto params = readModelParameters(&reader, defaultConfig(), {});
+  const auto params = readModelParameters(&reader, readRunConfigs(&reader));
 
   // Check all defaults
-  CHECK(params.plasticity == false);
-  CHECK(params.plasticityPointwise == true);
-  CHECK(params.useCellHomogenizedMaterial == true);
-  CHECK(params.gravitationalAcceleration == doctest::Approx(9.81));
-  CHECK(params.tv == doctest::Approx(0.1));
-  CHECK(params.flux == NumericalFlux::Godunov);
-  CHECK(params.fluxNearFault == NumericalFlux::Godunov);
+  CHECK(params.hasBoundaryFile == false);
+  // the plasticity of a simulation without a file of its own is in its material file
+  CHECK(params.plasticityFileNames.front() == "mat.yaml");
+
+  const auto plasticity = readPlasticityParameters(&reader);
+  CHECK(plasticity.enabled == false);
+  CHECK(plasticity.pointwise == true);
+  CHECK(plasticity.tv == doctest::Approx(0.1));
+
+  const auto wavePropagation = readWavePropagationParameters(&reader, readRunConfigs(&reader));
+  CHECK(wavePropagation.useCellHomogenizedMaterial == true);
+  CHECK(wavePropagation.gravitationalAcceleration == doctest::Approx(9.81));
+  CHECK(wavePropagation.flux == NumericalFlux::Godunov);
+  CHECK(wavePropagation.fluxNearFault == NumericalFlux::Godunov);
 }
 
 TEST_CASE("readModelParameters simulation count" * doctest::test_suite("initializer")) {
@@ -236,10 +251,10 @@ TEST_CASE("readModelParameters simulation count" * doctest::test_suite("initiali
         freqratio: 1
     )");
     ParameterReader reader(node, "", false);
-    const auto params = readModelParameters(&reader, defaultConfig(), {});
+    const auto params = readModelParameters(&reader, readRunConfigs(&reader));
 
     const std::size_t fused = configValue(defaultConfig()).numSimulations;
-    CHECK(params.simulationCount == fused);
+    CHECK(readRunConfigs(&reader).simulationCount == fused);
     CHECK(params.plasticityFileNames.size() == fused);
   }
 
@@ -254,9 +269,9 @@ TEST_CASE("readModelParameters simulation count" * doctest::test_suite("initiali
         freqratio: 1
     )");
     ParameterReader reader(node, "", false);
-    const auto params = readModelParameters(&reader, defaultConfig(), {});
+    const auto params = readModelParameters(&reader, readRunConfigs(&reader));
 
-    CHECK(params.simulationCount == 3);
+    CHECK(readRunConfigs(&reader).simulationCount == 3);
     REQUIRE(params.plasticityFileNames.size() == 3);
     CHECK(params.plasticityFileNames[0] == "plasticity.yaml");
     // a simulation without a plasticity file of its own takes the one of the first simulation
@@ -276,7 +291,7 @@ TEST_CASE("readModelParameters simulation count" * doctest::test_suite("initiali
         freqratio: 1
     )");
     ParameterReader reader(node, "", false);
-    const auto params = readModelParameters(&reader, defaultConfig(), {});
+    const auto params = readModelParameters(&reader, readRunConfigs(&reader));
 
     REQUIRE(params.plasticityFileNames.size() == 3);
     CHECK(params.plasticityFileNames[0] == "mat.yaml");
@@ -298,7 +313,7 @@ TEST_CASE("readModelParameters simulation count" * doctest::test_suite("initiali
     node["equations"]["freqcentral"] = 1;
     node["equations"]["freqratio"] = 1;
     ParameterReader reader(node, "", false);
-    const auto params = readModelParameters(&reader, defaultConfig(), {});
+    const auto params = readModelParameters(&reader, readRunConfigs(&reader));
 
     REQUIRE(params.materialFileNames.size() == 2 * fused);
     REQUIRE(params.plasticityFileNames.size() == 2 * fused);
@@ -323,7 +338,7 @@ TEST_CASE("readModelParameters simulation count" * doctest::test_suite("initiali
         freqratio: 1
     )");
     ParameterReader reader(node, "", false);
-    const auto params = readModelParameters(&reader, defaultConfig(), {});
+    const auto params = readModelParameters(&reader, readRunConfigs(&reader));
 
     CHECK(params.hasBoundaryFile);
     REQUIRE(params.boundaryFileNames.size() == 3);
@@ -343,7 +358,7 @@ TEST_CASE("readModelParameters simulation count" * doctest::test_suite("initiali
         freqratio: 1
     )");
     ParameterReader reader(node, "", false);
-    const auto params = readModelParameters(&reader, defaultConfig(), {});
+    const auto params = readModelParameters(&reader, readRunConfigs(&reader));
 
     CHECK(params.hasBoundaryFile);
     REQUIRE(params.boundaryFileNames.size() == 2);

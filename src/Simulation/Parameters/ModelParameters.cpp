@@ -9,7 +9,11 @@
 
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/ConfigValue.h"
+#include "Core/Common/RunConfigs.h"
+#include "Features/Plasticity/PlasticityParameters.h"
+#include "Features/TimeMirror/ITMParameters.h"
 #include "Simulation/Parameters/ParameterReader.h"
+#include "WavePropagation/WavePropagationParameters.h"
 
 #include <algorithm>
 #include <charconv>
@@ -24,27 +28,6 @@
 #include <vector>
 
 namespace seissol::initializer::parameters {
-
-ConfigId ModelParameters::configOfGroup(int group) const {
-  const auto found = groupConfigs.find(group);
-  return found == groupConfigs.end() ? config : found->second;
-}
-
-std::vector<ConfigId> ModelParameters::configs() const {
-  std::vector<ConfigId> ofGroups;
-  ofGroups.reserve(groupConfigs.size());
-  for (const auto& [group, groupConfig] : groupConfigs) {
-    ofGroups.push_back(groupConfig);
-  }
-  std::ranges::sort(ofGroups);
-  std::vector<ConfigId> result{config};
-  for (const auto groupConfig : ofGroups) {
-    if (std::ranges::find(result, groupConfig) == result.end()) {
-      result.push_back(groupConfig);
-    }
-  }
-  return result;
-}
 
 ITMParameters readITMParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("equations");
@@ -163,12 +146,19 @@ std::size_t readSimulationCount(ParameterReader* baseReader, ConfigId config) {
   return simulationCount;
 }
 
-ModelParameters readModelParameters(ParameterReader* baseReader,
-                                    ConfigId config,
-                                    std::unordered_map<int, ConfigId> groupConfigs) {
+RunConfigs readRunConfigs(ParameterReader* baseReader) {
+  const ConfigId config = readConfig(baseReader);
+  auto groupConfigs = readGroupConfigs(baseReader, config);
+  const auto simulationCount = readSimulationCount(baseReader, config);
+  return RunConfigs{.config = config,
+                    .groupConfigs = std::move(groupConfigs),
+                    .simulationCount = simulationCount};
+}
+
+ModelParameters readModelParameters(ParameterReader* baseReader, const RunConfigs& runConfigs) {
   auto* reader = baseReader->readSubNode("equations");
 
-  const auto simulationCount = readSimulationCount(baseReader, config);
+  const auto simulationCount = runConfigs.simulationCount;
 
   // the easi boundary condition of every simulation, the one of the first if not given
   std::vector<std::string> boundaryFileNames(simulationCount);
@@ -203,7 +193,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
   }
 
   // The simulations fused into a cell share its material, and so have to name the same file.
-  const auto fusedCount = configValue(config).numSimulations;
+  const auto fusedCount = configValue(runConfigs.config).numSimulations;
   for (std::size_t i = 0; i < simulationCount; ++i) {
     const auto first = i - i % fusedCount;
     if (materialFileNames[i] != materialFileNames[first]) {
@@ -218,41 +208,33 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
   const bool hasBoundaryFile =
       std::ranges::any_of(boundaryFileNames, [](const auto& name) { return !name.empty(); });
 
-  const bool plasticity = reader->readWithDefault("plasticity", false);
+  reader->warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
 
-  const bool plasticityPointwise = reader->readWithDefault("plasticitypointwise", true);
+  return ModelParameters{.hasBoundaryFile = hasBoundaryFile,
+                         .boundaryFileNames = boundaryFileNames,
+                         .materialFileNames = materialFileNames,
+                         .plasticityFileNames = plasticityFileNames};
+}
 
-  const auto plasticityDisabledGroupsRaw =
-      reader->readWithDefault<std::string>("plasticitydisabledgroups", "");
-  std::unordered_set<int> plasticityDisabledGroups;
-  {
-    const auto groups = utils::StringUtils::split(plasticityDisabledGroupsRaw, ',');
-    for (const auto& group : groups) {
-      plasticityDisabledGroups.emplace(std::stoi(group));
-    }
-  }
+WavePropagationParameters readWavePropagationParameters(ParameterReader* baseReader,
+                                                        const RunConfigs& runConfigs) {
+  auto* reader = baseReader->readSubNode("equations");
 
   const bool useCellHomogenizedMaterial =
       reader->readWithDefault("usecellhomogenizedmaterial", true);
 
   const double gravitationalAcceleration =
       reader->readWithDefault("gravitationalacceleration", 9.81);
-  const double tv = reader->readWithDefault("tv", 0.1);
 
-  bool isAnelastic = configValue(config).relaxationMechanisms > 0;
-  for (const auto& [group, groupConfig] : groupConfigs) {
-    isAnelastic = isAnelastic || configValue(groupConfig).relaxationMechanisms > 0;
-  }
+  const bool isAnelastic = std::ranges::any_of(runConfigs.configs(), [](ConfigId config) {
+    return configValue(config).relaxationMechanisms > 0;
+  });
 
   const auto freqCentral = reader->readIfRequired<double>("freqcentral", isAnelastic);
   const auto freqRatio = reader->readIfRequired<double>("freqratio", isAnelastic);
   if (isAnelastic && (freqRatio <= 0)) {
     logError() << "The freqratio parameter must be positive; but that is currently not the case.";
   }
-
-  const ITMParameters itmParameters = readITMParameters(baseReader);
-
-  reader->warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
 
   const auto flux =
       reader->readWithDefaultStringEnum<NumericalFlux>("numflux",
@@ -270,34 +252,37 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
                                                            {"rusanov", NumericalFlux::Rusanov},
                                                        });
 
-  return ModelParameters{.hasBoundaryFile = hasBoundaryFile,
-                         .plasticity = plasticity,
-                         .plasticityPointwise = plasticityPointwise,
-                         .plasticityDisabledGroups = plasticityDisabledGroups,
-                         .useCellHomogenizedMaterial = useCellHomogenizedMaterial,
-                         .freqCentral = freqCentral,
-                         .freqRatio = freqRatio,
-                         .gravitationalAcceleration = gravitationalAcceleration,
-                         .tv = tv,
-                         .boundaryFileNames = boundaryFileNames,
-                         .materialFileNames = materialFileNames,
-                         .plasticityFileNames = plasticityFileNames,
-                         .itmParameters = itmParameters,
-                         .flux = flux,
-                         .fluxNearFault = fluxNearFault,
-                         .config = config,
-                         .groupConfigs = std::move(groupConfigs),
-                         .simulationCount = simulationCount};
+  return WavePropagationParameters{.flux = flux,
+                                   .fluxNearFault = fluxNearFault,
+                                   .freqCentral = freqCentral,
+                                   .freqRatio = freqRatio,
+                                   .useCellHomogenizedMaterial = useCellHomogenizedMaterial,
+                                   .gravitationalAcceleration = gravitationalAcceleration};
 }
 
-std::string fluxToString(NumericalFlux flux) {
-  if (flux == NumericalFlux::Godunov) {
-    return "Godunov flux";
+PlasticityParameters readPlasticityParameters(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("equations");
+
+  const bool plasticity = reader->readWithDefault("plasticity", false);
+
+  const bool plasticityPointwise = reader->readWithDefault("plasticitypointwise", true);
+
+  const auto plasticityDisabledGroupsRaw =
+      reader->readWithDefault<std::string>("plasticitydisabledgroups", "");
+  std::unordered_set<int> plasticityDisabledGroups;
+  {
+    const auto groups = utils::StringUtils::split(plasticityDisabledGroupsRaw, ',');
+    for (const auto& group : groups) {
+      plasticityDisabledGroups.emplace(std::stoi(group));
+    }
   }
-  if (flux == NumericalFlux::Rusanov) {
-    return "Rusanov flux";
-  }
-  return "(unknown flux)";
+
+  const double tv = reader->readWithDefault("tv", 0.1);
+
+  return PlasticityParameters{.enabled = plasticity,
+                              .pointwise = plasticityPointwise,
+                              .disabledGroups = plasticityDisabledGroups,
+                              .tv = tv};
 }
 
 } // namespace seissol::initializer::parameters

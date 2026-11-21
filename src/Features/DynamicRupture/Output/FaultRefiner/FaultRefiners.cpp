@@ -8,9 +8,9 @@
 #include "FaultRefiners.h"
 
 #include "Core/IO/Instance/Geometry/Points.h"
+#include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/DynamicRupture/Output/Geometry.h"
 #include "Features/DynamicRupture/Output/OutputAux.h"
-#include "Simulation/Parameters/OutputParameters.h"
 
 #include <array>
 #include <cstddef>

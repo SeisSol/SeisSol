@@ -13,6 +13,7 @@
 #include "Features/InitialConditions/InitializationParameters.h"
 #include "Features/InitialConditions/Physics/Scenario/Registry.h"
 #include "Features/InitialConditions/Physics/Scenario/Scenarios.h"
+#include "Features/TimeMirror/ITMParameters.h"
 #include "Simulation/Parameters/InitializationParameters.h"
 #include "Simulation/Parameters/ModelParameters.h"
 #include "Simulation/Parameters/ParameterReader.h"

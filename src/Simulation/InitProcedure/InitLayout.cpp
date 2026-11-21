@@ -160,18 +160,18 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   std::iota(clusterMap.begin(), clusterMap.end(), 0);
 
   // every cell computes in the configuration of its mesh group, ghost cells included
-  const auto& model = seissolParams.model;
+  const auto& runConfigs = seissolParams.runConfigs;
 
   const LTSColorMap colorMap(
       initializer::EnumLayer<HaloType>({HaloType::Ghost, HaloType::Copy, HaloType::Interior}),
       initializer::EnumLayer<std::size_t>(clusterMap),
-      initializer::EnumLayer<ConfigId>(model.configs()));
+      initializer::EnumLayer<ConfigId>(runConfigs.configs()));
 
   std::vector<std::size_t> colors(meshReader.getElements().size());
   for (std::size_t i = 0; i < colors.size(); ++i) {
     const auto& element = meshReader.getElements()[i];
     const auto halo = geometry::isCopy(element, rank) ? HaloType::Copy : HaloType::Interior;
-    colors[i] = colorMap.color(halo, element.clusterId, model.configOfGroup(element.group));
+    colors[i] = colorMap.color(halo, element.clusterId, runConfigs.configOfGroup(element.group));
   }
 
   const auto ghostSize = meshReader.linearGhostlayer().size();
@@ -181,7 +181,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     const auto& element =
         meshReader.getGhostlayerMetadata().at(linearGhost.rank)[linearGhost.inRankIndices[0]];
     const auto halo = HaloType::Ghost;
-    colorsGhost[i] = colorMap.color(halo, element.clusterId, model.configOfGroup(element.group));
+    colorsGhost[i] =
+        colorMap.color(halo, element.clusterId, runConfigs.configOfGroup(element.group));
   }
 
   const auto& integrationMask = seissolParams.output.waveFieldParameters.integrationMask;
@@ -190,10 +191,10 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
           integrationMask,
           [](const auto& mask) { return std::ranges::find(mask, true) != mask.end(); }) ||
       seissolParams.output.waveFieldParameters.computeStrain;
-  const auto settings = SimulationSettings(seissolParams.model.plasticity,
+  const auto settings = SimulationSettings(seissolParams.plasticity.enabled,
                                            needsIntegration,
-                                           model.simulationCount,
-                                           configValue(model.config).numSimulations);
+                                           runConfigs.simulationCount,
+                                           configValue(runConfigs.config).numSimulations);
 
   seissolInstance.memoryManager().setSimulationSettings(settings);
 
@@ -393,10 +394,10 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   logInfo() << "Setting up LTS configuration...";
   internal::deriveLtsSetups(meshLayoutCopy, ltsStorage);
 
-  if (seissolParams.model.plasticity) {
+  if (seissolParams.plasticity.enabled) {
     // remove disabled plasticity groups from the list, and the cells of a material without the
     // stresses of a solid, where nothing yields
-    const auto& pdis = seissolParams.model.plasticityDisabledGroups;
+    const auto& pdis = seissolParams.plasticity.disabledGroups;
     for (auto& layer : ltsStorage.leaves(Ghost)) {
       const std::size_t size = layer.size();
       auto* cellInfo = layer.var<LTS::CellInformation>();

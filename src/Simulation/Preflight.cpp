@@ -223,7 +223,7 @@ bool runOpens(const std::vector<std::string>& field,
             faultOutput == parameters::OutputType::AtPickpointAndElementwise);
   }
   if (name.starts_with("equations.plasticityfilename")) {
-    return parameters.model.plasticity;
+    return parameters.plasticity.enabled;
   }
   if (name.starts_with("inicondition.filename")) {
     return parameters.initialization.type == parameters::InitializationType::Easi;
@@ -544,10 +544,10 @@ json::Value checkEasiModel(const std::string& parameter,
   };
   const bool material = parameter.starts_with("equations.materialfilename");
   const bool plasticity = parameter.starts_with("equations.plasticityfilename") ||
-                          (material && parameters.model.plasticity &&
+                          (material && parameters.plasticity.enabled &&
                            std::ranges::find(parameters.model.plasticityFileNames, modelFile) !=
                                parameters.model.plasticityFileNames.end());
-  for (const auto config : parameters.model.configs()) {
+  for (const auto config : parameters.runConfigs.configs()) {
     dispatchConfig(config, [&](auto cfg) {
       using MaterialT = model::MaterialOf<decltype(cfg)>;
       const auto name = configName(configValue(config));
@@ -555,7 +555,7 @@ json::Value checkEasiModel(const std::string& parameter,
         needs(missingMaterialParameters<MaterialT>(supplied),
               "the material " + std::string(MaterialT::Text) + " of the configuration " + name);
       }
-      if (plasticity && parameters.model.plasticity && MaterialT::SupportsPlasticity) {
+      if (plasticity && parameters.plasticity.enabled && MaterialT::SupportsPlasticity) {
         needs(missingMaterialParameters<model::Plasticity>(supplied),
               "the plasticity of the configuration " + name);
       }
@@ -593,12 +593,12 @@ void evaluateMaterial(const meshscan::CellChunk& chunk,
     }
   }
   const auto all = CellToVertexArray::fromVectors(chunk.vertices, chunk.groups);
-  const auto& model = parameters.model;
-  const auto configs = model.configs();
+  const auto& runConfigs = parameters.runConfigs;
+  const auto configs = runConfigs.configs();
   for (const auto config : configs) {
     std::vector<std::size_t> cells;
     for (const auto cell : valid) {
-      if (configs.size() == 1 || model.configOfGroup(chunk.groups[cell]) == config) {
+      if (configs.size() == 1 || runConfigs.configOfGroup(chunk.groups[cell]) == config) {
         cells.push_back(cell);
       }
     }
@@ -609,8 +609,10 @@ void evaluateMaterial(const meshscan::CellChunk& chunk,
     dispatchConfig(config, [&](auto cfg) {
       using Cfg = decltype(cfg);
       using MaterialT = model::MaterialOf<Cfg>;
-      const auto queryGen = getBestQueryGenerator<MaterialT>(
-          model.useCellHomogenizedMaterial, cellsOfConfig, Cfg::ConvergenceOrder);
+      const auto queryGen =
+          getBestQueryGenerator<MaterialT>(parameters.wavePropagation.useCellHomogenizedMaterial,
+                                           cellsOfConfig,
+                                           Cfg::ConvergenceOrder);
       std::vector<MaterialT> materials(cellsOfConfig.size);
       MaterialParameterDB<MaterialT> database;
       database.setMaterialVector(&materials);
@@ -857,14 +859,14 @@ void checkScannedMesh(const parameters::SeisSolParameters& parameters,
   // what the cells of each configuration have to support
   std::vector<internal::FaceTypeCensus> census(builtConfigCount());
   for (const auto& [group, types] : scan.groupFaceTypes) {
-    census[parameters.model.configOfGroup(group)].present |= types;
+    census[parameters.runConfigs.configOfGroup(group)].present |= types;
   }
   for (const auto& problem : internal::faceTypeProblems(census, parameters.initialization.type)) {
     report.problem(
         "The boundary conditions of the mesh need what this build cannot do: " + problem + ".");
   }
 
-  for (const auto& [group, config] : parameters.model.groupConfigs) {
+  for (const auto& [group, config] : parameters.runConfigs.groupConfigs) {
     if (!scan.groups.contains(group)) {
       report.warning("The configuration map (equations.configmap) gives the group " +
                      std::to_string(group) + " a configuration, but no cell of the mesh has it.");
@@ -1150,7 +1152,7 @@ int preflight(const std::string& parameterFile,
                << "names a parameter that SeisSol does not read; check its spelling.";
   }
   auto& configurations = report["configurations"] = json::Value::array();
-  for (const auto config : seissolParameters.model.configs()) {
+  for (const auto config : seissolParameters.runConfigs.configs()) {
     configurations.push(configName(configValue(config)));
   }
   report["endTime"] = seissolParameters.timeStepping.endTime;
@@ -1223,7 +1225,7 @@ int preflight(const std::string& parameterFile,
       report.problem("The checkpoint " + checkpoint.value() + " does not exist.");
     }
     // (see setupCheckpointing)
-    if (seissolParameters.model.configs().size() > 1) {
+    if (seissolParameters.runConfigs.configs().size() > 1) {
       report.problem("A run whose cells compute in several configurations cannot restart from a "
                      "checkpoint yet.");
     }

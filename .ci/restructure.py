@@ -119,6 +119,8 @@ LAYOUT = [
     # the composition
     ("Initializer/InitProcedure/", f"{SIM}/InitProcedure/"),
     ("Initializer/Parameters/", f"{SIM}/Parameters/"),
+    # the files of the simulations of a run, from which the parts read their models
+    ("Initializer/Parameters/SimulationFiles.h", "Core/Data/SimulationFiles.h"),
     ("Initializer/MemoryManager.", f"{SIM}/MemoryManager."),
     ("Initializer/ParameterDB.", f"{SIM}/ParameterDB."),
     ("Initializer/Preflight", f"{SIM}/Preflight"),

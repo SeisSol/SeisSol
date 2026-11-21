@@ -13,19 +13,21 @@
 #include "Core/Common/Constants.h"
 #include "Core/Common/PreProcessorMacros.h"
 #include "GeneratedCode/tensor.h"
-#include "Simulation/Parameters/ModelParameters.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Quantities.h"
 #include "WavePropagation/Physics/acoustic/Datastructures.h"
 #include "WavePropagation/Physics/viscoacoustic/Attenuation.h"
+#include "WavePropagation/WavePropagationParameters.h"
 
 #include <array>
 #include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <string>
+#include <unordered_map>
 #include <utils/logger.h>
 #include <variant>
+#include <vector>
 
 namespace seissol::model {
 
@@ -162,7 +164,7 @@ struct ViscoAcousticMaterial : public AcousticMaterial {
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 
-  void initialize(const initializer::parameters::ModelParameters& parameters) override {
+  void initialize(const initializer::parameters::WavePropagationParameters& parameters) override {
     physics::fitAttenuation<Mechanisms>(*this, parameters.freqCentral, parameters.freqRatio);
 
     if constexpr (Mechanisms > 0) {

@@ -10,8 +10,11 @@
 
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/InputAux.h"
+#include "Core/IO/WriterParameters.h"
+#include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/Plasticity/Physics/PlasticityQuantities.h"
 #include "ParameterReader.h"
+#include "WavePropagation/Output/ReceiverParameters.h"
 
 #include <array>
 #include <list>
@@ -23,15 +26,9 @@
 
 namespace seissol::initializer::parameters {
 
-constexpr double VeryLongTime = 1.0e100;
-
-enum class FaultRefinement { Triple = 1, Quad = 2, None = 3 };
-
 enum class OutputFormat : int { None = 10, Xdmf = 6 };
 
 enum class VolumeRefinement : int { NoRefine = 0, Refine4 = 1, Refine8 = 2, Refine32 = 3 };
-
-enum class XdmfBackend : int { Posix, Hdf5 };
 
 /**
  * How volumetric/surface data is transferred onto the output points: either by evaluating the
@@ -45,34 +42,9 @@ enum class XdmfBackend : int { Posix, Hdf5 };
  */
 enum class ProjectionMethod : int { Pointwise, L2 };
 
-/**
- * @brief How the steps of a mesh output are distributed over files.
- *
- * `Snapshot` writes one file per step, each complete in itself. `Incremental` keeps the geometry
- * -- which does not move -- in a file of its own and lets every snapshot link to it, which is the
- * cheaper choice whenever the mesh is large against the fields written on it. `Monolith` puts
- * every step into a single file as a VTKHDF time series, so a run leaves one file behind instead
- * of one per output step.
- *
- * Only the VTKHDF format can do more than `Snapshot`; an Xdmf output (that is, one written
- * without a `vtkorder`) references its unchanging parts from every step anyway. An output whose
- * parameters choose none is written as `Monolith` in VTKHDF and as a snapshot per step in Xdmf.
- */
-enum class TimeSeriesMode : int { Snapshot, Incremental, Monolith };
-
 struct CheckpointParameters {
   bool enabled{false};
   double interval{0};
-};
-
-struct ElementwiseFaultParameters {
-  double printTimeIntervalSec{1.0};
-  std::array<bool, 12> outputMask{true, true, true, true};
-  FaultRefinement refinementStrategy{FaultRefinement::Quad};
-  int refinement{2};
-  int vtkorder{-1};
-  // none if the parameters choose none (see TimeSeriesMode)
-  std::optional<TimeSeriesMode> timeSeries;
 };
 
 struct EnergyOutputParameters {
@@ -96,43 +68,6 @@ struct FreeSurfaceOutputParameters {
   ProjectionMethod projection{ProjectionMethod::L2};
   // none if the parameters choose none (see TimeSeriesMode)
   std::optional<TimeSeriesMode> timeSeries;
-};
-
-enum class ReceiverOutputFormat { Csv, Hdf5 };
-
-struct PickpointParameters {
-  int printTimeInterval{1};
-  double writeInterval{VeryLongTime};
-  std::array<bool, 12> outputMask{true, true, true};
-  std::optional<std::string> pickpointFileName;
-  bool collectiveio{false};
-  ReceiverOutputFormat format{ReceiverOutputFormat::Csv};
-  //! @brief As ReceiverOutputParameters::samplechunk, for the on-fault receivers.
-  std::size_t samplechunk{0};
-  /**
-   * @brief The time between two samples of the on-fault receivers (`pickdt`); zero samples every
-   * `printTimeInterval` time steps of the finest time cluster with fault faces instead.
-   */
-  double samplingInterval{0};
-};
-
-struct ReceiverOutputParameters {
-  bool enabled{false};
-  ReceiverOutputFormat format{ReceiverOutputFormat::Csv};
-  bool computeRotation{false};
-  bool computeStrain{false};
-  double writeInterval{VeryLongTime};
-  double samplingInterval{0};
-  std::string fileName;
-  bool collectiveio{false};
-  /**
-   * @brief How far a storage chunk of the HDF5 receiver output reaches along the sample axis.
-   *
-   * Zero lets the writer decide. The chunking is settled when the file is created, while the
-   * number of samples a write carries varies as soon as the sampling interval does not divide
-   * the write interval, so which value pays off is a property of how the file is read afterwards.
-   */
-  std::size_t samplechunk{0};
 };
 
 struct OutputInterval {

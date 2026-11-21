@@ -56,7 +56,7 @@ const ClusteringResult&
                         const std::vector<seissol::geometry::VertexOrder>& vertexOrders) {
   bool continueComputation = true;
   // the materials of all configurations of the run
-  for (const auto config : seissolInstance_.parameters().model.configs()) {
+  for (const auto config : seissolInstance_.parameters().runConfigs.configs()) {
     dispatchConfig(config, [&](auto cfg) {
       using MaterialT = model::MaterialOf<decltype(cfg)>;
       if (!MaterialT::SupportsLTS) {
@@ -185,7 +185,7 @@ std::vector<std::uint64_t>
     elementWeights[config] = static_cast<std::uint64_t>(std::max<long long>(1, weight));
   }
 
-  const auto& modelParameters = seissolInstance_.parameters().model;
+  const auto& runConfigs = seissolInstance_.parameters().runConfigs;
   std::vector<std::uint64_t> cellCosts(cells.size());
   const auto groups = mesh.data(arrays.group);
   const auto boundaryTags = seissol::geometry::boundaryTagsOf(mesh, arrays);
@@ -204,7 +204,7 @@ std::vector<std::uint64_t>
 
     const auto costDynamicRupture = vertexWeightDynamicRupture_ * dynamicRupture;
     const auto costDisplacement = vertexWeightFreeSurfaceWithGravity_ * freeSurfaceWithGravity;
-    const auto costElement = elementWeights[modelParameters.configOfGroup(groups[cell])];
+    const auto costElement = elementWeights[runConfigs.configOfGroup(groups[cell])];
     cellCosts[cell] = costElement + costDynamicRupture + costDisplacement;
   }
   return cellCosts;

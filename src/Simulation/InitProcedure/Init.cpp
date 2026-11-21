@@ -101,7 +101,8 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
   auto& summary = seissolInstance.runSummary();
 
   // set g
-  seissolInstance.gravitationSetup().acceleration = seissolParams.model.gravitationalAcceleration;
+  seissolInstance.gravitationSetup().acceleration =
+      seissolParams.wavePropagation.gravitationalAcceleration;
 
   // the stages that do not time themselves are timed here; the summary gets all of them
   const auto timed = [&](const char* name, const char* column, const char* message, auto&& stage) {
@@ -136,7 +137,7 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
 
   // set up simulator
   auto& sim = seissolInstance.simulator();
-  sim.setUsePlasticity(seissolParams.model.plasticity);
+  sim.setUsePlasticity(seissolParams.plasticity.enabled);
   sim.setFinalTime(seissolParams.timeStepping.endTime);
   if (const auto steps = seissolInstance.measuringSteps()) {
     // a run that measures what the cells cost goes for some time steps of the largest cluster
@@ -223,7 +224,7 @@ json::Value memorySection(monitoring::RunSummary& runSummary, const std::string&
 //! @brief The configurations the cells of the run compute in, by their names.
 json::Value configurationNames(const seissol::SeisSol& seissolInstance) {
   auto names = json::Value::array();
-  for (const auto config : seissolInstance.parameters().model.configs()) {
+  for (const auto config : seissolInstance.parameters().runConfigs.configs()) {
     names.push(configName(configValue(config)));
   }
   return names;

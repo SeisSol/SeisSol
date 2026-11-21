@@ -15,6 +15,7 @@
 #include "Core/Common/PreProcessorMacros.h"
 #include "Core/Common/Real.h"
 #include "Core/Common/RunId.h"
+#include "Core/Data/SimulationFiles.h"
 #include "Core/Geometry/CellTransform.h"
 #include "Core/Geometry/MeshDefinition.h"
 #include "Core/Geometry/MeshReader.h"
@@ -32,7 +33,6 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "Simulation/Parameters/SimulationFiles.h"
 #include "Simulation/SeisSol.h"
 
 #include <algorithm>

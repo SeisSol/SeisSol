@@ -17,8 +17,8 @@
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Modules/Module.h"
 #include "Core/Monitoring/Stopwatch.h"
-#include "Simulation/Parameters/OutputParameters.h"
 #include "WavePropagation/Output/Receiver.h"
+#include "WavePropagation/Output/ReceiverParameters.h"
 
 #include <Eigen/Dense>
 #include <cstddef>

@@ -75,9 +75,13 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 
   // a reader that does not cluster the cells while it reads them leaves their time steps to here
   if (!meshReader.inlineTimestepCompute()) {
+    const auto& parameters = seissolInstance.parameters();
     const auto timesteps = seissol::initializer::computeTimesteps(
         seissol::initializer::CellToVertexArray::fromMeshReader(meshReader),
-        seissolInstance.parameters(),
+        parameters.runConfigs,
+        parameters.wavePropagation,
+        parameters.timeStepping,
+        parameters.model.materialFileNames,
         seissol::data::modelLoader());
     meshReader.setTimesteps(timesteps.cellTimeStepWidths);
   }
@@ -144,7 +148,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   } else if (miniSeisSolEnabled) {
     if (seissol::Mpi::mpi.size() > 1) {
       logInfo() << "Running mini SeisSol to determine node weights.";
-      const auto elapsedTime = seissol::solver::miniSeisSol(seissolParams.model.config);
+      const auto elapsedTime = seissol::solver::miniSeisSol(seissolParams.runConfigs.config);
       nodeWeight = 1.0 / elapsedTime;
 
       const auto summary = seissol::statistics::parallelSummary(nodeWeight);
@@ -164,12 +168,12 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   // In a run with several configurations, a cell costs according to its configuration. Measuring
   // that only matters with several ranks; a single one gets by with the estimate for the
   // clustering.
-  const auto configs = seissolParams.model.configs();
+  const auto configs = seissolParams.runConfigs.configs();
   std::vector<double> configCostFactors;
   if (configs.size() > 1) {
     const bool measure = miniSeisSolEnabled && seissol::Mpi::mpi.size() > 1;
     configCostFactors =
-        seissol::solver::configCostFactors(configs, seissolParams.model.config, measure);
+        seissol::solver::configCostFactors(configs, seissolParams.runConfigs.config, measure);
   }
 
   logInfo() << "Reading PUML mesh";
@@ -240,8 +244,12 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       config,
       seissolInstance,
       [&seissolParams](const seissol::initializer::CellToVertexArray& cells) {
-        return seissol::initializer::computeTimesteps(
-            cells, seissolParams, seissol::data::modelLoader());
+        return seissol::initializer::computeTimesteps(cells,
+                                                      seissolParams.runConfigs,
+                                                      seissolParams.wavePropagation,
+                                                      seissolParams.timeStepping,
+                                                      seissolParams.model.materialFileNames,
+                                                      seissol::data::modelLoader());
       });
   // the costs measured in a run before, if there are any, in place of the model: those of the run
   // before in this process, or else those of a file

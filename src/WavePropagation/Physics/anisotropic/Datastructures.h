@@ -19,6 +19,8 @@
 #include <array>
 #include <cstddef>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace seissol::model {
 template <typename Cfg>

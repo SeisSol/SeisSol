@@ -17,6 +17,7 @@
 #include <cstddef>
 #include <limits>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace seissol::model {

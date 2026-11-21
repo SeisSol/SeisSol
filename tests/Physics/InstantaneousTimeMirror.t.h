@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Features/TimeMirror/ITMParameters.h"
 #include "Features/TimeMirror/Solver/InstantaneousTimeMirrorManager.h"
-#include "Simulation/Parameters/ModelParameters.h"
 #include "TestHelper.h"
 
 namespace seissol::unit_test {

@@ -16,9 +16,9 @@
 #include "Core/Parallel/MPI.h"
 #include "Core/Parallel/Runtime/Stream.h"
 #include "Features/DynamicRupture/Output/DataTypes.h"
+#include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/DynamicRupture/Output/OutputAux.h"
 #include "ReceiverBasedOutputBuilder.h"
-#include "Simulation/Parameters/OutputParameters.h"
 
 #include <algorithm>
 #include <cmath>

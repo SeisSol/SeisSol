@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_OUTPUT_FAULTREFINER_FAULTREFINERS_H_
 
 #include "Features/DynamicRupture/Output/DataTypes.h"
-#include "Simulation/Parameters/OutputParameters.h"
+#include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 
 #include <array>
 #include <cstddef>

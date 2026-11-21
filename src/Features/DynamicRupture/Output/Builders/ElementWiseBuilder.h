@@ -9,12 +9,12 @@
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_OUTPUT_BUILDERS_ELEMENTWISEBUILDER_H_
 
 #include "Core/Geometry/FaceTransform.h"
+#include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/DynamicRupture/Output/FaultRefiner/FaultRefiners.h"
 #include "Features/DynamicRupture/Output/Geometry.h"
 #include "Features/DynamicRupture/Output/OutputAux.h"
 #include "GeneratedCode/init.h"
 #include "ReceiverBasedOutputBuilder.h"
-#include "Simulation/Parameters/OutputParameters.h"
 
 namespace seissol::dr::output {
 class ElementWiseBuilder : public ReceiverBasedOutputBuilder {

@@ -21,6 +21,7 @@
 #include "Core/IO/Instance/Geometry/Refinement.h"
 #include "Core/IO/Instance/Geometry/Typedefs.h"
 #include "Core/IO/Writer/Writer.h"
+#include "Core/IO/WriterParameters.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Descriptor/Surface.h"
@@ -35,7 +36,6 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "Simulation/Parameters/ModelParameters.h"
 #include "Simulation/Parameters/OutputParameters.h"
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Output/FreeSurfaceIntegrator.h"
@@ -142,10 +142,10 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
   auto& checkpoint = seissolInstance.outputManager().getCheckpointManager();
   // the data of the run is checkpointed in its configuration; a checkpoint holds the cells of one
   // configuration only
-  const auto& model = seissolInstance.parameters().model;
-  const auto config = model.config;
+  const auto& runConfigs = seissolInstance.parameters().runConfigs;
+  const auto config = runConfigs.config;
   // (writing them is rejected with the parameters already)
-  if (model.configs().size() > 1 && seissolInstance.checkpointLoadFile().has_value()) {
+  if (runConfigs.configs().size() > 1 && seissolInstance.checkpointLoadFile().has_value()) {
     logError() << "Checkpoints are not supported yet for runs whose cells compute in several "
                   "configurations.";
   }
@@ -387,7 +387,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
   }
 
   std::shared_ptr<projection::Table<3, 3, real>> projNodal;
-  if (seissolParams.model.plasticity) {
+  if (seissolParams.plasticity.enabled) {
     projNodal = makeVolumeTable(projection::Source::Nodal, {});
   }
 
@@ -538,7 +538,7 @@ NamedOutputs waveFieldOutputsOf(seissol::SeisSol& seissolInstance,
       }
     }
 
-    if (seissolParams.model.plasticity) {
+    if (seissolParams.plasticity.enabled) {
       for (std::size_t quantity = 0;
            quantity < seissol::model::PlasticityData<Cfg>::Quantities.size();
            ++quantity) {
@@ -702,7 +702,7 @@ void setupWaveFieldOutput(seissol::SeisSol& seissolInstance) {
       });
 
   // the cells of every configuration of the run
-  const auto configs = seissolParams.model.configs();
+  const auto configs = seissolParams.runConfigs.configs();
   auto& ltsStorage = memoryManager.ltsStorage();
   const auto& backmap = memoryManager.backmap();
   std::vector<ConfigId> configOfCell(cells->size());
@@ -978,7 +978,7 @@ void setupSurfaceOutput(seissol::SeisSol& seissolInstance) {
       });
 
   // the faces of every configuration of the run
-  const auto configs = seissolParams.model.configs();
+  const auto configs = seissolParams.runConfigs.configs();
   auto& ltsStorage = memoryManager.ltsStorage();
   const auto& backmap = memoryManager.backmap();
   std::vector<ConfigId> configOfFace(freeSurfaceIntegrator->backmap.size());
@@ -1030,7 +1030,7 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     energyOutput.init(memoryManager.drStorage(),
                       seissolInstance.meshReader(),
                       memoryManager.ltsStorage(),
-                      seissolParams.model.plasticity,
+                      seissolParams.plasticity.enabled,
                       seissolInstance.outputPrefix(),
                       seissolParams.output.energyParameters);
   }

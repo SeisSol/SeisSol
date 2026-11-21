@@ -19,6 +19,7 @@
 #include "Core/IO/Instance/Point/Hdf5Table.h"
 #include "Core/IO/Instance/Point/TableWriter.h"
 #include "Core/IO/Writer/Writer.h"
+#include "Core/IO/WriterParameters.h"
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
@@ -34,14 +35,15 @@
 #include "Features/DynamicRupture/Output/Builders/ElementWiseBuilder.h"
 #include "Features/DynamicRupture/Output/Builders/PickPointBuilder.h"
 #include "Features/DynamicRupture/Output/DataTypes.h"
+#include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/DynamicRupture/Output/Geometry.h"
 #include "Features/DynamicRupture/Output/OutputAux.h"
 #include "Features/DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "GeneratedCode/runtime.h"
 #include "Simulation/MemoryManager.h"
-#include "Simulation/Parameters/OutputParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "Simulation/SeisSol.h"
+#include "WavePropagation/Output/ReceiverParameters.h"
 
 #include <algorithm>
 #include <array>

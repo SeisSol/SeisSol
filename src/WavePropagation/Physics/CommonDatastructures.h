@@ -10,12 +10,14 @@
 #ifndef SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_COMMONDATASTRUCTURES_H_
 #define SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_COMMONDATASTRUCTURES_H_
 
-#include "Simulation/Parameters/ModelParameters.h"
 #include "WavePropagation/Physics/MaterialType.h" // IWYU pragma: export
+#include "WavePropagation/WavePropagationParameters.h"
 
 #include <array>
+#include <cstddef>
 #include <limits>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace seissol::model {
@@ -64,7 +66,7 @@ struct Material {
   explicit Material(double rho) : rho(rho) {}
   explicit Material(const std::vector<double>& data) : rho(data.at(0)) {}
 
-  virtual void initialize(const initializer::parameters::ModelParameters& parameters) {}
+  virtual void initialize(const initializer::parameters::WavePropagationParameters& parameters) {}
 
   [[nodiscard]] virtual double getMaxWaveSpeed() const = 0;
   [[nodiscard]] virtual double getPWaveSpeed() const = 0;

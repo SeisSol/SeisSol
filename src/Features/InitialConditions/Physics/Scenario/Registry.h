@@ -12,7 +12,7 @@
 #include "Core/Memory/Typedefs.h"
 #include "Features/InitialConditions/InitializationParameters.h"
 #include "Features/InitialConditions/Physics/InitialField.h"
-#include "Simulation/Parameters/ModelParameters.h"
+#include "Features/TimeMirror/ITMParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 
 #include <cstddef>

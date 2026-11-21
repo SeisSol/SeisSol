@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_SIMULATION_PARAMETERS_SIMULATIONFILES_H_
-#define SEISSOL_SRC_SIMULATION_PARAMETERS_SIMULATIONFILES_H_
+#ifndef SEISSOL_SRC_CORE_DATA_SIMULATIONFILES_H_
+#define SEISSOL_SRC_CORE_DATA_SIMULATIONFILES_H_
 
 #include <cstddef>
 #include <string>
@@ -39,4 +39,4 @@ struct SimulationFiles {
 
 } // namespace seissol::initializer::parameters
 
-#endif // SEISSOL_SRC_SIMULATION_PARAMETERS_SIMULATIONFILES_H_
+#endif // SEISSOL_SRC_CORE_DATA_SIMULATIONFILES_H_

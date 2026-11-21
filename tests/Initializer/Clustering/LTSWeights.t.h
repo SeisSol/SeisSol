@@ -42,11 +42,23 @@
 
 namespace seissol::unit_test {
 
+/// The time steps of `cells` with the materials of `parameters`, as the run computes them.
+inline seissol::initializer::GlobalTimestep
+    timestepsOf(const seissol::initializer::CellToVertexArray& cells,
+                const seissol::initializer::parameters::SeisSolParameters& parameters) {
+  return seissol::initializer::computeTimesteps(cells,
+                                                parameters.runConfigs,
+                                                parameters.wavePropagation,
+                                                parameters.timeStepping,
+                                                parameters.model.materialFileNames,
+                                                data::modelLoader());
+}
+
 /// The time steps of the cells with the materials of `parameters`, as the run computes them.
 inline seissol::initializer::TimestepFunction
     materialTimesteps(const seissol::initializer::parameters::SeisSolParameters& parameters) {
   return [&parameters](const seissol::initializer::CellToVertexArray& cells) {
-    return seissol::initializer::computeTimesteps(cells, parameters, data::modelLoader());
+    return timestepsOf(cells, parameters);
   };
 }
 
@@ -78,8 +90,8 @@ TEST_CASE("LTS Weights" * doctest::test_suite("initializer")) {
   seissolParameters.timeStepping.cfl = 1;
   seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
   seissolParameters.model.materialFileNames = {tpath("Testing/material.yaml")};
-  seissolParameters.model.useCellHomogenizedMaterial = false;
-  seissolParameters.model.plasticity = false;
+  seissolParameters.wavePropagation.useCellHomogenizedMaterial = false;
+  seissolParameters.plasticity.enabled = false;
   const utils::Env env("SEISSOL_");
   const seissol::SystemInfo systemInfo;
   seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
@@ -135,9 +147,9 @@ TEST_CASE("The cost of a cell follows its configuration" * doctest::test_suite("
     seissolParameters.timeStepping.cfl = 1;
     seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
     seissolParameters.model.materialFileNames = {tpath("Testing/material.yaml")};
-    seissolParameters.model.useCellHomogenizedMaterial = false;
-    seissolParameters.model.plasticity = false;
-    seissolParameters.model.groupConfigs = std::move(groupConfigs);
+    seissolParameters.wavePropagation.useCellHomogenizedMaterial = false;
+    seissolParameters.plasticity.enabled = false;
+    seissolParameters.runConfigs.groupConfigs = std::move(groupConfigs);
     const utils::Env env("SEISSOL_");
     const seissol::SystemInfo systemInfo;
     seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
@@ -216,8 +228,8 @@ TEST_CASE("The LTS clustering sees the vertex order of the simulation" *
     seissolParameters.timeStepping.cfl = 1;
     seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
     seissolParameters.model.materialFileNames = {tpath("Testing/material-graded.yaml")};
-    seissolParameters.model.useCellHomogenizedMaterial = homogenized;
-    seissolParameters.model.plasticity = false;
+    seissolParameters.wavePropagation.useCellHomogenizedMaterial = homogenized;
+    seissolParameters.plasticity.enabled = false;
     const utils::Env env("SEISSOL_");
     const seissol::SystemInfo systemInfo;
     seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
@@ -232,8 +244,8 @@ TEST_CASE("The LTS clustering sees the vertex order of the simulation" *
                                       seissol::initializer::parameters::TopologyFormat::Geometric,
                                       &clustering,
                                       &weightModel);
-    const auto recomputed = computeTimesteps(
-        CellToVertexArray::fromMeshReader(pumlReader), seissolParameters, data::modelLoader());
+    const auto recomputed =
+        timestepsOf(CellToVertexArray::fromMeshReader(pumlReader), seissolParameters);
     std::cout.clear();
 
     const auto& elements = pumlReader.getElements();
@@ -275,8 +287,8 @@ TEST_CASE("A cell takes the smallest time step of the materials of the simulatio
     seissolParameters.timeStepping.cfl = 1;
     seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
     seissolParameters.model.materialFileNames = materialFileNames;
-    seissolParameters.model.simulationCount = materialFileNames.size();
-    seissolParameters.model.plasticity = false;
+    seissolParameters.runConfigs.simulationCount = materialFileNames.size();
+    seissolParameters.plasticity.enabled = false;
     const utils::Env env("SEISSOL_");
     const seissol::SystemInfo systemInfo;
     seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
@@ -291,9 +303,7 @@ TEST_CASE("A cell takes the smallest time step of the materials of the simulatio
                                       seissol::initializer::parameters::TopologyFormat::Geometric,
                                       &clustering,
                                       &weightModel);
-    return computeTimesteps(CellToVertexArray::fromMeshReader(pumlReader),
-                            seissolParameters,
-                            data::modelLoader())
+    return timestepsOf(CellToVertexArray::fromMeshReader(pumlReader), seissolParameters)
         .cellTimeStepWidths;
   };
 
@@ -544,8 +554,8 @@ TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializ
   seissolParameters.timeStepping.cfl = 1;
   seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
   seissolParameters.model.materialFileNames = {tpath("Testing/material.yaml")};
-  seissolParameters.model.useCellHomogenizedMaterial = false;
-  seissolParameters.model.plasticity = false;
+  seissolParameters.wavePropagation.useCellHomogenizedMaterial = false;
+  seissolParameters.plasticity.enabled = false;
   const utils::Env env("SEISSOL_");
   const seissol::SystemInfo systemInfo;
   seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);

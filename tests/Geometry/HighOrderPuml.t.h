@@ -101,8 +101,8 @@ TEST_CASE("PUMLReader reads straight-sided cells of a higher order as cells of t
   seissolParameters.timeStepping.cfl = 1;
   seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
   seissolParameters.model.materialFileNames = {tpath("Testing/material.yaml")};
-  seissolParameters.model.useCellHomogenizedMaterial = true;
-  seissolParameters.model.plasticity = false;
+  seissolParameters.wavePropagation.useCellHomogenizedMaterial = true;
+  seissolParameters.plasticity.enabled = false;
   const utils::Env env("SEISSOL_");
   const seissol::SystemInfo systemInfo;
   seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);

@@ -14,6 +14,7 @@
 #include "Core/Common/Constants.h"
 #include "Core/Common/MultipleSimulations.h"
 #include "Core/Common/PreProcessorMacros.h"
+#include "Core/Data/SimulationFiles.h"
 #include "Core/Geometry/CellTransform.h"
 #include "Core/Geometry/MeshReader.h"
 #include "Core/Kernels/Common.h"
@@ -25,7 +26,6 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "Simulation/Parameters/SimulationFiles.h"
 #include "WavePropagation/Physics/Datastructures.h"
 
 #include <array>

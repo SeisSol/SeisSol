@@ -9,12 +9,12 @@
 #ifndef SEISSOL_SRC_FEATURES_INITIALCONDITIONS_SETUP_INITIALFIELDPROJECTION_H_
 #define SEISSOL_SRC_FEATURES_INITIALCONDITIONS_SETUP_INITIALFIELDPROJECTION_H_
 
+#include "Core/Data/SimulationFiles.h"
 #include "Core/Geometry/MeshReader.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Typedefs.h"
 #include "Features/InitialConditions/Physics/InitialField.h"
 #include "Simulation/MemoryManager.h"
-#include "Simulation/Parameters/SimulationFiles.h"
 
 #include <memory>
 #include <string>

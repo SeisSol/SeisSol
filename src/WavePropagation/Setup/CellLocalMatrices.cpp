@@ -25,7 +25,6 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "Simulation/Parameters/ModelParameters.h"
 #include "WavePropagation/Physics/Common.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h" // IWYU pragma: keep
@@ -34,6 +33,7 @@
 #include "WavePropagation/Setup/BoundarySetup.h"
 #include "WavePropagation/Solver/ConfigBoundary.h"
 #include "WavePropagation/Solver/Setup.h" // IWYU pragma: keep
+#include "WavePropagation/WavePropagationParameters.h"
 
 #include <Eigen/Core>
 #include <algorithm>
@@ -98,7 +98,7 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
                                         const seissol::geometry::MeshReader& meshReader,
                                         LTS::Storage& ltsStorage,
                                         const ClusterLayout& clusterLayout,
-                                        const parameters::ModelParameters& modelParameters) {
+                                        const parameters::WavePropagationParameters& parameters) {
   using real = Real<Cfg>;
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
@@ -333,8 +333,7 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
         }
 
         // check if we're on a face that has an adjacent cell with DR face
-        const auto fluxDefault =
-            isSpecialBC(side) ? modelParameters.fluxNearFault : modelParameters.flux;
+        const auto fluxDefault = isSpecialBC(side) ? parameters.fluxNearFault : parameters.flux;
 
         const auto enforceGodunovBc =
             boundaryProperties(cellInformation[cell].faceTypes[side]).enforcesGodunovFlux;
@@ -427,7 +426,7 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
                                  LTS::Storage& ltsStorage,
                                  const ClusterLayout& clusterLayout,
-                                 const parameters::ModelParameters& modelParameters) {
+                                 const parameters::WavePropagationParameters& parameters) {
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::Material>().mask);
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::LocalIntegration>().mask);
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::NeighboringIntegration>().mask);
@@ -435,7 +434,7 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
   for (auto& layer : ltsStorage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
       initializeCellLocalMatricesOfLayer<decltype(cfg)>(
-          layer, meshReader, ltsStorage, clusterLayout, modelParameters);
+          layer, meshReader, ltsStorage, clusterLayout, parameters);
     });
   }
 }

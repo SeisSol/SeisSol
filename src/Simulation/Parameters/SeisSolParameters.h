@@ -8,15 +8,19 @@
 #ifndef SEISSOL_SRC_SIMULATION_PARAMETERS_SEISSOLPARAMETERS_H_
 #define SEISSOL_SRC_SIMULATION_PARAMETERS_SEISSOLPARAMETERS_H_
 
+#include "Core/Common/RunConfigs.h"
 #include "Core/Geometry/MeshParameters.h"
 #include "Core/TimeStepping/LtsParameters.h"
 #include "CubeGeneratorParameters.h"
 #include "Features/DynamicRupture/DRParameters.h"
 #include "Features/InitialConditions/InitializationParameters.h"
+#include "Features/Plasticity/PlasticityParameters.h"
 #include "Features/SourceTerm/SourceParameters.h"
+#include "Features/TimeMirror/ITMParameters.h"
 #include "ModelParameters.h"
 #include "OutputParameters.h"
 #include "ParameterReader.h"
+#include "WavePropagation/WavePropagationParameters.h"
 
 namespace seissol::initializer::parameters {
 
@@ -27,8 +31,12 @@ struct SeisSolParameters {
   MeshParameters mesh;
   ModelParameters model;
   OutputParameters output;
+  PlasticityParameters plasticity;
+  RunConfigs runConfigs;
   SourceParameters source;
+  ITMParameters timeMirror;
   TimeSteppingParameters timeStepping;
+  WavePropagationParameters wavePropagation;
 };
 
 SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader);

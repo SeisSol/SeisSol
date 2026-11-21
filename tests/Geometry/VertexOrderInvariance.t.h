@@ -71,7 +71,12 @@ inline std::unique_ptr<seissol::geometry::PUMLReader> readMesh(const std::string
       config,
       seissolInstance,
       [&parameters = seissolInstance.parameters()](const CellToVertexArray& cells) {
-        return computeTimesteps(cells, parameters, seissol::data::modelLoader());
+        return computeTimesteps(cells,
+                                parameters.runConfigs,
+                                parameters.wavePropagation,
+                                parameters.timeStepping,
+                                parameters.model.materialFileNames,
+                                seissol::data::modelLoader());
       });
   ExponentialWeights weightModel;
   return std::make_unique<seissol::geometry::PUMLReader>(
@@ -199,8 +204,8 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
   seissolParameters.timeStepping.maxTimestepWidth = 5000.0;
   // varies inside the cells, so that the clustering sees the vertex order if it can
   seissolParameters.model.materialFileNames = {tpath("Testing/material-graded.yaml")};
-  seissolParameters.model.useCellHomogenizedMaterial = true;
-  seissolParameters.model.plasticity = false;
+  seissolParameters.wavePropagation.useCellHomogenizedMaterial = true;
+  seissolParameters.plasticity.enabled = false;
   const utils::Env env("SEISSOL_");
   const seissol::SystemInfo systemInfo;
   seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);

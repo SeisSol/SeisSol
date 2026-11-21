@@ -12,7 +12,7 @@
 #include "Core/Geometry/MeshReader.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
-#include "Simulation/Parameters/ModelParameters.h"
+#include "WavePropagation/WavePropagationParameters.h"
 
 namespace seissol::initializer {
 
@@ -22,7 +22,7 @@ namespace seissol::initializer {
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
                                  LTS::Storage& ltsStorage,
                                  const ClusterLayout& clusterLayout,
-                                 const parameters::ModelParameters& modelParameters);
+                                 const parameters::WavePropagationParameters& parameters);
 
 } // namespace seissol::initializer
 

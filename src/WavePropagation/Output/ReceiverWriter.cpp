@@ -21,9 +21,9 @@
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Modules/Modules.h"
 #include "Core/Parallel/MPI.h"
-#include "Simulation/Parameters/OutputParameters.h"
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Output/Receiver.h"
+#include "WavePropagation/Output/ReceiverParameters.h"
 #include "WavePropagation/Physics/Datastructures.h"
 
 #include <algorithm>

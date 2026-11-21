@@ -9,6 +9,7 @@
 
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/ConfigValue.h"
+#include "Core/Data/SimulationFiles.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Typedefs.h"
 #include "Features/InitialConditions/InitializationParameters.h"
@@ -19,7 +20,6 @@
 #include "Simulation/MemoryManager.h"
 #include "Simulation/Parameters/ModelParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
-#include "Simulation/Parameters/SimulationFiles.h"
 #include "Simulation/SeisSol.h"
 
 #include <cstddef>
@@ -131,7 +131,7 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
       return configValue(first).materialType == configValue(second).materialType &&
              configValue(first).relaxationMechanisms == configValue(second).relaxationMechanisms;
     };
-    const auto configs = seissolInstance.parameters().model.configs();
+    const auto configs = seissolInstance.parameters().runConfigs.configs();
     for (const auto config : configs) {
       for (const auto reference : configs) {
         if (sameMaterial(reference, config) && firstCell[reference].has_value()) {

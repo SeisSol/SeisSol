@@ -91,7 +91,7 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
           maxTimeStepSize, timeStepRate, seissolInstance.executionPlace(clusterData->size())),
       // cluster ids
       settings_(settings), seissolInstance_(seissolInstance),
-      configBoundary_(seissolInstance.parameters().model.configs()),
+      configBoundary_(seissolInstance.parameters().runConfigs.configs()),
       streamRuntime_(4,
                      parallel::runtime::hsaQueuePriorityOf(clusterData->getIdentifier()),
                      parallel::runtime::hsaQueueOf(clusterData->getIdentifier())),
@@ -125,7 +125,7 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
   neighborKernel_.setGlobalData(globalData);
   if constexpr (seissol::isDeviceOn()) {
     // the device kernels of the faces between configurations read the constants of both
-    for (const auto config : seissolInstance_.parameters().model.configs()) {
+    for (const auto config : seissolInstance_.parameters().runConfigs.configs()) {
       dispatchConfig(config, [&](auto configCfg) {
         using ConfigCfg = decltype(configCfg);
         configBoundary_.template setDeviceGlobalData<ConfigCfg>(
@@ -491,7 +491,7 @@ void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
         [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
           seissol::kernels::Plasticity<Cfg>::computePlasticityBatched(
               timeStepWidth,
-              seissolInstance_.parameters().model.tv,
+              seissolInstance_.parameters().plasticity.tv,
               globalData_.onDevice,
               table,
               plasticity,
@@ -824,7 +824,7 @@ void CellCluster<Cfg>::computeNeighboringIntegrationImplementation(const StepPar
   // NOLINTNEXTLINE(misc-const-correctness)
   std::atomic<std::size_t> numberOfTetsWithPlasticYielding{0};
 
-  const auto tV = seissolInstance_.parameters().model.tv;
+  const auto tV = seissolInstance_.parameters().plasticity.tv;
 
   const auto timestep = params.timeStepSize;
   const auto oneMinusIntegratingFactor =

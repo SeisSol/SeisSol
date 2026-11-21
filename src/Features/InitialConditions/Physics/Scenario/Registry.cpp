@@ -13,7 +13,7 @@
 #include "Features/InitialConditions/InitializationParameters.h"
 #include "Features/InitialConditions/Physics/InitialField.h"
 #include "Features/InitialConditions/Physics/Scenario/Scenarios.h"
-#include "Simulation/Parameters/ModelParameters.h"
+#include "Features/TimeMirror/ITMParameters.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/MaterialType.h"
 
@@ -86,13 +86,13 @@ std::pair<std::size_t, std::size_t> simulationRange(const Input& input) {
   if (input.simulation.has_value()) {
     return {input.simulation.value(), input.simulation.value() + 1};
   }
-  return {0, input.parameters.model.simulationCount};
+  return {0, input.parameters.runConfigs.simulationCount};
 }
 
 template <typename FieldT, typename... Args>
 FieldList perSimulation(const Input& input, const Args&... args) {
   FieldList fields;
-  const auto numSimulations = input.parameters.model.simulationCount;
+  const auto numSimulations = input.parameters.runConfigs.simulationCount;
   const auto [first, last] = simulationRange(input);
   for (std::size_t sim = first; sim < last; ++sim) {
     fields.emplace_back(std::make_unique<FieldT>(args..., simulationPhase(sim, numSimulations)));
@@ -108,7 +108,7 @@ FieldList planarWaves(const Input& input) {
     return perSimulation<Planarwave>(input, input.materialData, input.config);
   }
   FieldList fields;
-  const auto numSimulations = input.parameters.model.simulationCount;
+  const auto numSimulations = input.parameters.runConfigs.simulationCount;
   const auto [first, last] = simulationRange(input);
   for (std::size_t sim = first; sim < last; ++sim) {
     fields.emplace_back(std::make_unique<Planarwave>(
@@ -180,7 +180,7 @@ constexpr std::array<Entry, 12> Registry = {{
            return single<AcousticTravellingWaveITM>(
                input.materialData,
                acousticTravellingWaveParameters(input.parameters.initialization,
-                                                input.parameters.model.itmParameters),
+                                                input.parameters.timeMirror),
                input.config);
          }},
     {.type = InitializationType::Scholte,

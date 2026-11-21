@@ -17,7 +17,7 @@
 #include "Core/TimeStepping/Compute/CellCluster.h"
 #include "Core/TimeStepping/Halo/GhostCluster.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
-#include "Simulation/Parameters/ModelParameters.h"
+#include "Features/TimeMirror/ITMParameters.h"
 
 #include <vector>
 

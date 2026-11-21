@@ -12,6 +12,7 @@
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/ConfigValue.h"
 #include "Core/Common/Constants.h"
+#include "Core/Data/SimulationFiles.h"
 #include "Core/Geometry/CellToVertexArray.h"
 #include "Core/Geometry/QueryGenerator.h"
 #include "Core/Kernels/Common.h"
@@ -40,7 +41,6 @@
 #include "Simulation/MemoryManager.h"
 #include "Simulation/Parameters/ModelParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
-#include "Simulation/Parameters/SimulationFiles.h"
 #include "Simulation/Reader/ReaderBuilder.h"
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
@@ -51,6 +51,7 @@
 #include "WavePropagation/Setup/CellLocalMatrices.h"
 #include "WavePropagation/Setup/DirichletCondition.h"
 #include "WavePropagation/Setup/MaterialParameterDB.h"
+#include "WavePropagation/WavePropagationParameters.h"
 
 #include <array>
 #include <cstddef>
@@ -141,7 +142,7 @@ void initializeCellMaterialOfConfig(
     return materialFiles.fileOfSimulation[copy * simulationSettings.fusedCount];
   };
   const auto queryGen = seissol::initializer::getBestQueryGenerator<MaterialT>(
-      seissolParams.model.useCellHomogenizedMaterial, ctvOfConfig, Cfg::ConvergenceOrder);
+      seissolParams.wavePropagation.useCellHomogenizedMaterial, ctvOfConfig, Cfg::ConvergenceOrder);
   std::vector<std::vector<MaterialT>> materialsDB;
   materialsDB.reserve(materialFiles.files.size());
   for (const auto& materialFile : materialFiles.files) {
@@ -150,8 +151,8 @@ void initializeCellMaterialOfConfig(
 
   // plasticity (if needed); a material without the stresses of a solid has none, so its file need
   // not define the plasticity parameters
-  const bool withPlasticity = seissolParams.model.plasticity && MaterialT::SupportsPlasticity;
-  const auto plasticityPointwise = seissolParams.model.plasticityPointwise;
+  const bool withPlasticity = seissolParams.plasticity.enabled && MaterialT::SupportsPlasticity;
+  const auto plasticityPointwise = seissolParams.plasticity.pointwise;
 
   // the plasticity parameters of every simulation of the run, from each of their files once; the
   // fused simulations which only fill up the last copy of the cells repeat the first simulations
@@ -171,7 +172,7 @@ void initializeCellMaterialOfConfig(
   for (auto& materials : materialsDB) {
 #pragma omp parallel for schedule(static)
     for (size_t i = 0; i < materials.size(); ++i) {
-      materials[i].initialize(seissolParams.model);
+      materials[i].initialize(seissolParams.wavePropagation);
     }
   }
 
@@ -295,8 +296,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
 
   // every configuration that some cells compute in sets the materials of its cells, which are
   // the ones of its mesh groups
-  const auto& model = seissolInstance.parameters().model;
-  const bool singleConfig = model.configs().size() == 1;
+  const auto& runConfigs = seissolInstance.parameters().runConfigs;
+  const bool singleConfig = runConfigs.configs().size() == 1;
   forEachConfig([&](auto cfg) {
     using Cfg = decltype(cfg);
     bool hasCells = false;
@@ -307,7 +308,8 @@ void initializeCellMaterial(seissol::SeisSol& seissolInstance) {
     if (hasCells) {
       std::vector<std::size_t> cells;
       for (std::size_t cell = 0; cell < ctv.size; ++cell) {
-        if (singleConfig || model.configOfGroup(ctv.elementGroups(cell)) == configIdOf<Cfg>()) {
+        if (singleConfig ||
+            runConfigs.configOfGroup(ctv.elementGroups(cell)) == configIdOf<Cfg>()) {
           cells.push_back(cell);
         }
       }
@@ -337,8 +339,10 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   seissol::initializer::initializeBoundaryMappings(
       meshReader, dirichletConditions, boundaryFiles.fileOfSimulation, memoryManager.ltsStorage());
 
-  seissol::initializer::initializeCellLocalMatrices(
-      meshReader, memoryManager.ltsStorage(), memoryManager.clusterLayout(), seissolParams.model);
+  seissol::initializer::initializeCellLocalMatrices(meshReader,
+                                                    memoryManager.ltsStorage(),
+                                                    memoryManager.clusterLayout(),
+                                                    seissolParams.wavePropagation);
 
   if (seissolParams.drParameters.etaDamp != 1.0) {
     logWarning() << "The \"eta damp\" (=" << seissolParams.drParameters.etaDamp
@@ -356,10 +360,10 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
 
   internal::setupRecorders(memoryManager.ltsStorage(),
                            memoryManager.drStorage(),
-                           seissolParams.model.plasticity,
+                           seissolParams.plasticity.enabled,
                            seissolInstance.gravitationSetup().acceleration);
 
-  const auto itmParameters = seissolInstance.parameters().model.itmParameters;
+  const auto itmParameters = seissolInstance.parameters().timeMirror;
 
   if (itmParameters.itmEnabled) {
     auto& timeMirrorManagers = seissolInstance.getTimeMirrorManagers();
@@ -394,7 +398,7 @@ void initializeMemoryLayout(seissol::SeisSol& seissolInstance) {
     auto& ltsStorage = seissolInstance.memoryManager().ltsStorage();
 
     seissol::initializer::internal::deriveRequiredScratchpadMemoryForWp(
-        seissolInstance.parameters().model.plasticity, ltsStorage);
+        seissolInstance.parameters().plasticity.enabled, ltsStorage);
     ltsStorage.allocateScratchPads(useScratchpadPerLayer(seissolInstance.env()) ||
                                            useConcurrentClusters(seissolInstance.env())
                                        ? initializer::ScratchpadSharing::PerLayer
@@ -423,14 +427,14 @@ void initModel(seissol::SeisSol& seissolInstance) {
 
   // these four methods need to be called in this order.
   logInfo() << "Model info:";
-  const auto& model = seissolInstance.parameters().model;
-  const auto configs = model.configs();
+  const auto& runConfigs = seissolInstance.parameters().runConfigs;
+  const auto configs = runConfigs.configs();
   if (configs.size() == 1) {
-    logInfo() << "Configuration:" << configName(configValue(model.config)).c_str();
+    logInfo() << "Configuration:" << configName(configValue(runConfigs.config)).c_str();
   } else {
     // numbered as in the output
-    const std::map<int, ConfigId> groupConfigs(model.groupConfigs.begin(),
-                                               model.groupConfigs.end());
+    const std::map<int, ConfigId> groupConfigs(runConfigs.groupConfigs.begin(),
+                                               runConfigs.groupConfigs.end());
     for (std::size_t i = 0; i < configs.size(); ++i) {
       std::string groups = i == 0 ? "the mesh groups without one of their own" : "the mesh groups";
       for (const auto& [group, config] : groupConfigs) {
@@ -442,10 +446,12 @@ void initModel(seissol::SeisSol& seissolInstance) {
                 << "for" << groups.c_str();
     }
   }
-  logInfo() << "Plasticity:" << (seissolInstance.parameters().model.plasticity ? "on" : "off");
-  logInfo() << "Flux:" << parameters::fluxToString(seissolInstance.parameters().model.flux).c_str();
+  logInfo() << "Plasticity:" << (seissolInstance.parameters().plasticity.enabled ? "on" : "off");
+  logInfo() << "Flux:"
+            << parameters::fluxToString(seissolInstance.parameters().wavePropagation.flux).c_str();
   logInfo() << "Flux near fault:"
-            << parameters::fluxToString(seissolInstance.parameters().model.fluxNearFault).c_str();
+            << parameters::fluxToString(seissolInstance.parameters().wavePropagation.fluxNearFault)
+                   .c_str();
 
   internal::checkFaceTypeSupport(seissolInstance.memoryManager().ltsStorage(),
                                  seissolInstance.parameters().initialization.type);
