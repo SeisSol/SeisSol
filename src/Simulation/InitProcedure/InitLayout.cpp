@@ -490,6 +490,9 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   features.push_back(
       std::make_unique<seissol::dr::DynamicRuptureFeature>(seissolInstance,
                                                            memoryManager.drStorage(),
+                                                           memoryManager.drDescriptor(),
+                                                           meshReader,
+                                                           settings.copyCount(),
                                                            memoryManager.globalDataStore(),
                                                            memoryManager.frictionLaw(),
                                                            memoryManager.frictionLawDevice(),

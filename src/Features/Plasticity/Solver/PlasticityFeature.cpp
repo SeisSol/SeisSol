@@ -8,6 +8,7 @@
 #include "PlasticityFeature.h"
 
 #include "Core/Common/ConfigDispatch.h"
+#include "Core/IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Core/Kernels/GlobalDataStore.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Layer.h"
@@ -43,6 +44,11 @@ void PlasticityFeature::addStages(seissol::solver::TimeManager& timeManager, LTS
                                    run_, parameters_.tv, globalData_.get<Cfg>(), layer));
     });
   }
+}
+
+void PlasticityFeature::registerCheckpoint(io::instance::checkpoint::CheckpointManager& checkpoint,
+                                           LTS::Storage& cells) {
+  LTSPlasticity::registerCheckpointVariables(checkpoint, cells);
 }
 
 } // namespace seissol::kernels

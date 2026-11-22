@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_CORE_TIMESTEPPING_FEATURE_H_
 #define SEISSOL_SRC_CORE_TIMESTEPPING_FEATURE_H_
 
+#include "Core/IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/TimeStepping/Compute/FaceClusterFactory.h"
 
@@ -41,6 +42,12 @@ class Feature {
 
   /// adds the work of the feature to the clusters of the cells of `cells`, once they exist
   virtual void addStages(TimeManager& /*timeManager*/, LTS::Storage& /*cells*/) {}
+
+  /// registers what the checkpoints hold of the feature in `checkpoint`, after the variables of
+  /// the cells of `cells` (the tree "lts"), e.g. its own variables of the cells or a tree of its
+  /// own
+  virtual void registerCheckpoint(io::instance::checkpoint::CheckpointManager& /*checkpoint*/,
+                                  LTS::Storage& /*cells*/) {}
 };
 
 } // namespace seissol::solver

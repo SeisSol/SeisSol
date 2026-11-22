@@ -22,7 +22,6 @@
 #include "Core/IO/Instance/Geometry/Typedefs.h"
 #include "Core/IO/Writer/Writer.h"
 #include "Core/IO/WriterParameters.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Descriptor/Surface.h"
 #include "Core/Memory/MemoryAllocator.h"
@@ -177,27 +176,10 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
     }
     checkpoint.registerTree("lts", storage, globalIds);
     LTS::registerCheckpointVariables(checkpoint, storage, config);
-    LTSPlasticity::registerCheckpointVariables(checkpoint, storage);
-  }
-
-  {
-    auto& storage = seissolInstance.memoryManager().drStorage();
-    const auto& dynrup = seissolInstance.memoryManager().drDescriptor();
-    std::vector<std::size_t> faceIdentifiers(storage.size(seissol::initializer::LayerMask(Ghost)));
-    const auto* drFaceInformation = storage.var<DynamicRupture::FaceInformation>();
-
-#pragma omp parallel for schedule(static)
-    for (std::size_t i = 0; i < faceIdentifiers.size(); ++i) {
-      const auto faultFace = drFaceInformation[i].meshFace;
-      const auto& fault = seissolInstance.meshReader().getFault()[faultFace];
-      // take the positive cell and side as fault face identifier
-      // (should result in roughly twice as large numbers as when indexing all faces; cf.
-      // handshake theorem)
-      faceIdentifiers[i] =
-          (fault.globalId * 4 + fault.side) * copyCount + drFaceInformation[i].copy;
+    // what the features keep, e.g. the plastic strain of the cells and the faces of the fault
+    for (auto& feature : seissolInstance.features()) {
+      feature->registerCheckpoint(checkpoint, storage);
     }
-    checkpoint.registerTree("dynrup", storage, faceIdentifiers);
-    dynrup.registerCheckpointVariables(checkpoint, storage);
   }
 
   {

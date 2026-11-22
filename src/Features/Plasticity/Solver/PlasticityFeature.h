@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_FEATURES_PLASTICITY_SOLVER_PLASTICITYFEATURE_H_
 #define SEISSOL_SRC_FEATURES_PLASTICITY_SOLVER_PLASTICITYFEATURE_H_
 
+#include "Core/IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Core/Kernels/GlobalDataStore.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Run/Context.h"
@@ -32,6 +33,9 @@ class PlasticityFeature : public seissol::solver::Feature {
   void addStorage(LTS::Storage& cells) override;
 
   void addStages(seissol::solver::TimeManager& timeManager, LTS::Storage& cells) override;
+
+  void registerCheckpoint(io::instance::checkpoint::CheckpointManager& checkpoint,
+                          LTS::Storage& cells) override;
 
   private:
   RunContext& run_;
