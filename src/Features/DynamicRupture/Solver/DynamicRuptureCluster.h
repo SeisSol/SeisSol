@@ -77,33 +77,14 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
 
   ~DynamicRuptureCluster() override = default;
 
-  ActResult act() override;
-
   void finalize() override;
-  void finishPhase() override;
-
-  void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
-
-  /// the copy of the clock the device writes back after each correction (see ClusterClock)
-  [[nodiscard]] const double* deviceTime() const override {
-    return isDeviceOn() ? clock_.host() : nullptr;
-  }
 
   void setFaultOutputManager(dr::output::OutputManager* outputManager) override {
     faultOutputManager_ = outputManager;
   }
 
-  [[nodiscard]] std::size_t layerId() const;
-
-  [[nodiscard]] HaloType getLayerType() const;
-
-  [[nodiscard]] std::string description() const override;
-
   protected:
   void interact(const StepParams& params) override;
-  ActorEvent recordActionEvent() override;
-  void waitForEvent(const ActorEvent& event) override;
-  void timeSet(double time) override;
   StepWork prepare(ActorAction action) override;
 
   public:
@@ -128,8 +109,6 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
   /// records them; `lastStep` tells whether it is the last step before the synchronization point
   void recordPickpointsNow(double stepTime, bool lastStep);
 
-  //! the fault receivers decide about their samples when the work of a step runs
-  bool runTimeOutputs_{false};
   //! the start of the step the fault receivers record in, for decisions at run time, and its
   //! address on the device, which writes it
   double pickpointStepStartHost_{0};
@@ -141,16 +120,9 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
   PerformanceEstimate computeFlops();
 
   RunContext& run_;
-  seissol::parallel::runtime::StreamRuntime streamRuntime_;
-
-  //! the start of the current step, for the work on the stream
-  ClusterClock clock_;
   kernels::DynamicRupture<Cfg> dynamicRuptureKernel_;
 
   CompoundGlobalData<Cfg> globalData_;
-#ifdef ACL_DEVICE
-  device::DeviceInstance& device_ = device::DeviceInstance::instance();
-#endif
 
   DynamicRupture::Layer* layerData_;
   std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolver_;
@@ -163,16 +135,9 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
   PerformanceEstimate estimate_{};
   std::size_t perfHandle_{};
 
-  LoopStatistics* loopStatistics_;
-  //! times the loops enqueued on the device
-  DeviceTimer deviceLoops_;
-  ActorStateStatistics* actorStateStatistics_;
   unsigned regionComputeDynamicRupture_{};
   //! the name of the loop in a trace (see monitoring::Trace)
   std::uint32_t traceDynamicRupture_{};
-
-  //! id used to identify this cluster when profiling
-  unsigned int profilingId_;
 };
 
 } // namespace seissol::solver

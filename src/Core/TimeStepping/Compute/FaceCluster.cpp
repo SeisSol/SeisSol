@@ -7,14 +7,9 @@
 
 #include "FaceCluster.h"
 
-#include "Core/Common/Executor.h"
-#include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
 
 namespace seissol::solver {
-
-FaceCluster::FaceCluster(double maxTimeStepSize, long timeStepRate, Executor executor)
-    : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor) {}
 
 DataReadiness FaceCluster::dataReadiness() const { return DataReadiness::AfterCorrection; }
 

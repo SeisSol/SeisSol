@@ -25,6 +25,7 @@ add_library(seissol-timestepping OBJECT
     Clustering/VertexWeights/WeightsModels.cpp
     Compute/CellCluster.cpp
     Compute/ClusterClock.cpp
+    Compute/ComputeCluster.cpp
     Compute/FaceCluster.cpp
     Halo/CommunicationManager.cpp
     Halo/GhostCluster.cpp

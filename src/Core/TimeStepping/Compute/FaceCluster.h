@@ -12,6 +12,7 @@
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
+#include "Core/TimeStepping/Compute/ComputeCluster.h"
 
 namespace seissol::solver {
 
@@ -23,14 +24,14 @@ namespace seissol::solver {
  * prediction does nothing. Since the face cluster declares its data ready only after its
  * correction, the adjacent cells wait for the face work before they correct.
  */
-class FaceCluster : public AbstractTimeCluster {
+class FaceCluster : public ComputeCluster {
   public:
   ~FaceCluster() override = default;
 
   [[nodiscard]] DataReadiness dataReadiness() const final;
 
   protected:
-  FaceCluster(double maxTimeStepSize, long timeStepRate, Executor executor);
+  using ComputeCluster::ComputeCluster;
 
   /**
    * Does the face work of the step described by `params`.

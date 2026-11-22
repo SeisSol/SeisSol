@@ -9,7 +9,6 @@
 
 #include "Config.h"
 #include "Core/Common/BasicTypedefs.h"
-#include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Executor.h"
 #include "Core/Common/Marker.h"
 #include "Core/Kernels/Common.h"
@@ -30,6 +29,7 @@
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
+#include "Core/TimeStepping/Compute/ComputeCluster.h"
 #include "Features/DynamicRupture/Output/OutputManager.h"
 #include "Features/DynamicRupture/Output/PickpointSampling.h"
 #include "Features/DynamicRupture/Solver/DynamicRupture.h"
@@ -87,18 +87,20 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
     LoopStatistics* loopStatistics,
     DeviceTimeline* deviceTimeline,
     ActorStateStatistics* actorStateStatistics)
-    : DynamicRuptureClusterInterface(maxTimeStepSize, timeStepRate, executor), run_(run),
-      streamRuntime_(
-          4,
-          parallel::runtime::hsaQueuePriorityOf(layerData->getIdentifier(), /*faces=*/true),
-          parallel::runtime::hsaQueueOf(layerData->getIdentifier(), /*faces=*/true)),
-      globalData_(globalData), layerData_(layerData),
+    : DynamicRuptureClusterInterface(maxTimeStepSize,
+                                     timeStepRate,
+                                     executor,
+                                     layerData,
+                                     "dr",
+                                     /*faces=*/true,
+                                     profilingId,
+                                     loopStatistics,
+                                     deviceTimeline,
+                                     actorStateStatistics),
+      run_(run), globalData_(globalData), layerData_(layerData),
       frictionSolver_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactory)),
       frictionSolverDevice_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactoryDevice)),
-      faultOutputManager_(faultOutputManager), pickpointSampling_(pickpointSampling),
-      loopStatistics_(loopStatistics),
-      deviceLoops_(loopStatistics, deviceTimeline, DeviceTimeline::Kind::Loops),
-      actorStateStatistics_(actorStateStatistics), profilingId_(profilingId) {
+      faultOutputManager_(faultOutputManager), pickpointSampling_(pickpointSampling) {
   assert(layerData_ != nullptr);
   assert(globalData_.onHost != nullptr);
   if constexpr (seissol::isDeviceOn()) {
@@ -123,8 +125,6 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
 
   regionComputeDynamicRupture_ = loopStatistics_->getRegion("computeDynamicRupture");
   traceDynamicRupture_ = monitoring::Trace::name("computeDynamicRupture");
-  // (named once the trace records, after the cluster is complete)
-  deviceLoops_.setTrace([this] { return description(); });
 
   perfHandle_ = run_.flopCounter().addMetric(
       getLayerType() == HaloType::Copy ? "dr-frictionlaw-copy" : "dr-frictionlaw-interior", "DR");
@@ -306,7 +306,7 @@ void DynamicRuptureCluster<Cfg>::planPickpointOutput(const StepParams& params) {
 
 template <typename Cfg>
 void DynamicRuptureCluster<Cfg>::setRunTimeOutputs(bool runTimeOutputs) {
-  runTimeOutputs_ = runTimeOutputs;
+  ComputeCluster::setRunTimeOutputs(runTimeOutputs);
 #ifdef ACL_DEVICE
   if (runTimeOutputs_ && pickpointStepStart_ == &pickpointStepStartHost_) {
     pickpointStepStart_ = static_cast<double*>(device_.api().allocPinnedMem(sizeof(double)));
@@ -369,7 +369,7 @@ void DynamicRuptureCluster<Cfg>::writePickpointOutput(const StepParams& params,
 
 template <typename Cfg>
 std::vector<parallel::runtime::StreamRuntime*> DynamicRuptureCluster<Cfg>::runtimes() {
-  std::vector<parallel::runtime::StreamRuntime*> runtimes{&streamRuntime_};
+  auto runtimes = ComputeCluster::runtimes();
   if (faultOutputManager_ != nullptr && faultOutputManager_->hasPickpoints(layerData_->id())) {
     auto* runtime = faultOutputManager_->pickpointRuntime(layerData_->id());
     if (runtime != nullptr) {
@@ -381,7 +381,7 @@ std::vector<parallel::runtime::StreamRuntime*> DynamicRuptureCluster<Cfg>::runti
 
 template <typename Cfg>
 bool DynamicRuptureCluster<Cfg>::hostWork() const {
-  return executor_ == Executor::Host || hasDifferentExecutorNeighbor() ||
+  return ComputeCluster::hostWork() ||
          frictionSolverDevice_->allocationPlace() == initializer::AllocationPlace::Host;
 }
 
@@ -471,39 +471,7 @@ void DynamicRuptureCluster<Cfg>::interact(const StepParams& params) {
 }
 
 template <typename Cfg>
-ActorEvent DynamicRuptureCluster<Cfg>::recordActionEvent() {
-  return streamRuntime_.eventRecord();
-}
-
-template <typename Cfg>
-void DynamicRuptureCluster<Cfg>::waitForEvent(SEISSOL_GPU_PARAM const ActorEvent& event) {
-#ifdef ACL_DEVICE
-  if (executor_ == Executor::Host) {
-    // the host kernels run right away, so the host has to wait (they never get recorded)
-    device_.api().syncEventWithHost(event.get());
-  } else {
-    streamRuntime_.eventSync(event);
-  }
-#endif
-}
-
-template <typename Cfg>
-ActResult DynamicRuptureCluster<Cfg>::act() {
-  actorStateStatistics_->enter(state_);
-  const auto result = AbstractTimeCluster::act();
-  actorStateStatistics_->enter(state_);
-  return result;
-}
-
-template <typename Cfg>
-void DynamicRuptureCluster<Cfg>::finishPhase() {
-  // the device is past all loops of the epoch
-  deviceLoops_.collectAll();
-}
-
-template <typename Cfg>
 void DynamicRuptureCluster<Cfg>::finalize() {
-  deviceLoops_.release();
 #ifdef ACL_DEVICE
   if (pickpointStepStart_ != &pickpointStepStartHost_) {
     device_.api().freePinnedMem(pickpointStepStart_);
@@ -511,44 +479,7 @@ void DynamicRuptureCluster<Cfg>::finalize() {
     pickpointStepStartOnDevice_ = nullptr;
   }
 #endif
-  AbstractTimeCluster::finalize();
-  clock_.dispose();
-  streamRuntime_.dispose();
-}
-
-template <typename Cfg>
-void DynamicRuptureCluster<Cfg>::timeSet(double time) {
-  clock_.set(time, streamRuntime_);
-}
-
-template <typename Cfg>
-void DynamicRuptureCluster<Cfg>::synchronizeTo(seissol::initializer::AllocationPlace place,
-                                               void* stream) {
-  if constexpr (isDeviceOn()) {
-    if ((place == initializer::AllocationPlace::Host && executor_ == Executor::Device) ||
-        (place == initializer::AllocationPlace::Device && executor_ == Executor::Host)) {
-      layerData_->synchronizeTo(place, stream);
-    }
-  }
-}
-
-template <typename Cfg>
-std::size_t DynamicRuptureCluster<Cfg>::layerId() const {
-  return layerData_->id();
-}
-
-template <typename Cfg>
-HaloType DynamicRuptureCluster<Cfg>::getLayerType() const {
-  return layerData_->getIdentifier().halo;
-}
-
-template <typename Cfg>
-std::string DynamicRuptureCluster<Cfg>::description() const {
-  const auto identifier = layerData_->getIdentifier();
-  const std::string haloStr = identifier.halo == HaloType::Interior ? "interior" : "copy";
-  // the time cluster, and the configuration where there can be several
-  return "dr-" + haloStr + "-" + std::to_string(identifier.lts) +
-         (builtConfigCount() > 1 ? "-config" + std::to_string(identifier.config) : std::string());
+  ComputeCluster::finalize();
 }
 
 #define SEISSOL_INSTANTIATE(Cfg) template class DynamicRuptureCluster<Cfg>;

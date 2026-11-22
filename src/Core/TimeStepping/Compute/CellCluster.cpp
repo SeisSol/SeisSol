@@ -15,7 +15,6 @@
 #include "Config.h"
 #include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/ConfigDispatch.h"
-#include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/Executor.h"
 #include "Core/Common/Marker.h"
@@ -37,6 +36,7 @@
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
+#include "Core/TimeStepping/Compute/ComputeCluster.h"
 #include "Core/TimeStepping/Settings.h"
 #include "Features/Plasticity/Solver/Plasticity.h"
 #include "Features/Plasticity/Solver/Storage.h"
@@ -77,7 +77,6 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
                               unsigned int globalClusterId,
                               unsigned int profilingId,
                               const SimulationSettings& settings,
-                              HaloType layerType,
                               double maxTimeStepSize,
                               long timeStepRate,
                               bool printProgress,
@@ -87,26 +86,26 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
                               LoopStatistics* loopStatistics,
                               DeviceTimeline* deviceTimeline,
                               ActorStateStatistics* actorStateStatistics)
-    : CellClusterInterface(
-          maxTimeStepSize, timeStepRate, seissolInstance.executionPlace(clusterData->size())),
+    : CellClusterInterface(maxTimeStepSize,
+                           timeStepRate,
+                           seissolInstance.executionPlace(clusterData->size()),
+                           clusterData,
+                           "compute",
+                           /*faces=*/false,
+                           profilingId,
+                           loopStatistics,
+                           deviceTimeline,
+                           actorStateStatistics),
       // cluster ids
       settings_(settings), seissolInstance_(seissolInstance),
-      configBoundary_(seissolInstance.parameters().runConfigs.configs()),
-      streamRuntime_(4,
-                     parallel::runtime::hsaQueuePriorityOf(clusterData->getIdentifier()),
-                     parallel::runtime::hsaQueueOf(clusterData->getIdentifier())),
-      globalData_(globalData), clusterData_(clusterData),
+      configBoundary_(seissolInstance.parameters().runConfigs.configs()), globalData_(globalData),
+      clusterData_(clusterData),
       sourceCluster_(seissol::kernels::PointSourceClusterPair{.host = nullptr, .device = nullptr}),
-      // cells
-      loopStatistics_(loopStatistics),
-      deviceLoops_(loopStatistics, deviceTimeline, DeviceTimeline::Kind::Loops),
-      actorStateStatistics_(actorStateStatistics),
       conditionalCounterHost_(1, seissol::memory::Memkind::Standard),
       conditionalCounterDevice_(1,
                                 isDeviceOn() ? seissol::memory::Memkind::DeviceGlobalMemory
                                              : seissol::memory::Memkind::Standard),
-      layerType_(layerType), printProgress_(printProgress), clusterId_(clusterId),
-      globalClusterId_(globalClusterId), profilingId_(profilingId) {
+      printProgress_(printProgress), clusterId_(clusterId), globalClusterId_(globalClusterId) {
   // assert all pointers are valid
   assert(clusterData_ != nullptr);
   assert(globalData_.onHost != nullptr);
@@ -142,8 +141,6 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
   regionComputePointSources_ = loopStatistics_->getRegion("computePointSources");
   traceLocalIntegration_ = monitoring::Trace::name("computeLocalIntegration");
   traceNeighboringIntegration_ = monitoring::Trace::name("computeNeighboringIntegration");
-  // (named once the trace records, after the cluster is complete)
-  deviceLoops_.setTrace([this] { return description(); });
 
   conditionalCounterHost_[0] = 0;
   conditionalCounterDevice_.copyFrom(conditionalCounterHost_);
@@ -575,14 +572,6 @@ void CellCluster<Cfg>::computeFlops() {
 }
 
 template <typename Cfg>
-ActResult CellCluster<Cfg>::act() {
-  actorStateStatistics_->enter(state_);
-  const auto result = AbstractTimeCluster::act();
-  actorStateStatistics_->enter(state_);
-  return result;
-}
-
-template <typename Cfg>
 void CellCluster<Cfg>::handleNeighborPrediction(const NeighborCluster& /*...*/) {
   // Doesn't do anything
 }
@@ -590,11 +579,6 @@ template <typename Cfg>
 void CellCluster<Cfg>::handleNeighborCorrection(const NeighborCluster& /*...*/) {
   // Doesn't do anything
 }
-template <typename Cfg>
-bool CellCluster<Cfg>::hostWork() const {
-  return executor_ == Executor::Host || hasDifferentExecutorNeighbor();
-}
-
 template <typename Cfg>
 bool CellCluster<Cfg>::outputsAhead(long steps) const {
   if (clusterData_->size() == 0 || receiverCluster_ == nullptr || runTimeOutputs_) {
@@ -719,28 +703,6 @@ void CellCluster<Cfg>::correct() {
 }
 
 template <typename Cfg>
-void CellCluster<Cfg>::timeSet(double time) {
-  clock_.set(time, streamRuntime_);
-}
-
-template <typename Cfg>
-ActorEvent CellCluster<Cfg>::recordActionEvent() {
-  return streamRuntime_.eventRecord();
-}
-
-template <typename Cfg>
-void CellCluster<Cfg>::waitForEvent(SEISSOL_GPU_PARAM const ActorEvent& event) {
-#ifdef ACL_DEVICE
-  if (executor_ == Executor::Host) {
-    // the host kernels run right away, so the host has to wait (they never get recorded)
-    device_.api().syncEventWithHost(event.get());
-  } else {
-    streamRuntime_.eventSync(event);
-  }
-#endif
-}
-
-template <typename Cfg>
 void CellCluster<Cfg>::incrementPerformanceMetrics(ComputePart part) {
   seissolInstance_.flopCounter().incrementMetric(perfHandle_[static_cast<std::size_t>(part)],
                                                  estimate_[static_cast<std::size_t>(part)]);
@@ -752,19 +714,10 @@ unsigned int CellCluster<Cfg>::getClusterId() const {
 }
 
 template <typename Cfg>
-std::size_t CellCluster<Cfg>::layerId() const {
-  return clusterData_->id();
-}
-
-template <typename Cfg>
 unsigned int CellCluster<Cfg>::getGlobalClusterId() const {
   return globalClusterId_;
 }
 
-template <typename Cfg>
-HaloType CellCluster<Cfg>::getLayerType() const {
-  return layerType_;
-}
 template <typename Cfg>
 void CellCluster<Cfg>::setTime(double time) {
   AbstractTimeCluster::setTime(time);
@@ -775,13 +728,8 @@ void CellCluster<Cfg>::setTime(double time) {
 }
 
 template <typename Cfg>
-void CellCluster<Cfg>::setRunTimeOutputs(bool runTimeOutputs) {
-  runTimeOutputs_ = runTimeOutputs;
-}
-
-template <typename Cfg>
 std::vector<parallel::runtime::StreamRuntime*> CellCluster<Cfg>::runtimes() {
-  std::vector<parallel::runtime::StreamRuntime*> runtimes{&streamRuntime_};
+  auto runtimes = ComputeCluster::runtimes();
   if (receiverCluster_ != nullptr && receiverCluster_->sampleRuntime() != nullptr) {
     runtimes.push_back(receiverCluster_->sampleRuntime());
   }
@@ -792,10 +740,7 @@ template <typename Cfg>
 void CellCluster<Cfg>::finalize() {
   sourceCluster_.host.reset(nullptr);
   sourceCluster_.device.reset(nullptr);
-  AbstractTimeCluster::finalize();
-  deviceLoops_.release();
-  clock_.dispose();
-  streamRuntime_.dispose();
+  ComputeCluster::finalize();
 
   logDebug() << "#(time steps):" << numberOfTimeSteps_;
 }
@@ -934,19 +879,8 @@ void CellCluster<Cfg>::computeNeighboringIntegrationImplementation(const StepPar
 }
 
 template <typename Cfg>
-void CellCluster<Cfg>::synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) {
-  if constexpr (isDeviceOn()) {
-    if ((place == initializer::AllocationPlace::Host && executor_ == Executor::Device) ||
-        (place == initializer::AllocationPlace::Device && executor_ == Executor::Host)) {
-      clusterData_->synchronizeTo(place, stream);
-    }
-  }
-}
-
-template <typename Cfg>
 void CellCluster<Cfg>::finishPhase() {
-  // the device is past all loops of the epoch
-  deviceLoops_.collectAll();
+  ComputeCluster::finishPhase();
 
   const auto cells = conditionalCounterHost_[0];
   seissolInstance_.flopCounter().incrementMetric(
@@ -961,15 +895,6 @@ void CellCluster<Cfg>::finishPhase() {
 
   conditionalCounterHost_[0] = 0;
   conditionalCounterDevice_.copyFrom(conditionalCounterHost_);
-}
-
-template <typename Cfg>
-std::string CellCluster<Cfg>::description() const {
-  const auto identifier = clusterData_->getIdentifier();
-  const std::string haloStr = identifier.halo == HaloType::Interior ? "interior" : "copy";
-  // the time cluster, and the configuration where there can be several
-  return "compute-" + haloStr + "-" + std::to_string(identifier.lts) +
-         (builtConfigCount() > 1 ? "-config" + std::to_string(identifier.config) : std::string());
 }
 
 #define SEISSOL_INSTANTIATE(Cfg) template class CellCluster<Cfg>;

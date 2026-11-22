@@ -22,6 +22,7 @@
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
 #include "Core/TimeStepping/Compute/ClusterClock.h"
+#include "Core/TimeStepping/Compute/ComputeCluster.h"
 #include "Core/TimeStepping/Settings.h"
 #include "Features/Plasticity/Solver/Plasticity.h"
 #include "Features/SourceTerm/Solver/PointSourceCluster.h"
@@ -55,9 +56,9 @@ namespace seissol::solver {
 /**
  * What the time manager sees of a cell cluster, whatever the configuration of its cells.
  **/
-class CellClusterInterface : public AbstractTimeCluster {
+class CellClusterInterface : public ComputeCluster {
   public:
-  using AbstractTimeCluster::AbstractTimeCluster;
+  using ComputeCluster::ComputeCluster;
 
   /**
    * Sets the the cluster's point sources
@@ -67,8 +68,6 @@ class CellClusterInterface : public AbstractTimeCluster {
   virtual void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) = 0;
 
   virtual void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) = 0;
-
-  [[nodiscard]] virtual std::size_t layerId() const = 0;
 };
 
 /**
@@ -100,19 +99,11 @@ class CellCluster : public CellClusterInterface {
   //! the neighbors of the cells that compute in other configurations
   kernels::ConfigBoundary<Cfg> configBoundary_;
 
-  seissol::parallel::runtime::StreamRuntime streamRuntime_;
-
-  //! the start of the current step, for the work on the stream
-  ClusterClock clock_;
-
   /*
    * global data
    */
   //! global data structures
   CompoundGlobalData<Cfg> globalData_;
-#ifdef ACL_DEVICE
-  device::DeviceInstance& device_ = device::DeviceInstance::instance();
-#endif
 
   /*
    * element data
@@ -134,11 +125,6 @@ class CellCluster : public CellClusterInterface {
       estimate_{};
   std::array<std::size_t, static_cast<std::size_t>(ComputePart::NumComputeParts)> perfHandle_{};
 
-  //! Stopwatch of TimeManager
-  LoopStatistics* loopStatistics_;
-  //! times the loops enqueued on the device
-  DeviceTimer deviceLoops_;
-  ActorStateStatistics* actorStateStatistics_;
   unsigned regionComputeLocalIntegration_;
   //! the names of the loops in a trace (see monitoring::Trace)
   std::uint32_t traceLocalIntegration_{};
@@ -205,15 +191,11 @@ class CellCluster : public CellClusterInterface {
 
   void computeFlops();
 
-  HaloType layerType_;
   //! time of the next receiver output
   double receiverTime_;
 
   //! the receiver samples of the current step, as planned by prepare()
   kernels::ReceiverCluster::Sampling receiverSampling_{};
-
-  //! the outputs decide about their samples when the work of a step runs
-  bool runTimeOutputs_{false};
 
   //! print status
   bool printProgress_;
@@ -222,9 +204,6 @@ class CellCluster : public CellClusterInterface {
 
   //! global cluster cluster id
   unsigned int globalClusterId_;
-
-  //! id used to identify this cluster (including layer type) when profiling
-  unsigned int profilingId_;
 
   void incrementPerformanceMetrics(ComputePart part);
 
@@ -236,8 +215,6 @@ class CellCluster : public CellClusterInterface {
   void correct() override;
 
   public:
-  ActResult act() override;
-
   /**
    * Constructs a new LTS cluster.
    *
@@ -249,7 +226,6 @@ class CellCluster : public CellClusterInterface {
               unsigned int globalClusterId,
               unsigned int profilingId,
               const SimulationSettings& settings,
-              HaloType layerType,
               double maxTimeStepSize,
               long timeStepRate,
               bool printProgress,
@@ -278,37 +254,18 @@ class CellCluster : public CellClusterInterface {
 
   void finalize() override;
 
-  void setRunTimeOutputs(bool runTimeOutputs) override;
-
   protected:
-  ActorEvent recordActionEvent() override;
-  void waitForEvent(const ActorEvent& event) override;
-  void timeSet(double time) override;
   StepWork prepare(ActorAction action) override;
 
   public:
   [[nodiscard]] bool outputsAhead(long steps) const override;
-  [[nodiscard]] bool hostWork() const override;
   [[nodiscard]] std::vector<parallel::runtime::StreamRuntime*> runtimes() override;
 
-  protected:
-  public:
-  [[nodiscard]] std::size_t layerId() const override;
   [[nodiscard]] unsigned int getClusterId() const;
   [[nodiscard]] unsigned int getGlobalClusterId() const;
-  [[nodiscard]] HaloType getLayerType() const;
   void setTime(double time) override;
 
-  void synchronizeTo(seissol::initializer::AllocationPlace place, void* stream) override;
-
-  /// the copy of the clock the device writes back after each correction (see ClusterClock)
-  [[nodiscard]] const double* deviceTime() const override {
-    return isDeviceOn() ? clock_.host() : nullptr;
-  }
-
   void finishPhase() override;
-
-  [[nodiscard]] std::string description() const override;
 };
 
 } // namespace seissol::solver
