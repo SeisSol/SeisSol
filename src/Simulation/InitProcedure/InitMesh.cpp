@@ -10,12 +10,12 @@
 #include "Core/Geometry/CellToVertexArray.h"
 #include "Core/Geometry/MeshDefinition.h"
 #include "Core/Geometry/MeshParameters.h"
+#include "Core/IO/Easi/ReaderBuilder.h"
 #include "Core/Monitoring/Instrumentation.h"
 #include "Core/Monitoring/RunSummary.h"
 #include "Core/TimeStepping/Clustering/Clustering.h"
 #include "Simulation/Estimator.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
-#include "Simulation/Reader/ReaderBuilder.h"
 #include "WavePropagation/Setup/Timesteps.h"
 
 #include <Eigen/Core>

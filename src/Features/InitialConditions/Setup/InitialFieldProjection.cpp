@@ -41,7 +41,7 @@
 
 #ifdef USE_ASAGI
 #include "Core/Common/Real.h"
-#include "Simulation/Reader/AsagiReader.h"
+#include "Core/IO/Easi/AsagiReader.h"
 
 #include <easi/util/AsagiReader.h>
 #endif

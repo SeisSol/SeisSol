@@ -22,12 +22,12 @@
 #include "Core/Geometry/MeshParameters.h"
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/Geometry/PartitioningLib.h"
+#include "Core/IO/Easi/ReaderBuilder.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/TimeStepping/Clustering/Clustering.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/WeightsModels.h"
 #include "Core/TimeStepping/LtsParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
-#include "Simulation/Reader/ReaderBuilder.h"
 #include "TestHelper.h"
 #include "WavePropagation/Setup/Timesteps.h"
 

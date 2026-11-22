@@ -8,7 +8,7 @@
 #include "ReaderBuilder.h"
 
 #include "Core/Data/DataReader.h"
-#include "Simulation/Reader/EasiReader.h"
+#include "Core/IO/Easi/EasiReader.h"
 
 #include <memory>
 #include <string>

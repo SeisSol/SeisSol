@@ -8,7 +8,7 @@
 #include <doctest.h>
 
 #include "Core/Data/DataTable.h"
-#include "Simulation/Reader/EasiReader.h"
+#include "Core/IO/Easi/EasiReader.h"
 
 #include <array>
 #include <cstddef>

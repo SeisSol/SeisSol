@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_SIMULATION_READER_READERBUILDER_H_
-#define SEISSOL_SRC_SIMULATION_READER_READERBUILDER_H_
+#ifndef SEISSOL_SRC_CORE_IO_EASI_READERBUILDER_H_
+#define SEISSOL_SRC_CORE_IO_EASI_READERBUILDER_H_
 
 #include "Core/Data/DataReader.h"
 
@@ -26,4 +26,4 @@ ModelLoader modelLoader();
 
 } // namespace seissol::data
 
-#endif // SEISSOL_SRC_SIMULATION_READER_READERBUILDER_H_
+#endif // SEISSOL_SRC_CORE_IO_EASI_READERBUILDER_H_

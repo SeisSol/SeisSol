@@ -14,7 +14,6 @@
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Typedefs.h"
 #include "Features/InitialConditions/Physics/InitialField.h"
-#include "Simulation/MemoryManager.h"
 
 #include <memory>
 #include <string>

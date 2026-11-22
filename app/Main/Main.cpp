@@ -48,7 +48,7 @@
 #include <yaml-cpp/yaml.h>
 
 #ifdef USE_ASAGI
-#include "Simulation/Reader/AsagiModule.h"
+#include "Core/IO/Easi/AsagiModule.h"
 #endif
 
 #ifdef ACL_DEVICE

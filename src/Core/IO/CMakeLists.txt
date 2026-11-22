@@ -10,6 +10,10 @@ add_library(seissol-io OBJECT
     Datatype/Datatype.cpp
     Datatype/HDF5Type.cpp
     Datatype/MPIType.cpp
+    Easi/AsagiModule.cpp
+    Easi/AsagiReader.cpp
+    Easi/EasiReader.cpp
+    Easi/ReaderBuilder.cpp
     Instance/Checkpoint/CheckpointManager.cpp
     Instance/Geometry/Points.cpp
     Instance/Geometry/Refinement.cpp

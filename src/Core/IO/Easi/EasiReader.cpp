@@ -8,7 +8,7 @@
 #include "EasiReader.h"
 
 #include "Core/Data/DataTable.h"
-#include "Simulation/Reader/AsagiReader.h"
+#include "Core/IO/Easi/AsagiReader.h"
 
 #include <algorithm>
 #include <cstddef>

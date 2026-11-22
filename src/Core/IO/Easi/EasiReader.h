@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_SIMULATION_READER_EASIREADER_H_
-#define SEISSOL_SRC_SIMULATION_READER_EASIREADER_H_
+#ifndef SEISSOL_SRC_CORE_IO_EASI_EASIREADER_H_
+#define SEISSOL_SRC_CORE_IO_EASI_EASIREADER_H_
 
 #include "Core/Data/DataReader.h"
 
@@ -60,4 +60,4 @@ class EasiReader : public DataReader {
 };
 
 } // namespace seissol::data
-#endif // SEISSOL_SRC_SIMULATION_READER_EASIREADER_H_
+#endif // SEISSOL_SRC_CORE_IO_EASI_EASIREADER_H_

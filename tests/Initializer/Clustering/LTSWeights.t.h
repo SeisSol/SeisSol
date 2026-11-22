@@ -12,6 +12,7 @@
 #include "Core/Geometry/FaceMap.h"
 #include "Core/Geometry/MeshParameters.h"
 #include "Core/Geometry/PUMLReader.h"
+#include "Core/IO/Easi/ReaderBuilder.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/TimeStepping/Clustering/ClusterLadder.h"
@@ -22,7 +23,6 @@
 #include "Core/TimeStepping/Layout/GlobalTimestep.h"
 #include "Core/TimeStepping/LtsParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
-#include "Simulation/Reader/ReaderBuilder.h"
 #include "TestHelper.h"
 #include "WavePropagation/Setup/Timesteps.h"
 

@@ -12,6 +12,7 @@
 
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
+#include "Core/IO/Easi/ReaderBuilder.h"
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/Boundary.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
@@ -27,7 +28,6 @@
 #include "Features/DynamicRupture/Setup/Factory.h"
 #include "Features/DynamicRupture/Setup/Initializer/BaseDRInitializer.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
-#include "Simulation/Reader/ReaderBuilder.h"
 #include "Simulation/SeisSol.h"
 
 #include <memory>
