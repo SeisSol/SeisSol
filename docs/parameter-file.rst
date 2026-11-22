@@ -45,6 +45,77 @@ also when they start at the same time; ``SEISSOL_RUN_ID`` lets a job script
 know the directory beforehand.
 
 
+.. _output-blocks:
+
+Several outputs of one kind
+---------------------------
+
+A run can have more outputs than the ``Output``, ``Elementwise`` and ``Pickpoint``
+sections switch on. Each further output has a section of its own:
+``OutputWavefield``, ``OutputSurface``, ``OutputReceivers``, ``OutputFault`` (the
+elementwise fault output) or ``OutputFaultReceivers`` (the on-fault receivers), each
+followed by a number if there are several, e.g. ``&OutputWavefield2``. Such a section
+switches its output on. Its fields are those of its kind, without the prefixes they have
+in the ``Output`` section:
+
+.. code-block:: fortran
+
+    &OutputWavefield
+    name = 'near-fault'
+    interval = 0.1
+    mask = 1 1 1 1 1 1 1 1 1
+    bounds = -5e3 5e3 -5e3 5e3 -5e3 0
+    /
+
+    &OutputWavefield2
+    interval = 1.0
+    mask = 0 0 0 0 0 0 1 1 1
+    refinement = 1
+    /
+
+.. list-table::
+   :header-rows: 1
+
+   * - Section
+     - Fields (in parentheses, the field of the older form)
+   * - ``OutputWavefield<n>``
+     - ``interval`` (``TimeInterval``), ``mask`` (``iOutputMask``), ``plasticitymask``
+       (``iPlasticityMask``), ``integrationmask`` (``IntegrationMask``), ``refinement``
+       (``refinement``), ``bounds`` (``OutputRegionBounds``), ``groups`` (``OutputGroups``),
+       ``vtkorder`` (``wavefieldvtkorder``), ``computerotation`` (``wavefieldcomputerotation``),
+       ``computestrain`` (``wavefieldcomputestrain``), ``projection`` (``wavefieldprojection``),
+       ``timeseries`` (``wavefieldtimeseries``)
+   * - ``OutputSurface<n>``
+     - ``interval`` (``SurfaceOutputInterval``), ``mask`` (``SurfaceOutputMask``),
+       ``refinement`` (``SurfaceOutputRefinement``), ``vtkorder`` (``surfacevtkorder``),
+       ``projection`` (``surfaceprojection``), ``timeseries`` (``surfacetimeseries``)
+   * - ``OutputReceivers<n>``
+     - ``file`` (``RFileName``), ``interval`` (``ReceiverOutputInterval``),
+       ``samplinginterval`` (``pickdt``), ``format`` (``ReceiverFormat``), ``computerotation``
+       (``ReceiverComputeRotation``), ``computestrainrate`` (``ReceiverComputeStrainRate``),
+       ``collectiveio`` (``ReceiverCollectiveIO``), ``samplechunk`` (``receiversamplechunk``)
+   * - ``OutputFault<n>``
+     - ``interval`` (``printtimeinterval_sec``), ``mask`` (``OutputMask``), ``refinement``
+       (``refinement``), ``refinementstrategy`` (``refinement_strategy``), ``vtkorder``
+       (``vtkorder``), ``timeseries`` (``timeseries``), all as in ``Elementwise``
+   * - ``OutputFaultReceivers<n>``
+     - ``file`` (``PPFileName``), ``interval`` (``outputinterval``), ``samplinginterval``
+       (``pickdt``), ``samplingsteps`` (``printtimeinterval``), ``mask`` (``OutputMask``),
+       ``format`` (``format``), ``collectiveio`` (``ReceiverCollectiveIO``), ``samplechunk``
+       (``samplechunk``), all as in ``Pickpoint``
+
+Each output has a name, which its files carry. A section gives it with ``name``. Without
+one, the output takes the name of its section without ``Output``, e.g. ``wavefield`` or
+``wavefield2``. The outputs of the older form keep their names (``wavefield``,
+``surface``, ``receivers``, ``fault`` and ``faultreceivers``). So an ``&OutputWavefield``
+next to ``WavefieldOutput = 1`` needs a ``name`` of its own; two outputs with the same name
+are an error.
+
+The intervals have to be positive, and the receivers need their ``file``. The outputs of
+the fault need a fault: a run without one leaves them out, with a warning. For now, a run
+can have at most one output each of the receivers, the elementwise fault output and the
+on-fault receivers.
+
 .. _parameter-overrides:
 
 Overriding parameters on the command line

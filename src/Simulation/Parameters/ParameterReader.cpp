@@ -123,6 +123,17 @@ ParameterReader* ParameterReader::readSubNode(const std::string& subnodeName) {
 
 bool ParameterReader::hasField(const std::string& field) { return !empty_ && node_[field]; }
 
+std::vector<std::string> ParameterReader::fieldNames() const {
+  std::vector<std::string> names;
+  if (empty_ || !node_.IsMap()) {
+    return names;
+  }
+  for (const auto& entry : node_) {
+    names.push_back(entry.first.as<std::string>());
+  }
+  return names;
+}
+
 namespace {
 //! @brief The names of the sections in @p subreaders , in alphabetical order.
 template <typename Map>

@@ -17,6 +17,7 @@
 
 #include <cstddef>
 #include <numeric>
+#include <optional>
 #include <string>
 #include <vector>
 #include <yaml-cpp/yaml.h>
@@ -30,6 +31,16 @@ const T& onlyOutputOf(const OutputParameters& params) {
   const auto found = params.outputsOf<T>();
   REQUIRE(found.size() == 1);
   return *found.front();
+}
+
+// the names of the outputs, in the order of the list
+inline std::vector<std::string> outputNames(const OutputParameters& params) {
+  std::vector<std::string> names;
+  names.reserve(params.outputs.size());
+  for (const auto& entry : params.outputs) {
+    names.push_back(entry.name);
+  }
+  return names;
 }
 
 TEST_CASE("readOutputParameters: without a time series setting, the format of an output decides" *
@@ -265,12 +276,7 @@ TEST_CASE("readOutputParameters: the outputs of a run, each named as the files i
     ParameterReader reader(node, "", false);
     const auto params = readOutputParameters(&reader, {defaultConfig()}, true);
 
-    std::vector<std::string> names;
-    names.reserve(params.outputs.size());
-    for (const auto& entry : params.outputs) {
-      names.push_back(entry.name);
-    }
-    CHECK(names ==
+    CHECK(outputNames(params) ==
           std::vector<std::string>{"wavefield", "surface", "receivers", "fault", "faultreceivers"});
     CHECK(params.energy.has_value());
   }
@@ -287,6 +293,105 @@ TEST_CASE("readOutputParameters: the outputs of a run, each named as the files i
     const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
 
     CHECK(params.outputs.empty());
+  }
+}
+
+TEST_CASE("readOutputParameters: outputs in blocks of their own" *
+          doctest::test_suite("initializer")) {
+  SUBCASE("named after their kind and number, ordered by both") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'out'
+        ioutputmask: '1'
+      outputsurface3:
+        interval: 1.0
+      outputwavefield2:
+        mask: '1 1 1'
+        interval: 0.5
+        vtkorder: 2
+      outputwavefield:
+        mask: '1'
+      outputwavefieldx:
+        mask: '1'
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
+
+    CHECK(outputNames(params) == std::vector<std::string>{"wavefield", "wavefield2", "surface3"});
+    const auto waveFields = params.outputsOf<WaveFieldOutputParameters>();
+    REQUIRE(waveFields.size() == 2);
+    CHECK(waveFields[1]->interval == 0.5);
+    CHECK(waveFields[1]->vtkorder == 2);
+    CHECK(waveFields[1]->outputMask.at(defaultConfig()).at(2));
+    CHECK_FALSE(waveFields[0]->outputMask.at(defaultConfig()).at(2));
+    CHECK(onlyOutputOf<FreeSurfaceOutputParameters>(params).interval == 1.0);
+  }
+
+  SUBCASE("next to the one given the way it has always been, under a name of its own") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'out'
+        wavefieldoutput: 1
+        ioutputmask: '1'
+      outputwavefield:
+        name: 'near-fault'
+        mask: '1 1 1'
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
+
+    CHECK(outputNames(params) == std::vector<std::string>{"wavefield", "near-fault"});
+  }
+
+  SUBCASE("receivers with their file and their own sampling") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'out'
+        ioutputmask: '1'
+      outputreceivers:
+        file: 'receivers.dat'
+        samplinginterval: 0.01
+        computerotation: 1
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
+
+    const auto& receivers = onlyOutputOf<ReceiverOutputParameters>(params);
+    CHECK(receivers.fileName == "receivers.dat");
+    CHECK(receivers.samplingInterval == 0.01);
+    CHECK(receivers.computeRotation);
+    CHECK(outputNames(params) == std::vector<std::string>{"receivers"});
+  }
+
+  SUBCASE("those of the fault only with a fault") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'out'
+        ioutputmask: '1'
+      outputfault:
+        interval: 0.1
+        mask: '1 1'
+      outputfaultreceivers:
+        file: 'points.dat'
+        samplingsteps: 2
+    )");
+    SUBCASE("without one") {
+      ParameterReader reader(node, "", false);
+      const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
+      CHECK(params.outputs.empty());
+    }
+    SUBCASE("with one") {
+      ParameterReader reader(node, "", false);
+      const auto params = readOutputParameters(&reader, {defaultConfig()}, true);
+      CHECK(outputNames(params) == std::vector<std::string>{"faultreceivers", "fault"});
+      const auto& fault = onlyOutputOf<ElementwiseFaultParameters>(params);
+      CHECK(fault.printTimeIntervalSec == 0.1);
+      CHECK(fault.outputMask[1]);
+      CHECK_FALSE(fault.outputMask[2]);
+      const auto& points = onlyOutputOf<PickpointParameters>(params);
+      CHECK(points.pickpointFileName == std::optional<std::string>("points.dat"));
+      CHECK(points.printTimeInterval == 2);
+    }
   }
 }
 

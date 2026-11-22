@@ -21,6 +21,9 @@ There are two primary methods for visualizing on-fault rupture dynamics:
 
 While threads or nodes can be allocated to write the ParaView output  (see :ref:`asynchronous-output`), it is typically not required.
 
+The settings of the two fault outputs can also go into sections of their own, ``OutputFault`` and
+``OutputFaultReceivers`` (see :ref:`output-blocks`).
+
 DynamicRupture Namelist OutputPointType Configuration
 -----------------------------------------------------
 

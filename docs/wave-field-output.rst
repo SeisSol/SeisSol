@@ -18,6 +18,9 @@ The wavefield can be written in an hdf5 file, in order to visualize it in
 ParaView. To speed up the process, it is recommended to dedicate a few
 nodes to the writing tasks (see :ref:`asynchronous-output`).
 
+A run can have several wave field outputs, e.g. one near the fault more often than one of the whole
+domain, each in a section of its own (see :ref:`output-blocks`).
+
 Refinement
 ----------
 

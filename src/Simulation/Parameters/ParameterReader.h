@@ -164,6 +164,9 @@ class ParameterReader {
   ParameterReader* readSubNode(const std::string& subnodeName);
   bool hasField(const std::string& field);
 
+  /// The names of the fields and sections that the parameter file gives here, in its order.
+  [[nodiscard]] std::vector<std::string> fieldNames() const;
+
   /**
    * @brief Whether reading the parameters looked at the field @p path, given as the names of its
    * sections followed by its own, e.g. {"output", "outputfile"}.

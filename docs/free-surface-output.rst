@@ -48,6 +48,9 @@ alternative, ``pointwise``, evaluates the solution at the output points instead.
 default differs from the one of ``wavefieldprojection``, so that both outputs keep the behavior
 they had before they were unified.
 
+A run can have several free surface outputs, each in a section of its own (see
+:ref:`output-blocks`).
+
 variables
 ---------
 

@@ -65,6 +65,9 @@ files to that layout for tools that expect it.
 
 The variable :code:`ReceiverOutputInterval` (in the section :code:`Output` of the :ref:`parameter-file`) controls the frequency of flushing receiver time-histories. If not specified, they are written at the end of the simulation.
 
+The settings of the receivers can also go into a section of their own, ``OutputReceivers`` (see
+:ref:`output-blocks`).
+
 The HDF5 receiver file
 ----------------------
 
