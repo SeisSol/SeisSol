@@ -12,9 +12,7 @@ core-includes-feature Core/Memory/Descriptor/DynamicRupture.h Features/DynamicRu
 core-includes-feature Core/Memory/Descriptor/DynamicRupture.h Features/DynamicRupture/Misc.h
 core-includes-feature Core/Memory/Descriptor/DynamicRupture.h Features/DynamicRupture/Typedefs.h
 core-includes-feature Core/Memory/Typedefs.h Features/DynamicRupture/Misc.h
-core-includes-later-core Core/Common/PreProcessorMacros.h Core/Monitoring/Instrumentation.h
 core-includes-later-core Core/Geometry/MeshReader.cpp Core/Parallel/MPI.h
-core-includes-later-core Core/Geometry/PUMLReader.cpp Core/Monitoring/Instrumentation.h
 core-includes-later-core Core/Geometry/PUMLReader.cpp Core/Parallel/MPI.h
 core-includes-later-core Core/Geometry/PUMLReader.cpp Core/TimeStepping/Clustering/Clustering.h
 core-includes-later-core Core/Geometry/PUMLReader.cpp Core/TimeStepping/Clustering/VertexWeights/VertexWeightModel.h
@@ -47,7 +45,6 @@ core-includes-later-core Core/Parallel/DataCollector.h Core/Kernels/Common.h
 core-includes-later-core Core/Parallel/DataCollector.h Core/Memory/MemoryAllocator.h
 core-includes-later-core Core/Parallel/DeviceGraph.h Core/Kernels/BatchRecorders/DataTypes/ConditionalKey.h
 core-includes-later-core Core/Parallel/Runtime/HostActor.cpp Core/Kernels/DeviceAux/HostCopyAux.h
-core-includes-later-core Core/Parallel/Runtime/HostRuntime.h Core/Monitoring/Trace.h
 core-includes-later-core Core/Parallel/Runtime/Stream.cpp Core/Memory/Tree/Colormap.h
 core-includes-later-core Core/Parallel/Runtime/Stream.h Core/Memory/Tree/Layer.h
 core-includes-wavepropagation Config.h.in WavePropagation/Physics/MaterialType.h

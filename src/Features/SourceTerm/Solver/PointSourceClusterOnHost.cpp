@@ -10,9 +10,9 @@
 
 #include "Config.h"
 #include "Core/Kernels/Common.h"
-#include "Core/Monitoring/Trace.h"
 #include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "Core/Parallel/Trace.h"
 #include "Features/SourceTerm/Solver/PointSourceCluster.h"
 #include "Features/SourceTerm/Typedefs.h"
 #include "GeneratedCode/kernel.h"

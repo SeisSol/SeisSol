@@ -8,7 +8,7 @@
 #include "DeviceTimer.h"
 
 #include "Core/Monitoring/LoopStatistics.h"
-#include "Core/Monitoring/Trace.h"
+#include "Core/Parallel/Trace.h"
 
 #include <cstddef>
 #include <cstdint>

@@ -6,8 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Sebastian Rettenberger
 
-#ifndef SEISSOL_SRC_CORE_MONITORING_INSTRUMENTATION_H_
-#define SEISSOL_SRC_CORE_MONITORING_INSTRUMENTATION_H_
+#ifndef SEISSOL_SRC_CORE_COMMON_INSTRUMENTATION_H_
+#define SEISSOL_SRC_CORE_COMMON_INSTRUMENTATION_H_
 
 // Manual instrumentation for Scalasca with epik.
 // Override function calls if not compiled with EPIK.
@@ -69,4 +69,4 @@
 #define LIKWID_MARKER_GET(regionTag, nevents, events, time, count)
 #endif
 
-#endif // SEISSOL_SRC_CORE_MONITORING_INSTRUMENTATION_H_
+#endif // SEISSOL_SRC_CORE_COMMON_INSTRUMENTATION_H_

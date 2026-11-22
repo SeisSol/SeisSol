@@ -8,7 +8,7 @@
 #include "DeviceTimeline.h"
 
 #include "Core/Monitoring/DeviceTimer.h"
-#include "Core/Monitoring/Trace.h"
+#include "Core/Parallel/Trace.h"
 
 #include <algorithm>
 #include <cstddef>

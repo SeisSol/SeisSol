@@ -7,11 +7,11 @@
 
 #include "InitMesh.h"
 
+#include "Core/Common/Instrumentation.h"
 #include "Core/Geometry/CellToVertexArray.h"
 #include "Core/Geometry/MeshDefinition.h"
 #include "Core/Geometry/MeshParameters.h"
 #include "Core/IO/Easi/ReaderBuilder.h"
-#include "Core/Monitoring/Instrumentation.h"
 #include "Core/Monitoring/RunSummary.h"
 #include "Core/TimeStepping/Clustering/Clustering.h"
 #include "Simulation/Estimator.h"

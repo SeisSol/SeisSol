@@ -8,9 +8,9 @@
 #include "GhostCluster.h"
 
 #include "Core/Common/Executor.h"
+#include "Core/Common/Instrumentation.h"
 #include "Core/Kernels/Common.h"
-#include "Core/Monitoring/Instrumentation.h"
-#include "Core/Monitoring/Trace.h"
+#include "Core/Parallel/Trace.h"
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Halo/HaloCommunication.h"

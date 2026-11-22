@@ -14,6 +14,7 @@ add_library(seissol-parallel OBJECT
     ParallelFS.cpp
     Pin.cpp
     SystemInfo.cpp
+    Trace.cpp
 
     Runtime/EventPool.cpp
     Runtime/HostActor.cpp

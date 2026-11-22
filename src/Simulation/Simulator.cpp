@@ -9,6 +9,7 @@
 
 #include "Simulator.h"
 
+#include "Core/Common/Instrumentation.h"
 #include "Core/Common/Json.h"
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/Tree/Layer.h"
@@ -16,10 +17,8 @@
 #include "Core/Modules/OutputWorker.h"
 #include "Core/Monitoring/DeviceTimeline.h"
 #include "Core/Monitoring/FlopCounter.h"
-#include "Core/Monitoring/Instrumentation.h"
 #include "Core/Monitoring/RunSummary.h"
 #include "Core/Monitoring/Stopwatch.h"
-#include "Core/Monitoring/Trace.h"
 #include "Core/Monitoring/Watchdog.h"
 #include "Core/Numerical/Statistics.h"
 #include "Core/Parallel/Helper.h"
@@ -28,6 +27,7 @@
 #include "Core/Parallel/Pin.h"
 #include "Core/Parallel/Runtime/HostActor.h"
 #include "Core/Parallel/Runtime/HostRuntime.h"
+#include "Core/Parallel/Trace.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/MeasuredWeights.h"
 #include "Core/TimeStepping/TimeManager.h"
 #include "Features/InitialConditions/Output/AnalysisWriter.h"

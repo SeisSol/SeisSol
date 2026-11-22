@@ -34,8 +34,8 @@
 #include "Core/Common/Offset.h"
 #include "Core/Kernels/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
-#include "Core/Monitoring/Trace.h"
 #include "Core/Parallel/Runtime/HostRuntime.h"
+#include "Core/Parallel/Trace.h"
 #endif
 
 #ifndef ACL_DEVICE

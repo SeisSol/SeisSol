@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_CORE_COMMON_PREPROCESSORMACROS_H_
 
 #include "Core/Common/Constants.h"
-#include "Core/Monitoring/Instrumentation.h"
+#include "Core/Common/Instrumentation.h"
 
 #include <cstddef>
 

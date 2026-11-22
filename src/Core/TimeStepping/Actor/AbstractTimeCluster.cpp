@@ -8,8 +8,8 @@
 #include "AbstractTimeCluster.h"
 
 #include "Core/Common/Executor.h"
-#include "Core/Monitoring/Trace.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "Core/Parallel/Trace.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
 

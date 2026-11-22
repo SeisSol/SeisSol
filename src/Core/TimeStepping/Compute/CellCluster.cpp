@@ -12,11 +12,11 @@
 #include "CellCluster.h"
 
 #include "Core/Common/Executor.h"
+#include "Core/Common/Instrumentation.h"
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Monitoring/DeviceTimeline.h"
-#include "Core/Monitoring/Instrumentation.h"
 #include "Core/Monitoring/LoopStatistics.h"
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/ActorState.h"

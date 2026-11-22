@@ -7,8 +7,8 @@
 
 #include "MpiHaloTransport.h"
 
-#include "Core/Monitoring/Trace.h"
 #include "Core/Parallel/MPI.h"
+#include "Core/Parallel/Trace.h"
 #include "Core/TimeStepping/Halo/HaloCommunication.h"
 
 #include <cstddef>

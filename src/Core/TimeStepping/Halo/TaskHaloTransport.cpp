@@ -7,8 +7,8 @@
 
 #include "TaskHaloTransport.h"
 
-#include "Core/Monitoring/Trace.h"
 #include "Core/Parallel/Runtime/HostRuntime.h"
+#include "Core/Parallel/Trace.h"
 #include "Core/TimeStepping/Halo/HaloTransport.h"
 
 #include <atomic>

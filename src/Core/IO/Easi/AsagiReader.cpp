@@ -9,8 +9,8 @@
 
 #include "AsagiReader.h"
 
+#include "Core/Common/Instrumentation.h"
 #include "Core/IO/Easi/AsagiModule.h"
-#include "Core/Monitoring/Instrumentation.h"
 
 #include <asagi.h>
 #include <cstddef>

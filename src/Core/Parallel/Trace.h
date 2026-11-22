@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_CORE_MONITORING_TRACE_H_
-#define SEISSOL_SRC_CORE_MONITORING_TRACE_H_
+#ifndef SEISSOL_SRC_CORE_PARALLEL_TRACE_H_
+#define SEISSOL_SRC_CORE_PARALLEL_TRACE_H_
 
 #include <atomic>
 #include <chrono>
@@ -114,4 +114,4 @@ class TraceScope {
 
 } // namespace seissol::monitoring
 
-#endif // SEISSOL_SRC_CORE_MONITORING_TRACE_H_
+#endif // SEISSOL_SRC_CORE_PARALLEL_TRACE_H_

@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_CORE_PARALLEL_RUNTIME_HOSTRUNTIME_H_
 #define SEISSOL_SRC_CORE_PARALLEL_RUNTIME_HOSTRUNTIME_H_
 
-#include "Core/Monitoring/Trace.h"
+#include "Core/Parallel/Trace.h"
 
 #include <algorithm>
 #include <atomic>

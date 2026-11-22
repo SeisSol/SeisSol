@@ -111,6 +111,8 @@ LAYOUT = [
         "Core/TimeStepping/Actor/ActorStateStatistics.",
     ),
     ("Core/Monitoring/Unit.", "Core/Common/Unit."),
+    ("Core/Monitoring/Instrumentation.h", "Core/Common/Instrumentation.h"),
+    ("Core/Monitoring/Trace.", "Core/Parallel/Trace."),
     ("Initializer/Clustering/", "Core/TimeStepping/Clustering/"),
     ("Initializer/TimeStepping/", "Core/TimeStepping/Layout/"),
     (
