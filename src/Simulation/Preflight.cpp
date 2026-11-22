@@ -941,20 +941,28 @@ void checkMeshContent(const parameters::SeisSolParameters& parameters,
                      " does not parse: " + exception.what());
     }
   }
-  // a run has at most one output of on-fault receivers for now (see
-  // OutputParameters::singleOutputOf)
-  const auto pickpointOutputs = output.outputsOf<parameters::PickpointParameters>();
-  const auto pickpointFile = pickpointOutputs.empty()
-                                 ? std::string()
-                                 : pickpointOutputs.front()->pickpointFileName.value_or("");
-  const bool withFaultReceivers =
-      !pickpointOutputs.empty() && std::filesystem::is_regular_file(pickpointFile, error);
-  if (withFaultReceivers) {
+  // likewise for the outputs of on-fault receivers; the section of the one of &Pickpoint keeps its
+  // name
+  std::vector<ReceiverFile> faultReceiverFiles;
+  for (const auto& entry : output.outputs) {
+    const auto* settings = std::get_if<parameters::PickpointParameters>(&entry.settings);
+    if (settings == nullptr) {
+      continue;
+    }
+    const auto file = settings->pickpointFileName.value_or("");
+    if (!std::filesystem::is_regular_file(file, error)) {
+      continue;
+    }
+    auto& faultReceiverFile = faultReceiverFiles.emplace_back(
+        ReceiverFile{.name = entry.name == "faultreceivers" ? "faultReceivers" : entry.name,
+                     .file = file,
+                     .first = faultReceivers.points.size()});
     try {
-      faultReceivers.points = dr::readPickpoints(pickpointFile);
+      const auto points = dr::readPickpoints(file);
+      faultReceivers.points.insert(faultReceivers.points.end(), points.begin(), points.end());
+      faultReceiverFile.count = points.size();
     } catch (const std::exception& exception) {
-      report.problem("The on-fault receiver file " + pickpointFile +
-                     " does not parse: " + exception.what());
+      report.problem("The on-fault receiver file " + file + " does not parse: " + exception.what());
     }
   }
   const auto& sourceFile = parameters.source.fileName;
@@ -1026,8 +1034,16 @@ void checkMeshContent(const parameters::SeisSolParameters& parameters,
     points[receiverFile.name] =
         cellPointsSection("receiver", receiverFile.file, ofFile, scan, report);
   }
-  if (withFaultReceivers) {
-    points["faultReceivers"] = faultPointsSection(pickpointFile, faultReceivers, scan, report);
+  for (const auto& faultReceiverFile : faultReceiverFiles) {
+    meshscan::FaultPoints ofFile;
+    const auto first = static_cast<std::ptrdiff_t>(faultReceiverFile.first);
+    const auto last =
+        static_cast<std::ptrdiff_t>(faultReceiverFile.first + faultReceiverFile.count);
+    ofFile.points.assign(faultReceivers.points.begin() + first,
+                         faultReceivers.points.begin() + last);
+    ofFile.found.assign(faultReceivers.found.begin() + first, faultReceivers.found.begin() + last);
+    points[faultReceiverFile.name] =
+        faultPointsSection(faultReceiverFile.file, ofFile, scan, report);
   }
   if (withSources) {
     points["sources"] = cellPointsSection("point source", sourceFile, sources, scan, report);

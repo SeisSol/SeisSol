@@ -22,7 +22,7 @@
 #include "Core/TimeStepping/Actor/StepParams.h"
 #include "Core/TimeStepping/Compute/ClusterClock.h"
 #include "Core/TimeStepping/Compute/FaceCluster.h"
-#include "Features/DynamicRupture/Output/OutputManager.h"
+#include "Features/DynamicRupture/Output/PickpointOutput.h"
 #include "Features/DynamicRupture/Output/PickpointSampling.h"
 #include "Features/DynamicRupture/Solver/DynamicRupture.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
@@ -39,6 +39,12 @@
 
 namespace seissol::solver {
 
+/// An output of receivers on the fault, and when its receivers take their samples.
+struct PickpointPlan {
+  dr::output::PickpointOutput* output{nullptr};
+  dr::output::PickpointSampling sampling;
+};
+
 /**
  * The dynamic rupture faces of one layer, all of the configuration `Cfg`: the space-time
  * interpolation of the adjacent cells, the friction law, and the on-fault receiver output.
@@ -52,12 +58,11 @@ class DynamicRuptureCluster : public FaceCluster {
                         long timeStepRate,
                         Executor executor,
                         unsigned int profilingId,
-                        const dr::output::PickpointSampling& pickpointSampling,
+                        const std::vector<PickpointPlan>& pickpoints,
                         CompoundGlobalData<Cfg> globalData,
                         DynamicRupture::Layer* layerData,
                         const dr::friction_law::FrictionSolverFactory& frictionSolverFactory,
                         const dr::friction_law::FrictionSolverFactory& frictionSolverFactoryDevice,
-                        dr::output::OutputManager* faultOutputManager,
                         RunContext& run,
                         LoopStatistics* loopStatistics,
                         DeviceTimeline* deviceTimeline,
@@ -81,26 +86,38 @@ class DynamicRuptureCluster : public FaceCluster {
   private:
   void computeDynamicRupture(const StepParams& params);
   void computeDynamicRuptureDevice(const StepParams& params);
-  /// decides at which times of the current step the fault receivers record
+  /// decides at which times of the current step the receivers of each output on the fault record
   void planPickpointOutput(const StepParams& params);
-  /// records the fault receivers at the times `times` of the step; `lastStep` tells whether it is
-  /// the last step before the synchronization point
+  /// the times planPickpointOutput() decided, one list per output
+  [[nodiscard]] std::vector<std::vector<double>> plannedPickpointTimes() const;
+  /// records the receivers on the fault at the times `times` of the step, a list per output;
+  /// `lastStep` tells whether it is the last step before the synchronization point
   void writePickpointOutput(const StepParams& params,
-                            const std::vector<double>& times,
+                            const std::vector<std::vector<double>>& times,
                             bool lastStep);
 
-  /// decides at which times of the step that starts at `stepTime` the fault receivers record, and
-  /// records them; `lastStep` tells whether it is the last step before the synchronization point
-  void recordPickpointsNow(double stepTime, bool lastStep);
+  /// decides at which times of the step that starts at `stepTime` the receivers of the output
+  /// `slot` record, and records them; `lastStep` tells whether it is the last step before the
+  /// synchronization point
+  void recordPickpointsNow(std::size_t slot, double stepTime, bool lastStep);
 
-  //! the start of the step the fault receivers record in, for decisions at run time, and its
-  //! address on the device, which writes it
-  double pickpointStepStartHost_{0};
-  double* pickpointStepStart_{&pickpointStepStartHost_};
-  double* pickpointStepStartOnDevice_{nullptr};
+  //! an output of receivers on the fault that the cluster samples
+  struct PickpointSlot {
+    dr::output::PickpointOutput* output{nullptr};
+    //! when its receivers take their samples
+    dr::output::PickpointSampling sampling;
+    //! the times of the current step at which its receivers record
+    std::vector<double> times;
+    //! the start of the step its receivers record in, for decisions at run time (in pinned memory
+    //! with a device, otherwise in stepStartHost), and its address on the device, which writes it
+    double stepStartHost{0};
+    double* stepStart{nullptr};
+    double* stepStartOnDevice{nullptr};
+  };
+  //! the outputs, in the order of the parameters; they get their receivers when the output gets
+  //! set up, after the clusters, so the cluster asks for those of its layer when it samples
+  std::vector<PickpointSlot> pickpoints_;
 
-  //! the times of the current step at which the fault receivers record
-  std::vector<double> pickpointTimes_;
   PerformanceEstimate computeFlops();
 
   RunContext& run_;
@@ -111,10 +128,6 @@ class DynamicRuptureCluster : public FaceCluster {
   DynamicRupture::Layer* layerData_;
   std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolver_;
   std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolverDevice_;
-  dr::output::OutputManager* faultOutputManager_;
-
-  //! when the on-fault receivers take their samples
-  dr::output::PickpointSampling pickpointSampling_;
 
   PerformanceEstimate estimate_{};
   std::size_t perfHandle_{};

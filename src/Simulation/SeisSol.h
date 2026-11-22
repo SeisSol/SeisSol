@@ -12,7 +12,6 @@
 #include "Core/Common/Executor.h"
 #include "Core/IO/AsyncIO.h"
 #include "Core/IO/Manager.h"
-#include "Core/IO/PickpointWriter.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Modules/Modules.h"
 #include "Core/Monitoring/EpochSynchronization.h"

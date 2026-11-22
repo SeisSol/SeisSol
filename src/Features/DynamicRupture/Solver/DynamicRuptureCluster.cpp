@@ -31,7 +31,6 @@
 #include "Core/TimeStepping/Actor/StepParams.h"
 #include "Core/TimeStepping/Compute/ComputeCluster.h"
 #include "Core/TimeStepping/Compute/FaceCluster.h"
-#include "Features/DynamicRupture/Output/OutputManager.h"
 #include "Features/DynamicRupture/Output/PickpointSampling.h"
 #include "Features/DynamicRupture/Solver/DynamicRupture.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
@@ -78,12 +77,11 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
     long timeStepRate,
     Executor executor,
     unsigned int profilingId,
-    const dr::output::PickpointSampling& pickpointSampling,
+    const std::vector<PickpointPlan>& pickpoints,
     CompoundGlobalData<Cfg> globalData,
     DynamicRupture::Layer* layerData,
     const dr::friction_law::FrictionSolverFactory& frictionSolverFactory,
     const dr::friction_law::FrictionSolverFactory& frictionSolverFactoryDevice,
-    dr::output::OutputManager* faultOutputManager,
     RunContext& run,
     LoopStatistics* loopStatistics,
     DeviceTimeline* deviceTimeline,
@@ -100,9 +98,21 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
                   actorStateStatistics),
       run_(run), globalData_(globalData), layerData_(layerData),
       frictionSolver_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactory)),
-      frictionSolverDevice_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactoryDevice)),
-      faultOutputManager_(faultOutputManager), pickpointSampling_(pickpointSampling) {
+      frictionSolverDevice_(
+          dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactoryDevice)) {
   assert(layerData_ != nullptr);
+  pickpoints_.reserve(pickpoints.size());
+  for (const auto& plan : pickpoints) {
+    pickpoints_.push_back(PickpointSlot{.output = plan.output,
+                                        .sampling = plan.sampling,
+                                        .times = {},
+                                        .stepStartHost = 0,
+                                        .stepStart = nullptr,
+                                        .stepStartOnDevice = nullptr});
+  }
+  for (auto& slot : pickpoints_) {
+    slot.stepStart = &slot.stepStartHost;
+  }
   assert(globalData_.onHost != nullptr);
   if constexpr (seissol::isDeviceOn()) {
     assert(globalData_.onDevice != nullptr);
@@ -299,82 +309,103 @@ PerformanceEstimate DynamicRuptureCluster<Cfg>::computeFlops() {
 
 template <typename Cfg>
 void DynamicRuptureCluster<Cfg>::planPickpointOutput(const StepParams& params) {
-  pickpointTimes_.clear();
-  if (faultOutputManager_->hasPickpoints(layerData_->id())) {
-    pickpointTimes_ = pickpointSampling_.times(params.time, params.timeStepSize);
+  for (auto& slot : pickpoints_) {
+    slot.times.clear();
+    if (slot.output->hasReceivers(layerData_->id())) {
+      slot.times = slot.sampling.times(params.time, params.timeStepSize);
+    }
   }
+}
+
+template <typename Cfg>
+std::vector<std::vector<double>> DynamicRuptureCluster<Cfg>::plannedPickpointTimes() const {
+  std::vector<std::vector<double>> times;
+  times.reserve(pickpoints_.size());
+  for (const auto& slot : pickpoints_) {
+    times.push_back(slot.times);
+  }
+  return times;
 }
 
 template <typename Cfg>
 void DynamicRuptureCluster<Cfg>::setRunTimeOutputs(bool runTimeOutputs) {
   ComputeCluster::setRunTimeOutputs(runTimeOutputs);
 #ifdef ACL_DEVICE
-  if (runTimeOutputs_ && pickpointStepStart_ == &pickpointStepStartHost_) {
-    pickpointStepStart_ = static_cast<double*>(device_.api().allocPinnedMem(sizeof(double)));
-    pickpointStepStartOnDevice_ =
-        static_cast<double*>(device_.api().devicePointer(pickpointStepStart_));
+  for (auto& slot : pickpoints_) {
+    if (runTimeOutputs_ && slot.stepStart == &slot.stepStartHost) {
+      slot.stepStart = static_cast<double*>(device_.api().allocPinnedMem(sizeof(double)));
+      slot.stepStartOnDevice = static_cast<double*>(device_.api().devicePointer(slot.stepStart));
+    }
   }
 #endif
 }
 
 template <typename Cfg>
-void DynamicRuptureCluster<Cfg>::recordPickpointsNow(double stepTime, bool lastStep) {
+void DynamicRuptureCluster<Cfg>::recordPickpointsNow(std::size_t slot,
+                                                     double stepTime,
+                                                     bool lastStep) {
   // the size of the step that starts at stepTime, as ClusterTimes::timeStepSize() decides it
   const double stepSize =
       lastStep ? syncTime_ - stepTime : std::min(syncTime_ - stepTime, ct_.maxTimeStepSize);
   const auto layerId = layerData_->id();
-  for (const auto time : pickpointSampling_.times(stepTime, stepSize)) {
-    faultOutputManager_->evaluatePickpointOutput(
-        layerId, time, stepSize, timeInStep(time, stepTime, stepSize));
+  const auto& pickpoints = pickpoints_[slot];
+  for (const auto time : pickpoints.sampling.times(stepTime, stepSize)) {
+    pickpoints.output->evaluate(layerId, time, stepSize, timeInStep(time, stepTime, stepSize));
   }
-  faultOutputManager_->finishPickpointStepNow(layerId);
+  pickpoints.output->finishStepNow(layerId);
 }
 
 template <typename Cfg>
 void DynamicRuptureCluster<Cfg>::writePickpointOutput(const StepParams& params,
-                                                      const std::vector<double>& times,
+                                                      const std::vector<std::vector<double>>& times,
                                                       bool lastStep) {
-  if (runTimeOutputs_) {
-    const auto layerId = layerData_->id();
-    if (faultOutputManager_->hasPickpoints(layerId)) {
-      if (faultOutputManager_->postPickpointsAtRunTime(
-              layerId, clock_.device(), streamRuntime_, [this, lastStep](double stepStart) {
-                recordPickpointsNow(stepStart, lastStep);
-              })) {
-        return;
-      }
-      auto& callRuntime = faultOutputManager_->gatherPickpointData(layerId,
-                                                                   clock_.device(),
-                                                                   pickpointStepStart_,
-                                                                   pickpointStepStartOnDevice_,
-                                                                   params.time,
-                                                                   streamRuntime_);
-      callRuntime.enqueueHost(
-          [this, lastStep] { recordPickpointsNow(*pickpointStepStart_, lastStep); });
+  const auto layerId = layerData_->id();
+  for (std::size_t slot = 0; slot < pickpoints_.size(); ++slot) {
+    const auto& pickpoints = pickpoints_[slot];
+    auto* output = pickpoints.output;
+    if (!output->hasReceivers(layerId)) {
+      continue;
     }
-    return;
-  }
 
-  if (!faultOutputManager_->hasPickpoints(layerData_->id())) {
-    return;
+    if (runTimeOutputs_) {
+      if (output->postAtRunTime(
+              layerId, clock_.device(), streamRuntime_, [this, slot, lastStep](double stepStart) {
+                recordPickpointsNow(slot, stepStart, lastStep);
+              })) {
+        continue;
+      }
+      auto& callRuntime = output->gatherData(layerId,
+                                             clock_.device(),
+                                             pickpoints.stepStart,
+                                             pickpoints.stepStartOnDevice,
+                                             params.time,
+                                             streamRuntime_);
+      callRuntime.enqueueHost([this, slot, lastStep] {
+        recordPickpointsNow(slot, *pickpoints_[slot].stepStart, lastStep);
+      });
+      continue;
+    }
+
+    for (const auto time : times[slot]) {
+      output->record(layerId,
+                     time,
+                     params.timeStepSize,
+                     timeInStep(time, params.time, params.timeStepSize),
+                     streamRuntime_);
+    }
+    output->finishStep(layerId, !times[slot].empty(), streamRuntime_);
   }
-  for (const auto time : times) {
-    faultOutputManager_->recordPickpointOutput(layerData_->id(),
-                                               time,
-                                               params.timeStepSize,
-                                               timeInStep(time, params.time, params.timeStepSize),
-                                               streamRuntime_);
-  }
-  faultOutputManager_->finishPickpointStep(layerData_->id(), !times.empty(), streamRuntime_);
 }
 
 template <typename Cfg>
 std::vector<parallel::runtime::StreamRuntime*> DynamicRuptureCluster<Cfg>::runtimes() {
   auto runtimes = ComputeCluster::runtimes();
-  if (faultOutputManager_ != nullptr && faultOutputManager_->hasPickpoints(layerData_->id())) {
-    auto* runtime = faultOutputManager_->pickpointRuntime(layerData_->id());
-    if (runtime != nullptr) {
-      runtimes.push_back(runtime);
+  for (const auto& slot : pickpoints_) {
+    if (slot.output->hasReceivers(layerData_->id())) {
+      auto* runtime = slot.output->runtime(layerData_->id());
+      if (runtime != nullptr) {
+        runtimes.push_back(runtime);
+      }
     }
   }
   return runtimes;
@@ -388,19 +419,23 @@ bool DynamicRuptureCluster<Cfg>::hostWork() const {
 
 template <typename Cfg>
 bool DynamicRuptureCluster<Cfg>::outputsAhead(long steps) const {
-  if (layerData_->size() == 0 || runTimeOutputs_ ||
-      !faultOutputManager_->hasPickpoints(layerData_->id())) {
+  if (layerData_->size() == 0 || runTimeOutputs_) {
     return false;
   }
   // the same sample times as the host parts of the next steps plan
-  double stepTime = ct_.correctionTime;
-  for (long step = 0; step < steps; ++step) {
-    const double stepSize =
-        ct_.timeStepSize(stepTime, ct_.stepsSinceLastSync + step * ct_.timeStepRate, syncTime_);
-    if (pickpointSampling_.any(stepTime, stepSize)) {
-      return true;
+  for (const auto& slot : pickpoints_) {
+    if (!slot.output->hasReceivers(layerData_->id())) {
+      continue;
     }
-    stepTime += stepSize;
+    double stepTime = ct_.correctionTime;
+    for (long step = 0; step < steps; ++step) {
+      const double stepSize =
+          ct_.timeStepSize(stepTime, ct_.stepsSinceLastSync + step * ct_.timeStepRate, syncTime_);
+      if (slot.sampling.any(stepTime, stepSize)) {
+        return true;
+      }
+      stepTime += stepSize;
+    }
   }
   return false;
 }
@@ -418,7 +453,8 @@ StepWork DynamicRuptureCluster<Cfg>::prepare(ActorAction action) {
     if (layerData_->size() > 0) {
       if (!runTimeOutputs_) {
         planPickpointOutput(params);
-        work.outputs = !pickpointTimes_.empty();
+        work.outputs =
+            std::ranges::any_of(pickpoints_, [](const auto& slot) { return !slot.times.empty(); });
       }
       run_.flopCounter().incrementMetric(perfHandle_, estimate_);
     }
@@ -440,13 +476,13 @@ void DynamicRuptureCluster<Cfg>::interact(const StepParams& params) {
 
   if (executor_ == Executor::Device) {
     computeDynamicRuptureDevice(params);
-    writePickpointOutput(params, pickpointTimes_, lastStep);
+    writePickpointOutput(params, plannedPickpointTimes(), lastStep);
   } else {
     // the faces read what the adjacent cells share, and change what these read for their
     // correction; the work takes the sample times of its step along, as the decisions about the
     // next steps may come before it runs
     hostRuntime_.action({/*readsNeighbors=*/true, /*writesShared=*/true},
-                        [this, params, times = pickpointTimes_, lastStep] {
+                        [this, params, times = plannedPickpointTimes(), lastStep] {
                           computeDynamicRupture(params);
                           writePickpointOutput(params, times, lastStep);
                         });
@@ -474,10 +510,12 @@ void DynamicRuptureCluster<Cfg>::interact(const StepParams& params) {
 template <typename Cfg>
 void DynamicRuptureCluster<Cfg>::finalize() {
 #ifdef ACL_DEVICE
-  if (pickpointStepStart_ != &pickpointStepStartHost_) {
-    device_.api().freePinnedMem(pickpointStepStart_);
-    pickpointStepStart_ = &pickpointStepStartHost_;
-    pickpointStepStartOnDevice_ = nullptr;
+  for (auto& slot : pickpoints_) {
+    if (slot.stepStart != &slot.stepStartHost) {
+      device_.api().freePinnedMem(slot.stepStart);
+      slot.stepStart = &slot.stepStartHost;
+      slot.stepStartOnDevice = nullptr;
+    }
   }
 #endif
   ComputeCluster::finalize();

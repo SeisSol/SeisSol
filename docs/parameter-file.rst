@@ -113,7 +113,10 @@ are an error.
 
 The intervals have to be positive, and the receivers need their ``file``. The outputs of
 the fault need a fault: a run without one leaves them out, with a warning. For now, a run
-can have at most one output each of the elementwise fault output and the on-fault receivers.
+can have at most one elementwise fault output. The on-fault receivers of each output
+sample at their own interval; the files of the on-fault receivers of ``&Pickpoint`` keep
+their names (``<prefix>-faultreceiver-<n>.dat``), those of another output carry its
+name (e.g. ``<prefix>-faultreceivers2-<n>.dat``).
 
 .. _parameter-overrides:
 
@@ -227,8 +230,10 @@ number of fault faces (``faultFaces``), of those that one cell only has
 (``oneSidedFaultFaces``) and without a plus side (``faultFacesWithoutPlusSide``), the
 radii of the inspheres of the smallest and the largest cell (``smallestInsphere`` of the
 cell ``smallestCell`` of the file, and ``largestInsphere``), and how long reading it
-took (``seconds``) with how much memory (``bytes``); ``points`` has the ``receivers``,
-``faultReceivers`` and ``sources``, each with the ``file``, the ``count`` of points, how
+took (``seconds``) with how much memory (``bytes``); ``points`` has a section for each
+output of receivers or on-fault receivers, named as the output (``receivers`` and
+``faultReceivers`` for those of ``&Output`` and ``&Pickpoint``), and ``sources``, each
+with the ``file``, the ``count`` of points, how
 many were ``found``, and the ``missing`` ones (their ``index``, counted from zero as the
 run counts them, the ``point``, the height of the free surface above or below it,
 ``surface``, and a ``hint``), and for the on-fault receivers the ones ``moved`` farther

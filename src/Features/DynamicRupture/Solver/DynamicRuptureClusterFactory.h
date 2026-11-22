@@ -16,12 +16,12 @@
 #include "Core/TimeStepping/Compute/FaceClusterFactory.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Features/DynamicRupture/Output/OutputManager.h"
-#include "Features/DynamicRupture/Output/PickpointSampling.h"
+#include "Features/DynamicRupture/Solver/DynamicRuptureCluster.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
 
 #include <cstddef>
 #include <memory>
-#include <optional>
+#include <vector>
 
 namespace seissol::dr {
 
@@ -43,8 +43,9 @@ class DynamicRuptureClusterFactory : public solver::FaceClusterFactory {
 
   [[nodiscard]] std::size_t faceCount(std::size_t layerId) const override;
 
-  /// decides when the on-fault receivers take their samples: at the multiples of their interval,
-  /// which follows the time step of the first time cluster with faces on any rank
+  /// decides when the receivers of each output on the fault take their samples: at the multiples
+  /// of its interval, which may follow the time step of the first time cluster with faces on any
+  /// rank
   void prepare(const initializer::ClusterLayout& clusterLayout) override;
 
   std::unique_ptr<solver::FaceCluster>
@@ -62,7 +63,8 @@ class DynamicRuptureClusterFactory : public solver::FaceClusterFactory {
   output::OutputManager* outputManager_;
   double endTime_;
 
-  std::optional<output::PickpointSampling> pickpointSampling_;
+  //! the outputs of receivers on the fault, and when they take their samples
+  std::vector<solver::PickpointPlan> pickpoints_;
 };
 
 } // namespace seissol::dr

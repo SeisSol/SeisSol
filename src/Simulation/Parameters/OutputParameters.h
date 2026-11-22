@@ -165,8 +165,8 @@ struct OutputParameters {
     return found;
   }
 
-  /// The settings of the output of the kind `T`, or none. The clusters of the fault sample its
-  /// outputs into one place each, so a run can have at most one of each of these kinds for now;
+  /// The settings of the output of the kind `T`, or none. The clusters of the fault sample the
+  /// output of its whole surface into one place, so a run can have at most one of these for now;
   /// `kind` names it in the error otherwise.
   template <typename T>
   [[nodiscard]] const T* singleOutputOf(const std::string& kind) const {

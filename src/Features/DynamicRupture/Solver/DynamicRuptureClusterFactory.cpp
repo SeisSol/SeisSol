@@ -21,7 +21,6 @@
 #include "Features/DynamicRupture/Solver/DynamicRuptureCluster.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
 
-#include <cassert>
 #include <cstddef>
 #include <limits>
 #include <memory>
@@ -64,8 +63,14 @@ void DynamicRuptureClusterFactory::prepare(const initializer::ClusterLayout& clu
                                   ? std::numeric_limits<double>::infinity()
                                   : clusterLayout.timestepRate(outputCluster);
 
-  // the on-fault receivers sample at the multiples of their interval, counted from time zero
-  pickpointSampling_.emplace(outputManager_->pickpointInterval(outputTimestep), endTime_);
+  // the receivers on the fault sample at the multiples of the interval of their output, counted
+  // from time zero
+  pickpoints_.clear();
+  for (auto* output : outputManager_->pickpointOutputs()) {
+    pickpoints_.push_back(solver::PickpointPlan{
+        .output = output,
+        .sampling = output::PickpointSampling(output->interval(outputTimestep), endTime_)});
+  }
 }
 
 std::unique_ptr<solver::FaceCluster>
@@ -73,7 +78,6 @@ std::unique_ptr<solver::FaceCluster>
                                               const initializer::ClusterLayout& clusterLayout,
                                               Executor executor,
                                               const solver::ClusterMonitoring& monitoring) {
-  assert(pickpointSampling_.has_value());
   auto& layer = storage_.layer(layerId);
   const auto clusterId = layer.getIdentifier().lts;
   return dispatchConfig(layer.getIdentifier().config,
@@ -84,12 +88,11 @@ std::unique_ptr<solver::FaceCluster>
                               clusterLayout.clusterRate(clusterId),
                               executor,
                               layerId,
-                              pickpointSampling_.value(),
+                              pickpoints_,
                               globalData_.get<Cfg>(),
                               &layer,
                               frictionLaw_,
                               frictionLawDevice_,
-                              outputManager_,
                               run_,
                               monitoring.loopStatistics,
                               monitoring.deviceTimeline,

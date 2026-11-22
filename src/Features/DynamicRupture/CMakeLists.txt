@@ -11,6 +11,7 @@ add_library(seissol-dynamicrupture OBJECT
     Output/FaultRefiner/FaultRefiners.cpp
     Output/OutputAux.cpp
     Output/OutputManager.cpp
+    Output/PickpointOutput.cpp
     Output/ReceiverBasedOutput.cpp
     Setup/DynamicRuptureMatrices.cpp
     Setup/FaultParameterDB.cpp

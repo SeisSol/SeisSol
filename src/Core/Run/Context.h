@@ -11,7 +11,6 @@
 #include "Core/IO/AsyncIO.h"
 #include "Core/IO/Manager.h"
 #include "Core/IO/OutputContext.h"
-#include "Core/IO/PickpointWriter.h"
 #include "Core/Modules/Modules.h"
 #include "Core/Monitoring/FlopCounter.h"
 #include "Core/Parallel/Pin.h"
@@ -55,8 +54,6 @@ class RunContext {
 
   io::OutputManager& outputManager() { return outputManager_; }
 
-  writer::PickpointWriter& pickpointWriter() { return pickpointWriter_; }
-
   monitoring::FlopCounter& flopCounter() { return flopCounter_; }
 
   /**
@@ -89,7 +86,6 @@ class RunContext {
   std::string outputPrefix_;
   io::AsyncIO asyncIO_;
   io::OutputManager outputManager_;
-  writer::PickpointWriter pickpointWriter_;
   monitoring::FlopCounter flopCounter_;
 };
 

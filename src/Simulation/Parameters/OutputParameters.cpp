@@ -853,15 +853,12 @@ OutputParameters readOutputParameters(ParameterReader* baseReader,
     }
   }
 
-  // the clusters of the fault sample its outputs into one place each, so far
-  const auto atMostOne = [&](std::size_t count, const char* kind) {
-    if (count > 1) {
-      logError() << "A run can have only one" << kind << "output for now, but this one has" << count
-                 << ".";
-    }
-  };
-  atMostOne(countOf<ElementwiseFaultParameters>(outputs), "fault");
-  atMostOne(countOf<PickpointParameters>(outputs), "on-fault receiver");
+  // the clusters of the fault sample the output of its whole surface into one place, so far
+  const auto elementwiseOutputs = countOf<ElementwiseFaultParameters>(outputs);
+  if (elementwiseOutputs > 1) {
+    logError() << "A run can have only one fault output for now, but this one has"
+               << elementwiseOutputs << ".";
+  }
 
   reader->warnDeprecated({"projection",
                           "rotation",

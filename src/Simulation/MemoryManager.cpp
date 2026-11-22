@@ -32,8 +32,11 @@
 #include "Simulation/SeisSol.h"
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <utils/logger.h>
+#include <variant>
+#include <vector>
 #include <yateto.h>
 
 #ifdef ACL_DEVICE
@@ -78,11 +81,16 @@ void MemoryManager::initializeFrictionLaw() {
   frictionLawDevice_ = std::move(product.frictionLawDevice);
   faultOutputManager_ =
       std::make_unique<dr::output::OutputManager>(std::move(product.output), seissolInstance_);
-  // the outputs of the fault; the parameters give them only for a run with one
+  // the outputs of the fault: its whole surface, which a run has at most once, and its receivers
   const auto& output = seissolInstance_.parameters().output;
+  std::vector<std::pair<std::string, parameters::PickpointParameters>> pickpoints;
+  for (const auto& entry : output.outputs) {
+    if (const auto* settings = std::get_if<parameters::PickpointParameters>(&entry.settings)) {
+      pickpoints.emplace_back(entry.name, *settings);
+    }
+  }
   faultOutputManager_->setOutputs(
-      output.singleOutputOf<parameters::ElementwiseFaultParameters>("fault"),
-      output.singleOutputOf<parameters::PickpointParameters>("on-fault receiver"));
+      output.singleOutputOf<parameters::ElementwiseFaultParameters>("fault"), pickpoints);
 }
 
 void MemoryManager::initFrictionData() {
