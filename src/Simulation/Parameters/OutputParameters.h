@@ -18,6 +18,7 @@
 
 #include <array>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <unordered_set>
@@ -48,17 +49,18 @@ struct CheckpointParameters {
 };
 
 struct EnergyOutputParameters {
-  int computeVolumeEnergiesEveryOutput{0};
-  double interval{0};
+  int computeVolumeEnergiesEveryOutput{1};
+  double interval{VeryLongTime};
   bool terminalOutput{false};
-  int terminalPrecision{0};
-  double terminatorMaxTimePostRupture{0};
-  double terminatorMomentRateThreshold{0};
+  int terminalPrecision{6};
+  // the abort criteria: none by default
+  double terminatorMaxTimePostRupture{std::numeric_limits<double>::infinity()};
+  double terminatorMomentRateThreshold{-std::numeric_limits<double>::infinity()};
 };
 
 struct FreeSurfaceOutputParameters {
   unsigned refinement{0};
-  double interval{0};
+  double interval{VeryLongTime};
   int vtkorder{-1};
   // per configuration, by its id (empty for those the run does not compute in), per quantity of
   // its material
@@ -97,13 +99,15 @@ struct OutputBounds {
 
 struct WaveFieldOutputParameters {
   int vtkorder{-1};
-  double interval{0};
+  double interval{VeryLongTime};
   VolumeRefinement refinement{VolumeRefinement::NoRefine};
   OutputBounds bounds;
   // per configuration, by its id (empty for those the run does not compute in), per quantity of
   // its material
   std::vector<std::vector<bool>> outputMask;
-  std::array<bool, seissol::model::PlasticityQuantityCount> plasticityMask{};
+  // the accumulated plastic strain (eta) only, by default
+  std::array<bool, seissol::model::PlasticityQuantityCount> plasticityMask{
+      false, false, false, false, false, false, true};
   // as outputMask
   std::vector<std::vector<bool>> integrationMask;
   std::unordered_set<int> groups;

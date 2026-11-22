@@ -66,19 +66,8 @@ class ParameterReader {
     return static_cast<T>(value);
   }
 
-  template <typename T>
-  T readWithDefaultStringEnum(const std::string& field,
-                              const std::string& defaultValue,
-                              const std::unordered_map<std::string, T>& validValues) {
-    std::string value = readWithDefault(field, defaultValue); // TODO(David): sanitize string
-    sanitize(value);
-    if (validValues.find(value) == validValues.end()) {
-      logError() << "The field" << field << "had an invalid enum value:" << value;
-    }
-    return validValues.at(value);
-  }
-
-  /// As above, with the default given as the value it stands for.
+  /// The value of the enum `T` that the text of `field` names in `validValues` (case-insensitive);
+  /// `defaultValue` if it is not given.
   template <typename T>
   T readWithDefaultStringEnum(const std::string& field,
                               const T& defaultValue,

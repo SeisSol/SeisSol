@@ -135,21 +135,21 @@ TEST_CASE("ParameterReader readWithDefaultStringEnum" * doctest::test_suite("ini
   SUBCASE("Reads present value") {
     const YAML::Node node = YAML::Load("color: Green");
     ParameterReader reader(node, "", false);
-    auto result = reader.readWithDefaultStringEnum("color", "red", colorMap);
+    auto result = reader.readWithDefaultStringEnum("color", Color::Red, colorMap);
     CHECK(result == Color::Green);
   }
 
   SUBCASE("Uses default when missing") {
     const YAML::Node node = YAML::Load("other: 1");
     ParameterReader reader(node, "", false);
-    auto result = reader.readWithDefaultStringEnum("color", "blue", colorMap);
+    auto result = reader.readWithDefaultStringEnum("color", Color::Blue, colorMap);
     CHECK(result == Color::Blue);
   }
 
   SUBCASE("Case-insensitive via sanitize") {
     const YAML::Node node = YAML::Load("color: RED");
     ParameterReader reader(node, "", false);
-    auto result = reader.readWithDefaultStringEnum("color", "blue", colorMap);
+    auto result = reader.readWithDefaultStringEnum("color", Color::Blue, colorMap);
     CHECK(result == Color::Red);
   }
 }

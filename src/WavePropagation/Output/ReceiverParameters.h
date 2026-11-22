@@ -22,7 +22,7 @@ struct ReceiverOutputParameters {
   bool computeRotation{false};
   bool computeStrain{false};
   double writeInterval{VeryLongTime};
-  double samplingInterval{0};
+  double samplingInterval{0.005};
   std::string fileName;
   bool collectiveio{false};
   /**

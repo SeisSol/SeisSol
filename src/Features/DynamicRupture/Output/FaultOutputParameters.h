@@ -32,8 +32,8 @@ enum class FaultRefinement { Triple = 1, Quad = 2, None = 3 };
 
 struct ElementwiseFaultParameters {
   double printTimeIntervalSec{1.0};
-  std::array<bool, 12> outputMask{true, true, true, true};
-  FaultRefinement refinementStrategy{FaultRefinement::Quad};
+  std::array<bool, 12> outputMask{true, true, true, true, true, true};
+  FaultRefinement refinementStrategy{FaultRefinement::None};
   int refinement{2};
   int vtkorder{-1};
   // none if the parameters choose none (see TimeSeriesMode)
@@ -43,7 +43,7 @@ struct ElementwiseFaultParameters {
 struct PickpointParameters {
   int printTimeInterval{1};
   double writeInterval{VeryLongTime};
-  std::array<bool, 12> outputMask{true, true, true};
+  std::array<bool, 12> outputMask{true, true, true, true, true, true};
   std::optional<std::string> pickpointFileName;
   bool collectiveio{false};
   ReceiverOutputFormat format{ReceiverOutputFormat::Csv};

@@ -19,9 +19,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
-#include <cstdint>
 #include <filesystem>
-#include <limits>
 #include <optional>
 #include <string>
 #include <unordered_set>
@@ -48,7 +46,7 @@ std::vector<std::vector<bool>> quantityMasks(const std::string& mask,
 
 ProjectionMethod readProjectionMethod(ParameterReader* reader,
                                       const std::string& field,
-                                      const std::string& defaultValue) {
+                                      ProjectionMethod defaultValue) {
   return reader->readWithDefaultStringEnum<ProjectionMethod>(
       field,
       defaultValue,
@@ -67,12 +65,16 @@ std::optional<TimeSeriesMode> readTimeSeriesMode(ParameterReader* reader,
   }
   return reader->readWithDefaultStringEnum<TimeSeriesMode>(
       field,
-      "snapshot",
+      TimeSeriesMode::Snapshot,
       {
           {"snapshot", TimeSeriesMode::Snapshot},
           {"incremental", TimeSeriesMode::Incremental},
           {"monolith", TimeSeriesMode::Monolith},
       });
+}
+// the mask of the twelve quantities of a fault output, from its text
+std::array<bool, 12> faultOutputMask(const std::string& text) {
+  return convertStringToArray<bool, 12>(text, false);
 }
 } // namespace
 
@@ -93,13 +95,14 @@ void warnIntervalAndDisable(bool& enabled,
 }
 
 std::optional<CheckpointParameters> readCheckpointParameters(ParameterReader* baseReader) {
+  const CheckpointParameters defaults{};
   auto* reader = baseReader->readSubNode("output");
 
   // a run writes checkpoints if it says how often, unless it switches them off
   auto enabled = reader->readWithDefault("checkpoint", reader->hasField("checkpointinterval"));
-  double interval = 0.0;
+  double interval = defaults.interval;
   if (enabled) {
-    interval = reader->readWithDefault("checkpointinterval", 0.0);
+    interval = reader->readWithDefault("checkpointinterval", defaults.interval);
     warnIntervalAndDisable(enabled, interval, "checkpoint", "checkpointinterval");
   } else {
     reader->markUnused({"checkpointinterval"});
@@ -116,20 +119,21 @@ std::optional<CheckpointParameters> readCheckpointParameters(ParameterReader* ba
 ElementwiseFaultParameters
     readElementwiseParameters(ParameterReader* baseReader,
                               std::optional<TimeSeriesMode> defaultTimeSeries) {
+  const ElementwiseFaultParameters defaults{};
   auto* reader = baseReader->readSubNode("elementwise");
 
-  const auto printTimeIntervalSec = reader->readWithDefault("printtimeinterval_sec", 1.0);
-  const auto outputMaskString =
-      reader->readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
-  const std::array<bool, 12> outputMask = convertStringToArray<bool, 12>(outputMaskString, false);
+  const auto printTimeIntervalSec =
+      reader->readWithDefault("printtimeinterval_sec", defaults.printTimeIntervalSec);
+  const auto outputMask =
+      reader->readWithDefaultConverted("outputmask", defaults.outputMask, faultOutputMask);
   const auto refinementStrategy = reader->readWithDefaultEnum<FaultRefinement>(
       "refinement_strategy",
-      FaultRefinement::None,
+      defaults.refinementStrategy,
       {FaultRefinement::Triple, FaultRefinement::Quad, FaultRefinement::None});
-  const int refinement = reader->readWithDefault("refinement", 2);
+  const int refinement = reader->readWithDefault("refinement", defaults.refinement);
   reader->warnDeprecated({"printintervalcriterion"});
 
-  const auto vtkorder = reader->readWithDefault("vtkorder", -1);
+  const auto vtkorder = reader->readWithDefault("vtkorder", defaults.vtkorder);
 
   const auto timeSeries = readTimeSeriesMode(reader, "timeseries", defaultTimeSeries);
 
@@ -142,22 +146,25 @@ ElementwiseFaultParameters
 }
 
 std::optional<EnergyOutputParameters> readEnergyParameters(ParameterReader* baseReader) {
+  const EnergyOutputParameters defaults{};
   auto* reader = baseReader->readSubNode("output");
 
   bool enabled = reader->readWithDefault("energyoutput", false);
-  const auto interval = reader->readWithDefault("energyoutputinterval", VeryLongTime);
+  const auto interval = reader->readWithDefault("energyoutputinterval", defaults.interval);
   warnIntervalAndDisable(enabled, interval, "energyoutput", "energyoutputinterval");
 
-  const auto computeVolumeEnergiesEveryOutput =
-      reader->readWithDefault("computevolumeenergieseveryoutput", 1);
-  const auto terminalOutput = reader->readWithDefault("energyterminaloutput", false);
-  const auto terminalPrecision = reader->readWithDefault("energyterminalprecision", 6);
+  const auto computeVolumeEnergiesEveryOutput = reader->readWithDefault(
+      "computevolumeenergieseveryoutput", defaults.computeVolumeEnergiesEveryOutput);
+  const auto terminalOutput =
+      reader->readWithDefault("energyterminaloutput", defaults.terminalOutput);
+  const auto terminalPrecision =
+      reader->readWithDefault("energyterminalprecision", defaults.terminalPrecision);
 
   auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
   const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
-      "terminatormaxtimepostrupture", std::numeric_limits<double>::infinity());
+      "terminatormaxtimepostrupture", defaults.terminatorMaxTimePostRupture);
   const auto terminatorMomentRateThreshold = abortCriteriaReader->readWithDefault(
-      "terminatormomentratethreshold", -std::numeric_limits<double>::infinity());
+      "terminatormomentratethreshold", defaults.terminatorMomentRateThreshold);
 
   if (!enabled) {
     return std::nullopt;
@@ -175,13 +182,14 @@ std::optional<FreeSurfaceOutputParameters>
     readFreeSurfaceParameters(ParameterReader* baseReader,
                               std::optional<TimeSeriesMode> defaultTimeSeries,
                               const std::vector<ConfigId>& configs) {
+  const FreeSurfaceOutputParameters defaults{};
   auto* reader = baseReader->readSubNode("output");
 
   auto enabled = reader->readWithDefault("surfaceoutput", false);
-  const auto interval = reader->readWithDefault("surfaceoutputinterval", VeryLongTime);
+  const auto interval = reader->readWithDefault("surfaceoutputinterval", defaults.interval);
   warnIntervalAndDisable(enabled, interval, "surfaceoutput", "surfaceoutputinterval");
 
-  const auto refinement = reader->readWithDefault("surfaceoutputrefinement", 0U);
+  const auto refinement = reader->readWithDefault("surfaceoutputrefinement", defaults.refinement);
 
   // Every level splits each output triangle into four, and the whole refined surface is held in
   // memory while the output is assembled. There is no level at which that stops working, so this
@@ -193,7 +201,7 @@ std::optional<FreeSurfaceOutputParameters>
                     "of four with every level.";
   }
 
-  const auto vtkorder = reader->readWithDefault("surfacevtkorder", -1);
+  const auto vtkorder = reader->readWithDefault("surfacevtkorder", defaults.vtkorder);
 
   // the velocities by default, wherever the material has them (e.g. acoustic or elastic)
   const auto surfaceOutputMaskString = reader->read<std::string>("surfaceoutputmask");
@@ -211,7 +219,7 @@ std::optional<FreeSurfaceOutputParameters>
 
   // The free-surface output has always been an average over each output subcell (cf. the former
   // FreeSurfaceIntegrator::computeSubTriangleAverages), i.e. an L2 projection.
-  const auto projection = readProjectionMethod(reader, "surfaceprojection", "l2");
+  const auto projection = readProjectionMethod(reader, "surfaceprojection", defaults.projection);
 
   const auto timeSeries = readTimeSeriesMode(reader, "surfacetimeseries", defaultTimeSeries);
 
@@ -227,38 +235,39 @@ std::optional<FreeSurfaceOutputParameters>
 }
 
 PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
+  const PickpointParameters defaults{};
   auto* reader = baseReader->readSubNode("pickpoint");
 
-  const auto printTimeInterval = reader->readWithDefault("printtimeinterval", 1);
+  const auto printTimeInterval =
+      reader->readWithDefault("printtimeinterval", defaults.printTimeInterval);
   if (printTimeInterval < 1) {
     logError() << "printtimeinterval of the on-fault receivers has to be at least 1, but is"
                << printTimeInterval;
   }
 
   // zero: every printtimeinterval time steps of the finest time cluster with fault faces
-  const auto samplingInterval = reader->readWithDefault("pickdt", 0.0);
+  const auto samplingInterval = reader->readWithDefault("pickdt", defaults.samplingInterval);
   if (samplingInterval < 0) {
     logError() << "pickdt of the on-fault receivers must not be negative, but is"
                << samplingInterval;
   }
 
-  const auto interval = reader->readWithDefault("outputinterval", VeryLongTime);
+  const auto interval = reader->readWithDefault("outputinterval", defaults.writeInterval);
 
-  const auto outputMaskString =
-      reader->readWithDefault<std::string>("outputmask", "1 1 1 1 1 1 0 0 0 0 0 0");
-  const std::array<bool, 12> outputMask = convertStringToArray<bool, 12>(outputMaskString, false);
+  const auto outputMask =
+      reader->readWithDefaultConverted("outputmask", defaults.outputMask, faultOutputMask);
 
   const auto pickpointFileName = reader->readPath("ppfilename");
 
-  const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
+  const auto collectiveio = reader->readWithDefault("receivercollectiveio", defaults.collectiveio);
   const auto format = reader->readWithDefaultStringEnum<ReceiverOutputFormat>(
       "format",
-      "csv",
+      defaults.format,
       {
           {"csv", ReceiverOutputFormat::Csv},
           {"hdf5", ReceiverOutputFormat::Hdf5},
       });
-  const auto samplechunk = reader->readWithDefault("samplechunk", static_cast<std::size_t>(0));
+  const auto samplechunk = reader->readWithDefault("samplechunk", defaults.samplechunk);
   if (reader->readWithDefault("aggregateperrank", false)) {
     logWarning() << "aggregateperrank is no longer supported: the text output writes a file per "
                     "on-fault receiver, and format = 'hdf5' writes all of them into a single file.";
@@ -281,31 +290,33 @@ PickpointParameters readPickpointParameters(ParameterReader* baseReader) {
 }
 
 std::optional<ReceiverOutputParameters> readReceiverParameters(ParameterReader* baseReader) {
+  const ReceiverOutputParameters defaults{};
   auto* reader = baseReader->readSubNode("output");
 
-  const auto interval = reader->readWithDefault("receiveroutputinterval", VeryLongTime);
+  const auto interval = reader->readWithDefault("receiveroutputinterval", defaults.writeInterval);
   // a run writes the off-fault receivers if it gives their points, unless it switches them off
   auto enabled = reader->readWithDefault("receiveroutput", reader->hasField("rfilename"));
   warnIntervalAndDisable(enabled, interval, "receiveroutput", "receiveroutputinterval");
 
   const auto format = reader->readWithDefaultStringEnum<ReceiverOutputFormat>(
       "receiverformat",
-      "csv",
+      defaults.format,
       {
           {"csv", ReceiverOutputFormat::Csv},
           {"hdf5", ReceiverOutputFormat::Hdf5},
       });
 
-  const auto computeRotation = reader->readWithDefault("receivercomputerotation", false);
-  const auto computeStrain = reader->readWithDefault("receivercomputestrainrate", false);
-  const auto samplingInterval = reader->readWithDefault("pickdt", 0.005);
+  const auto computeRotation =
+      reader->readWithDefault("receivercomputerotation", defaults.computeRotation);
+  const auto computeStrain =
+      reader->readWithDefault("receivercomputestrainrate", defaults.computeStrain);
+  const auto samplingInterval = reader->readWithDefault("pickdt", defaults.samplingInterval);
   const auto fileName = reader->readPath("rfilename");
 
   warnIntervalAndDisable(enabled, samplingInterval, "receiveroutput", "pickdt");
 
-  const auto collectiveio = reader->readWithDefault("receivercollectiveio", false);
-  const auto samplechunk =
-      reader->readWithDefault("receiversamplechunk", static_cast<std::size_t>(0));
+  const auto collectiveio = reader->readWithDefault("receivercollectiveio", defaults.collectiveio);
+  const auto samplechunk = reader->readWithDefault("receiversamplechunk", defaults.samplechunk);
 
   if (enabled && !fileName.has_value()) {
     logError() << "The off-fault receiver output is enabled, but no receiver point file was given.";
@@ -319,7 +330,7 @@ std::optional<ReceiverOutputParameters> readReceiverParameters(ParameterReader* 
                                   .computeStrain = computeStrain,
                                   .writeInterval = interval,
                                   .samplingInterval = samplingInterval,
-                                  .fileName = fileName.value_or(""),
+                                  .fileName = fileName.value_or(defaults.fileName),
                                   .collectiveio = collectiveio,
                                   .samplechunk = samplechunk};
 }
@@ -328,6 +339,7 @@ std::optional<WaveFieldOutputParameters>
     readWaveFieldParameters(ParameterReader* baseReader,
                             std::optional<TimeSeriesMode> defaultTimeSeries,
                             const std::vector<ConfigId>& configs) {
+  const WaveFieldOutputParameters defaults{};
   auto* reader = baseReader->readSubNode("output");
 
   bool enabled = false;
@@ -349,49 +361,54 @@ std::optional<WaveFieldOutputParameters>
     enabled = format == OutputFormat::Xdmf;
   }
 
-  const auto interval = reader->readWithDefault("timeinterval", VeryLongTime);
+  const auto interval = reader->readWithDefault("timeinterval", defaults.interval);
   warnIntervalAndDisable(enabled, interval, "wavefieldoutput", "timeinterval");
   const auto refinement =
       reader->readWithDefaultEnum<VolumeRefinement>("refinement",
-                                                    VolumeRefinement::NoRefine,
+                                                    defaults.refinement,
                                                     {VolumeRefinement::NoRefine,
                                                      VolumeRefinement::Refine4,
                                                      VolumeRefinement::Refine8,
                                                      VolumeRefinement::Refine32});
 
-  const auto boundsString =
-      reader->readWithDefault("outputregionbounds", std::string("0.0 0.0 0.0 0.0 0.0 0.0"));
-  const auto boundsRaw = convertStringToArray<double, 6>(boundsString);
-  const auto boundsEnabled = std::ranges::none_of(boundsRaw, [](double d) { return d == 0; });
-  const OutputInterval intervalX = {.lower = boundsRaw[0], .upper = boundsRaw[1]};
-  const OutputInterval intervalY = {.lower = boundsRaw[2], .upper = boundsRaw[3]};
-  const OutputInterval intervalZ = {.lower = boundsRaw[4], .upper = boundsRaw[5]};
-  const OutputBounds bounds(boundsEnabled, intervalX, intervalY, intervalZ);
+  // the region is on only if none of its bounds is zero
+  const auto bounds = reader->readWithDefaultConverted(
+      "outputregionbounds", defaults.bounds, [](const std::string& text) {
+        const auto boundsRaw = convertStringToArray<double, 6>(text);
+        const auto boundsEnabled = std::ranges::none_of(boundsRaw, [](double d) { return d == 0; });
+        const OutputInterval intervalX = {.lower = boundsRaw[0], .upper = boundsRaw[1]};
+        const OutputInterval intervalY = {.lower = boundsRaw[2], .upper = boundsRaw[3]};
+        const OutputInterval intervalZ = {.lower = boundsRaw[4], .upper = boundsRaw[5]};
+        return OutputBounds(boundsEnabled, intervalX, intervalY, intervalZ);
+      });
 
   const auto outputMaskString =
       reader->readOrFail<std::string>("ioutputmask", "No output mask given.");
   const auto outputMask = quantityMasks(outputMaskString, configs);
 
-  const auto plasticityMaskString =
-      reader->readWithDefault("iplasticitymask", std::string("0 0 0 0 0 0 1"));
-  const auto plasticityMask = convertStringToArray<bool, seissol::model::PlasticityQuantityCount>(
-      plasticityMaskString, false);
+  const auto plasticityMask = reader->readWithDefaultConverted(
+      "iplasticitymask", defaults.plasticityMask, [](const std::string& text) {
+        return convertStringToArray<bool, seissol::model::PlasticityQuantityCount>(text, false);
+      });
 
   const auto integrationMaskString =
       reader->readWithDefault("integrationmask", std::string("0 0 0 0 0 0 0 0 0"));
   const auto integrationMask = quantityMasks(integrationMaskString, configs);
 
-  const auto groupsRaw = reader->readWithDefault("outputgroups", std::vector<int>());
+  const auto groupsRaw = reader->readWithDefault(
+      "outputgroups", std::vector<int>(defaults.groups.begin(), defaults.groups.end()));
   const auto groups = std::unordered_set<int>(groupsRaw.begin(), groupsRaw.end());
 
-  const auto vtkorder = reader->readWithDefault("wavefieldvtkorder", -1);
+  const auto vtkorder = reader->readWithDefault("wavefieldvtkorder", defaults.vtkorder);
 
-  const auto computeRotation = reader->readWithDefault("wavefieldcomputerotation", false);
-  const auto computeStrain = reader->readWithDefault("wavefieldcomputestrain", false);
+  const auto computeRotation =
+      reader->readWithDefault("wavefieldcomputerotation", defaults.computeRotation);
+  const auto computeStrain =
+      reader->readWithDefault("wavefieldcomputestrain", defaults.computeStrain);
 
   // The wavefield output has always been a point evaluation at the output points (cf. the former
   // refinement::VariableSubsampler), unlike the free-surface output.
-  const auto projection = readProjectionMethod(reader, "wavefieldprojection", "pointwise");
+  const auto projection = readProjectionMethod(reader, "wavefieldprojection", defaults.projection);
 
   const auto timeSeries = readTimeSeriesMode(reader, "wavefieldtimeseries", defaultTimeSeries);
 
@@ -419,16 +436,17 @@ std::optional<WaveFieldOutputParameters>
 OutputParameters readOutputParameters(ParameterReader* baseReader,
                                       const std::vector<ConfigId>& configs,
                                       bool withFault) {
+  const OutputParameters defaults{};
   auto* reader = baseReader->readSubNode("output");
 
-  const auto hdfcompress = reader->readWithDefault("hdfcompress", 0);
+  const auto hdfcompress = reader->readWithDefault("hdfcompress", defaults.hdfcompress);
 
   // Each output has a field of its own that falls back to this one; where neither is given, the
   // writer chooses by the format of the output (see TimeSeriesMode).
   const auto defaultTimeSeries = readTimeSeriesMode(reader, "outputtimeseries", std::nullopt);
   const auto xdmfWriterBackend =
       reader->readWithDefaultStringEnum<XdmfBackend>("xdmfwriterbackend",
-                                                     "posix",
+                                                     defaults.xdmfWriterBackend,
                                                      {
                                                          {"posix", XdmfBackend::Posix},
 #ifdef USE_HDF
@@ -456,9 +474,10 @@ OutputParameters readOutputParameters(ParameterReader* baseReader,
     logError() << "The outputs have no name: give outname (and outdir), or outputfile.";
   }
 
-  const auto dirPerSim = reader->readWithDefault("outsimdir", false);
-  const auto epochInterval = reader->readWithDefault("epochinterval", 0.0);
-  const auto vertexWeightOutput = reader->readWithDefault("vertexweightoutput", false);
+  const auto dirPerSim = reader->readWithDefault("outsimdir", defaults.outputDirPerSim);
+  const auto epochInterval = reader->readWithDefault("epochinterval", defaults.epochInterval);
+  const auto vertexWeightOutput =
+      reader->readWithDefault("vertexweightoutput", defaults.vertexWeightOutput);
 
   const auto checkpoint = readCheckpointParameters(baseReader);
   if (checkpoint.has_value() && configs.size() > 1) {
@@ -510,7 +529,7 @@ OutputParameters readOutputParameters(ParameterReader* baseReader,
                           "loopstatisticsnetcdfoutput"});
 
   return OutputParameters{.xdmfWriterBackend = xdmfWriterBackend,
-                          .hdfcompress = static_cast<std::uint32_t>(hdfcompress),
+                          .hdfcompress = hdfcompress,
                           .outputPath = outputDir,
                           .outputName = outputName,
                           .outputDirPerSim = dirPerSim,
