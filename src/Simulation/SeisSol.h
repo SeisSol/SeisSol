@@ -139,7 +139,8 @@ class SeisSol : public RunContext {
   /**
    * Get the receiver writer module
    */
-  writer::ReceiverWriter& receiverWriter() { return receiverWriter_; }
+  /// A new writer of an output of receivers, which the run keeps until its end.
+  writer::ReceiverWriter& addReceiverWriter() { return receiverWriters_.emplace_back(*this); }
 
   /**
    * Get the receiver writer module
@@ -273,7 +274,7 @@ class SeisSol : public RunContext {
   writer::AnalysisWriter analysisWriter_;
 
   //! Receiver (off-fault) writer module
-  writer::ReceiverWriter receiverWriter_;
+  std::list<writer::ReceiverWriter> receiverWriters_;
 
   //! Receiver (on-fault) writer module
 
@@ -319,8 +320,7 @@ class SeisSol : public RunContext {
           const SystemInfo& systemInfo)
       : RunContext(env), seissolParameters_(std::move(parameters)),
         memoryManager_(std::make_unique<initializer::MemoryManager>(*this)), timeManager_(*this),
-        analysisWriter_(*this), receiverWriter_(*this), energyOutput_(*this),
-        systemInfo_(systemInfo) {}
+        analysisWriter_(*this), energyOutput_(*this), systemInfo_(systemInfo) {}
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;

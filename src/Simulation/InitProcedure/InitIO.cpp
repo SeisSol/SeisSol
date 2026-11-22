@@ -1027,25 +1027,25 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                 &entry.settings)) {
       setupSurfaceOutput(seissolInstance, *surface, entry.name);
     }
-  }
-
-  if (const auto* receivers =
-          seissolParams.output
-              .singleOutputOf<seissol::initializer::parameters::ReceiverOutputParameters>(
-                  "receiver")) {
-    auto& receiverWriter = seissolInstance.receiverWriter();
-    // Initialize receiver output
-    receiverWriter.init(
-        seissolInstance.outputPrefix(), seissolParams.timeStepping.endTime, *receivers);
-    receiverWriter.addPoints(
-        seissolInstance.meshReader(),
-        memoryManager.backmap(),
-        kernels::ReceiverCells{.storage = memoryManager.ltsStorage(),
-                               .globalData = memoryManager.globalDataStore(),
-                               .settings = memoryManager.simulationSettings(),
-                               .gravitationalAcceleration =
-                                   seissolInstance.gravitationSetup().acceleration});
-    seissolInstance.timeManager().setReceiverClusters(receiverWriter);
+    if (const auto* receivers =
+            std::get_if<seissol::initializer::parameters::ReceiverOutputParameters>(
+                &entry.settings)) {
+      // the receivers of the output, which the cell clusters sample
+      auto& receiverWriter = seissolInstance.addReceiverWriter();
+      receiverWriter.init(seissolInstance.outputPrefix(),
+                          entry.name,
+                          seissolParams.timeStepping.endTime,
+                          *receivers);
+      receiverWriter.addPoints(
+          seissolInstance.meshReader(),
+          memoryManager.backmap(),
+          kernels::ReceiverCells{.storage = memoryManager.ltsStorage(),
+                                 .globalData = memoryManager.globalDataStore(),
+                                 .settings = memoryManager.simulationSettings(),
+                                 .gravitationalAcceleration =
+                                     seissolInstance.gravitationSetup().acceleration});
+      seissolInstance.timeManager().addReceivers(receiverWriter);
+    }
   }
 
   if (const auto& energy = seissolParams.output.energy; energy.has_value()) {

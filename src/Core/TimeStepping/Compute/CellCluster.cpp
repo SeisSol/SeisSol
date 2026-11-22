@@ -112,9 +112,6 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
     assert(globalData_.onDevice != nullptr);
   }
 
-  // set timings to zero
-  receiverTime_ = 0;
-
   spacetimeKernel_.setGlobalData(globalData);
   timeKernel_.setGlobalData(globalData);
   localKernel_.setGlobalData(globalData);
@@ -170,19 +167,29 @@ void CellCluster<Cfg>::addStage(std::unique_ptr<ClusterStage> stage) {
 }
 
 template <typename Cfg>
-void CellCluster<Cfg>::writeReceivers(const StepParams& params,
-                                      const kernels::ReceiverCluster::Sampling& sampling) {
+void CellCluster<Cfg>::writeReceivers(
+    const StepParams& params, const std::vector<kernels::ReceiverCluster::Sampling>& samplings) {
   SCOREP_USER_REGION("writeReceivers", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-  if (receiverCluster_ != nullptr) {
+  for (std::size_t i = 0; i < receivers_.size(); ++i) {
+    auto* receivers = receivers_[i].cluster;
     if (runTimeOutputs_) {
-      receiverCluster_->sampleAtRunTime(
+      receivers->sampleAtRunTime(
           clock_.device(), params.time, params.timeStepSize, executor_, streamRuntime_);
     } else {
-      receiverCluster_->sample(
-          sampling, params.time, params.timeStepSize, executor_, streamRuntime_);
+      receivers->sample(samplings[i], params.time, params.timeStepSize, executor_, streamRuntime_);
     }
   }
+}
+
+template <typename Cfg>
+std::vector<kernels::ReceiverCluster::Sampling> CellCluster<Cfg>::plannedSamplings() const {
+  std::vector<kernels::ReceiverCluster::Sampling> samplings;
+  samplings.reserve(receivers_.size());
+  for (const auto& slot : receivers_) {
+    samplings.push_back(slot.sampling);
+  }
+  return samplings;
 }
 
 template <typename Cfg>
@@ -565,20 +572,27 @@ void CellCluster<Cfg>::handleNeighborCorrection(const NeighborCluster& /*...*/) 
 }
 template <typename Cfg>
 bool CellCluster<Cfg>::outputsAhead(long steps) const {
-  if (clusterData_->size() == 0 || receiverCluster_ == nullptr || runTimeOutputs_) {
+  if (clusterData_->size() == 0 || receivers_.empty() || runTimeOutputs_) {
     return false;
   }
-  // the times and receiver times the host parts of the next steps start with
+  // the times the host parts of the next steps start with, and the times of the next samples of
+  // the outputs
   double time = ct_.correctionTime;
-  double receiverTime = receiverTime_;
+  std::vector<double> nextTimes;
+  nextTimes.reserve(receivers_.size());
+  for (const auto& slot : receivers_) {
+    nextTimes.push_back(slot.nextTime);
+  }
   for (long step = 0; step < steps; ++step) {
     const double timeStepSize =
         ct_.timeStepSize(time, ct_.stepsSinceLastSync + step * ct_.timeStepRate, syncTime_);
-    const auto sampling = receiverCluster_->planSampling(receiverTime, time, timeStepSize);
-    if (sampling.due) {
-      return true;
+    for (std::size_t i = 0; i < receivers_.size(); ++i) {
+      const auto sampling = receivers_[i].cluster->planSampling(nextTimes[i], time, timeStepSize);
+      if (sampling.due) {
+        return true;
+      }
+      nextTimes[i] = sampling.nextTime;
     }
-    receiverTime = sampling.nextTime;
     time += timeStepSize;
   }
   return false;
@@ -595,11 +609,13 @@ StepWork CellCluster<Cfg>::prepare(ActorAction action) {
     assert(isDeviceOn() || *clock_.host() == params.time);
 
     if (clusterData_->size() > 0) {
-      if (receiverCluster_ != nullptr && !runTimeOutputs_) {
-        receiverSampling_ =
-            receiverCluster_->planSampling(receiverTime_, params.time, params.timeStepSize);
-        receiverTime_ = receiverSampling_.nextTime;
-        work.outputs = receiverSampling_.due;
+      if (!runTimeOutputs_) {
+        for (auto& slot : receivers_) {
+          slot.sampling =
+              slot.cluster->planSampling(slot.nextTime, params.time, params.timeStepSize);
+          slot.nextTime = slot.sampling.nextTime;
+          work.outputs = work.outputs || slot.sampling.due;
+        }
       }
       incrementPerformanceMetrics(ComputePart::Local);
     }
@@ -638,15 +654,15 @@ void CellCluster<Cfg>::predict() {
   }
 
   if (executor_ == Executor::Device) {
-    writeReceivers(params, receiverSampling_);
+    writeReceivers(params, plannedSamplings());
     computeLocalIntegrationDevice(params);
     runStages(StagePhase::AfterPrediction, params);
   } else {
     // the prediction changes what the neighbors read; the work takes the sampling of its step
     // along, as the decisions about the next steps may come before it runs
     hostRuntime_.action({/*readsNeighbors=*/false, /*writesShared=*/true},
-                        [this, params, sampling = receiverSampling_] {
-                          writeReceivers(params, sampling);
+                        [this, params, samplings = plannedSamplings()] {
+                          writeReceivers(params, samplings);
                           computeLocalIntegration(params);
                           runStages(StagePhase::AfterPrediction, params);
                         });
@@ -705,17 +721,20 @@ unsigned int CellCluster<Cfg>::getGlobalClusterId() const {
 template <typename Cfg>
 void CellCluster<Cfg>::setTime(double time) {
   AbstractTimeCluster::setTime(time);
-  this->receiverTime_ = time;
-  if (receiverCluster_ != nullptr) {
-    receiverCluster_->setNextSampleTime(time);
+  receiverStartTime_ = time;
+  for (auto& slot : receivers_) {
+    slot.nextTime = time;
+    slot.cluster->setNextSampleTime(time);
   }
 }
 
 template <typename Cfg>
 std::vector<parallel::runtime::StreamRuntime*> CellCluster<Cfg>::runtimes() {
   auto runtimes = ComputeCluster::runtimes();
-  if (receiverCluster_ != nullptr && receiverCluster_->sampleRuntime() != nullptr) {
-    runtimes.push_back(receiverCluster_->sampleRuntime());
+  for (const auto& slot : receivers_) {
+    if (slot.cluster->sampleRuntime() != nullptr) {
+      runtimes.push_back(slot.cluster->sampleRuntime());
+    }
   }
   return runtimes;
 }

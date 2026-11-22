@@ -363,6 +363,26 @@ TEST_CASE("readOutputParameters: outputs in blocks of their own" *
     CHECK(outputNames(params) == std::vector<std::string>{"receivers"});
   }
 
+  SUBCASE("several outputs of receivers") {
+    const YAML::Node node = YAML::Load(R"(
+      output:
+        outputfile: 'out'
+        ioutputmask: '1'
+        rfilename: 'receivers.dat'
+      outputreceivers2:
+        file: 'more.dat'
+        samplinginterval: 0.1
+    )");
+    ParameterReader reader(node, "", false);
+    const auto params = readOutputParameters(&reader, {defaultConfig()}, false);
+
+    CHECK(outputNames(params) == std::vector<std::string>{"receivers", "receivers2"});
+    const auto receivers = params.outputsOf<ReceiverOutputParameters>();
+    REQUIRE(receivers.size() == 2);
+    CHECK(receivers[1]->fileName == "more.dat");
+    CHECK(receivers[1]->samplingInterval == 0.1);
+  }
+
   SUBCASE("those of the fault only with a fault") {
     const YAML::Node node = YAML::Load(R"(
       output:

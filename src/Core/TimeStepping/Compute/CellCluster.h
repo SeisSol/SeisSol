@@ -62,7 +62,8 @@ class CellClusterInterface : public ComputeCluster {
   /// Adds work over items of its own, such as point sources, to the steps of the cluster.
   virtual void addStage(std::unique_ptr<ClusterStage> stage) = 0;
 
-  virtual void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) = 0;
+  /// Adds receivers the cluster samples; every output of receivers adds those of the cluster.
+  virtual void addReceiverCluster(kernels::ReceiverCluster* receiverCluster) = 0;
 };
 
 /**
@@ -128,7 +129,16 @@ class CellCluster : public CellClusterInterface {
   std::uint32_t traceNeighboringIntegration_{};
   unsigned regionComputeNeighboringIntegration_;
 
-  kernels::ReceiverCluster* receiverCluster_{nullptr};
+  //! the receivers of an output the cluster samples, the time of their next sample, and their
+  //! samples in the current step, as prepare() plans them
+  struct ReceiverSlot {
+    kernels::ReceiverCluster* cluster{nullptr};
+    double nextTime{0};
+    kernels::ReceiverCluster::Sampling sampling{};
+  };
+  std::vector<ReceiverSlot> receivers_;
+  //! the time the receivers start from (see setTime())
+  double receiverStartTime_{0};
 
   seissol::memory::MemkindArray<std::size_t> conditionalCounterHost_;
   seissol::memory::MemkindArray<std::size_t> conditionalCounterDevice_;
@@ -136,10 +146,14 @@ class CellCluster : public CellClusterInterface {
   std::size_t numPlasticCells_{0};
 
   /**
-   * Writes the receiver output if applicable (receivers present, receivers have to be written),
-   * with the sampling planned for the step.
+   * Samples the receivers of the cluster, with the samplings `samplings` planned for the step (one
+   * per output, in the order of the outputs).
    **/
-  void writeReceivers(const StepParams& params, const kernels::ReceiverCluster::Sampling& sampling);
+  void writeReceivers(const StepParams& params,
+                      const std::vector<kernels::ReceiverCluster::Sampling>& samplings);
+
+  /// the samplings of the receivers planned for the current step, in the order of the outputs
+  [[nodiscard]] std::vector<kernels::ReceiverCluster::Sampling> plannedSamplings() const;
 
   /**
    * Runs the stages of the phase `phase` for the step `params`.
@@ -187,12 +201,6 @@ class CellCluster : public CellClusterInterface {
 
   void computeFlops();
 
-  //! time of the next receiver output
-  double receiverTime_;
-
-  //! the receiver samples of the current step, as planned by prepare()
-  kernels::ReceiverCluster::Sampling receiverSampling_{};
-
   //! print status
   bool printProgress_;
   //! cluster id on this rank
@@ -236,11 +244,9 @@ class CellCluster : public CellClusterInterface {
 
   void addStage(std::unique_ptr<ClusterStage> stage) override;
 
-  void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) override {
-    this->receiverCluster_ = receiverCluster;
-    if (receiverCluster_ != nullptr) {
-      receiverCluster_->setNextSampleTime(receiverTime_);
-    }
+  void addReceiverCluster(kernels::ReceiverCluster* receiverCluster) override {
+    receiverCluster->setNextSampleTime(receiverStartTime_);
+    receivers_.push_back(ReceiverSlot{.cluster = receiverCluster, .nextTime = receiverStartTime_});
   }
 
   void finalize() override;

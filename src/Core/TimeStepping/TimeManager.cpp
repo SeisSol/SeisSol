@@ -1146,9 +1146,12 @@ void TimeManager::addStage(std::size_t layerId, std::unique_ptr<ClusterStage> st
   logError() << "There is no cell cluster of the layer" << layerId << "to add a stage to.";
 }
 
-void TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter) {
+void TimeManager::addReceivers(writer::ReceiverWriter& receiverWriter) {
   for (auto& cluster : cellClusters_) {
-    cluster->setReceiverCluster(receiverWriter.receiverCluster(cluster->layerId()));
+    if (auto* receivers = receiverWriter.receiverCluster(cluster->layerId());
+        receivers != nullptr) {
+      cluster->addReceiverCluster(receivers);
+    }
   }
 }
 

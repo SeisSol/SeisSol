@@ -264,7 +264,8 @@ class TimeManager {
   /**
    * Returns the writer for the receivers
    */
-  void setReceiverClusters(writer::ReceiverWriter& receiverWriter);
+  /// Lets the cell clusters sample the receivers of the output `receiverWriter` writes.
+  void addReceivers(writer::ReceiverWriter& receiverWriter);
 
   /**
    * Sets the initial time (time DOFS/DOFs/receivers) of all time clusters.

@@ -853,14 +853,13 @@ OutputParameters readOutputParameters(ParameterReader* baseReader,
     }
   }
 
-  // the time clusters sample the outputs at points into one place each, so far
+  // the clusters of the fault sample its outputs into one place each, so far
   const auto atMostOne = [&](std::size_t count, const char* kind) {
     if (count > 1) {
       logError() << "A run can have only one" << kind << "output for now, but this one has" << count
                  << ".";
     }
   };
-  atMostOne(countOf<ReceiverOutputParameters>(outputs), "receiver");
   atMostOne(countOf<ElementwiseFaultParameters>(outputs), "fault");
   atMostOne(countOf<PickpointParameters>(outputs), "on-fault receiver");
 

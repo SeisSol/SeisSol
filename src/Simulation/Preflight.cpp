@@ -63,6 +63,7 @@
 #include <system_error>
 #include <utility>
 #include <utils/logger.h>
+#include <variant>
 #include <vector>
 #include <yaml-cpp/yaml.h>
 
@@ -916,20 +917,32 @@ void checkMeshContent(const parameters::SeisSolParameters& parameters,
   meshscan::CellPoints sources;
   sources.tolerance = SourceTolerance;
   meshscan::FaultPoints faultReceivers;
-  // a run has at most one output of each of the kinds with points for now (see
-  // OutputParameters::singleOutputOf)
-  const auto receiverOutputs = output.outputsOf<parameters::ReceiverOutputParameters>();
-  const auto receiverFile =
-      receiverOutputs.empty() ? std::string() : receiverOutputs.front()->fileName;
-  const bool withReceivers =
-      !receiverOutputs.empty() && std::filesystem::is_regular_file(receiverFile, error);
-  if (withReceivers) {
+  // the points of every output of receivers, one after the other, located together
+  struct ReceiverFile {
+    std::string name;
+    std::string file;
+    std::size_t first{0};
+    std::size_t count{0};
+  };
+  std::vector<ReceiverFile> receiverFiles;
+  for (const auto& entry : output.outputs) {
+    const auto* settings = std::get_if<parameters::ReceiverOutputParameters>(&entry.settings);
+    if (settings == nullptr || !std::filesystem::is_regular_file(settings->fileName, error)) {
+      continue;
+    }
+    auto& receiverFile = receiverFiles.emplace_back(ReceiverFile{
+        .name = entry.name, .file = settings->fileName, .first = receivers.points.size()});
     try {
-      receivers.points = writer::parseReceiverFile(receiverFile);
+      const auto points = writer::parseReceiverFile(settings->fileName);
+      receivers.points.insert(receivers.points.end(), points.begin(), points.end());
+      receiverFile.count = points.size();
     } catch (const std::exception& exception) {
-      report.problem("The receiver file " + receiverFile + " does not parse: " + exception.what());
+      report.problem("The receiver file " + settings->fileName +
+                     " does not parse: " + exception.what());
     }
   }
+  // a run has at most one output of on-fault receivers for now (see
+  // OutputParameters::singleOutputOf)
   const auto pickpointOutputs = output.outputsOf<parameters::PickpointParameters>();
   const auto pickpointFile = pickpointOutputs.empty()
                                  ? std::string()
@@ -1003,8 +1016,15 @@ void checkMeshContent(const parameters::SeisSolParameters& parameters,
 
   checkScannedMesh(parameters, scan, mesh, report);
   auto& points = report["points"] = json::Value::object();
-  if (withReceivers) {
-    points["receivers"] = cellPointsSection("receiver", receiverFile, receivers, scan, report);
+  for (const auto& receiverFile : receiverFiles) {
+    meshscan::CellPoints ofFile;
+    ofFile.tolerance = receivers.tolerance;
+    const auto first = static_cast<std::ptrdiff_t>(receiverFile.first);
+    const auto last = static_cast<std::ptrdiff_t>(receiverFile.first + receiverFile.count);
+    ofFile.points.assign(receivers.points.begin() + first, receivers.points.begin() + last);
+    ofFile.found.assign(receivers.found.begin() + first, receivers.found.begin() + last);
+    points[receiverFile.name] =
+        cellPointsSection("receiver", receiverFile.file, ofFile, scan, report);
   }
   if (withFaultReceivers) {
     points["faultReceivers"] = faultPointsSection(pickpointFile, faultReceivers, scan, report);

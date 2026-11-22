@@ -103,8 +103,12 @@ std::vector<std::string> textColumns(const kernels::ReceiverCluster& cluster) {
 } // namespace
 
 std::string ReceiverWriter::fileName(std::size_t pointId) const {
+  // the text files of the receivers have always been named after a single receiver, also those of
+  // the output named "receivers"
+  const auto stem = name_ == "receivers" ? std::string("receiver") : name_;
   std::stringstream fns;
-  fns << std::setfill('0') << fileNamePrefix_ << "-receiver-" << std::setw(5) << (pointId + 1);
+  fns << std::setfill('0') << fileNamePrefix_ << "-" << stem << "-" << std::setw(5)
+      << (pointId + 1);
   fns << ".dat";
   return fns.str();
 }
@@ -146,9 +150,11 @@ void ReceiverWriter::writeHeader(std::size_t pointId,
 
 void ReceiverWriter::init(
     const std::string& fileNamePrefix,
+    const std::string& name,
     double endTime,
     const seissol::initializer::parameters::ReceiverOutputParameters& parameters) {
   fileNamePrefix_ = fileNamePrefix;
+  name_ = name;
   receiverFileName_ = parameters.fileName;
   samplingInterval_ = parameters.samplingInterval;
   endTime_ = endTime;
@@ -279,13 +285,13 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
     }
 
     table_ = std::make_unique<io::instance::point::Hdf5Table>(
-        "receivers", pointQuantities, seissol::Mpi::mpi.comm(), sampleChunk_);
+        name_, pointQuantities, seissol::Mpi::mpi.comm(), sampleChunk_);
     table_->addPointData("PointId", {}, pointIds);
     table_->addPointData("SimulationIndex", {}, simulations);
     table_->addPointData("Coordinates", {3}, coordinates);
 
     io::writer::ScheduledWriter scheduled;
-    scheduled.name = "receivers";
+    scheduled.name = name_;
     scheduled.interval = syncInterval();
     // the receivers take their samples into buffers of their own
     scheduled.hostData = {};

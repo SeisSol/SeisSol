@@ -113,8 +113,7 @@ are an error.
 
 The intervals have to be positive, and the receivers need their ``file``. The outputs of
 the fault need a fault: a run without one leaves them out, with a warning. For now, a run
-can have at most one output each of the receivers, the elementwise fault output and the
-on-fault receivers.
+can have at most one output each of the elementwise fault output and the on-fault receivers.
 
 .. _parameter-overrides:
 
