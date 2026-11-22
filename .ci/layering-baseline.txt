@@ -136,9 +136,6 @@ physics-includes-solver WavePropagation/Physics/Common.h WavePropagation/Solver/
 physics-includes-solver WavePropagation/Physics/poroelastic/Datastructures.cpp WavePropagation/Solver/Setup.h
 solver-includes-setup Features/InitialConditions/Output/AnalysisWriter.cpp Features/InitialConditions/Setup/InitialFieldProjection.h
 solver-includes-setup WavePropagation/Output/FreeSurfaceIntegrator.cpp WavePropagation/Setup/BoundaryHelper.h
-wavepropagation-includes-composition WavePropagation/Output/Receiver.cpp Simulation/MemoryManager.h
-wavepropagation-includes-composition WavePropagation/Output/Receiver.cpp Simulation/SeisSol.h
-wavepropagation-includes-composition WavePropagation/Output/ReceiverWriter.cpp Simulation/SeisSol.h
 wavepropagation-includes-feature WavePropagation/Solver/AnalyticalBoundary.h Features/InitialConditions/Physics/InitialField.h
 wavepropagation-includes-feature WavePropagation/Solver/LinearCK/Local.h Features/InitialConditions/Physics/InitialField.h
 wavepropagation-includes-feature WavePropagation/Solver/LinearCKAnelastic/Local.h Features/InitialConditions/Physics/InitialField.h

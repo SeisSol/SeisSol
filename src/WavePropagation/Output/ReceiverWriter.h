@@ -17,6 +17,7 @@
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Modules/Module.h"
 #include "Core/Monitoring/Stopwatch.h"
+#include "Core/Run/Context.h"
 #include "WavePropagation/Output/Receiver.h"
 #include "WavePropagation/Output/ReceiverParameters.h"
 
@@ -26,10 +27,6 @@
 #include <string>
 #include <string_view>
 #include <vector>
-
-namespace seissol {
-class SeisSol;
-} // namespace seissol
 
 namespace seissol::writer {
 
@@ -41,10 +38,10 @@ std::vector<Eigen::Vector3d> parseReceiverFile(const std::string& receiverFileNa
  */
 class ReceiverWriter : public seissol::Module {
   private:
-  seissol::SeisSol& seissolInstance_;
+  RunContext& run_;
 
   public:
-  explicit ReceiverWriter(seissol::SeisSol& seissolInstance);
+  explicit ReceiverWriter(RunContext& run);
   ~ReceiverWriter() override;
 
   /**
@@ -65,7 +62,9 @@ class ReceiverWriter : public seissol::Module {
    *        This setup is required for receiver recording; without it, no
    *        receiver traces are produced.
    */
-  void addPoints(const seissol::geometry::MeshReader& mesh, const LTS::Backmap& backmap);
+  void addPoints(const seissol::geometry::MeshReader& mesh,
+                 const LTS::Backmap& backmap,
+                 const kernels::ReceiverCells& cells);
 
   /**
    * \brief Returns the ReceiverCluster for a given cluster ID.

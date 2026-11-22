@@ -39,6 +39,7 @@
 #include "Simulation/Parameters/OutputParameters.h"
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Output/FreeSurfaceIntegrator.h"
+#include "WavePropagation/Output/Receiver.h"
 #include "WavePropagation/Output/ReceiverParameters.h"
 #include "WavePropagation/Physics/Datastructures.h"
 
@@ -1036,7 +1037,14 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
     // Initialize receiver output
     receiverWriter.init(
         seissolInstance.outputPrefix(), seissolParams.timeStepping.endTime, *receivers);
-    receiverWriter.addPoints(seissolInstance.meshReader(), memoryManager.backmap());
+    receiverWriter.addPoints(
+        seissolInstance.meshReader(),
+        memoryManager.backmap(),
+        kernels::ReceiverCells{.storage = memoryManager.ltsStorage(),
+                               .globalData = memoryManager.globalDataStore(),
+                               .settings = memoryManager.simulationSettings(),
+                               .gravitationalAcceleration =
+                                   seissolInstance.gravitationSetup().acceleration});
     seissolInstance.timeManager().setReceiverClusters(receiverWriter);
   }
 

@@ -29,13 +29,12 @@
 #include "Core/Parallel/Runtime/HostActor.h"
 #include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "Core/Run/Context.h"
 #include "Core/TimeStepping/Settings.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "Simulation/MemoryManager.h"
-#include "Simulation/SeisSol.h"
 #include "WavePropagation/Physics/Datastructures.h"
 #include "WavePropagation/Solver/Interface.h"
 #include "WavePropagation/Solver/Solver.h"
@@ -87,32 +86,27 @@ ReceiverCell<Cfg>::ReceiverCell(std::size_t meshId,
     : meshId(meshId), dataHost(std::move(dataHost)), dataDevice(std::move(dataDevice)) {}
 
 template <typename Cfg>
-ReceiverClusterImpl<Cfg>::ReceiverClusterImpl(seissol::SeisSol& seissolInstance)
-    : samplingInterval_(1.0e99), syncPointInterval_(0.0), seissolInstance_(seissolInstance) {}
-
-template <typename Cfg>
 ReceiverClusterImpl<Cfg>::ReceiverClusterImpl(
     const CompoundGlobalData<Cfg>& global,
     const std::vector<std::size_t>& quantities,
     double samplingInterval,
     double syncPointInterval,
     const std::vector<std::shared_ptr<DerivedReceiverQuantity>>& derivedQuantities,
-    seissol::SeisSol& seissolInstance)
+    RunContext& run,
+    const ReceiverCells& cells)
     : quantities_(quantities), estimatePerCell_(spacetimeKernel_.metrics()),
       estimatePerCellStep_(timeKernel_.metrics()),
       estimatePerPoint_(
           PerformanceEstimate::fromKernel<kernel::evaluateDOFSAtPoint<Cfg>>() +
           PerformanceEstimate::fromKernel<kernel::evaluateDerivativeDOFSAtPoint<Cfg>>()),
       samplingInterval_(samplingInterval), syncPointInterval_(syncPointInterval),
-      derivedQuantities_(derivedQuantities), seissolInstance_(seissolInstance) {
+      simulationCount_(cells.settings.simulationCount), copyCount_(cells.settings.copyCount()),
+      derivedQuantities_(derivedQuantities), run_(run), storage_(cells.storage),
+      gravitationalAcceleration_(cells.gravitationalAcceleration) {
   timeKernel_.setGlobalData(global);
   spacetimeKernel_.setGlobalData(global);
 
-  const auto& settings = seissolInstance_.memoryManager().simulationSettings();
-  simulationCount_ = settings.simulationCount;
-  copyCount_ = settings.copyCount();
-
-  perfHandle_ = seissolInstance_.flopCounter().addMetric("receiver", "WP");
+  perfHandle_ = run_.flopCounter().addMetric("receiver", "WP");
 }
 
 template <typename Cfg>
@@ -132,7 +126,7 @@ void ReceiverClusterImpl<Cfg>::addReceiver(std::size_t meshId,
   const size_t reserved = ncols() * (syncPointInterval_ / samplingInterval_ + 1);
 
   if (!meshToReceiverCell_.contains(meshId)) {
-    auto& ltsStorage = seissolInstance_.memoryManager().ltsStorage();
+    auto& ltsStorage = storage_;
 
     meshToReceiverCell_[meshId] = receiverCells_.size();
 
@@ -189,7 +183,7 @@ void ReceiverClusterImpl<Cfg>::sampleReceiver(std::size_t cell,
       real timeEvaluatedDerivativesAtPoint[tensor::QDerivativeAtPoint<Cfg>::size()]{};
   alignas(PagesizeStack) real timeDerivatives[SolverOf<Cfg>::DerivativesSize]{};
 
-  kernels::LocalTmp<Cfg> tmp(seissolInstance_.gravitationSetup().acceleration);
+  kernels::LocalTmp<Cfg> tmp(gravitationalAcceleration_);
 
   constexpr auto Variant = configIdOf<Cfg>();
   runtime::kernel::evaluateDOFSAtPoint krnl;
@@ -319,10 +313,10 @@ void ReceiverClusterImpl<Cfg>::countSamples(std::size_t samplingSteps) {
   // every copy of a cell is evaluated
   const auto cellCount = receiverCells_.size() * copyCount_;
   const auto recvCount = receivers_.size() * copyCount_;
-  seissolInstance_.flopCounter().incrementMetric(
-      perfHandle_,
-      estimatePerCell_ * cellCount + estimatePerCellStep_ * cellCount * samplingSteps +
-          estimatePerPoint_ * recvCount * samplingSteps);
+  run_.flopCounter().incrementMetric(perfHandle_,
+                                     estimatePerCell_ * cellCount +
+                                         estimatePerCellStep_ * cellCount * samplingSteps +
+                                         estimatePerPoint_ * recvCount * samplingSteps);
 }
 
 template <typename Cfg>
@@ -536,7 +530,7 @@ void ReceiverClusterImpl<Cfg>::allocateData() {
           dofsAne, kernels::size<tensor::Qane<Cfg>>(), hostAccessible);
     }
 
-    if (useHostActor(seissolInstance_.env()) && !receiverCells_.empty()) {
+    if (useHostActor(run_.env()) && !receiverCells_.empty()) {
       // the start of the step, then the DOFs, aligned for the kernels that read them
       const auto aligned = [](std::size_t bytes) {
         return (bytes + Alignment - 1) / Alignment * Alignment;

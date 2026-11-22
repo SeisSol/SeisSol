@@ -49,10 +49,10 @@ void MemoryManager::initialize() {
   forEachConfig([&](auto cfg) {
     using Cfg = decltype(cfg);
     GlobalDataInitializerOnHost::init<Cfg>(
-        globalDataOnHost_.get<Cfg>(), memoryAllocator_, memory::Memkind::Standard);
+        globalData_.onHost<Cfg>(), memoryAllocator_, memory::Memkind::Standard);
     if constexpr (seissol::isDeviceOn()) {
       GlobalDataInitializerOnDevice::init<Cfg>(
-          globalDataOnDevice_.get<Cfg>(), memoryAllocator_, memory::Memkind::DeviceGlobalMemory);
+          globalData_.onDevice<Cfg>(), memoryAllocator_, memory::Memkind::DeviceGlobalMemory);
     }
   });
 }

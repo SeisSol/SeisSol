@@ -21,7 +21,7 @@
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Modules/Modules.h"
 #include "Core/Parallel/MPI.h"
-#include "Simulation/SeisSol.h"
+#include "Core/Run/Context.h"
 #include "WavePropagation/Output/Receiver.h"
 #include "WavePropagation/Output/ReceiverParameters.h"
 #include "WavePropagation/Physics/Datastructures.h"
@@ -50,8 +50,7 @@
 
 namespace seissol::writer {
 
-ReceiverWriter::ReceiverWriter(seissol::SeisSol& seissolInstance)
-    : seissolInstance_(seissolInstance) {}
+ReceiverWriter::ReceiverWriter(RunContext& run) : run_(run) {}
 
 ReceiverWriter::~ReceiverWriter() = default;
 
@@ -140,7 +139,7 @@ void ReceiverWriter::writeHeader(std::size_t pointId,
            << '\n';
     }
     file << "# cell-global-id " << globalId << '\n';
-    file << "# run-id " << seissolInstance_.runId() << '\n';
+    file << "# run-id " << run_.runId() << '\n';
     file.close();
   }
 }
@@ -164,13 +163,14 @@ void ReceiverWriter::init(
   }
 
   setSyncInterval(std::min(endTime, parameters.writeInterval));
-  seissolInstance_.modules().registerHook(*this, ModuleHook::SimulationStart);
-  seissolInstance_.modules().registerHook(*this, ModuleHook::SynchronizationPoint);
-  seissolInstance_.modules().registerHook(*this, ModuleHook::Shutdown);
+  run_.modules().registerHook(*this, ModuleHook::SimulationStart);
+  run_.modules().registerHook(*this, ModuleHook::SynchronizationPoint);
+  run_.modules().registerHook(*this, ModuleHook::Shutdown);
 }
 
 void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
-                               const LTS::Backmap& backmap) {
+                               const LTS::Backmap& backmap,
+                               const kernels::ReceiverCells& cells) {
   std::vector<Eigen::Vector3d> points;
   // Only parse if we have a receiver file
   if (!receiverFileName_.empty()) {
@@ -211,20 +211,20 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
   receiverClusters_.clear();
 
   // the receivers of a layer are evaluated in the configuration of the layer
-  auto& memoryManager = seissolInstance_.memoryManager();
   const auto makeCluster = [&](std::size_t layerId) {
-    const auto config = memoryManager.ltsStorage().layer(layerId).getIdentifier().config;
+    const auto config = cells.storage.layer(layerId).getIdentifier().config;
     return dispatchConfig(config, [&](auto cfg) -> std::shared_ptr<kernels::ReceiverCluster> {
       using Cfg = decltype(cfg);
       // We want to plot all quantities except for the memory variables
       std::vector<std::size_t> quantities(seissol::model::MaterialOf<Cfg>::Quantities.size());
       std::iota(quantities.begin(), quantities.end(), 0);
-      return std::make_shared<kernels::ReceiverClusterImpl<Cfg>>(memoryManager.globalData<Cfg>(),
+      return std::make_shared<kernels::ReceiverClusterImpl<Cfg>>(cells.globalData.get<Cfg>(),
                                                                  quantities,
                                                                  samplingInterval_,
                                                                  syncInterval(),
                                                                  derivedQuantities_,
-                                                                 seissolInstance_);
+                                                                 run_,
+                                                                 cells);
     });
   };
 
@@ -297,7 +297,7 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
       logInfo() << "Collected receivers in" << stopwatch_.stop() << "seconds.";
     };
     scheduled.planWrite = table_->makeWriter();
-    seissolInstance_.outputManager().addOutput(scheduled);
+    run_.outputManager().addOutput(scheduled);
   }
 }
 

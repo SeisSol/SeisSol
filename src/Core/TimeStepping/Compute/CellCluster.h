@@ -42,6 +42,10 @@
 #include <Device/device.h>
 #endif
 
+namespace seissol {
+class SeisSol;
+} // namespace seissol
+
 namespace seissol::kernels {
 class ReceiverCluster;
 } // namespace seissol::kernels

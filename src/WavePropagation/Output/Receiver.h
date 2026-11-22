@@ -15,6 +15,7 @@
 #include "Core/Geometry/MeshDefinition.h"
 #include "Core/Geometry/MeshReader.h"
 #include "Core/Geometry/PointMapper.h"
+#include "Core/Kernels/GlobalDataStore.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Typedefs.h"
@@ -24,6 +25,8 @@
 #include "Core/Parallel/DataCollector.h"
 #include "Core/Parallel/Runtime/HostActor.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "Core/Run/Context.h"
+#include "Core/TimeStepping/Settings.h"
 #include "GeneratedCode/init.h"
 #include "WavePropagation/Solver/Interface.h"
 #include "WavePropagation/Solver/Solver.h"
@@ -37,10 +40,18 @@
 #include <unordered_map>
 #include <vector>
 
-namespace seissol {
-class SeisSol;
+namespace seissol::kernels {
 
-namespace kernels {
+/// The cells the receivers of a run lie in, and how they compute: their storage and the global
+/// data of their configurations, the simulations, and the gravitational acceleration at the free
+/// surface.
+struct ReceiverCells {
+  LTS::Storage& storage;
+  GlobalDataStore& globalData;
+  SimulationSettings settings;
+  double gravitationalAcceleration{};
+};
+
 /// What a receiver records, whatever the configuration of the cell it sits in.
 struct Receiver {
   Receiver(std::size_t pointId, Eigen::Vector3d position, size_t reserved);
@@ -210,15 +221,14 @@ class ReceiverClusterImpl : public ReceiverCluster {
   public:
   using real = Real<Cfg>;
 
-  explicit ReceiverClusterImpl(seissol::SeisSol& seissolInstance);
-
   ReceiverClusterImpl(
       const CompoundGlobalData<Cfg>& global,
       const std::vector<std::size_t>& quantities,
       double samplingInterval,
       double syncPointInterval,
       const std::vector<std::shared_ptr<DerivedReceiverQuantity>>& derivedQuantities,
-      seissol::SeisSol& seissolInstance);
+      RunContext& run,
+      const ReceiverCells& cells);
 
   void addReceiver(std::size_t meshId,
                    std::size_t pointId,
@@ -316,9 +326,10 @@ class ReceiverClusterImpl : public ReceiverCluster {
   std::size_t simulationCount_{Cfg::NumSimulations};
   std::size_t copyCount_{1};
   std::vector<std::shared_ptr<DerivedReceiverQuantity>> derivedQuantities_;
-  seissol::SeisSol& seissolInstance_;
+  RunContext& run_;
+  LTS::Storage& storage_;
+  double gravitationalAcceleration_;
 };
-} // namespace kernels
-} // namespace seissol
+} // namespace seissol::kernels
 
 #endif // SEISSOL_SRC_WAVEPROPAGATION_OUTPUT_RECEIVER_H_

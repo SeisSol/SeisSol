@@ -14,6 +14,7 @@
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/InputAux.h"
+#include "Core/Kernels/GlobalDataStore.h"
 #include "Core/Memory/Descriptor/Boundary.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
@@ -55,8 +56,7 @@ class MemoryManager {
    * Cross-cluster
    */
   //! global data of every configuration
-  PerConfig<GlobalData> globalDataOnHost_;
-  PerConfig<GlobalData> globalDataOnDevice_;
+  GlobalDataStore globalData_;
 
   //! Memory organization storage
   LTS::Storage ltsStorage_;
@@ -98,14 +98,11 @@ class MemoryManager {
    **/
   template <typename Cfg>
   CompoundGlobalData<Cfg> globalData() {
-    CompoundGlobalData<Cfg> global{};
-    global.onHost = &globalDataOnHost_.get<Cfg>();
-    global.onDevice = nullptr;
-    if constexpr (seissol::isDeviceOn()) {
-      global.onDevice = &globalDataOnDevice_.get<Cfg>();
-    }
-    return global;
+    return globalData_.get<Cfg>();
   }
+
+  /// The global data of all configurations.
+  GlobalDataStore& globalDataStore() { return globalData_; }
 
   void setClusterLayout(const ClusterLayout& extLayout) { layout_.emplace(extLayout); }
 
