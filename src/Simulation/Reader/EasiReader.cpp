@@ -28,6 +28,15 @@
 #include <utils/logger.h>
 #include <vector>
 
+#ifndef USE_ASAGI
+// Without ASAGI, the reader of ASAGI files the parser takes is never made; the empty class
+// completes its type, as the destructor of the pointer that holds it needs (see
+// InitialFieldProjection.cpp).
+namespace easi {
+class AsagiReader {};
+} // namespace easi
+#endif
+
 namespace seissol::data {
 
 namespace {
