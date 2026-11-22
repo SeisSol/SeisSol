@@ -105,7 +105,12 @@ LAYOUT = [
         for name in ("ClockAux", "GatherAux", "HostCopyAux")
     ],
     ("Solver/TimeStepping/", "Core/TimeStepping/"),
-    ("Solver/Settings.h", "Core/TimeStepping/Settings.h"),
+    ("Solver/Settings.h", "Core/Memory/SimulationSettings.h"),
+    (
+        "Core/Monitoring/ActorStateStatistics.",
+        "Core/TimeStepping/Actor/ActorStateStatistics.",
+    ),
+    ("Core/Monitoring/Unit.", "Core/Common/Unit."),
     ("Initializer/Clustering/", "Core/TimeStepping/Clustering/"),
     ("Initializer/TimeStepping/", "Core/TimeStepping/Layout/"),
     (

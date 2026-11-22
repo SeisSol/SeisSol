@@ -8,6 +8,7 @@
 add_library(seissol-timestepping OBJECT
     Actor/AbstractTimeCluster.cpp
     Actor/ActorState.cpp
+    Actor/ActorStateStatistics.cpp
     Actor/StepParams.cpp
     Clustering/ClusterHistogram.cpp
     Clustering/ClusterLadder.cpp

@@ -13,11 +13,11 @@
 
 #include "Core/Common/Executor.h"
 #include "Core/Memory/Descriptor/LTS.h"
-#include "Core/Monitoring/ActorStateStatistics.h"
 #include "Core/Monitoring/DeviceTimeline.h"
 #include "Core/Monitoring/LoopStatistics.h"
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
+#include "Core/TimeStepping/Actor/ActorStateStatistics.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
 #include "Core/TimeStepping/Compute/CellStage.h"
 #include "Core/TimeStepping/Compute/ClusterStage.h"

@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_SIMULATION_ENERGYOUTPUT_H_
 
 #include "Core/Common/MultipleSimulations.h"
+#include "Core/Common/Unit.h"
 #include "Core/Geometry/MeshReader.h"
 #include "Core/IO/Instance/Point/Csv.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
@@ -18,7 +19,6 @@
 #include "Core/Memory/Typedefs.h"
 #include "Core/Modules/Module.h"
 #include "Core/Modules/Modules.h"
-#include "Core/Monitoring/Unit.h"
 #include "Core/Parallel/Runtime/Stream.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "WavePropagation/Physics/Energy.h"

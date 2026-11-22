@@ -7,8 +7,8 @@
 
 #include "ActorStateStatistics.h"
 
+#include "Core/Monitoring/LoopStatistics.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
-#include "LoopStatistics.h"
 
 #include <optional>
 // clock_gettime is POSIX and only declared by the C header

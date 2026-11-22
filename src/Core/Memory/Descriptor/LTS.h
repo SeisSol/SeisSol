@@ -16,12 +16,12 @@
 #include "Core/IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/CellLocalInformation.h"
+#include "Core/Memory/SimulationSettings.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Tree/LTSTree.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Parallel/Helper.h"
-#include "Core/TimeStepping/Settings.h"
 #include "GeneratedCode/tensor.h"
 #include "WavePropagation/Physics/Datastructures.h"
 

@@ -7,7 +7,7 @@
 
 #include <doctest.h>
 
-#include "Core/TimeStepping/Settings.h"
+#include "Core/Memory/SimulationSettings.h"
 
 namespace seissol::unit_test {
 

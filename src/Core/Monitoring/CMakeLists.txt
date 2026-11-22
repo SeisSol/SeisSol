@@ -6,7 +6,6 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-monitoring OBJECT
-    ActorStateStatistics.cpp
     DeviceTimeline.cpp
     DeviceTimer.cpp
     EpochSynchronization.cpp
@@ -19,7 +18,6 @@ add_library(seissol-monitoring OBJECT
     Stopwatch.cpp
     ThreadsPinningWriter.cpp
     Trace.cpp
-    Unit.cpp
     Watchdog.cpp
 )
 

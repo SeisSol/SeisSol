@@ -10,7 +10,7 @@
 #define SEISSOL_SRC_FEATURES_SOURCETERM_SETUP_MANAGER_H_
 
 #include "Core/Geometry/MeshReader.h"
-#include "Core/TimeStepping/Settings.h"
+#include "Core/Memory/SimulationSettings.h"
 #include "Core/TimeStepping/TimeManager.h"
 #include "Features/SourceTerm/SourceParameters.h"
 

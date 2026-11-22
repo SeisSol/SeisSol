@@ -8,9 +8,9 @@
 
 #include "Simulation/SeisSol.h"
 
+#include "Core/Common/Unit.h"
 #include "Core/Geometry/MeshReader.h"
 #include "Core/Modules/Modules.h"
-#include "Core/Monitoring/Unit.h"
 #include "Core/Parallel/Helper.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/Parallel/OpenMP.h"

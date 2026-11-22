@@ -26,14 +26,10 @@ core-includes-later-core Core/Memory/Descriptor/DynamicRupture.h Core/IO/Instanc
 core-includes-later-core Core/Memory/Descriptor/DynamicRupture.h Core/Kernels/Common.h
 core-includes-later-core Core/Memory/Descriptor/LTS.h Core/IO/Instance/Checkpoint/CheckpointManager.h
 core-includes-later-core Core/Memory/Descriptor/LTS.h Core/Kernels/Common.h
-core-includes-later-core Core/Memory/Descriptor/LTS.h Core/TimeStepping/Settings.h
 core-includes-later-core Core/Memory/MemoryAllocator.cpp Core/Kernels/Common.h
-core-includes-later-core Core/Memory/Tree/LTSTree.h Core/Monitoring/Unit.h
 core-includes-later-core Core/Memory/Tree/Layer.h Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h
 core-includes-later-core Core/Memory/Typedefs.h Core/IO/Datatype/Datatype.h
 core-includes-later-core Core/Memory/Typedefs.h Core/IO/Datatype/Inference.h
-core-includes-later-core Core/Monitoring/ActorStateStatistics.cpp Core/TimeStepping/Actor/ActorState.h
-core-includes-later-core Core/Monitoring/ActorStateStatistics.h Core/TimeStepping/Actor/ActorState.h
 core-includes-later-core Core/Monitoring/EpochSynchronization.cpp Core/Modules/Modules.h
 core-includes-later-core Core/Monitoring/EpochSynchronization.h Core/Modules/Module.h
 core-includes-later-core Core/Monitoring/EpochSynchronization.h Core/Modules/Modules.h

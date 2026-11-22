@@ -11,13 +11,13 @@
 #include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/Executor.h"
 #include "Core/Memory/Tree/Layer.h"
-#include "Core/Monitoring/ActorStateStatistics.h"
 #include "Core/Monitoring/DeviceTimeline.h"
 #include "Core/Monitoring/DeviceTimer.h"
 #include "Core/Monitoring/LoopStatistics.h"
 #include "Core/Parallel/Runtime/Stream.h"
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
+#include "Core/TimeStepping/Actor/ActorStateStatistics.h"
 #include "Core/TimeStepping/Compute/ClusterClock.h"
 
 #include <cstddef>

@@ -4,8 +4,8 @@
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
-#ifndef SEISSOL_SRC_CORE_TIMESTEPPING_SETTINGS_H_
-#define SEISSOL_SRC_CORE_TIMESTEPPING_SETTINGS_H_
+#ifndef SEISSOL_SRC_CORE_MEMORY_SIMULATIONSETTINGS_H_
+#define SEISSOL_SRC_CORE_MEMORY_SIMULATIONSETTINGS_H_
 
 #include <cstddef>
 
@@ -36,4 +36,4 @@ struct SimulationSettings {
   }
 };
 } // namespace seissol
-#endif // SEISSOL_SRC_CORE_TIMESTEPPING_SETTINGS_H_
+#endif // SEISSOL_SRC_CORE_MEMORY_SIMULATIONSETTINGS_H_

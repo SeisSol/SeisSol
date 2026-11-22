@@ -5,11 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_CORE_MONITORING_ACTORSTATESTATISTICS_H_
-#define SEISSOL_SRC_CORE_MONITORING_ACTORSTATESTATISTICS_H_
+#ifndef SEISSOL_SRC_CORE_TIMESTEPPING_ACTOR_ACTORSTATESTATISTICS_H_
+#define SEISSOL_SRC_CORE_TIMESTEPPING_ACTOR_ACTORSTATESTATISTICS_H_
 
+#include "Core/Monitoring/LoopStatistics.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
-#include "LoopStatistics.h"
 
 #include <list>
 #include <optional>
@@ -54,4 +54,4 @@ class ActorStateStatisticsManager {
 };
 } // namespace seissol
 
-#endif // SEISSOL_SRC_CORE_MONITORING_ACTORSTATESTATISTICS_H_
+#endif // SEISSOL_SRC_CORE_TIMESTEPPING_ACTOR_ACTORSTATESTATISTICS_H_

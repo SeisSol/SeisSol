@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_CORE_MONITORING_UNIT_H_
-#define SEISSOL_SRC_CORE_MONITORING_UNIT_H_
+#ifndef SEISSOL_SRC_CORE_COMMON_UNIT_H_
+#define SEISSOL_SRC_CORE_COMMON_UNIT_H_
 
 #include <cmath>
 #include <cstdint>
@@ -48,4 +48,4 @@ const inline SIUnit UnitByte = SIUnit("B", true);
 const inline SIUnit UnitBytePerS = SIUnit("B/s", true);
 } // namespace seissol
 
-#endif // SEISSOL_SRC_CORE_MONITORING_UNIT_H_
+#endif // SEISSOL_SRC_CORE_COMMON_UNIT_H_

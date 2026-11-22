@@ -15,6 +15,7 @@ add_library(seissol-common OBJECT
     Logging.cpp
     RunConfigs.cpp
     RunId.cpp
+    Unit.cpp
 )
 
 # The numbering of the types (TypeId.h) must exist once in the process. The library of the GPU
