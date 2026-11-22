@@ -374,8 +374,10 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
     const auto* clusterLayout = &seissolInstance.timeManager().getClusterLayout();
 
     // fixed to one inversion (if you want more, add a loop here)
-    auto& increaseManager = timeMirrorManagers.emplace_back(seissolInstance);
-    auto& decreaseManager = timeMirrorManagers.emplace_back(seissolInstance);
+    auto& increaseManager = timeMirrorManagers.emplace_back(
+        seissolInstance, itmParameters, seissolParams.wavePropagation);
+    auto& decreaseManager = timeMirrorManagers.emplace_back(
+        seissolInstance, itmParameters, seissolParams.wavePropagation);
 
     initializeTimeMirrorManagers(scalingFactor,
                                  startingTime,
@@ -383,7 +385,7 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
                                  ltsStorage,
                                  increaseManager,
                                  decreaseManager,
-                                 seissolInstance,
+                                 itmParameters,
                                  clusterLayout);
   }
 }

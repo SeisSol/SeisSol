@@ -60,7 +60,7 @@ bool fulfills(const ConfigValue& config, MaterialRequirement requirement) {
 }
 
 TravellingWaveParameters travellingWaveParameters(const Input& input) {
-  const auto& initialization = input.parameters.initialization;
+  const auto& initialization = input.initialization;
 
   TravellingWaveParameters parameters{};
   parameters.origin = initialization.origin;
@@ -86,13 +86,13 @@ std::pair<std::size_t, std::size_t> simulationRange(const Input& input) {
   if (input.simulation.has_value()) {
     return {input.simulation.value(), input.simulation.value() + 1};
   }
-  return {0, input.parameters.runConfigs.simulationCount};
+  return {0, input.simulationCount};
 }
 
 template <typename FieldT, typename... Args>
 FieldList perSimulation(const Input& input, const Args&... args) {
   FieldList fields;
-  const auto numSimulations = input.parameters.runConfigs.simulationCount;
+  const auto numSimulations = input.simulationCount;
   const auto [first, last] = simulationRange(input);
   for (std::size_t sim = first; sim < last; ++sim) {
     fields.emplace_back(std::make_unique<FieldT>(args..., simulationPhase(sim, numSimulations)));
@@ -103,12 +103,12 @@ FieldList perSimulation(const Input& input, const Args&... args) {
 // The planar wave travels along kVec where the parameter file sets it, and keeps its default wave
 // vector otherwise.
 FieldList planarWaves(const Input& input) {
-  const Eigen::Vector3d& kVec = input.parameters.initialization.kVec;
+  const Eigen::Vector3d& kVec = input.initialization.kVec;
   if (kVec.isZero(0.0)) {
     return perSimulation<Planarwave>(input, input.materialData, input.config);
   }
   FieldList fields;
-  const auto numSimulations = input.parameters.runConfigs.simulationCount;
+  const auto numSimulations = input.simulationCount;
   const auto [first, last] = simulationRange(input);
   for (std::size_t sim = first; sim < last; ++sim) {
     fields.emplace_back(std::make_unique<Planarwave>(
@@ -179,8 +179,7 @@ constexpr std::array<Entry, 12> Registry = {{
          [](const Input& input) {
            return single<AcousticTravellingWaveITM>(
                input.materialData,
-               acousticTravellingWaveParameters(input.parameters.initialization,
-                                                input.parameters.timeMirror),
+               acousticTravellingWaveParameters(input.initialization, input.timeMirror),
                input.config);
          }},
     {.type = InitializationType::Scholte,
@@ -232,10 +231,7 @@ constexpr std::array<Entry, 12> Registry = {{
      .requirement = MaterialRequirement::Poroelastic,
      .materialRequirement = "it is formulated for a poroelastic material",
      .timeDependent = true,
-     .build =
-         [](const Input& input) {
-           return single<PressureInjection>(input.parameters.initialization);
-         }},
+     .build = [](const Input& input) { return single<PressureInjection>(input.initialization); }},
     // Read from a file, and hence known at t = 0 only.
     {.type = InitializationType::Easi,
      .name = "easi file",

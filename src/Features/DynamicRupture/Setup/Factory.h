@@ -18,9 +18,7 @@
 #include <tuple>
 #include <utility>
 
-namespace seissol {
-class SeisSol;
-namespace dr::factory {
+namespace seissol::dr::factory {
 /**
  * This struct stores all ingredients, needed for Dynamic Rupture:
  * storage: holds all the data, like parameters (e.g. friction coefficients) or results (e.g.
@@ -33,21 +31,22 @@ struct DynamicRuptureTuple {
   std::unique_ptr<seissol::dr::initializer::BaseDRInitializer> initializer;
   seissol::dr::friction_law::FrictionSolverFactory frictionLaw;
   seissol::dr::friction_law::FrictionSolverFactory frictionLawDevice;
-  std::unique_ptr<seissol::dr::output::OutputManager> output;
+  // what the output of the fault writes for the friction law (see output::OutputManager)
+  std::unique_ptr<seissol::dr::output::ReceiverOutput> output;
 };
 
 class AbstractFactory {
   protected:
   std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters_;
-  seissol::SeisSol& seissolInstance_;
+  initializer::FaultMesh faultMesh_;
   data::ModelLoader models_;
 
   public:
   /// `models` opens the fault parameter files.
   AbstractFactory(std::shared_ptr<seissol::initializer::parameters::DRParameters> drParameters,
-                  seissol::SeisSol& seissolInstance,
+                  const initializer::FaultMesh& faultMesh,
                   data::ModelLoader models)
-      : drParameters_(std::move(drParameters)), seissolInstance_(seissolInstance),
+      : drParameters_(std::move(drParameters)), faultMesh_(faultMesh),
         models_(std::move(models)) {};
   virtual ~AbstractFactory() = default;
   virtual DynamicRuptureTuple produce() = 0;
@@ -55,10 +54,9 @@ class AbstractFactory {
 
 std::unique_ptr<seissol::dr::factory::AbstractFactory>
     getFactory(const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-               seissol::SeisSol& seissolInstance,
+               const initializer::FaultMesh& faultMesh,
                const data::ModelLoader& models);
 
-} // namespace dr::factory
-} // namespace seissol
+} // namespace seissol::dr::factory
 
 #endif // SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SETUP_FACTORY_H_

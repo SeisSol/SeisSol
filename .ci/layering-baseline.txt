@@ -102,17 +102,8 @@ feature-includes-composition Features/DynamicRupture/Output/OutputManager.cpp Si
 feature-includes-composition Features/DynamicRupture/Output/OutputManager.cpp Simulation/SeisSol.h
 feature-includes-composition Features/DynamicRupture/Output/OutputManager.h Simulation/Parameters/SeisSolParameters.h
 feature-includes-composition Features/DynamicRupture/Output/ReceiverBasedOutput.h Simulation/Parameters/SeisSolParameters.h
-feature-includes-composition Features/DynamicRupture/Setup/Initializer/BaseDRInitializer.cpp Simulation/MemoryManager.h
-feature-includes-composition Features/DynamicRupture/Setup/Initializer/BaseDRInitializer.cpp Simulation/SeisSol.h
-feature-includes-composition Features/DynamicRupture/Setup/Initializer/BaseDRInitializer.h Simulation/Parameters/SeisSolParameters.h
-feature-includes-composition Features/DynamicRupture/Setup/Initializer/ImposedSlipRatesInitializer.cpp Simulation/SeisSol.h
-feature-includes-composition Features/DynamicRupture/Solver/DynamicRuptureCluster.cpp Simulation/SeisSol.h
-feature-includes-composition Features/InitialConditions/Output/AnalysisWriter.cpp Simulation/SeisSol.h
-feature-includes-composition Features/InitialConditions/Physics/Scenario/Registry.h Simulation/Parameters/SeisSolParameters.h
-feature-includes-composition Features/InitialConditions/Physics/Scenario/Scenarios.h Simulation/Parameters/SeisSolParameters.h
 feature-includes-composition Features/InitialConditions/Setup/InitialFieldProjection.cpp Simulation/Reader/AsagiReader.h
 feature-includes-composition Features/InitialConditions/Setup/InitialFieldProjection.h Simulation/MemoryManager.h
-feature-includes-composition Features/TimeMirror/Solver/InstantaneousTimeMirrorManager.cpp Simulation/SeisSol.h
 feature-includes-feature Features/InitialConditions/Physics/Scenario/Registry.cpp Features/TimeMirror/ITMParameters.h
 feature-includes-feature Features/InitialConditions/Physics/Scenario/Registry.h Features/TimeMirror/ITMParameters.h
 physics-includes-runtime Features/InitialConditions/Physics/InitialField.h Core/Memory/Typedefs.h

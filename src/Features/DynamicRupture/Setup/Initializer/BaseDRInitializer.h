@@ -11,17 +11,25 @@
 #include "Core/Common/InputAux.h"
 #include "Core/Common/Real.h"
 #include "Core/Data/DataReader.h"
+#include "Core/Geometry/MeshReader.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Setup/FaultParameterDB.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
-#include "Simulation/Parameters/SeisSolParameters.h"
 #include "WavePropagation/Physics/MaterialType.h"
 
 #include <utility>
 #include <yaml-cpp/yaml.h>
 
-namespace seissol {
-class SeisSol;
-namespace dr::initializer {
+namespace seissol::dr::initializer {
+
+/// What the initializers of the rupture use of the run: its mesh, and where its fault faces lie in
+/// the storage.
+struct FaultMesh {
+  const seissol::geometry::MeshReader& mesh;
+  const DynamicRupture::Backmap& backmap;
+};
+
 /**
  * Base class for dynamic rupture initializers
  * This class reads space dependent parameters from an easi file through a FaultParameterDB and
@@ -30,7 +38,7 @@ namespace dr::initializer {
  */
 class BaseDRInitializer {
   protected:
-  seissol::SeisSol& seissolInstance_;
+  FaultMesh faultMesh_;
   /**
    * reference to the dynamic rupture parameters, which describe the global behaviour
    */
@@ -59,9 +67,9 @@ class BaseDRInitializer {
    */
   BaseDRInitializer(
       const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-      seissol::SeisSol& seissolInstance,
+      const FaultMesh& faultMesh,
       data::ModelLoader models)
-      : seissolInstance_(seissolInstance), drParameters_(drParameters), models_(std::move(models)),
+      : faultMesh_(faultMesh), drParameters_(drParameters), models_(std::move(models)),
         faultParameterNames_(
             seissol::initializer::faultProvides(models_, drParameters->faultFileName)) {};
 
@@ -172,7 +180,6 @@ class BaseDRInitializer {
   static std::string riseTimeIdentifier(int readNucleation);
 };
 
-} // namespace dr::initializer
-} // namespace seissol
+} // namespace seissol::dr::initializer
 
 #endif // SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SETUP_INITIALIZER_BASEDRINITIALIZER_H_

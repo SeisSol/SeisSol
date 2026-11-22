@@ -307,9 +307,9 @@ void ThermalPressurizationInitializer::addAdditionalParameters(
 
 RateAndStateThermalPressurizationInitializer::RateAndStateThermalPressurizationInitializer(
     const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-    SeisSol& instance,
+    const FaultMesh& faultMesh,
     data::ModelLoader models)
-    : RateAndStateInitializer(drParameters, instance, std::move(models)),
+    : RateAndStateInitializer(drParameters, faultMesh, std::move(models)),
       ThermalPressurizationInitializer(drParameters,
                                        RateAndStateInitializer::faultParameterNames_) {}
 
@@ -328,9 +328,9 @@ void RateAndStateThermalPressurizationInitializer::addAdditionalParameters(
 RateAndStateFastVelocityThermalPressurizationInitializer::
     RateAndStateFastVelocityThermalPressurizationInitializer(
         const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-        SeisSol& instance,
+        const FaultMesh& faultMesh,
         data::ModelLoader models)
-    : RateAndStateFastVelocityInitializer(drParameters, instance, std::move(models)),
+    : RateAndStateFastVelocityInitializer(drParameters, faultMesh, std::move(models)),
       ThermalPressurizationInitializer(drParameters,
                                        RateAndStateFastVelocityInitializer::faultParameterNames_) {}
 
@@ -349,9 +349,9 @@ void RateAndStateFastVelocityThermalPressurizationInitializer::addAdditionalPara
 RateAndStateSevereVelocityThermalPressurizationInitializer::
     RateAndStateSevereVelocityThermalPressurizationInitializer(
         const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-        SeisSol& instance,
+        const FaultMesh& faultMesh,
         data::ModelLoader models)
-    : RateAndStateSevereVelocityInitializer(drParameters, instance, std::move(models)),
+    : RateAndStateSevereVelocityInitializer(drParameters, faultMesh, std::move(models)),
       ThermalPressurizationInitializer(
           drParameters, RateAndStateSevereVelocityInitializer::faultParameterNames_) {}
 

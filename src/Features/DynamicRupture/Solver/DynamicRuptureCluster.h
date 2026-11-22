@@ -17,6 +17,7 @@
 #include "Core/Monitoring/LoopStatistics.h"
 #include "Core/Monitoring/Metric.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "Core/Run/Context.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
 #include "Core/TimeStepping/Compute/ClusterClock.h"
@@ -36,9 +37,7 @@
 #include <Device/device.h>
 #endif
 
-namespace seissol {
-class SeisSol;
-} // namespace seissol
+namespace seissol {} // namespace seissol
 
 namespace seissol::solver {
 
@@ -71,7 +70,7 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
                         const dr::friction_law::FrictionSolverFactory& frictionSolverFactory,
                         const dr::friction_law::FrictionSolverFactory& frictionSolverFactoryDevice,
                         dr::output::OutputManager* faultOutputManager,
-                        seissol::SeisSol& seissolInstance,
+                        RunContext& run,
                         LoopStatistics* loopStatistics,
                         DeviceTimeline* deviceTimeline,
                         ActorStateStatistics* actorStateStatistics);
@@ -141,7 +140,7 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
   std::vector<double> pickpointTimes_;
   PerformanceEstimate computeFlops();
 
-  seissol::SeisSol& seissolInstance_;
+  RunContext& run_;
   seissol::parallel::runtime::StreamRuntime streamRuntime_;
 
   //! the start of the current step, for the work on the stream

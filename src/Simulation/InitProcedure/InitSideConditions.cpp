@@ -54,7 +54,9 @@ std::vector<std::unique_ptr<physics::InitialField>>
 
   return physics::scenario::build(
       type,
-      physics::scenario::Input{.parameters = parameters,
+      physics::scenario::Input{.initialization = parameters.initialization,
+                               .timeMirror = parameters.timeMirror,
+                               .simulationCount = parameters.runConfigs.simulationCount,
                                .materialData = materialData,
                                .gravitation = seissolInstance.gravitationSetup(),
                                .config = config,

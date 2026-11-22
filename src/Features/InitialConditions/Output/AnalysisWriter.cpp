@@ -33,7 +33,6 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "Simulation/SeisSol.h"
 
 #include <algorithm>
 #include <array>
@@ -50,7 +49,7 @@
 namespace seissol::writer {
 
 void AnalysisWriter::printAnalysis(double simulationTime) {
-  const auto initialConditionType = seissolInstance_.parameters().initialization.type;
+  const auto initialConditionType = initialization_.type;
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Zero ||
       initialConditionType == seissol::initializer::parameters::InitializationType::Travelling ||
       initialConditionType ==
@@ -62,7 +61,7 @@ void AnalysisWriter::printAnalysis(double simulationTime) {
             << " at time " << simulationTime;
 
   // every configuration of the run is compared on its own cells, in its quantities
-  const auto configs = seissolInstance_.memoryManager().ltsStorage().configs();
+  const auto configs = storage_->configs();
   for (const auto config : configs) {
     dispatchConfig(config, [&](auto cfg) {
       using Cfg = decltype(cfg);
@@ -84,17 +83,17 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
                                      const std::string& fileName) {
   using real = Real<Cfg>;
   const auto& mpi = seissol::Mpi::mpi;
-  const auto initialConditionType = seissolInstance_.parameters().initialization.type;
+  const auto initialConditionType = initialization_.type;
 
   // the cells of the configuration
   std::vector<const LTS::Layer*> layers;
-  for (const auto& layer : seissolInstance_.memoryManager().ltsStorage().leaves(Ghost)) {
+  for (const auto& layer : storage_->leaves(Ghost)) {
     if (layer.getIdentifier().config == configIdOf<Cfg>()) {
       layers.push_back(&layer);
     }
   }
 
-  const auto& iniFields = seissolInstance_.memoryManager().initialConditions(configIdOf<Cfg>());
+  const auto& iniFields = initialConditions_->at(configIdOf<Cfg>());
 
   constexpr auto Variant = configIdOf<Cfg>();
 
@@ -110,16 +109,12 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
   constexpr auto NumQuadPoints = QuadPolyDegree * QuadPolyDegree * QuadPolyDegree;
 
   // the easi solution of every simulation, from each of their files once
-  const initializer::parameters::SimulationFiles easiFields(
-      seissolInstance_.parameters().initialization.filenames);
+  const initializer::parameters::SimulationFiles easiFields(initialization_.filenames);
   std::vector<double> data;
 
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Easi) {
-    data =
-        initializer::projectEasiFields<Cfg>(easiFields.files,
-                                            simulationTime,
-                                            *meshReader_,
-                                            seissolInstance_.parameters().initialization.hasTime);
+    data = initializer::projectEasiFields<Cfg>(
+        easiFields.files, simulationTime, *meshReader_, initialization_.hasTime);
   }
 
   const auto rule = seissol::quadrature::simplexRule<3>(QuadPolyDegree);
@@ -134,10 +129,10 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
   table.addTextColumn("norm", 8);
   table.addColumn<double>("error");
   table.addTextColumn("runId", RunIdLength);
-  const auto addObservation = [&table, &runId = seissolInstance_.runId()](std::size_t variable,
-                                                                          std::size_t sim,
-                                                                          const std::string& norm,
-                                                                          double error) {
+  const auto addObservation = [&table, &runId = run_.runId()](std::size_t variable,
+                                                              std::size_t sim,
+                                                              const std::string& norm,
+                                                              double error) {
     table.addCell<std::int32_t>(static_cast<std::int32_t>(variable));
     table.addCell<std::uint64_t>(sim);
     table.addText(norm);
@@ -145,8 +140,7 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
     table.addText(runId);
   };
 
-  const auto simulationCount =
-      seissolInstance_.memoryManager().simulationSettings().simulationCount;
+  const auto simulationCount = simulationCount_;
   for (std::size_t sim = 0; sim < simulationCount; ++sim) {
     logInfo() << "Analysis for simulation" << sim << configLabel.c_str() << ": absolute, relative";
     logInfo() << "--------------------------";

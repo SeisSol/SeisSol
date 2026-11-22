@@ -1065,7 +1065,11 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                                               seissolParams.output.epochInterval);
 
   seissolInstance.analysisWriter().init(&seissolInstance.meshReader(),
-                                        seissolInstance.outputPrefix());
+                                        seissolInstance.outputPrefix(),
+                                        seissolParams.initialization,
+                                        memoryManager.initialConditions(),
+                                        memoryManager.ltsStorage(),
+                                        memoryManager.simulationSettings().simulationCount);
 }
 
 void initFaultOutputManager(seissol::SeisSol& seissolInstance) {

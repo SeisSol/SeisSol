@@ -26,6 +26,7 @@
 #include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/DynamicRupture/Output/OutputManager.h"
 #include "Features/DynamicRupture/Setup/Factory.h"
+#include "Features/DynamicRupture/Setup/Initializer/BaseDRInitializer.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "Simulation/Reader/ReaderBuilder.h"
 #include "Simulation/SeisSol.h"
@@ -67,13 +68,16 @@ void MemoryManager::initializeFrictionLaw() {
   logInfo() << "Thermal pressurization:" << (drParameters->isThermalPressureOn ? "on" : "off");
 
   const auto factory = seissol::dr::factory::getFactory(
-      drParameters, seissolInstance_, seissol::data::modelLoader());
+      drParameters,
+      dr::initializer::FaultMesh{.mesh = seissolInstance_.meshReader(), .backmap = drBackmap_},
+      seissol::data::modelLoader());
   auto product = factory->produce();
   dynRup_ = std::move(product.storage);
   drInitializer_ = std::move(product.initializer);
   frictionLaw_ = std::move(product.frictionLaw);
   frictionLawDevice_ = std::move(product.frictionLawDevice);
-  faultOutputManager_ = std::move(product.output);
+  faultOutputManager_ =
+      std::make_unique<dr::output::OutputManager>(std::move(product.output), seissolInstance_);
   // the outputs of the fault; the parameters give them only for a run with one
   const auto& output = seissolInstance_.parameters().output;
   faultOutputManager_->setOutputs(

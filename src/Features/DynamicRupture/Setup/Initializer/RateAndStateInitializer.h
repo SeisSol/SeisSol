@@ -196,7 +196,7 @@ class RateAndStateThermalPressurizationInitializer : public RateAndStateInitiali
   public:
   RateAndStateThermalPressurizationInitializer(
       const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-      SeisSol& instance,
+      const FaultMesh& faultMesh,
       data::ModelLoader models);
 
   /**
@@ -222,7 +222,7 @@ class RateAndStateFastVelocityThermalPressurizationInitializer
   public:
   RateAndStateFastVelocityThermalPressurizationInitializer(
       const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-      SeisSol& instance,
+      const FaultMesh& faultMesh,
       data::ModelLoader models);
 
   /**
@@ -248,7 +248,7 @@ class RateAndStateSevereVelocityThermalPressurizationInitializer
   public:
   RateAndStateSevereVelocityThermalPressurizationInitializer(
       const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-      SeisSol& instance,
+      const FaultMesh& faultMesh,
       data::ModelLoader models);
 
   /**

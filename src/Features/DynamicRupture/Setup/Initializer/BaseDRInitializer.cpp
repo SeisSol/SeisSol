@@ -19,8 +19,6 @@
 #include "Features/DynamicRupture/Setup/FaultParameterDB.h"
 #include "GeneratedCode/general/init.h"
 #include "GeneratedCode/general/kernel.h"
-#include "Simulation/MemoryManager.h"
-#include "Simulation/SeisSol.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h"
 
@@ -294,29 +292,20 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
 
       // rotate initial stress to fault coordinate system
       if (initialStressParameterizedByTraction) {
-        rotateTractionToCartesianStress(layer, initialStress, seissolInstance_.meshReader());
+        rotateTractionToCartesianStress(layer, initialStress, faultMesh_.mesh);
       }
 
       // the initial state is the last stress source of the face, the one without a rise time
       auto* stressInFaultCS = layer.var<DynamicRupture::StressSourceInFaultCS>(Cfg());
-      rotateStressToFaultCS(layer,
-                            stressInFaultCS,
-                            initialSource,
-                            sourceCount,
-                            initialStress,
-                            seissolInstance_.meshReader());
+      rotateStressToFaultCS(
+          layer, stressInFaultCS, initialSource, sourceCount, initialStress, faultMesh_.mesh);
       // rotate nucleation stress to fault coordinate system
       for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
         if (nucleationStressParameterizedByTraction[i]) {
-          rotateTractionToCartesianStress(
-              layer, nucleationStresses[i], seissolInstance_.meshReader());
+          rotateTractionToCartesianStress(layer, nucleationStresses[i], faultMesh_.mesh);
         }
-        rotateStressToFaultCS(layer,
-                              stressInFaultCS,
-                              i,
-                              sourceCount,
-                              nucleationStresses[i],
-                              seissolInstance_.meshReader());
+        rotateStressToFaultCS(
+            layer, stressInFaultCS, i, sourceCount, nucleationStresses[i], faultMesh_.mesh);
       }
 
       std::vector<bool> riseTimeNegative(drParameters_->nucleationCount);
@@ -404,7 +393,7 @@ void BaseDRInitializer::queryParameters(
     const std::unordered_map<std::string, void*>& parameterToStorageMap) {
   using real = Real<Cfg>;
   const auto* drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
-  const auto copyCount = seissolInstance_.memoryManager().drBackmap().copyCount();
+  const auto copyCount = faultMesh_.backmap.copyCount();
 
   for (std::size_t copy = 0; copy < copyCount; ++copy) {
     // the faces of the copy, by their mesh ids and by their positions in the layer
@@ -446,8 +435,7 @@ void BaseDRInitializer::queryModel(
     simid = 0;
   }
   {
-    const seissol::initializer::FaultGPGenerator<Cfg> queryGen(seissolInstance_.meshReader(),
-                                                               faceIDs);
+    const seissol::initializer::FaultGPGenerator<Cfg> queryGen(faultMesh_.mesh, faceIDs);
     const auto model = models_(drParameters_->faultFileNames[simid].value(), {"x", "y", "z"});
     faultParameterDB.evaluate(*model, queryGen);
   }

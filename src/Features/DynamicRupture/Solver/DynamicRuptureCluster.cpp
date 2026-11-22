@@ -26,6 +26,7 @@
 #include "Core/Numerical/Quadrature.h"
 #include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "Core/Run/Context.h"
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
@@ -33,7 +34,6 @@
 #include "Features/DynamicRupture/Output/PickpointSampling.h"
 #include "Features/DynamicRupture/Solver/DynamicRupture.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
-#include "Simulation/SeisSol.h"
 #include "WavePropagation/Solver/Solver.h"
 
 #include <algorithm>
@@ -83,12 +83,11 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
     const dr::friction_law::FrictionSolverFactory& frictionSolverFactory,
     const dr::friction_law::FrictionSolverFactory& frictionSolverFactoryDevice,
     dr::output::OutputManager* faultOutputManager,
-    seissol::SeisSol& seissolInstance,
+    RunContext& run,
     LoopStatistics* loopStatistics,
     DeviceTimeline* deviceTimeline,
     ActorStateStatistics* actorStateStatistics)
-    : DynamicRuptureClusterInterface(maxTimeStepSize, timeStepRate, executor),
-      seissolInstance_(seissolInstance),
+    : DynamicRuptureClusterInterface(maxTimeStepSize, timeStepRate, executor), run_(run),
       streamRuntime_(
           4,
           parallel::runtime::hsaQueuePriorityOf(layerData->getIdentifier(), /*faces=*/true),
@@ -127,7 +126,7 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
   // (named once the trace records, after the cluster is complete)
   deviceLoops_.setTrace([this] { return description(); });
 
-  perfHandle_ = seissolInstance.flopCounter().addMetric(
+  perfHandle_ = run_.flopCounter().addMetric(
       getLayerType() == HaloType::Copy ? "dr-frictionlaw-copy" : "dr-frictionlaw-interior", "DR");
 }
 
@@ -420,7 +419,7 @@ StepWork DynamicRuptureCluster<Cfg>::prepare(ActorAction action) {
         planPickpointOutput(params);
         work.outputs = !pickpointTimes_.empty();
       }
-      seissolInstance_.flopCounter().incrementMetric(perfHandle_, estimate_);
+      run_.flopCounter().incrementMetric(perfHandle_, estimate_);
     }
   }
   return work;

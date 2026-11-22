@@ -13,7 +13,6 @@
 #include "Features/InitialConditions/InitializationParameters.h"
 #include "Features/InitialConditions/Physics/InitialField.h"
 #include "Features/TimeMirror/ITMParameters.h"
-#include "Simulation/Parameters/SeisSolParameters.h"
 
 #include <cstddef>
 #include <memory>
@@ -28,7 +27,11 @@ namespace seissol::physics::scenario {
  * requirements does not change the signature of every entry in the registry.
  */
 struct Input {
-  const initializer::parameters::SeisSolParameters& parameters;
+  const initializer::parameters::InitializationParameters& initialization;
+  // the settings of the time mirror, which the scenario with ITM passes through
+  const initializer::parameters::ITMParameters& timeMirror;
+  // the number of simulations of the run
+  std::size_t simulationCount{1};
   const CellMaterialData& materialData;
   GravitationSetup gravitation;
   // the configuration the scenario is set up for: its material and its fused simulations

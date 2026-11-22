@@ -14,7 +14,6 @@
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Features/DynamicRupture/Misc.h"
-#include "Simulation/SeisSol.h"
 
 #include <algorithm>
 #include <array>
@@ -98,7 +97,7 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
     const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
     const auto meshFace = drFaceInformation[ltsFace].meshFace;
-    const Fault& fault = seissolInstance_.meshReader().getFault().at(meshFace);
+    const Fault& fault = faultMesh_.mesh.getFault().at(meshFace);
 
     CoordinateT strikeVector{};
     CoordinateT dipVector{};

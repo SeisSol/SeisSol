@@ -10,9 +10,9 @@
 
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Memory/Typedefs.h"
+#include "Features/InitialConditions/InitializationParameters.h"
 #include "Features/InitialConditions/Physics/InitialField.h"
 #include "GeneratedCode/init.h"
-#include "Simulation/Parameters/SeisSolParameters.h"
 
 #include <Eigen/Dense>
 #include <array>

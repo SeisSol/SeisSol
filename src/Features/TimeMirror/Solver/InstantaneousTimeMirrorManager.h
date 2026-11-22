@@ -13,17 +13,17 @@
 #include "Core/Memory/Tree/LTSTree.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Modules/Module.h"
+#include "Core/Run/Context.h"
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Compute/CellCluster.h"
 #include "Core/TimeStepping/Halo/GhostCluster.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Features/TimeMirror/ITMParameters.h"
+#include "WavePropagation/WavePropagationParameters.h"
 
 #include <vector>
 
-namespace seissol {
-class SeisSol;
-namespace physics {
+namespace seissol::physics {
 
 bool isAnisotropicReflectionTypeSupported(
     seissol::initializer::parameters::ReflectionType reflectionType);
@@ -34,7 +34,9 @@ double
 
 class InstantaneousTimeMirrorManager : public Module {
 
-  seissol::SeisSol& seissolInstance_;
+  RunContext& run_;
+  initializer::parameters::ITMParameters itm_;
+  initializer::parameters::WavePropagationParameters wavePropagation_;
   bool isEnabled_{false};
   double velocityScalingFactor_{1.0};
   double triggerTime_{};
@@ -46,7 +48,10 @@ class InstantaneousTimeMirrorManager : public Module {
   std::vector<seissol::solver::AbstractTimeCluster*> clusters_;
 
   public:
-  explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance);
+  InstantaneousTimeMirrorManager(
+      RunContext& run,
+      initializer::parameters::ITMParameters itm,
+      initializer::parameters::WavePropagationParameters wavePropagation);
   ~InstantaneousTimeMirrorManager() override;
 
   // delete all other constructors due to it being a module.
@@ -78,9 +83,8 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   LTS::Storage& ltsStorage,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,
-                                  const seissol::SeisSol& seissolInstance,
+                                  const initializer::parameters::ITMParameters& itm,
                                   const initializer::ClusterLayout* clusterLayout);
-} // namespace physics
-} // namespace seissol
+} // namespace seissol::physics
 
 #endif // SEISSOL_SRC_FEATURES_TIMEMIRROR_SOLVER_INSTANTANEOUSTIMEMIRRORMANAGER_H_
