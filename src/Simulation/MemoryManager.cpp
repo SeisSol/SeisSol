@@ -78,8 +78,14 @@ void MemoryManager::initializeFrictionLaw() {
   drInitializer_ = std::move(product.initializer);
   frictionLaw_ = std::move(product.frictionLaw);
   frictionLawDevice_ = std::move(product.frictionLawDevice);
-  faultOutputManager_ =
-      std::make_unique<dr::output::OutputManager>(std::move(product.output), seissolInstance_);
+  const auto& outputParameters = seissolInstance_.parameters().output;
+  faultOutputManager_ = std::make_unique<dr::output::OutputManager>(
+      std::move(product.output),
+      seissolInstance_,
+      seissolInstance_.parameters().drParameters,
+      dr::output::FaultWriterSettings{.backend = outputParameters.xdmfWriterBackend,
+                                      .compress = outputParameters.hdfcompress},
+      seissolInstance_.dofSync());
   // the outputs of the fault: its whole surface, which a run has at most once, and its receivers
   const auto& output = seissolInstance_.parameters().output;
   std::vector<std::pair<std::string, parameters::PickpointParameters>> pickpoints;

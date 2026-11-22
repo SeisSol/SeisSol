@@ -65,11 +65,6 @@ core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Physics/Dat
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/Data.h
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/SolverSelector.h
 core-includes-wavepropagation Core/TimeStepping/Clustering/Clustering.cpp WavePropagation/Physics/Datastructures.h
-feature-includes-composition Features/DynamicRupture/Output/OutputManager.cpp Simulation/MemoryManager.h
-feature-includes-composition Features/DynamicRupture/Output/OutputManager.cpp Simulation/Parameters/SeisSolParameters.h
-feature-includes-composition Features/DynamicRupture/Output/OutputManager.cpp Simulation/SeisSol.h
-feature-includes-composition Features/DynamicRupture/Output/OutputManager.h Simulation/Parameters/SeisSolParameters.h
-feature-includes-composition Features/DynamicRupture/Output/ReceiverBasedOutput.h Simulation/Parameters/SeisSolParameters.h
 feature-includes-composition Features/InitialConditions/Setup/InitialFieldProjection.cpp Simulation/Reader/AsagiReader.h
 feature-includes-composition Features/InitialConditions/Setup/InitialFieldProjection.h Simulation/MemoryManager.h
 feature-includes-feature Features/InitialConditions/Physics/Scenario/Registry.cpp Features/TimeMirror/ITMParameters.h

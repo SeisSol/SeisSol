@@ -31,6 +31,7 @@
 #include "Core/Numerical/Projection.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/Parallel/ParallelFS.h"
+#include "Features/DynamicRupture/Output/PickpointOutput.h"
 #include "Features/Plasticity/Physics/Plasticity.h"
 #include "Features/Plasticity/Solver/Storage.h"
 #include "GeneratedCode/init.h"
@@ -1090,7 +1091,14 @@ void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
     auto& backmap = seissolInstance.memoryManager().backmap();
     auto& drStorage = seissolInstance.memoryManager().drStorage();
 
-    faultOutputManager->setInputParam(seissolInstance.meshReader());
+    const auto& simulationSettings = seissolInstance.memoryManager().simulationSettings();
+    faultOutputManager->setInputParam(
+        seissolInstance.meshReader(),
+        seissol::dr::output::FaultOutputSetup{
+            .simulationCount = simulationSettings.simulationCount,
+            .fusedCount = simulationSettings.fusedCount,
+            .minimumTimestep = seissolInstance.memoryManager().clusterLayout().minimumTimestep,
+            .endTime = seissolParams.timeStepping.endTime});
     faultOutputManager->setLtsData(ltsStorage, backmap, drStorage);
     faultOutputManager->setBackupTimeStamp(backupTimeStamp);
     faultOutputManager->init();

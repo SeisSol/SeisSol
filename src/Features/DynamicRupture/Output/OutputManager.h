@@ -8,17 +8,21 @@
 #ifndef SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_OUTPUT_OUTPUTMANAGER_H_
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_OUTPUT_OUTPUTMANAGER_H_
 
+#include "Core/IO/WriterParameters.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "Core/Run/Context.h"
+#include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Output/Builders/ElementWiseBuilder.h"
 #include "Features/DynamicRupture/Output/DataTypes.h"
 #include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/DynamicRupture/Output/PickpointOutput.h"
 #include "Features/DynamicRupture/Output/ReceiverBasedOutput.h"
-#include "Simulation/Parameters/SeisSolParameters.h"
+#include "WavePropagation/Output/DofSync.h"
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -26,10 +30,13 @@
 #include <utility>
 #include <vector>
 
-namespace seissol {
-class SeisSol;
+namespace seissol::dr::output {
 
-namespace dr::output {
+/// How the outputs of the whole fault get written.
+struct FaultWriterSettings {
+  initializer::parameters::XdmfBackend backend{initializer::parameters::XdmfBackend::Posix};
+  std::uint32_t compress{0};
+};
 
 class OutputManager {
   public:
@@ -40,7 +47,14 @@ class OutputManager {
   OutputManager(OutputManager&&) = delete;
 
   OutputManager() = delete;
-  OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl, seissol::SeisSol& seissolInstance);
+  /// The outputs of the fault in the run `run`, which the friction law evaluates with `impl`, under
+  /// the parameters `drParameters`; the elementwise output gets written as `writer` says, from the
+  /// DOFs `dofSync` brings up to date.
+  OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
+                RunContext& run,
+                const seissol::initializer::parameters::DRParameters& drParameters,
+                FaultWriterSettings writer,
+                writer::DofSync& dofSync);
   /// The settings of the outputs of the fault: of its whole surface (elementwise), none if the
   /// run does not write it, and of each output of receivers on it (pickpoints), by its name.
   void
@@ -48,7 +62,8 @@ class OutputManager {
                  const std::vector<
                      std::pair<std::string, seissol::initializer::parameters::PickpointParameters>>&
                      pickpoints);
-  void setInputParam(seissol::geometry::MeshReader& userMesher);
+  /// Reads the receivers of the outputs in `userMesher`, for the run `setup`.
+  void setInputParam(seissol::geometry::MeshReader& userMesher, const FaultOutputSetup& setup);
   void setLtsData(LTS::Storage& userWpStorage,
                   LTS::Backmap& userWpBackmap,
                   DynamicRupture::Storage& userDrStorage);
@@ -72,7 +87,11 @@ class OutputManager {
   void evaluateElementwiseOutput(double time);
 
   private:
-  seissol::SeisSol& seissolInstance_;
+  RunContext& run_;
+  const seissol::initializer::parameters::DRParameters& drParameters_;
+  FaultWriterSettings writer_;
+  writer::DofSync& dofSync_;
+  FaultOutputSetup setup_;
 
   protected:
   void initElementwiseOutput();
@@ -99,7 +118,6 @@ class OutputManager {
 
   parallel::runtime::StreamRuntime runtime_;
 };
-} // namespace dr::output
-} // namespace seissol
+} // namespace seissol::dr::output
 
 #endif // SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_OUTPUT_OUTPUTMANAGER_H_

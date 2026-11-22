@@ -9,6 +9,7 @@
 
 #include "Core/Common/Constants.h"
 #include "Core/Common/Filesystem.h"
+#include "Core/Geometry/MeshReader.h"
 #include "Core/IO/Instance/Geometry/Geometry.h"
 #include "Core/IO/Instance/Geometry/Typedefs.h"
 #include "Core/IO/Writer/Writer.h"
@@ -23,6 +24,7 @@
 #include "Core/Parallel/MPI.h"
 #include "Core/Parallel/Runtime/HostActor.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "Core/Run/Context.h"
 #include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Output/Builders/ElementWiseBuilder.h"
@@ -32,9 +34,7 @@
 #include "Features/DynamicRupture/Output/OutputAux.h"
 #include "Features/DynamicRupture/Output/PickpointOutput.h"
 #include "Features/DynamicRupture/Output/ReceiverBasedOutput.h"
-#include "Simulation/MemoryManager.h"
-#include "Simulation/Parameters/SeisSolParameters.h"
-#include "Simulation/SeisSol.h"
+#include "WavePropagation/Output/DofSync.h"
 
 #include <algorithm>
 #include <cassert>
@@ -54,9 +54,12 @@
 namespace seissol::dr::output {
 
 OutputManager::OutputManager(std::unique_ptr<ReceiverOutput> concreteImpl,
-                             seissol::SeisSol& seissolInstance)
-    : seissolInstance_(seissolInstance), ewOutputData_(std::make_shared<ReceiverOutputData>()),
-      impl_(std::move(concreteImpl)) {
+                             RunContext& run,
+                             const seissol::initializer::parameters::DRParameters& drParameters,
+                             FaultWriterSettings writer,
+                             writer::DofSync& dofSync)
+    : run_(run), drParameters_(drParameters), writer_(writer), dofSync_(dofSync),
+      ewOutputData_(std::make_shared<ReceiverOutputData>()), impl_(std::move(concreteImpl)) {
   backupTimeStamp_ = utils::TimeUtils::timeAsString(BackupTimeStampFormat, time(nullptr));
 }
 
@@ -73,8 +76,8 @@ void OutputManager::setOutputs(
   }
   pickpointOutputs_.clear();
   for (const auto& [name, parameters] : pickpoints) {
-    pickpointOutputs_.push_back(std::make_unique<PickpointOutput>(
-        name, parameters, *impl_, seissolInstance_, seissolInstance_.parameters().drParameters));
+    pickpointOutputs_.push_back(
+        std::make_unique<PickpointOutput>(name, parameters, *impl_, run_, drParameters_));
   }
 }
 
@@ -87,21 +90,15 @@ std::vector<PickpointOutput*> OutputManager::pickpointOutputs() {
   return outputs;
 }
 
-void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
+void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher,
+                                  const FaultOutputSetup& setup) {
   using namespace initializer;
   meshReader_ = &userMesher;
 
   impl_->setMeshReader(&userMesher);
 
-  const auto& seissolParameters = seissolInstance_.parameters();
-  impl_->setDrParameters(&seissolParameters.drParameters);
-  const auto& simulationSettings = seissolInstance_.memoryManager().simulationSettings();
-
-  const FaultOutputSetup setup{.simulationCount = simulationSettings.simulationCount,
-                               .fusedCount = simulationSettings.fusedCount,
-                               .minimumTimestep =
-                                   seissolInstance_.memoryManager().clusterLayout().minimumTimestep,
-                               .endTime = seissolParameters.timeStepping.endTime};
+  impl_->setDrParameters(&drParameters_);
+  setup_ = setup;
   for (auto& output : pickpointOutputs_) {
     output->setInputParam(userMesher, setup);
   }
@@ -110,8 +107,7 @@ void OutputManager::setInputParam(seissol::geometry::MeshReader& userMesher) {
     ewOutputBuilder_ = std::make_unique<ElementWiseBuilder>();
     ewOutputBuilder_->setMeshReader(&userMesher);
     ewOutputBuilder_->setParams(elementwise_.value());
-    ewOutputBuilder_->setSimulationCount(simulationSettings.simulationCount,
-                                         simulationSettings.fusedCount);
+    ewOutputBuilder_->setSimulationCount(setup.simulationCount, setup.fusedCount);
   }
   if (!elementwise_.has_value() && pickpointOutputs_.empty()) {
     logInfo() << "No dynamic rupture output enabled";
@@ -158,9 +154,8 @@ std::optional<io::instance::geometry::WriterGroup>
 void OutputManager::initElementwiseOutput() {
   logInfo() << "Setting up the fault output.";
   ewOutputBuilder_->build(ewOutputData_);
-  const auto& seissolParameters = seissolInstance_.parameters();
   // the receivers of the simulations of the run follow each other
-  const auto numSimulations = seissolInstance_.memoryManager().simulationSettings().simulationCount;
+  const auto numSimulations = setup_.simulationCount;
 
   const auto& receivers = ewOutputData_->receivers;
   // the receivers in the order of the output: cell by cell, then point by point, and simulation by
@@ -185,13 +180,12 @@ void OutputManager::initElementwiseOutput() {
   const auto config = io::instance::geometry::WriterConfig{
       .order = order,
       .format = format,
-      .backend = seissolParameters.output.xdmfWriterBackend ==
-                         seissol::initializer::parameters::XdmfBackend::Posix
+      .backend = writer_.backend == seissol::initializer::parameters::XdmfBackend::Posix
                      ? io::instance::geometry::WriterBackend::Binary
                      : io::instance::geometry::WriterBackend::Hdf5,
       .time = io::instance::geometry::supportedWriterGroup(
           writerGroupOf(elementwise.timeSeries), format, "elementwise fault"),
-      .compress = seissolParameters.output.hdfcompress};
+      .compress = writer_.compress};
 
   auto writer = io::instance::geometry::GeometryWriter(
       "fault",
@@ -266,7 +260,7 @@ void OutputManager::initElementwiseOutput() {
 
   auto& self = *this;
   writer.addHook([&](std::size_t, double time) {
-    self.seissolInstance_.dofSync().syncDofs(time);
+    self.dofSync_.syncDofs(time);
     self.evaluateElementwiseOutput(time);
   });
 
@@ -281,7 +275,7 @@ void OutputManager::initElementwiseOutput() {
   schedWriter.hostData = {};
   schedWriter.hostData.add<LTS::Dofs>(*wpStorage_).addVariables(*drStorage_);
 
-  seissolInstance_.outputManager().addOutput(schedWriter);
+  run_.outputManager().addOutput(schedWriter);
 }
 
 void OutputManager::init() {
@@ -331,11 +325,10 @@ void OutputManager::gatherElementwiseOutput() {
 
 void OutputManager::evaluateElementwiseOutput(double time) {
   if (this->ewOutputBuilder_) {
-    const auto& seissolParameters = seissolInstance_.parameters();
     // at a synchronization point every cluster has just completed a time step ending here, so this
     // is also the time the stored friction state belongs to: the end of the step
     impl_->evaluateFaultOutput(seissol::initializer::parameters::OutputType::Elementwise,
-                               seissolParameters.drParameters.slipRateOutputType,
+                               drParameters_.slipRateOutputType,
                                ewOutputData_,
                                time,
                                1.0,
