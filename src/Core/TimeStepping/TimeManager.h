@@ -226,6 +226,9 @@ class TimeManager {
    **/
   void writeClustering() const;
 
+  /// All clusters of the time manager: those of the cells and of the faces, and the ghost clusters.
+  [[nodiscard]] std::vector<AbstractTimeCluster*> allClusters() const;
+
   //! The updates of cells and of dynamic rupture faces done on this rank, per global cluster.
   struct Updates {
     std::vector<double> cells;

@@ -249,8 +249,12 @@ set_tests_properties(verification.faultreceivers2d-periodic PROPERTIES
 #                      [REQUIRE key=value ...] [SET Section.Key=Value ...]
 #                      [ENV NAME=VALUE ...] [FILES name ...]
 #                      [ACTIVITY column:threshold ...]
+#                      [EXPECT_SUMMARY path=value ...]
 #                      [RESTART step [RESTART_SET Section.Key=Value ...]]
 #                      [LABELS label ...])
+#
+# EXPECT_SUMMARY requires values of the run summary, the path through its keys
+# separated by dots: e.g. simulation.cellUpdates, which counts the time steps.
 #
 # REQUIRE is matched against capabilities.json by the runner, not here: a case
 # that this build cannot run has to remain a visible skip. File names and
@@ -273,7 +277,7 @@ function(seissol_add_minitest)
   cmake_parse_arguments(MT
       "EXPECT_ZERO;NO_SNAPSHOT;SNAPSHOT_EVERYWHERE"
       "NAME;MESH;PARAMETERS;MATERIAL;RANKS;THREADS;STEPS;TIMESTEP;THRESHOLDS;EXPECT_FAILURE;SNAPSHOT_KEY;RESTART"
-      "REQUIRE;SET;ENV;FILES;ACTIVITY;RESTART_SET;LABELS"
+      "REQUIRE;SET;ENV;FILES;ACTIVITY;EXPECT_SUMMARY;RESTART_SET;LABELS"
       ${ARGN})
   if (NOT MT_NAME OR NOT MT_MESH OR NOT MT_PARAMETERS)
     message(FATAL_ERROR "seissol_add_minitest needs NAME, MESH and PARAMETERS")
@@ -347,6 +351,9 @@ function(seissol_add_minitest)
   endforeach()
   foreach (entry ${MT_ACTIVITY})
     list(APPEND arguments --activity ${entry})
+  endforeach()
+  foreach (entry ${MT_EXPECT_SUMMARY})
+    list(APPEND arguments --expect-summary ${entry})
   endforeach()
   foreach (entry ${MT_REQUIRE})
     list(APPEND arguments --require ${entry})

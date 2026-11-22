@@ -79,6 +79,22 @@ seissol_add_minitest(
     ACTIVITY "v1:1e-12"
     LABELS "smoke;plasticity")
 
+# the time mirror makes the waves four times as fast from step 5 to step 15, and
+# the time steps four times as short: the 10 steps between become 40, so that
+# the 48 cells take 50 steps. Without the shorter steps, they would take 20, at
+# four times the CFL limit.
+seissol_add_minitest(
+    NAME itm-box48
+    MESH box48
+    PARAMETERS wave.par
+    STEPS 20
+    REQUIRE equations=elastic
+    SET "equations.itmenable=1" "equations.itmstartingtime=3.0517578125e-04"
+        "equations.itmtime=6.103515625e-04" "equations.itmvelocityscalingfactor=4"
+    ACTIVITY "v1:1e-12"
+    EXPECT_SUMMARY "simulation.cellUpdates=2400"
+    LABELS "smoke;itm")
+
 # without a friction law the fault is welded: NoFault passes the traction of
 # the continuous-contact state through unchanged
 seissol_add_minitest(

@@ -13,6 +13,7 @@
 #include "Core/Modules/Module.h"
 #include "Core/Modules/Modules.h"
 #include "Core/Run/Context.h"
+#include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Features/TimeMirror/ITMParameters.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
@@ -69,11 +70,13 @@ InstantaneousTimeMirrorManager::InstantaneousTimeMirrorManager(
 
 InstantaneousTimeMirrorManager::~InstantaneousTimeMirrorManager() = default;
 
-void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
-                                          double triggerTime,
-                                          seissol::geometry::MeshReader* meshReader,
-                                          LTS::Storage& ltsStorage,
-                                          const initializer::ClusterLayout* clusterLayout) {
+void InstantaneousTimeMirrorManager::init(
+    double velocityScalingFactor,
+    double triggerTime,
+    seissol::geometry::MeshReader* meshReader,
+    LTS::Storage& ltsStorage,
+    const initializer::ClusterLayout* clusterLayout,
+    const std::vector<solver::AbstractTimeCluster*>& clusters) {
 
   const auto& itmParameters = itm_;
   const auto reflectionType = itmParameters.itmReflectionType;
@@ -95,6 +98,7 @@ void InstantaneousTimeMirrorManager::init(double velocityScalingFactor,
   this->meshReader_ = meshReader;
   this->ltsStorage_ = &ltsStorage;
   this->clusterLayout_ = clusterLayout;
+  this->clusters_ = clusters;
   setSyncInterval(triggerTime);
   run_.modules().registerHook(*this, ModuleHook::SynchronizationPoint);
 }
@@ -207,11 +211,6 @@ void InstantaneousTimeMirrorManager::scaleClusterTimes(double scalingFactor) {
   }
 }
 
-void InstantaneousTimeMirrorManager::setClusterVector(
-    const std::vector<seissol::solver::AbstractTimeCluster*>& clusters) {
-  this->clusters_ = clusters;
-}
-
 void initializeTimeMirrorManagers(double scalingFactor,
                                   double triggerTime,
                                   seissol::geometry::MeshReader* meshReader,
@@ -219,10 +218,12 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,
                                   const initializer::parameters::ITMParameters& itm,
-                                  const initializer::ClusterLayout* clusterLayout) {
-  increaseManager.init(scalingFactor, triggerTime, meshReader, ltsStorage, clusterLayout);
+                                  const initializer::ClusterLayout* clusterLayout,
+                                  const std::vector<solver::AbstractTimeCluster*>& clusters) {
+  increaseManager.init(scalingFactor, triggerTime, meshReader, ltsStorage, clusterLayout, clusters);
   const double eps = itm.itmDuration;
 
-  decreaseManager.init(1 / scalingFactor, triggerTime + eps, meshReader, ltsStorage, clusterLayout);
+  decreaseManager.init(
+      1 / scalingFactor, triggerTime + eps, meshReader, ltsStorage, clusterLayout, clusters);
 };
 } // namespace seissol::physics

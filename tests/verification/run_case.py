@@ -745,6 +745,33 @@ def check_log(log, timestep):
     return problems
 
 
+def check_summary(work, prefix, expectations):
+    """Check values of the run summary (``PATH=VALUE``, the path through the keys separated by
+    dots), e.g. the number of cell updates, which tells how many time steps the run took.
+    """
+    if not expectations:
+        return []
+    path = work / f"{prefix}-summary.json"
+    try:
+        summary = json.loads(path.read_text())
+    except (OSError, ValueError) as error:
+        return [f"cannot read the run summary {path}: {error}"]
+    problems = []
+    for expectation in expectations:
+        key, _, expected = expectation.partition("=")
+        value = summary
+        for part in key.split("."):
+            if not isinstance(value, dict) or part not in value:
+                value = None
+                break
+            value = value[part]
+        if value is None:
+            problems.append(f"the run summary has no {key}")
+        elif float(value) != float(expected):
+            problems.append(f"the run summary has {key} = {value}, not {expected}")
+    return problems
+
+
 def available_cpus():
     """The number of CPUs this process may run on, or of all of them where that is unknown."""
     try:
@@ -1075,6 +1102,7 @@ def _command_run(args):
             args.expect_zero,
             simulation_count(parameters, capabilities),
         )
+        problems += check_summary(work, prefix, args.expect_summary)
 
     if not problems and args.thresholds:
         key = "{}/o{}/{}".format(
@@ -2581,6 +2609,13 @@ def main(argv=None):
         "--expect-failure",
         metavar="REGEX",
         help="require the run to fail with a log line matching REGEX",
+    )
+    run.add_argument(
+        "--expect-summary",
+        action="append",
+        default=[],
+        metavar="PATH=VALUE",
+        help="require a value of the run summary, e.g. simulation.cellUpdates=960",
     )
     run.add_argument(
         "--expect-zero",

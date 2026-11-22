@@ -546,19 +546,15 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   }
 
-  std::vector<AbstractTimeCluster*> allClusters(clusters_.size() + ghostClusterPointer->size());
-  for (std::size_t i = 0; i < clusters_.size(); ++i) {
-    allClusters[i] = clusters_[i];
-  }
-  for (std::size_t i = 0; i < ghostClusterPointer->size(); ++i) {
-    allClusters[i + clusters_.size()] = ghostClusterPointer->at(i).get();
-  }
+  setUpWatchdog(allClusters());
+}
 
-  for (auto& timeMirrorManager : seissolInstance_.getTimeMirrorManagers()) {
-    timeMirrorManager.setClusterVector(allClusters);
+std::vector<AbstractTimeCluster*> TimeManager::allClusters() const {
+  std::vector<AbstractTimeCluster*> clusters(clusters_.begin(), clusters_.end());
+  for (const auto& ghostCluster : *communicationManager_->getGhostClusters()) {
+    clusters.push_back(ghostCluster.get());
   }
-
-  setUpWatchdog(allClusters);
+  return clusters;
 }
 
 void TimeManager::setUpWatchdog(const std::vector<AbstractTimeCluster*>& clusters) {

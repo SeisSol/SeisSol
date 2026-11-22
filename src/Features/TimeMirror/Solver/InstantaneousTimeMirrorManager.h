@@ -61,13 +61,14 @@ class InstantaneousTimeMirrorManager : public Module {
   InstantaneousTimeMirrorManager(InstantaneousTimeMirrorManager&&) = delete;
   auto operator=(InstantaneousTimeMirrorManager&&) = delete;
 
+  /// Mirrors at the time `triggerTime`, by the factor `velocityScalingFactor`; scales the time
+  /// steps of the clusters `clusters` (all clusters of the time manager, also the ghost clusters).
   void init(double velocityScalingFactor,
             double triggerTime,
             seissol::geometry::MeshReader* meshReader,
             LTS::Storage& ltsStorage,
-            const initializer::ClusterLayout* clusterLayout);
-
-  void setClusterVector(const std::vector<seissol::solver::AbstractTimeCluster*>& clusters);
+            const initializer::ClusterLayout* clusterLayout,
+            const std::vector<seissol::solver::AbstractTimeCluster*>& clusters);
 
   void syncPoint(double currentTime) override;
 
@@ -77,14 +78,16 @@ class InstantaneousTimeMirrorManager : public Module {
   void updateTimeSteps();
 };
 
-void initializeTimeMirrorManagers(double scalingFactor,
-                                  double triggerTime,
-                                  seissol::geometry::MeshReader* meshReader,
-                                  LTS::Storage& ltsStorage,
-                                  InstantaneousTimeMirrorManager& increaseManager,
-                                  InstantaneousTimeMirrorManager& decreaseManager,
-                                  const initializer::parameters::ITMParameters& itm,
-                                  const initializer::ClusterLayout* clusterLayout);
+void initializeTimeMirrorManagers(
+    double scalingFactor,
+    double triggerTime,
+    seissol::geometry::MeshReader* meshReader,
+    LTS::Storage& ltsStorage,
+    InstantaneousTimeMirrorManager& increaseManager,
+    InstantaneousTimeMirrorManager& decreaseManager,
+    const initializer::parameters::ITMParameters& itm,
+    const initializer::ClusterLayout* clusterLayout,
+    const std::vector<seissol::solver::AbstractTimeCluster*>& clusters);
 } // namespace seissol::physics
 
 #endif // SEISSOL_SRC_FEATURES_TIMEMIRROR_SOLVER_INSTANTANEOUSTIMEMIRRORMANAGER_H_
