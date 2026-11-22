@@ -8,6 +8,7 @@
 add_library(seissol-wavepropagation OBJECT
     Output/DofSync.cpp
     Output/FreeSurfaceIntegrator.cpp
+    Output/IntegrationFeature.cpp
     Output/IntegrationStage.cpp
     Output/Receiver.cpp
     Output/ReceiverWriter.cpp

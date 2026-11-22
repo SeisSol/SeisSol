@@ -22,6 +22,7 @@
 #include "Core/Parallel/SystemInfo.h"
 #include "Core/Run/Context.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/MeasuredCellCosts.h"
+#include "Core/TimeStepping/Feature.h"
 #include "Core/TimeStepping/TimeManager.h"
 #include "Features/InitialConditions/Output/AnalysisWriter.h"
 #include "Features/SourceTerm/Setup/Manager.h"
@@ -183,6 +184,9 @@ class SeisSol : public RunContext {
     return timeMirrorManagers_;
   }
 
+  /// The features of the run (see solver::Feature), in the order their hooks run in.
+  std::vector<std::unique_ptr<solver::Feature>>& features() { return features_; }
+
   /**
    * Set the mesh reader
    */
@@ -297,6 +301,9 @@ class SeisSol : public RunContext {
 
   //! TimeMirror Managers
   std::list<seissol::physics::InstantaneousTimeMirrorManager> timeMirrorManagers_;
+
+  //! the features of the run, made with its layout
+  std::vector<std::unique_ptr<solver::Feature>> features_;
 
   //! time stamp which can be used for backuping files of previous runs
   std::string backupTimeStamp_;

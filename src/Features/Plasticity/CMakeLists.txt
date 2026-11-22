@@ -9,6 +9,7 @@ add_library(seissol-plasticity OBJECT
     Setup/PlasticityPointGenerator.cpp
     Solver/Plasticity.cpp
     Solver/PlasticityRecorder.cpp
+    Solver/PlasticityFeature.cpp
     Solver/PlasticityStage.cpp
 )
 

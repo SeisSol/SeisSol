@@ -23,12 +23,12 @@
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Parallel/Helper.h"
 #include "Core/Parallel/MPI.h"
+#include "Core/TimeStepping/Compute/FaceClusterFactory.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Core/TimeStepping/Layout/Halo.h"
 #include "Core/TimeStepping/Settings.h"
-#include "Features/DynamicRupture/Solver/DynamicRuptureClusterFactory.h"
-#include "Features/Plasticity/Solver/PlasticityStage.h"
-#include "Features/Plasticity/Solver/Storage.h"
+#include "Features/DynamicRupture/Solver/DynamicRuptureFeature.h"
+#include "Features/Plasticity/Solver/PlasticityFeature.h"
 #include "Internal/MeshLayout.h"
 #include "Simulation/Estimator.h"
 #include "Simulation/InitProcedure/Internal/Buckets.h"
@@ -36,7 +36,7 @@
 #include "Simulation/InitProcedure/Internal/Scratchpads.h"
 #include "Simulation/Parameters/OutputParameters.h"
 #include "Simulation/SeisSol.h"
-#include "WavePropagation/Output/IntegrationStage.h"
+#include "WavePropagation/Output/IntegrationFeature.h"
 #include "WavePropagation/Physics/Datastructures.h"
 
 #include <algorithm>
@@ -229,10 +229,21 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
     }
   }
 
-  auto& ltsStorage = seissolInstance.memoryManager().ltsStorage();
-  auto& backmap = seissolInstance.memoryManager().backmap();
+  // the features of the run, in the order their work runs in: e.g. the plasticity before the time
+  // integral of the DOFs for the outputs, which integrates the DOFs after the plasticity
+  auto& memoryManager = seissolInstance.memoryManager();
+  auto& features = seissolInstance.features();
+  features.clear();
+  features.push_back(std::make_unique<seissol::kernels::PlasticityFeature>(
+      seissolInstance, seissolParams.plasticity, memoryManager.globalDataStore()));
+  features.push_back(std::make_unique<seissol::kernels::IntegrationFeature>(settings.integrate));
+
+  auto& ltsStorage = memoryManager.ltsStorage();
+  auto& backmap = memoryManager.backmap();
   LTS::addTo(ltsStorage, settings);
-  LTSPlasticity::addTo(ltsStorage, settings.plasticity);
+  for (auto& feature : features) {
+    feature->addStorage(ltsStorage);
+  }
   ltsStorage.setName("cluster");
   ltsStorage.setLayerCount(colorMap);
   // for the outputs on a thread of their own, which read the data while the device goes on
@@ -474,40 +485,29 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto haloCommunication = internal::bucketsAndCommunication(ltsStorage, meshLayoutCopy);
 
   logInfo() << "Setting up kernel clusters...";
-  auto& memoryManager = seissolInstance.memoryManager();
-  // the clusters of the dynamic rupture faces, with the on-fault receivers of its output
-  seissol::dr::DynamicRuptureClusterFactory faultClusters(seissolInstance,
-                                                          memoryManager.drStorage(),
-                                                          memoryManager.globalDataStore(),
-                                                          memoryManager.frictionLaw(),
-                                                          memoryManager.frictionLawDevice(),
-                                                          memoryManager.faultOutputManager(),
-                                                          seissolParams.timeStepping.endTime);
-  seissolInstance.timeManager().addClusters(clusterLayout,
-                                            haloCommunication,
-                                            ltsStorage,
-                                            memoryManager.globalDataStore(),
-                                            {&faultClusters});
+  // the dynamic rupture, once its friction law and its outputs exist
+  features.push_back(
+      std::make_unique<seissol::dr::DynamicRuptureFeature>(seissolInstance,
+                                                           memoryManager.drStorage(),
+                                                           memoryManager.globalDataStore(),
+                                                           memoryManager.frictionLaw(),
+                                                           memoryManager.frictionLawDevice(),
+                                                           memoryManager.faultOutputManager(),
+                                                           seissolParams.timeStepping.endTime));
 
-  // the work of the features on each cell after its correction: first the plasticity, then the
-  // time integral of the DOFs for the outputs, which integrates the DOFs after the plasticity
-  for (auto& layer : ltsStorage.leaves(Ghost)) {
-    dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
-      using Cfg = decltype(cfg);
-      if (settings.plasticity) {
-        seissolInstance.timeManager().addCellStage(
-            layer.id(),
-            std::make_unique<seissol::kernels::PlasticityStage<Cfg>>(
-                seissolInstance,
-                seissolParams.plasticity.tv,
-                seissolInstance.memoryManager().globalData<Cfg>(),
-                layer));
-      }
-      if (settings.integrate) {
-        seissolInstance.timeManager().addCellStage(
-            layer.id(), std::make_unique<seissol::kernels::IntegrationStage<Cfg>>(layer));
-      }
-    });
+  // the clusters of the faces of the features, e.g. of the dynamic rupture
+  std::vector<seissol::solver::FaceClusterFactory*> faceClusters;
+  for (auto& feature : features) {
+    if (auto* factory = feature->faceClusters(); factory != nullptr) {
+      faceClusters.push_back(factory);
+    }
+  }
+  seissolInstance.timeManager().addClusters(
+      clusterLayout, haloCommunication, ltsStorage, memoryManager.globalDataStore(), faceClusters);
+
+  // the work of the features on the clusters of the cells
+  for (auto& feature : features) {
+    feature->addStages(seissolInstance.timeManager(), ltsStorage);
   }
 
   seissolInstance.dofSync().setup(meshLayoutCopy, &ltsStorage);
