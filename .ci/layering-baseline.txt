@@ -65,7 +65,6 @@ core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Physics/Dat
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/Data.h
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/SolverSelector.h
 core-includes-wavepropagation Core/TimeStepping/Clustering/Clustering.cpp WavePropagation/Physics/Datastructures.h
-physics-includes-runtime Features/InitialConditions/Physics/InitialField.h Core/Memory/Typedefs.h
 physics-includes-runtime Features/InitialConditions/Physics/Scenario/Registry.cpp Core/Memory/Typedefs.h
 physics-includes-runtime Features/InitialConditions/Physics/Scenario/Registry.h Core/Memory/Typedefs.h
 physics-includes-runtime Features/InitialConditions/Physics/Scenario/Scenarios.cpp Core/Memory/Typedefs.h
@@ -86,7 +85,3 @@ physics-includes-solver WavePropagation/Physics/Common.h WavePropagation/Solver/
 physics-includes-solver WavePropagation/Physics/poroelastic/Datastructures.cpp WavePropagation/Solver/Setup.h
 solver-includes-setup Features/InitialConditions/Output/AnalysisWriter.cpp Features/InitialConditions/Setup/InitialFieldProjection.h
 solver-includes-setup WavePropagation/Output/FreeSurfaceIntegrator.cpp WavePropagation/Setup/BoundaryHelper.h
-wavepropagation-includes-feature WavePropagation/Solver/AnalyticalBoundary.h Features/InitialConditions/Physics/InitialField.h
-wavepropagation-includes-feature WavePropagation/Solver/LinearCK/Local.h Features/InitialConditions/Physics/InitialField.h
-wavepropagation-includes-feature WavePropagation/Solver/LinearCKAnelastic/Local.h Features/InitialConditions/Physics/InitialField.h
-wavepropagation-includes-feature WavePropagation/Solver/Local.h Features/InitialConditions/Physics/InitialField.h

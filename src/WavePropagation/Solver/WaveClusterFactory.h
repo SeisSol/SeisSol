@@ -17,16 +17,12 @@
 #include "Core/TimeStepping/Compute/CellClusterFactory.h"
 #include "Core/TimeStepping/Compute/ComputeCluster.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
+#include "WavePropagation/InitialField.h"
 
 #include <cstddef>
 #include <functional>
 #include <memory>
 #include <vector>
-
-namespace seissol::physics {
-// passed on to the local kernel, which knows it
-class InitialField;
-} // namespace seissol::physics
 
 namespace seissol::solver {
 

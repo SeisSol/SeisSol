@@ -39,7 +39,7 @@
 
 // FIXME: the following line is absolutely necessary for the plain-wave operator to work correctly
 // (template specializations for the equations).
-#include "Features/InitialConditions/Physics/InitialField.h"
+#include "WavePropagation/InitialField.h"
 #include "WavePropagation/Solver/Setup.h" // IWYU pragma: keep
 
 namespace {

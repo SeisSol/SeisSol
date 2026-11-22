@@ -26,6 +26,7 @@
 #include "Core/TimeStepping/Actor/StepParams.h"
 #include "Core/TimeStepping/Compute/CellCluster.h"
 #include "Core/TimeStepping/Compute/CellStage.h"
+#include "WavePropagation/InitialField.h"
 #include "WavePropagation/Output/Receiver.h"
 #include "WavePropagation/Solver/ConfigBoundary.h"
 #include "WavePropagation/Solver/Solver.h"
@@ -36,11 +37,6 @@
 #include <functional>
 #include <memory>
 #include <vector>
-
-namespace seissol::physics {
-// passed on to the local kernel, which knows it
-class InitialField;
-} // namespace seissol::physics
 
 namespace seissol::solver {
 

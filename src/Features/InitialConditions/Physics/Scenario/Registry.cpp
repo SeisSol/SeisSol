@@ -11,8 +11,8 @@
 #include "Core/Common/ConfigValue.h"
 #include "Core/Memory/Typedefs.h"
 #include "Features/InitialConditions/InitializationParameters.h"
-#include "Features/InitialConditions/Physics/InitialField.h"
 #include "Features/InitialConditions/Physics/Scenario/Scenarios.h"
+#include "WavePropagation/InitialField.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/MaterialType.h"
 

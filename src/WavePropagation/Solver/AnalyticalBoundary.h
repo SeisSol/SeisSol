@@ -14,10 +14,10 @@
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Numerical/Quadrature.h"
-#include "Features/InitialConditions/Physics/InitialField.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
+#include "WavePropagation/InitialField.h"
 
 #include <array>
 #include <cassert>

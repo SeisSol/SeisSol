@@ -20,7 +20,7 @@
 #pragma GCC diagnostic ignored "-Wunused-function"
 #include "WavePropagation/Solver/AnalyticalBoundary.h"
 #pragma GCC diagnostic pop
-#include "Features/InitialConditions/Physics/InitialField.h"
+#include "WavePropagation/InitialField.h"
 
 #ifdef ACL_DEVICE
 #include <Device/device.h>

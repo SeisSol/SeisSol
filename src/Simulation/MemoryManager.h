@@ -26,8 +26,8 @@
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Core/TimeStepping/Settings.h"
 #include "Features/DynamicRupture/Setup/Factory.h"
-#include "Features/InitialConditions/Physics/InitialField.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
+#include "WavePropagation/InitialField.h"
 
 #include <memory>
 #include <mpi.h>

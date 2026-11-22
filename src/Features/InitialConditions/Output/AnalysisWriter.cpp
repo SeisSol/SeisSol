@@ -28,11 +28,11 @@
 #include "Core/Parallel/MPI.h"
 #include "Core/Parallel/OpenMP.h"
 #include "Features/InitialConditions/InitializationParameters.h"
-#include "Features/InitialConditions/Physics/InitialField.h" // IWYU pragma: keep
 #include "Features/InitialConditions/Setup/InitialFieldProjection.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
+#include "WavePropagation/InitialField.h" // IWYU pragma: keep
 
 #include <algorithm>
 #include <array>

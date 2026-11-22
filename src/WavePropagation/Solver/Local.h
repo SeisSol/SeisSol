@@ -15,7 +15,7 @@
 #include "Core/Memory/Typedefs.h"
 #include "Core/Monitoring/Metric.h"
 #include "Core/Parallel/Runtime/Stream.h"
-#include "Features/InitialConditions/Physics/InitialField.h"
+#include "WavePropagation/InitialField.h"
 #include "WavePropagation/Solver/Interface.h"
 
 #include <cassert>

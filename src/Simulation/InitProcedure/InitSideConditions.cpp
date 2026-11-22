@@ -13,7 +13,6 @@
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Typedefs.h"
 #include "Features/InitialConditions/InitializationParameters.h"
-#include "Features/InitialConditions/Physics/InitialField.h"
 #include "Features/InitialConditions/Physics/Scenario/Registry.h"
 #include "Features/InitialConditions/Setup/InitialFieldProjection.h"
 #include "Features/SourceTerm/Setup/Manager.h"
@@ -22,6 +21,7 @@
 #include "Simulation/Parameters/ModelParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "Simulation/SeisSol.h"
+#include "WavePropagation/InitialField.h"
 
 #include <cstddef>
 #include <memory>

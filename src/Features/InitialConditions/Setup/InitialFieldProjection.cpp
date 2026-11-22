@@ -22,10 +22,10 @@
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Numerical/Quadrature.h"
-#include "Features/InitialConditions/Physics/InitialField.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
+#include "WavePropagation/InitialField.h"
 #include "WavePropagation/Physics/Datastructures.h"
 
 #include <array>

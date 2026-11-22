@@ -11,8 +11,8 @@
 #define SEISSOL_SRC_WAVEPROPAGATION_SOLVER_LINEARCKANELASTIC_LOCAL_H_
 
 #include "Core/Common/Real.h"
-#include "Features/InitialConditions/Physics/InitialField.h"
 #include "GeneratedCode/kernel.h"
+#include "WavePropagation/InitialField.h"
 #include "WavePropagation/Solver/AnalyticalBoundary.h"
 #include "WavePropagation/Solver/Interface.h"
 #include "WavePropagation/Solver/Local.h"

@@ -13,7 +13,7 @@
 #include "Core/Geometry/MeshReader.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Typedefs.h"
-#include "Features/InitialConditions/Physics/InitialField.h"
+#include "WavePropagation/InitialField.h"
 
 #include <memory>
 #include <string>
