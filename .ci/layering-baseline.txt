@@ -19,17 +19,11 @@ core-includes-feature Core/Memory/Descriptor/DynamicRupture.h Features/DynamicRu
 core-includes-feature Core/Memory/Typedefs.h Features/DynamicRupture/Misc.h
 core-includes-feature Core/TimeStepping/Compute/CellCluster.cpp Features/Plasticity/Solver/Plasticity.h
 core-includes-feature Core/TimeStepping/Compute/CellCluster.cpp Features/Plasticity/Solver/Storage.h
-core-includes-feature Core/TimeStepping/Compute/CellCluster.cpp Features/SourceTerm/Solver/PointSourceCluster.h
 core-includes-feature Core/TimeStepping/Compute/CellCluster.h Features/Plasticity/Solver/Plasticity.h
-core-includes-feature Core/TimeStepping/Compute/CellCluster.h Features/SourceTerm/Solver/PointSourceCluster.h
-core-includes-feature Core/TimeStepping/Compute/CellCluster.h Features/SourceTerm/Typedefs.h
 core-includes-feature Core/TimeStepping/TimeManager.cpp Features/DynamicRupture/Output/OutputManager.h
 core-includes-feature Core/TimeStepping/TimeManager.cpp Features/DynamicRupture/Output/PickpointSampling.h
 core-includes-feature Core/TimeStepping/TimeManager.cpp Features/DynamicRupture/Solver/DynamicRuptureCluster.h
-core-includes-feature Core/TimeStepping/TimeManager.cpp Features/SourceTerm/Solver/PointSourceCluster.h
 core-includes-feature Core/TimeStepping/TimeManager.h Features/DynamicRupture/Solver/DynamicRuptureCluster.h
-core-includes-feature Core/TimeStepping/TimeManager.h Features/SourceTerm/Solver/PointSourceCluster.h
-core-includes-feature Core/TimeStepping/TimeManager.h Features/SourceTerm/Typedefs.h
 core-includes-later-core Core/Common/PreProcessorMacros.h Core/Monitoring/Instrumentation.h
 core-includes-later-core Core/Geometry/MeshReader.cpp Core/Parallel/MPI.h
 core-includes-later-core Core/Geometry/PUMLReader.cpp Core/Monitoring/Instrumentation.h

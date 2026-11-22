@@ -39,6 +39,7 @@
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Clustering/ClusteringWriter.h"
 #include "Core/TimeStepping/Compute/CellCluster.h"
+#include "Core/TimeStepping/Compute/ClusterStage.h"
 #include "Core/TimeStepping/Halo/CommunicationManager.h"
 #include "Core/TimeStepping/Halo/GhostCluster.h"
 #include "Core/TimeStepping/Halo/HaloCheck.h"
@@ -52,7 +53,6 @@
 #include "Features/DynamicRupture/Output/OutputManager.h"
 #include "Features/DynamicRupture/Output/PickpointSampling.h"
 #include "Features/DynamicRupture/Solver/DynamicRuptureCluster.h"
-#include "Features/SourceTerm/Solver/PointSourceCluster.h"
 #include "Simulation/MemoryManager.h"
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Output/ReceiverWriter.h"
@@ -1136,11 +1136,14 @@ double TimeManager::getTimeTolerance() const {
   return ClusterTimes::TickTolerance * clusterLayout_.value().minimumTimestep;
 }
 
-void TimeManager::setPointSourcesForClusters(
-    std::vector<seissol::kernels::PointSourceClusterPair> sourceClusters) {
+void TimeManager::addStage(std::size_t layerId, std::unique_ptr<ClusterStage> stage) {
   for (auto& cluster : cellClusters_) {
-    cluster->setPointSources(std::move(sourceClusters[cluster->layerId()]));
+    if (cluster->layerId() == layerId) {
+      cluster->addStage(std::move(stage));
+      return;
+    }
   }
+  logError() << "There is no cell cluster of the layer" << layerId << "to add a stage to.";
 }
 
 void TimeManager::setReceiverClusters(writer::ReceiverWriter& receiverWriter) {

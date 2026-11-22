@@ -22,11 +22,10 @@
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
 #include "Core/TimeStepping/Compute/ClusterClock.h"
+#include "Core/TimeStepping/Compute/ClusterStage.h"
 #include "Core/TimeStepping/Compute/ComputeCluster.h"
 #include "Core/TimeStepping/Settings.h"
 #include "Features/Plasticity/Solver/Plasticity.h"
-#include "Features/SourceTerm/Solver/PointSourceCluster.h"
-#include "Features/SourceTerm/Typedefs.h"
 #include "WavePropagation/Output/FreeSurfaceIntegrator.h"
 #include "WavePropagation/Output/Receiver.h"
 #include "WavePropagation/Solver/ConfigBoundary.h"
@@ -60,12 +59,8 @@ class CellClusterInterface : public ComputeCluster {
   public:
   using ComputeCluster::ComputeCluster;
 
-  /**
-   * Sets the the cluster's point sources
-   *
-   * @param sourceCluster Contains point sources for cluster
-   */
-  virtual void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) = 0;
+  /// Adds work over items of its own, such as point sources, to the steps of the cluster.
+  virtual void addStage(std::unique_ptr<ClusterStage> stage) = 0;
 
   virtual void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) = 0;
 };
@@ -110,7 +105,9 @@ class CellCluster : public CellClusterInterface {
    */
   LTS::Layer* clusterData_;
 
-  seissol::kernels::PointSourceClusterPair sourceCluster_;
+  //! the work features add to the steps, and the regions of the loop statistics they count in
+  std::vector<std::unique_ptr<ClusterStage>> stages_;
+  std::vector<unsigned> stageRegions_;
 
   enum class ComputePart : std::size_t {
     Local = 0,
@@ -130,7 +127,6 @@ class CellCluster : public CellClusterInterface {
   std::uint32_t traceLocalIntegration_{};
   std::uint32_t traceNeighboringIntegration_{};
   unsigned regionComputeNeighboringIntegration_;
-  unsigned regionComputePointSources_;
 
   kernels::ReceiverCluster* receiverCluster_{nullptr};
 
@@ -146,9 +142,9 @@ class CellCluster : public CellClusterInterface {
   void writeReceivers(const StepParams& params, const kernels::ReceiverCluster::Sampling& sampling);
 
   /**
-   * Computes the source terms if applicable.
+   * Runs the stages of the phase `phase` for the step `params`.
    **/
-  void computeSources(const StepParams& params);
+  void runStages(StagePhase phase, const StepParams& params);
 
   /**
    * Computes all cell local integration.
@@ -238,12 +234,7 @@ class CellCluster : public CellClusterInterface {
 
   ~CellCluster() override = default;
 
-  /**
-   * Sets the the cluster's point sources
-   *
-   * @param sourceCluster Contains point sources for cluster
-   */
-  void setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) override;
+  void addStage(std::unique_ptr<ClusterStage> stage) override;
 
   void setReceiverCluster(kernels::ReceiverCluster* receiverCluster) override {
     this->receiverCluster_ = receiverCluster;

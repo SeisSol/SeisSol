@@ -11,6 +11,7 @@
 
 #include "Manager.h"
 
+#include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/Marker.h"
@@ -31,6 +32,7 @@
 #include "Features/SourceTerm/Physics/PointSource.h"
 #include "Features/SourceTerm/Solver/PointSourceCluster.h"
 #include "Features/SourceTerm/Solver/PointSourceClusterOnHost.h"
+#include "Features/SourceTerm/Solver/PointSourceStage.h"
 #include "Features/SourceTerm/SourceParameters.h"
 #include "Features/SourceTerm/Typedefs.h"
 #include "GeneratedCode/runtime.h"
@@ -565,7 +567,16 @@ void Manager::loadSources(seissol::initializer::parameters::PointSourceType sour
   }
   // otherwise, we do not have any source term.
 
-  timeManager.setPointSourcesForClusters(std::move(sourceClusters));
+  // the clusters of the layers with sources add them after each prediction; the ghost layers have
+  // no cluster, nor sources
+  for (std::size_t layerId = 0; layerId < sourceClusters.size(); ++layerId) {
+    auto& sources = sourceClusters[layerId];
+    const bool ghost = ltsStorage.layer(layerId).getIdentifier().halo == HaloType::Ghost;
+    if (!ghost && (sources.host != nullptr || sources.device != nullptr)) {
+      timeManager.addStage(
+          layerId, std::make_unique<seissol::kernels::PointSourceStage>(std::move(sources)));
+    }
+  }
 }
 
 } // namespace seissol::sourceterm

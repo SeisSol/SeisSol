@@ -36,11 +36,11 @@
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
+#include "Core/TimeStepping/Compute/ClusterStage.h"
 #include "Core/TimeStepping/Compute/ComputeCluster.h"
 #include "Core/TimeStepping/Settings.h"
 #include "Features/Plasticity/Solver/Plasticity.h"
 #include "Features/Plasticity/Solver/Storage.h"
-#include "Features/SourceTerm/Solver/PointSourceCluster.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "Simulation/MemoryManager.h"
@@ -57,6 +57,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <utility>
 #include <utils/logger.h>
@@ -99,9 +100,7 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
       // cluster ids
       settings_(settings), seissolInstance_(seissolInstance),
       configBoundary_(seissolInstance.parameters().runConfigs.configs()), globalData_(globalData),
-      clusterData_(clusterData),
-      sourceCluster_(seissol::kernels::PointSourceClusterPair{.host = nullptr, .device = nullptr}),
-      conditionalCounterHost_(1, seissol::memory::Memkind::Standard),
+      clusterData_(clusterData), conditionalCounterHost_(1, seissol::memory::Memkind::Standard),
       conditionalCounterDevice_(1,
                                 isDeviceOn() ? seissol::memory::Memkind::DeviceGlobalMemory
                                              : seissol::memory::Memkind::Standard),
@@ -138,7 +137,6 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
   regionComputeLocalIntegration_ = loopStatistics_->getRegion("computeLocalIntegration");
   regionComputeNeighboringIntegration_ =
       loopStatistics_->getRegion("computeNeighboringIntegration");
-  regionComputePointSources_ = loopStatistics_->getRegion("computePointSources");
   traceLocalIntegration_ = monitoring::Trace::name("computeLocalIntegration");
   traceNeighboringIntegration_ = monitoring::Trace::name("computeNeighboringIntegration");
 
@@ -165,11 +163,10 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
 }
 
 template <typename Cfg>
-void CellCluster<Cfg>::setPointSources(seissol::kernels::PointSourceClusterPair sourceCluster) {
-  this->sourceCluster_ = std::move(sourceCluster);
-  if (sourceCluster_.device != nullptr) {
-    sourceCluster_.device->setClock(clock_.device());
-  }
+void CellCluster<Cfg>::addStage(std::unique_ptr<ClusterStage> stage) {
+  stage->setClock(clock_.device());
+  stageRegions_.push_back(loopStatistics_->getRegion(stage->name()));
+  stages_.push_back(std::move(stage));
 }
 
 template <typename Cfg>
@@ -189,43 +186,30 @@ void CellCluster<Cfg>::writeReceivers(const StepParams& params,
 }
 
 template <typename Cfg>
-void CellCluster<Cfg>::computeSources(const StepParams& params) {
-#ifdef ACL_DEVICE
-  device_.api().putProfilingMark("computeSources", device::ProfilingColors::Blue);
-#endif
-  SCOREP_USER_REGION("computeSources", SCOREP_USER_REGION_TYPE_FUNCTION)
-
-  // Return when point sources not initialized. This might happen if there
-  // are no point sources on this rank.
-  auto* pointSourceCluster = [&]() -> kernels::PointSourceCluster* {
-    if (executor_ == Executor::Device) {
-      return sourceCluster_.device.get();
-    } else {
-      return sourceCluster_.host.get();
+void CellCluster<Cfg>::runStages(StagePhase phase, const StepParams& params) {
+  SCOREP_USER_REGION("runStages", SCOREP_USER_REGION_TYPE_FUNCTION)
+  for (std::size_t i = 0; i < stages_.size(); ++i) {
+    auto& stage = *stages_[i];
+    if (stage.phase() != phase || !stage.hasWork(executor_)) {
+      continue;
     }
-  }();
-
-  if (pointSourceCluster != nullptr) {
+#ifdef ACL_DEVICE
+    device_.api().putProfilingMark(stage.name(), device::ProfilingColors::Blue);
+#endif
     if (executor_ == Executor::Device) {
       const auto loop = deviceLoops_.begin(streamRuntime_.stream());
-      pointSourceCluster->addTimeIntegratedPointSources(
-          params.time, params.timeStepSize, streamRuntime_);
-      deviceLoops_.end(loop,
-                       streamRuntime_.stream(),
-                       regionComputePointSources_,
-                       pointSourceCluster->size(),
-                       profilingId_);
+      stage.run(params, executor_, streamRuntime_);
+      deviceLoops_.end(
+          loop, streamRuntime_.stream(), stageRegions_[i], stage.size(executor_), profilingId_);
     } else {
       const auto loopBegin = LoopStatistics::begin();
-      pointSourceCluster->addTimeIntegratedPointSources(
-          params.time, params.timeStepSize, streamRuntime_);
-      loopStatistics_->end(
-          regionComputePointSources_, pointSourceCluster->size(), profilingId_, loopBegin);
+      stage.run(params, executor_, streamRuntime_);
+      loopStatistics_->end(stageRegions_[i], stage.size(executor_), profilingId_, loopBegin);
     }
-  }
 #ifdef ACL_DEVICE
-  device_.api().popLastProfilingMark();
+    device_.api().popLastProfilingMark();
 #endif
+  }
 }
 
 template <typename Cfg>
@@ -656,7 +640,7 @@ void CellCluster<Cfg>::predict() {
   if (executor_ == Executor::Device) {
     writeReceivers(params, receiverSampling_);
     computeLocalIntegrationDevice(params);
-    computeSources(params);
+    runStages(StagePhase::AfterPrediction, params);
   } else {
     // the prediction changes what the neighbors read; the work takes the sampling of its step
     // along, as the decisions about the next steps may come before it runs
@@ -664,7 +648,7 @@ void CellCluster<Cfg>::predict() {
                         [this, params, sampling = receiverSampling_] {
                           writeReceivers(params, sampling);
                           computeLocalIntegration(params);
-                          computeSources(params);
+                          runStages(StagePhase::AfterPrediction, params);
                         });
   }
 
@@ -738,8 +722,7 @@ std::vector<parallel::runtime::StreamRuntime*> CellCluster<Cfg>::runtimes() {
 
 template <typename Cfg>
 void CellCluster<Cfg>::finalize() {
-  sourceCluster_.host.reset(nullptr);
-  sourceCluster_.device.reset(nullptr);
+  stages_.clear();
   ComputeCluster::finalize();
 
   logDebug() << "#(time steps):" << numberOfTimeSteps_;

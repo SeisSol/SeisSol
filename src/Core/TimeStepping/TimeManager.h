@@ -20,14 +20,13 @@
 #include "Core/Parallel/Helper.h"
 #include "Core/TimeStepping/Clustering/ClusteringWriter.h"
 #include "Core/TimeStepping/Compute/CellCluster.h"
+#include "Core/TimeStepping/Compute/ClusterStage.h"
 #include "Core/TimeStepping/Halo/GhostCluster.h"
 #include "Core/TimeStepping/HaloTransportFactory.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Core/TimeStepping/Plan/SuperStepRecorder.h"
 #include "Core/TimeStepping/Plan/TimeSteppingPlan.h"
 #include "Features/DynamicRupture/Solver/DynamicRuptureCluster.h"
-#include "Features/SourceTerm/Solver/PointSourceCluster.h"
-#include "Features/SourceTerm/Typedefs.h"
 #include "Simulation/MemoryManager.h"
 #include "WavePropagation/Output/FreeSurfaceIntegrator.h"
 #include "WavePropagation/Output/ReceiverWriter.h"
@@ -258,12 +257,9 @@ class TimeManager {
   [[nodiscard]] double getTimeTolerance() const;
 
   /**
-   * Distributes point sources pointers to clusters
-   *
-   * @param sourceClusters Collection of point sources for clusters
+   * Adds the work `stage` to the steps of the cell cluster of the layer `layerId`.
    */
-  void setPointSourcesForClusters(
-      std::vector<seissol::kernels::PointSourceClusterPair> sourceClusters);
+  void addStage(std::size_t layerId, std::unique_ptr<ClusterStage> stage);
 
   /**
    * Returns the writer for the receivers
