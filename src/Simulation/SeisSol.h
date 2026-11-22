@@ -327,7 +327,10 @@ class SeisSol : public RunContext {
           const utils::Env& env,
           const SystemInfo& systemInfo)
       : RunContext(env), seissolParameters_(std::move(parameters)),
-        memoryManager_(std::make_unique<initializer::MemoryManager>(*this)), timeManager_(*this),
+        memoryManager_(std::make_unique<initializer::MemoryManager>(*this)),
+        timeManager_(
+            *this,
+            [this](initializer::AllocationPlace place) { memoryManager_->synchronizeTo(place); }),
         analysisWriter_(*this), energyOutput_(*this), systemInfo_(systemInfo) {}
 
   SeisSol(const SeisSol&) = delete;

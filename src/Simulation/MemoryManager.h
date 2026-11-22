@@ -19,7 +19,6 @@
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Descriptor/Surface.h"
-#include "Core/Memory/HostData.h"
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Tree/Layer.h"
@@ -159,7 +158,6 @@ class MemoryManager {
    * Copies the given variables to the host, and waits for that; all variables of all storages for
    * everything.
    */
-  void synchronizeToHost(const HostData& data);
 };
 } // namespace initializer
 } // namespace seissol

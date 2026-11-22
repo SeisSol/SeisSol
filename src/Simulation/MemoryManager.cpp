@@ -18,7 +18,6 @@
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Descriptor/Surface.h"
 #include "Core/Memory/GlobalData.h"
-#include "Core/Memory/HostData.h"
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Features/DynamicRupture/DRParameters.h"
@@ -120,22 +119,6 @@ void MemoryManager::synchronizeTo(AllocationPlace place) {
 
 #ifdef ACL_DEVICE
   device::DeviceInstance::instance().api().syncDefaultStreamWithHost();
-#endif
-}
-
-void MemoryManager::synchronizeToHost(const HostData& data) {
-  if (data.isEverything()) {
-    synchronizeTo(AllocationPlace::Host);
-    return;
-  }
-  if (data.empty()) {
-    return;
-  }
-  logInfo() << "Synchronizing data... (device->host;" << data.size() << "variables)";
-#ifdef ACL_DEVICE
-  auto& api = device::DeviceInstance::instance().api();
-  data.copyToHost(api.getDefaultStream());
-  api.syncDefaultStreamWithHost();
 #endif
 }
 

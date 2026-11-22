@@ -19,6 +19,7 @@
 #include "Core/Monitoring/Stopwatch.h"
 #include "Core/Monitoring/Watchdog.h"
 #include "Core/Parallel/Helper.h"
+#include "Core/Run/Context.h"
 #include "Core/TimeStepping/Clustering/ClusteringWriter.h"
 #include "Core/TimeStepping/Compute/CellCluster.h"
 #include "Core/TimeStepping/Compute/CellClusterFactory.h"
@@ -36,6 +37,7 @@
 #include <cassert>
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <list>
 #include <memory>
 #include <optional>
@@ -43,10 +45,6 @@
 #include <set>
 #include <utils/logger.h>
 #include <vector>
-
-namespace seissol {
-class SeisSol;
-} // namespace seissol
 
 namespace seissol::solver {
 class AbstractCommunicationManager;
@@ -69,7 +67,10 @@ struct EpochActivity {
  **/
 class TimeManager {
   private:
-  seissol::SeisSol& seissolInstance_;
+  RunContext& run_;
+
+  //! copies all storages of the run to a place
+  std::function<void(initializer::AllocationPlace)> synchronizeStorages_;
 
   //! time stepping
   std::optional<initializer::ClusterLayout> clusterLayout_;
@@ -204,9 +205,11 @@ class TimeManager {
 
   public:
   /**
-   * Construct a new time manager.
+   * A time manager in the run `run`; `synchronizeStorages` copies all storages of the run to a
+   * place (see synchronizeTo()).
    **/
-  explicit TimeManager(seissol::SeisSol& seissolInstance);
+  TimeManager(RunContext& run,
+              std::function<void(initializer::AllocationPlace)> synchronizeStorages);
 
   /**
    * Destruct the time manager.

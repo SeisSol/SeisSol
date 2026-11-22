@@ -34,6 +34,7 @@
 #include "Core/Parallel/Runtime/HostActor.h"
 #include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "Core/Run/Context.h"
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Clustering/ClusteringWriter.h"
@@ -53,8 +54,6 @@
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Core/TimeStepping/Plan/SuperStepRecorder.h"
 #include "Core/TimeStepping/Plan/TimeSteppingPlan.h"
-#include "Simulation/MemoryManager.h"
-#include "Simulation/SeisSol.h"
 
 #include <algorithm>
 #include <array>
@@ -82,8 +81,10 @@
 
 namespace seissol::solver {
 
-TimeManager::TimeManager(seissol::SeisSol& seissolInstance)
-    : seissolInstance_(seissolInstance), actorStateStatisticsManager_(loopStatistics_) {
+TimeManager::TimeManager(RunContext& run,
+                         std::function<void(initializer::AllocationPlace)> synchronizeStorages)
+    : run_(run), synchronizeStorages_(std::move(synchronizeStorages)),
+      actorStateStatisticsManager_(loopStatistics_) {
   loopStatistics_.addRegion("computeLocalIntegration");
   loopStatistics_.addRegion("computeNeighboringIntegration");
   loopStatistics_.addRegion("computeDynamicRupture");
@@ -159,14 +160,13 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   setUpHostScheduling();
   DeviceTimer::available() = DeviceTimer::canTimeEvents();
-  DeviceTimer::enabled() = useDeviceLoopStatistics(seissolInstance_.env());
+  DeviceTimer::enabled() = useDeviceLoopStatistics(run_.env());
 
   // store the time stepping
   this->clusterLayout_ = clusterLayout;
 
   // written in initIO, with the rest of the output
-  auto& clusteringWriter =
-      clusteringWriter_.emplace(seissolInstance_.outputPrefix(), seissolInstance_.runId());
+  auto& clusteringWriter = clusteringWriter_.emplace(run_.outputPrefix(), run_.runId());
 
   for (auto* factory : faceClusterFactories) {
     factory->prepare(clusterLayout);
@@ -305,14 +305,14 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   }
 
   // Create ghost time clusters for MPI
-  followPlan_ = useTimeSteppingPlan(seissolInstance_.env());
+  followPlan_ = useTimeSteppingPlan(run_.env());
   if (followPlan_) {
     logInfo() << "The clusters take their steps along the time stepping plan.";
   }
 
-  const auto dataTransferMode = getDataTransferMode(seissolInstance_.env());
-  haloTransports_ = std::make_unique<HaloTransportFactory>(
-      dataTransferMode, usePersistentMpi(seissolInstance_.env()));
+  const auto dataTransferMode = getDataTransferMode(run_.env());
+  haloTransports_ =
+      std::make_unique<HaloTransportFactory>(dataTransferMode, usePersistentMpi(run_.env()));
   // what the test of the halo exchange before the time stepping goes through
   std::vector<CheckedTransport> checkedTransports;
   for (const auto& layer : ltsStorage.leaves(Ghost | Interior)) {
@@ -389,9 +389,9 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
 
   std::ranges::sort(ghostClusters, rateSorter);
 
-  if (useHaloCheck(seissolInstance_.env())) {
+  if (useHaloCheck(run_.env())) {
     // before the exchanges get timed, which would count the test
-    const auto watchdog = monitoring::Watchdog::settingsFromEnv(seissolInstance_.env());
+    const auto watchdog = monitoring::Watchdog::settingsFromEnv(run_.env());
     testHaloExchange(checkedTransports,
                      isDeviceOn() ? HaloMemory::Device : HaloMemory::Host,
                      std::string(dataTransferModeName(dataTransferMode)),
@@ -399,7 +399,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                      watchdog.abort);
   }
 
-  commThread_ = seissol::useCommThread(Mpi::mpi, seissolInstance_.env());
+  commThread_ = seissol::useCommThread(Mpi::mpi, run_.env());
   if (haloTransports_->taskEngine() != nullptr) {
     // the main thread creates the tasks of the exchanges; where the OpenMP runtime may wait for one
     // of them right there, it cannot complete them as well
@@ -409,27 +409,24 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       logInfo() << "A thread of its own polls the halo exchange in the task graph, as this OpenMP"
                 << "runtime may wait for the tasks of the exchanges where they get created.";
     }
-    communicationManager_ =
-        std::make_unique<TaskCommunicationManager>(std::move(ghostClusters),
-                                                   *haloTransports_->taskEngine(),
-                                                   &seissolInstance_.pinning(),
-                                                   pollingThread);
+    communicationManager_ = std::make_unique<TaskCommunicationManager>(
+        std::move(ghostClusters), *haloTransports_->taskEngine(), &run_.pinning(), pollingThread);
   } else if (commThread_) {
-    communicationManager_ = std::make_unique<ThreadedCommunicationManager>(
-        std::move(ghostClusters), &seissolInstance_.pinning());
+    communicationManager_ =
+        std::make_unique<ThreadedCommunicationManager>(std::move(ghostClusters), &run_.pinning());
   } else {
     communicationManager_ = std::make_unique<SerialCommunicationManager>(std::move(ghostClusters));
   }
 
   auto* ghostClusterPointer = communicationManager_->getGhostClusters();
 
-  if (isDeviceOn() && useHostActor(seissolInstance_.env())) {
+  if (isDeviceOn() && useHostActor(run_.env())) {
     logInfo() << "The work on the host for the device (the samples of the receivers and fault"
               << "receivers) runs once the device is done with what it reads"
               << "(SEISSOL_HOST_ACTOR=1).";
   }
 
-  concurrent_ = isDeviceOn() && useConcurrentClusters(seissolInstance_.env());
+  concurrent_ = isDeviceOn() && useConcurrentClusters(run_.env());
   if (concurrent_) {
     logInfo() << "The clusters run concurrently on the device.";
     if constexpr (Backend == DeviceBackend::Cuda) {
@@ -438,7 +435,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                 << "hardware queues (CUDA_DEVICE_MAX_CONNECTIONS).";
     }
     parallel::runtime::hostFunctionsOnStreams() = true;
-    const bool accessEvents = useAccessEvents(seissolInstance_.env());
+    const bool accessEvents = useAccessEvents(run_.env());
     if (accessEvents) {
       logInfo() << "The work of a cluster waits for the latest writes of its neighbors before it"
                 << "reads their data, and for their latest reads before it overwrites its own.";
@@ -453,7 +450,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   }
 
-  if (useSuperStepGraphs(seissolInstance_.env())) {
+  if (useSuperStepGraphs(run_.env())) {
     if (!followPlan_ || !concurrent_) {
       logWarning() << "Recording super-timesteps needs a device, SEISSOL_TIMESTEPPING_PLAN=1 and"
                    << "SEISSOL_CONCURRENT_CLUSTERS=1.";
@@ -469,7 +466,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       // (not by default with HIP: with HIP 7.2 on MI300A, the recordings with concurrent branches
       // computed other results than the runs without recordings, see the documentation)
       constexpr bool BranchesByDefault = Backend != DeviceBackend::Hip;
-      const bool branches = useSuperStepBranches(seissolInstance_.env(), BranchesByDefault);
+      const bool branches = useSuperStepBranches(run_.env(), BranchesByDefault);
       recorder_ = std::make_unique<SuperStepRecorder>(branches);
       if (!branches) {
         logInfo() << "The branches of the work of a cluster run one after another in the recordings"
@@ -489,7 +486,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
         superStepTimer_->setTrace([] { return std::string("super-timesteps"); }, "super-timestep");
         recorder_->setTimer(superStepTimer_.get());
       }
-      graphMode_ = superStepGraphMode(seissolInstance_.env());
+      graphMode_ = superStepGraphMode(run_.env());
       if (graphMode_ == SuperStepGraphMode::Rebuild) {
         logInfo() << "Every super-timestep gets recorded anew and launched once, none replayed"
                   << "(SEISSOL_SUPERSTEP_GRAPH_MODE=rebuild).";
@@ -525,7 +522,7 @@ std::vector<AbstractTimeCluster*> TimeManager::allClusters() const {
 }
 
 void TimeManager::setUpWatchdog(const std::vector<AbstractTimeCluster*>& clusters) {
-  const auto settings = monitoring::Watchdog::settingsFromEnv(seissolInstance_.env());
+  const auto settings = monitoring::Watchdog::settingsFromEnv(run_.env());
   // the clusters report and fail after as long without progress as the watchdog
   for (auto* cluster : clusters) {
     cluster->setProgressTimeout(settings.timeout, settings.abort);
@@ -755,7 +752,7 @@ void TimeManager::throttleHostWork() {
 void TimeManager::setUpHostScheduling() {
   using parallel::runtime::HostRuntime;
   using parallel::runtime::HostScheduling;
-  auto& env = seissolInstance_.env();
+  auto& env = run_.env();
   const auto taskSize = hostTaskSize(env);
   if (!useHostTaskGraph(env)) {
     HostRuntime::setScheduling(HostScheduling::Static, taskSize);
@@ -850,8 +847,7 @@ void TimeManager::followPlan() {
 
   // the interior layers correct and do face work before the copy layers, which wait for the halo
   // (SEISSOL_PLAN_INTERIOR_FIRST=0 orders by priority throughout)
-  const auto plan =
-      planTimeSteps(planned, seissolInstance_.env().get<bool>("PLAN_INTERIOR_FIRST", true));
+  const auto plan = planTimeSteps(planned, run_.env().get<bool>("PLAN_INTERIOR_FIRST", true));
 
   // what a recording of a super-timestep comprises: the clusters, ghost clusters included, and the
   // stream runtimes that their device work goes through (those of the clusters and of their
@@ -1019,7 +1015,7 @@ json::Value TimeManager::printComputationTime() {
     if (metrics == work.end()) {
       continue;
     }
-    const auto estimate = seissolInstance_.flopCounter().estimate(metrics->second);
+    const auto estimate = run_.flopCounter().estimate(metrics->second);
     std::array<double, 3> sums{static_cast<double>(estimate.hardwareFlop),
                                static_cast<double>(estimate.kernelBytes),
                                loopStatistics_.regionTime(region)};
@@ -1230,7 +1226,17 @@ void TimeManager::synchronizeToHost(const initializer::HostData& data,
                         device::DeviceInstance::instance().api().getDefaultStream());
     return;
   }
-  seissolInstance_.memoryManager().synchronizeToHost(data);
+  if (data.isEverything()) {
+    synchronizeStorages_(initializer::AllocationPlace::Host);
+    return;
+  }
+  if (data.empty()) {
+    return;
+  }
+  logInfo() << "Synchronizing data... (device->host;" << data.size() << "variables)";
+  auto& api = device::DeviceInstance::instance().api();
+  data.copyToHost(api.getDefaultStream());
+  api.syncDefaultStreamWithHost();
 #endif
 }
 
@@ -1247,7 +1253,7 @@ void TimeManager::synchronizeTo(seissol::initializer::AllocationPlace place) {
     sameExecutor &= clusters_.front()->getExecutor() == cluster->getExecutor();
   }
   if (sameExecutor) {
-    seissolInstance_.memoryManager().synchronizeTo(place);
+    synchronizeStorages_(place);
   } else {
     auto* stream = device::DeviceInstance::instance().api().getDefaultStream();
     for (auto& cluster : clusters_) {
