@@ -12,7 +12,6 @@
 #include "Core/Memory/Typedefs.h"
 #include "Features/InitialConditions/InitializationParameters.h"
 #include "Features/InitialConditions/Physics/InitialField.h"
-#include "Features/TimeMirror/ITMParameters.h"
 
 #include <cstddef>
 #include <memory>
@@ -23,13 +22,24 @@
 namespace seissol::physics::scenario {
 
 /**
+ * What a scenario with a time mirror takes of the settings of the mirror: whether the run has
+ * one, when it starts and how long it lasts, and the factor it scales the velocities by.
+ */
+struct MirrorSettings {
+  bool enabled{false};
+  double startingTime{0};
+  double duration{0};
+  double velocityScalingFactor{1};
+};
+
+/**
  * Everything a scenario needs to be constructed. Bundled so that adding a scenario with new
  * requirements does not change the signature of every entry in the registry.
  */
 struct Input {
   const initializer::parameters::InitializationParameters& initialization;
   // the settings of the time mirror, which the scenario with ITM passes through
-  const initializer::parameters::ITMParameters& timeMirror;
+  MirrorSettings timeMirror;
   // the number of simulations of the run
   std::size_t simulationCount{1};
   const CellMaterialData& materialData;
@@ -72,7 +82,7 @@ Availability analyticalBoundaryAvailability(initializer::parameters::Initializat
  */
 AcousticTravellingWaveParametersITM acousticTravellingWaveParameters(
     const initializer::parameters::InitializationParameters& initialization,
-    const initializer::parameters::ITMParameters& itm);
+    const MirrorSettings& mirror);
 
 /**
  * Constructs the scenario: one instance per simulation of the run, or a single one for all of them

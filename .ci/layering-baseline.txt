@@ -67,8 +67,6 @@ core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/Solv
 core-includes-wavepropagation Core/TimeStepping/Clustering/Clustering.cpp WavePropagation/Physics/Datastructures.h
 feature-includes-composition Features/InitialConditions/Setup/InitialFieldProjection.cpp Simulation/Reader/AsagiReader.h
 feature-includes-composition Features/InitialConditions/Setup/InitialFieldProjection.h Simulation/MemoryManager.h
-feature-includes-feature Features/InitialConditions/Physics/Scenario/Registry.cpp Features/TimeMirror/ITMParameters.h
-feature-includes-feature Features/InitialConditions/Physics/Scenario/Registry.h Features/TimeMirror/ITMParameters.h
 physics-includes-runtime Features/InitialConditions/Physics/InitialField.h Core/Memory/Typedefs.h
 physics-includes-runtime Features/InitialConditions/Physics/Scenario/Registry.cpp Core/Memory/Typedefs.h
 physics-includes-runtime Features/InitialConditions/Physics/Scenario/Registry.h Core/Memory/Typedefs.h

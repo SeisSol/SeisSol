@@ -361,7 +361,12 @@ TEST_CASE("The acoustic travelling wave passes the time mirror only if it is ena
     const ITMParameters itm = readITMParameters(&reader);
     // the configuration only gives the default of the amplitudes, which the wave does not read
     const InitializationParameters initialization = readInitializationParameters(&reader, 0);
-    return physics::scenario::acousticTravellingWaveParameters(initialization, itm);
+    return physics::scenario::acousticTravellingWaveParameters(
+        initialization,
+        physics::scenario::MirrorSettings{.enabled = itm.itmEnabled,
+                                          .startingTime = itm.itmStartingTime,
+                                          .duration = itm.itmDuration,
+                                          .velocityScalingFactor = itm.itmVelocityScalingFactor});
   };
 
   SUBCASE("enabled") {

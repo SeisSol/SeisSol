@@ -17,6 +17,7 @@
 #include "Features/InitialConditions/Physics/Scenario/Registry.h"
 #include "Features/InitialConditions/Setup/InitialFieldProjection.h"
 #include "Features/SourceTerm/Setup/Manager.h"
+#include "Features/TimeMirror/ITMParameters.h"
 #include "Simulation/MemoryManager.h"
 #include "Simulation/Parameters/ModelParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
@@ -33,6 +34,15 @@
 namespace seissol::initializer::initprocedure {
 
 namespace {
+
+/// What the scenarios of the initial conditions take of the settings of the time mirror.
+physics::scenario::MirrorSettings
+    mirrorSettings(const seissol::initializer::parameters::ITMParameters& itm) {
+  return physics::scenario::MirrorSettings{.enabled = itm.itmEnabled,
+                                           .startingTime = itm.itmStartingTime,
+                                           .duration = itm.itmDuration,
+                                           .velocityScalingFactor = itm.itmVelocityScalingFactor};
+}
 
 /// The initial conditions of the cells of the configuration `config`, set up with the material
 /// `materialData` of one of them; for the simulation `simulation` alone, if given.
@@ -55,7 +65,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
   return physics::scenario::build(
       type,
       physics::scenario::Input{.initialization = parameters.initialization,
-                               .timeMirror = parameters.timeMirror,
+                               .timeMirror = mirrorSettings(parameters.timeMirror),
                                .simulationCount = parameters.runConfigs.simulationCount,
                                .materialData = materialData,
                                .gravitation = seissolInstance.gravitationSetup(),

@@ -13,7 +13,6 @@
 #include "Features/InitialConditions/InitializationParameters.h"
 #include "Features/InitialConditions/Physics/InitialField.h"
 #include "Features/InitialConditions/Physics/Scenario/Scenarios.h"
-#include "Features/TimeMirror/ITMParameters.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/MaterialType.h"
 
@@ -279,14 +278,14 @@ Availability analyticalBoundaryAvailability(InitializationType type, ConfigId co
 
 AcousticTravellingWaveParametersITM acousticTravellingWaveParameters(
     const initializer::parameters::InitializationParameters& initialization,
-    const initializer::parameters::ITMParameters& itm) {
+    const MirrorSettings& mirror) {
   AcousticTravellingWaveParametersITM parameters{};
   parameters.k = initialization.k;
-  parameters.itmStartingTime = itm.itmStartingTime;
-  parameters.itmDuration = itm.itmDuration;
+  parameters.itmStartingTime = mirror.startingTime;
+  parameters.itmDuration = mirror.duration;
   // Without an enabled mirror, the ITM values are ignored. A factor of one makes the wave pass the
   // mirror times unchanged, whatever they are.
-  parameters.itmVelocityScalingFactor = itm.itmEnabled ? itm.itmVelocityScalingFactor : 1.0;
+  parameters.itmVelocityScalingFactor = mirror.enabled ? mirror.velocityScalingFactor : 1.0;
   return parameters;
 }
 
