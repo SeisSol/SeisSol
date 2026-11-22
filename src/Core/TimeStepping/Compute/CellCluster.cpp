@@ -21,7 +21,6 @@
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/LtsSetup.h"
-#include "Core/Memory/MemoryAllocator.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Monitoring/ActorStateStatistics.h"
@@ -36,13 +35,10 @@
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
+#include "Core/TimeStepping/Compute/CellStage.h"
 #include "Core/TimeStepping/Compute/ClusterStage.h"
 #include "Core/TimeStepping/Compute/ComputeCluster.h"
-#include "Core/TimeStepping/Settings.h"
-#include "Features/Plasticity/Solver/Plasticity.h"
-#include "Features/Plasticity/Solver/Storage.h"
 #include "GeneratedCode/kernel.h"
-#include "GeneratedCode/tensor.h"
 #include "Simulation/MemoryManager.h"
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Output/Receiver.h"
@@ -67,6 +63,7 @@
 #include "Core/Kernels/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Core/Parallel/DeviceGraph.h"
+#include "GeneratedCode/tensor.h"
 
 #include <Device/AbstractAPI.h>
 #endif
@@ -77,7 +74,6 @@ template <typename Cfg>
 CellCluster<Cfg>::CellCluster(unsigned int clusterId,
                               unsigned int globalClusterId,
                               unsigned int profilingId,
-                              const SimulationSettings& settings,
                               double maxTimeStepSize,
                               long timeStepRate,
                               bool printProgress,
@@ -98,13 +94,10 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
                            deviceTimeline,
                            actorStateStatistics),
       // cluster ids
-      settings_(settings), seissolInstance_(seissolInstance),
+      seissolInstance_(seissolInstance),
       configBoundary_(seissolInstance.parameters().runConfigs.configs()), globalData_(globalData),
-      clusterData_(clusterData), conditionalCounterHost_(1, seissol::memory::Memkind::Standard),
-      conditionalCounterDevice_(1,
-                                isDeviceOn() ? seissol::memory::Memkind::DeviceGlobalMemory
-                                             : seissol::memory::Memkind::Standard),
-      printProgress_(printProgress), clusterId_(clusterId), globalClusterId_(globalClusterId) {
+      clusterData_(clusterData), printProgress_(printProgress), clusterId_(clusterId),
+      globalClusterId_(globalClusterId) {
   // assert all pointers are valid
   assert(clusterData_ != nullptr);
   assert(globalData_.onHost != nullptr);
@@ -137,26 +130,12 @@ CellCluster<Cfg>::CellCluster(unsigned int clusterId,
   traceLocalIntegration_ = monitoring::Trace::name("computeLocalIntegration");
   traceNeighboringIntegration_ = monitoring::Trace::name("computeNeighboringIntegration");
 
-  conditionalCounterHost_[0] = 0;
-  conditionalCounterDevice_.copyFrom(conditionalCounterHost_);
-
   perfHandle_[static_cast<std::size_t>(ComputePart::Local)] =
       seissolInstance.flopCounter().addMetric("local", "WP");
   perfHandle_[static_cast<std::size_t>(ComputePart::Neighbor)] =
       seissolInstance.flopCounter().addMetric("neighbor", "WP");
   perfHandle_[static_cast<std::size_t>(ComputePart::DRNeighbor)] =
       seissolInstance.flopCounter().addMetric("neighbor-dr", "DR");
-  perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityCheck)] =
-      seissolInstance.flopCounter().addMetric("plasticity-check", "PL");
-  perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityYield)] =
-      seissolInstance.flopCounter().addMetric("plasticity-yield", "PL");
-
-  const auto* cellInfo = clusterData_->var<LTS::CellInformation>();
-  for (std::size_t i = 0; i < clusterData_->size(); ++i) {
-    if (cellInfo[i].plasticityEnabled) {
-      ++numPlasticCells_;
-    }
-  }
 }
 
 template <typename Cfg>
@@ -164,6 +143,19 @@ void CellCluster<Cfg>::addStage(std::unique_ptr<ClusterStage> stage) {
   stage->setClock(clock_.device());
   stageRegions_.push_back(loopStatistics_->getRegion(stage->name()));
   stages_.push_back(std::move(stage));
+}
+
+template <typename Cfg>
+void CellCluster<Cfg>::addCellStage(std::unique_ptr<CellStageBase> stage) {
+  if (stage->config() != configIdOf<Cfg>()) {
+    logError() << "A cell stage of the configuration" << stage->config()
+               << "cannot work on the cells of the configuration" << configIdOf<Cfg>() << ".";
+  }
+  if (cellStages_.size() == MaxCellStages) {
+    logError() << "A cell cluster takes at most" << MaxCellStages << "cell stages.";
+  }
+  // the configuration is that of the cluster, checked above
+  cellStages_.emplace_back(static_cast<CellStage<Cfg>*>(stage.release()));
 }
 
 template <typename Cfg>
@@ -413,23 +405,6 @@ void CellCluster<Cfg>::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM const Ste
 }
 
 template <typename Cfg>
-void CellCluster<Cfg>::computeNeighboringIntegration(const StepParams& params) {
-  if (settings_.integrate) {
-    if (settings_.plasticity) {
-      computeNeighboringIntegrationImplementation<true, true>(params);
-    } else {
-      computeNeighboringIntegrationImplementation<false, true>(params);
-    }
-  } else {
-    if (settings_.plasticity) {
-      computeNeighboringIntegrationImplementation<true, false>(params);
-    } else {
-      computeNeighboringIntegrationImplementation<false, false>(params);
-    }
-  }
-}
-
-template <typename Cfg>
 void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
     SEISSOL_GPU_PARAM const StepParams& params) {
 #ifdef ACL_DEVICE
@@ -466,41 +441,9 @@ void CellCluster<Cfg>::computeNeighboringIntegrationDevice(
       },
       true);
 
-  if (settings_.plasticity) {
-    const auto plasticityGraphKey =
-        initializer::GraphKey(ComputeGraphType::Plasticity, timeStepWidth);
-    auto* plasticity = clusterData_->var<LTSPlasticity::Plasticity>(
-        Cfg(), seissol::initializer::AllocationPlace::Device);
-    auto* isAdjustableVector = clusterData_->var<LTSPlasticity::FlagScratch>(
-        seissol::initializer::AllocationPlace::Device);
-    streamRuntime_.runGraph(
-        plasticityGraphKey,
-        *clusterData_,
-        [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
-          seissol::kernels::Plasticity<Cfg>::computePlasticityBatched(
-              timeStepWidth,
-              seissolInstance_.parameters().plasticity.tv,
-              globalData_.onDevice,
-              table,
-              plasticity,
-              conditionalCounterDevice_.data(),
-              isAdjustableVector,
-              streamRuntime);
-        },
-        isRecurringTimestep(timeStepWidth));
-  }
-
-  if (settings_.integrate) {
-    const ConditionalKey key = ConditionalKey(*KernelNames::Time);
-    if (table.contains(key)) {
-      auto entry = table.at(key);
-      device_.algorithms().accumulateBatchedData(
-          const_cast<const real**>(entry.get<real*>(inner_keys::Wp::Id::Dofs)->getDeviceDataPtr()),
-          entry.get<real*>(inner_keys::Wp::Id::Integrals)->getDeviceDataPtr(),
-          tensor::Q<Cfg>::Size,
-          entry.get<real*>(inner_keys::Wp::Id::Dofs)->getSize(),
-          streamRuntime_.stream());
-    }
+  const bool recurring = isRecurringTimestep(timeStepWidth);
+  for (auto& stage : cellStages_) {
+    stage->correctDevice(params, recurring, streamRuntime_);
   }
 
   device_.api().popLastProfilingMark();
@@ -556,10 +499,6 @@ template <typename Cfg>
 void CellCluster<Cfg>::computeFlops() {
   computeLocalIntegrationFlops();
   computeNeighborIntegrationFlops();
-
-  const auto [check, yield] = seissol::kernels::Plasticity<Cfg>::metrics();
-  estimate_[static_cast<int>(ComputePart::PlasticityCheck)] = check;
-  estimate_[static_cast<int>(ComputePart::PlasticityYield)] = yield;
 }
 
 template <typename Cfg>
@@ -624,12 +563,9 @@ StepWork CellCluster<Cfg>::prepare(ActorAction action) {
   if (action == ActorAction::Correct) {
     incrementPerformanceMetrics(ComputePart::Neighbor);
     incrementPerformanceMetrics(ComputePart::DRNeighbor);
-    if (settings_.plasticity) {
-      // here instead of with the device work, which a replay of a recording skips; the yielding
-      // cells get counted on the device, and added at the synchronization points
-      seissolInstance_.flopCounter().incrementMetric(
-          perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityCheck)],
-          estimate_[static_cast<std::size_t>(ComputePart::PlasticityCheck)] * numPlasticCells_);
+    // here instead of with the device work, which a replay of a recording skips
+    for (auto& stage : cellStages_) {
+      stage->countCorrection();
     }
 
     if (printProgress_) {
@@ -742,14 +678,14 @@ std::vector<parallel::runtime::StreamRuntime*> CellCluster<Cfg>::runtimes() {
 template <typename Cfg>
 void CellCluster<Cfg>::finalize() {
   stages_.clear();
+  cellStages_.clear();
   ComputeCluster::finalize();
 
   logDebug() << "#(time steps):" << numberOfTimeSteps_;
 }
 
 template <typename Cfg>
-template <bool UsePlasticity, bool IntegrateOutput>
-void CellCluster<Cfg>::computeNeighboringIntegrationImplementation(const StepParams& params) {
+void CellCluster<Cfg>::computeNeighboringIntegration(const StepParams& params) {
   const auto clusterSize = clusterData_->size();
   if (clusterSize == 0) {
     return;
@@ -761,21 +697,15 @@ void CellCluster<Cfg>::computeNeighboringIntegrationImplementation(const StepPar
   const auto* faceNeighbors = clusterData_->var<LTS::FaceNeighbors>();
   const auto* drMapping = clusterData_->var<LTS::DRMapping>(Cfg());
   const auto* cellInformation = clusterData_->var<LTS::CellInformation>();
-  const auto* plasticity = clusterData_->var<LTSPlasticity::Plasticity>(Cfg());
-  // written only where the configuration uses plasticity
-  // NOLINTNEXTLINE(misc-const-correctness)
-  auto* pstrain = clusterData_->var<LTSPlasticity::PStrain>(Cfg());
 
-  // the cells whose plasticity yields, counted per range of cells and summed up (without
-  // plasticity, neither counter changes)
-  // NOLINTNEXTLINE(misc-const-correctness)
-  std::atomic<std::size_t> numberOfTetsWithPlasticYielding{0};
-
-  const auto tV = seissolInstance_.parameters().plasticity.tv;
+  // the stages that work on each cell after its correction, and the sums of their counts
+  const std::size_t stageCount = cellStages_.size();
+  for (auto& stage : cellStages_) {
+    stage->beginCorrection(params);
+  }
+  std::array<std::atomic<std::size_t>, MaxCellStages> stageCounts{};
 
   const auto timestep = params.timeStepSize;
-  const auto oneMinusIntegratingFactor =
-      seissol::kernels::Plasticity<Cfg>::computeRelaxTime(tV, timestep);
 
   const auto timeBasis = seissol::kernels::timeBasis<Cfg>();
   const auto timeCoeffs = timeBasis.integrate(0, timestep, timestep);
@@ -791,8 +721,7 @@ void CellCluster<Cfg>::computeNeighboringIntegrationImplementation(const StepPar
   parallel::runtime::HostRuntime::forRange(clusterSize, [&](std::size_t begin, std::size_t end) {
     std::array<real*, Cell::NumFaces> timeIntegrated{};
     std::array<real*, Cell::NumFaces> faceNeighborsPrefetch{};
-    // NOLINTNEXTLINE(misc-const-correctness)
-    std::size_t yielding = 0;
+    std::array<std::size_t, MaxCellStages> rangeCounts{};
 
     for (std::size_t cell = begin; cell < end; ++cell) {
       auto data = clusterData_->cellRef<Cfg>(cell);
@@ -844,37 +773,19 @@ void CellCluster<Cfg>::computeNeighboringIntegrationImplementation(const StepPar
 
       neighborKernel_.computeNeighborsIntegral(data, timeIntegrated, faceNeighborsPrefetch);
 
-      if constexpr (UsePlasticity) {
-        if (data.template get<LTS::CellInformation>().plasticityEnabled) {
-          yielding +=
-              seissol::kernels::Plasticity<Cfg>::computePlasticity(oneMinusIntegratingFactor,
-                                                                   timestep,
-                                                                   tV,
-                                                                   globalData_.onHost,
-                                                                   &plasticity[cell],
-                                                                   data.template get<LTS::Dofs>(),
-                                                                   pstrain[cell]);
-        }
-      }
-      if constexpr (IntegrateOutput) {
-        auto* __restrict integral = data.template get<LTS::Integrals>();
-        const auto* __restrict dofs = data.template get<LTS::Dofs>();
-
-// only first-order time integration for the output here
-#pragma omp simd
-        for (std::size_t dof = 0; dof < tensor::Q<Cfg>::size(); ++dof) {
-          integral[dof] += timestep * dofs[dof];
-        }
+      // the stages work on the cell while its data are still in the cache
+      for (std::size_t stage = 0; stage < stageCount; ++stage) {
+        rangeCounts[stage] += cellStages_[stage]->correctCell(cell, data);
       }
     }
 
-    if constexpr (UsePlasticity) {
-      numberOfTetsWithPlasticYielding.fetch_add(yielding, std::memory_order_relaxed);
+    for (std::size_t stage = 0; stage < stageCount; ++stage) {
+      stageCounts[stage].fetch_add(rangeCounts[stage], std::memory_order_relaxed);
     }
   });
 
-  if constexpr (UsePlasticity) {
-    conditionalCounterHost_[0] += numberOfTetsWithPlasticYielding.load(std::memory_order_relaxed);
+  for (std::size_t stage = 0; stage < stageCount; ++stage) {
+    cellStages_[stage]->endCorrection(stageCounts[stage].load(std::memory_order_relaxed));
   }
 
   loopStatistics_->end(regionComputeNeighboringIntegration_, clusterSize, profilingId_, loopBegin);
@@ -883,20 +794,9 @@ void CellCluster<Cfg>::computeNeighboringIntegrationImplementation(const StepPar
 template <typename Cfg>
 void CellCluster<Cfg>::finishPhase() {
   ComputeCluster::finishPhase();
-
-  const auto cells = conditionalCounterHost_[0];
-  seissolInstance_.flopCounter().incrementMetric(
-      perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityYield)],
-      estimate_[static_cast<std::size_t>(ComputePart::PlasticityYield)] * cells);
-
-  conditionalCounterHost_.copyFrom(conditionalCounterDevice_);
-  const auto cells2 = conditionalCounterHost_[0];
-  seissolInstance_.flopCounter().incrementMetric(
-      perfHandle_[static_cast<std::size_t>(ComputePart::PlasticityYield)],
-      estimate_[static_cast<std::size_t>(ComputePart::PlasticityYield)] * cells2);
-
-  conditionalCounterHost_[0] = 0;
-  conditionalCounterDevice_.copyFrom(conditionalCounterHost_);
+  for (auto& stage : cellStages_) {
+    stage->finishPhase();
+  }
 }
 
 #define SEISSOL_INSTANTIATE(Cfg) template class CellCluster<Cfg>;

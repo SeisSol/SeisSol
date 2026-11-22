@@ -21,11 +21,10 @@
 #include "Core/Monitoring/Metric.h"
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
+#include "Core/TimeStepping/Compute/CellStage.h"
 #include "Core/TimeStepping/Compute/ClusterClock.h"
 #include "Core/TimeStepping/Compute/ClusterStage.h"
 #include "Core/TimeStepping/Compute/ComputeCluster.h"
-#include "Core/TimeStepping/Settings.h"
-#include "Features/Plasticity/Solver/Plasticity.h"
 #include "WavePropagation/Output/FreeSurfaceIntegrator.h"
 #include "WavePropagation/Output/Receiver.h"
 #include "WavePropagation/Solver/ConfigBoundary.h"
@@ -62,6 +61,10 @@ class CellClusterInterface : public ComputeCluster {
   /// Adds work over items of its own, such as point sources, to the steps of the cluster.
   virtual void addStage(std::unique_ptr<ClusterStage> stage) = 0;
 
+  /// Adds work over the cells of the cluster to its corrections, such as the plasticity; the
+  /// stages run in the order they were added.
+  virtual void addCellStage(std::unique_ptr<CellStageBase> stage) = 0;
+
   /// Adds receivers the cluster samples; every output of receivers adds those of the cluster.
   virtual void addReceiverCluster(kernels::ReceiverCluster* receiverCluster) = 0;
 };
@@ -76,8 +79,6 @@ class CellCluster : public CellClusterInterface {
   using real = Real<Cfg>;
 
   private:
-  SimulationSettings settings_;
-
   seissol::SeisSol& seissolInstance_;
   /*
    * integrators
@@ -110,14 +111,12 @@ class CellCluster : public CellClusterInterface {
   std::vector<std::unique_ptr<ClusterStage>> stages_;
   std::vector<unsigned> stageRegions_;
 
-  enum class ComputePart : std::size_t {
-    Local = 0,
-    Neighbor,
-    DRNeighbor,
-    PlasticityCheck,
-    PlasticityYield,
-    NumComputeParts
-  };
+  //! the work features add to the corrections over the cells, in the order it runs in; at most
+  //! MaxCellStages of them, whose counts the loop over the cells sums up without allocating
+  static constexpr std::size_t MaxCellStages = 4;
+  std::vector<std::unique_ptr<CellStage<Cfg>>> cellStages_;
+
+  enum class ComputePart : std::size_t { Local = 0, Neighbor, DRNeighbor, NumComputeParts };
 
   std::array<PerformanceEstimate, static_cast<std::size_t>(ComputePart::NumComputeParts)>
       estimate_{};
@@ -139,11 +138,6 @@ class CellCluster : public CellClusterInterface {
   std::vector<ReceiverSlot> receivers_;
   //! the time the receivers start from (see setTime())
   double receiverStartTime_{0};
-
-  seissol::memory::MemkindArray<std::size_t> conditionalCounterHost_;
-  seissol::memory::MemkindArray<std::size_t> conditionalCounterDevice_;
-
-  std::size_t numPlasticCells_{0};
 
   /**
    * Samples the receivers of the cluster, with the samplings `samplings` planned for the step (one
@@ -191,9 +185,6 @@ class CellCluster : public CellClusterInterface {
 
   void computeLocalIntegrationFlops();
 
-  template <bool UsePlasticity, bool IntegrateOutput>
-  void computeNeighboringIntegrationImplementation(const StepParams& params);
-
   PerformanceEstimate computeLocalIntegrationFlops(std::size_t numberOfCells,
                                                    const CellLocalInformation* cellInformation);
 
@@ -224,12 +215,10 @@ class CellCluster : public CellClusterInterface {
    *
    * @param clusterId id of this cluster with respect to the current rank.
    * @param globalClusterId global id of this cluster.
-   * @param settings simulation settings
    **/
   CellCluster(unsigned int clusterId,
               unsigned int globalClusterId,
               unsigned int profilingId,
-              const SimulationSettings& settings,
               double maxTimeStepSize,
               long timeStepRate,
               bool printProgress,
@@ -243,6 +232,8 @@ class CellCluster : public CellClusterInterface {
   ~CellCluster() override = default;
 
   void addStage(std::unique_ptr<ClusterStage> stage) override;
+
+  void addCellStage(std::unique_ptr<CellStageBase> stage) override;
 
   void addReceiverCluster(kernels::ReceiverCluster* receiverCluster) override {
     receiverCluster->setNextSampleTime(receiverStartTime_);

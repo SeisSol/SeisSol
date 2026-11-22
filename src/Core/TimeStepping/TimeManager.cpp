@@ -39,6 +39,7 @@
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Clustering/ClusteringWriter.h"
 #include "Core/TimeStepping/Compute/CellCluster.h"
+#include "Core/TimeStepping/Compute/CellStage.h"
 #include "Core/TimeStepping/Compute/ClusterStage.h"
 #include "Core/TimeStepping/Halo/CommunicationManager.h"
 #include "Core/TimeStepping/Halo/GhostCluster.h"
@@ -49,7 +50,6 @@
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Core/TimeStepping/Plan/SuperStepRecorder.h"
 #include "Core/TimeStepping/Plan/TimeSteppingPlan.h"
-#include "Core/TimeStepping/Settings.h"
 #include "Features/DynamicRupture/Output/OutputManager.h"
 #include "Features/DynamicRupture/Output/PickpointSampling.h"
 #include "Features/DynamicRupture/Solver/DynamicRuptureCluster.h"
@@ -154,8 +154,7 @@ void reportClusterDependencies(initializer::MemoryManager& memoryManager,
 
 void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                               const HaloCommunication& haloStructure,
-                              initializer::MemoryManager& memoryManager,
-                              const SimulationSettings& settings) {
+                              initializer::MemoryManager& memoryManager) {
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
   std::vector<std::unique_ptr<GhostCluster>> ghostClusters;
 
@@ -225,7 +224,6 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
               clusterId,
               clusterId,
               profilingId,
-              settings,
               timeStepSize,
               timeStepRate,
               printProgress,
@@ -1144,6 +1142,16 @@ void TimeManager::addStage(std::size_t layerId, std::unique_ptr<ClusterStage> st
     }
   }
   logError() << "There is no cell cluster of the layer" << layerId << "to add a stage to.";
+}
+
+void TimeManager::addCellStage(std::size_t layerId, std::unique_ptr<CellStageBase> stage) {
+  for (auto& cluster : cellClusters_) {
+    if (cluster->layerId() == layerId) {
+      cluster->addCellStage(std::move(stage));
+      return;
+    }
+  }
+  logError() << "There is no cell cluster of the layer" << layerId << "to add a cell stage to.";
 }
 
 void TimeManager::addReceivers(writer::ReceiverWriter& receiverWriter) {

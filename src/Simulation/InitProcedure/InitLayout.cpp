@@ -26,6 +26,7 @@
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Core/TimeStepping/Layout/Halo.h"
 #include "Core/TimeStepping/Settings.h"
+#include "Features/Plasticity/Solver/PlasticityStage.h"
 #include "Features/Plasticity/Solver/Storage.h"
 #include "Internal/MeshLayout.h"
 #include "Simulation/Estimator.h"
@@ -34,6 +35,7 @@
 #include "Simulation/InitProcedure/Internal/Scratchpads.h"
 #include "Simulation/Parameters/OutputParameters.h"
 #include "Simulation/SeisSol.h"
+#include "WavePropagation/Output/IntegrationStage.h"
 #include "WavePropagation/Physics/Datastructures.h"
 
 #include <algorithm>
@@ -43,6 +45,7 @@
 #include <cstdint>
 #include <limits>
 #include <map>
+#include <memory>
 #include <mpi.h>
 #include <numeric>
 #include <string>
@@ -471,7 +474,28 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   logInfo() << "Setting up kernel clusters...";
   seissolInstance.timeManager().addClusters(
-      clusterLayout, haloCommunication, seissolInstance.memoryManager(), settings);
+      clusterLayout, haloCommunication, seissolInstance.memoryManager());
+
+  // the work of the features on each cell after its correction: first the plasticity, then the
+  // time integral of the DOFs for the outputs, which integrates the DOFs after the plasticity
+  for (auto& layer : ltsStorage.leaves(Ghost)) {
+    dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      if (settings.plasticity) {
+        seissolInstance.timeManager().addCellStage(
+            layer.id(),
+            std::make_unique<seissol::kernels::PlasticityStage<Cfg>>(
+                seissolInstance,
+                seissolParams.plasticity.tv,
+                seissolInstance.memoryManager().globalData<Cfg>(),
+                layer));
+      }
+      if (settings.integrate) {
+        seissolInstance.timeManager().addCellStage(
+            layer.id(), std::make_unique<seissol::kernels::IntegrationStage<Cfg>>(layer));
+      }
+    });
+  }
 
   seissolInstance.dofSync().setup(meshLayoutCopy, &ltsStorage);
 }

@@ -20,6 +20,7 @@
 #include "Core/Parallel/Helper.h"
 #include "Core/TimeStepping/Clustering/ClusteringWriter.h"
 #include "Core/TimeStepping/Compute/CellCluster.h"
+#include "Core/TimeStepping/Compute/CellStage.h"
 #include "Core/TimeStepping/Compute/ClusterStage.h"
 #include "Core/TimeStepping/Halo/GhostCluster.h"
 #include "Core/TimeStepping/HaloTransportFactory.h"
@@ -212,17 +213,13 @@ class TimeManager {
   ~TimeManager();
 
   /**
-   * Adds the time clusters to the time manager.
-   *
-   * @param i_timeStepping time stepping scheme.
-   * @param i_meshStructure mesh structure.
-   * @param memoryManager memory manager.
-   * @param i_meshToClusters mapping from the mesh to the clusters.
+   * Adds the clusters of the cells and of the dynamic rupture faces of the layers of the storages
+   * of `memoryManager`, with the time steps of `clusterLayout`, and the ghost clusters that
+   * exchange the halos `haloStructure`.
    **/
   void addClusters(const initializer::ClusterLayout& clusterLayout,
                    const HaloCommunication& haloStructure,
-                   initializer::MemoryManager& memoryManager,
-                   const SimulationSettings& settings);
+                   initializer::MemoryManager& memoryManager);
 
   /**
    * Writes the clustering table recorded by addClusters. Collective: every rank has to call it.
@@ -260,6 +257,12 @@ class TimeManager {
    * Adds the work `stage` to the steps of the cell cluster of the layer `layerId`.
    */
   void addStage(std::size_t layerId, std::unique_ptr<ClusterStage> stage);
+
+  /**
+   * Adds the work `stage` over the cells to the corrections of the cell cluster of the layer
+   * `layerId`, after the stages added before.
+   */
+  void addCellStage(std::size_t layerId, std::unique_ptr<CellStageBase> stage);
 
   /**
    * Returns the writer for the receivers
