@@ -8,17 +8,15 @@
 #ifndef SEISSOL_SRC_CORE_TIMESTEPPING_CLUSTERING_CLUSTERING_H_
 #define SEISSOL_SRC_CORE_TIMESTEPPING_CLUSTERING_CLUSTERING_H_
 
+#include "Core/Common/RunConfigs.h"
 #include "Core/Geometry/FaceMap.h"
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/TimeStepping/Layout/GlobalTimestep.h"
+#include "Core/TimeStepping/LtsParameters.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <vector>
-
-namespace seissol {
-class SeisSol;
-} // namespace seissol
 
 namespace seissol::initializer {
 
@@ -59,9 +57,11 @@ struct ClusteringResult {
 /// turning that into partitioner weights is a separate concern, see VertexWeightModel.
 class Clustering {
   public:
+  /// `runConfigs` are the configurations the cells compute in, `lts` how they are clustered;
   /// `timesteps` computes the time steps of the cells, which the clustering starts from.
   Clustering(const ClusteringConfig& config,
-             seissol::SeisSol& seissolInstance,
+             parameters::RunConfigs runConfigs,
+             parameters::LtsParameters lts,
              TimestepFunction timesteps);
 
   /// The arrays are those PUMLReader::read read with the cells of either mesh. vertexOrders is the
@@ -80,7 +80,8 @@ class Clustering {
       computeCostsPerTimestep(const geometry::PumlMesh& mesh,
                               const geometry::PumlCellArrays& arrays) const;
 
-  seissol::SeisSol& seissolInstance_;
+  parameters::RunConfigs runConfigs_;
+  parameters::LtsParameters lts_;
   TimestepFunction timesteps_;
   std::vector<std::uint64_t> rate_;
   std::uint64_t vertexWeightElement_{};

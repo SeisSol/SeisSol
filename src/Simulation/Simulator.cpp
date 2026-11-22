@@ -146,8 +146,11 @@ json::Value writeVertexWeights(SeisSol& seissolInstance, double simulatedTime) {
   json::Value section;
   const bool write = seissolInstance.parameters().output.vertexWeightOutput;
   const auto file = seissolInstance.outputPrefix() + "-vertexweights.h5";
+  auto& memoryManager = seissolInstance.memoryManager();
   auto costs = initializer::measureCellCosts(seissolInstance.timeManager().loopStatistics(),
-                                             seissolInstance.memoryManager(),
+                                             memoryManager.ltsStorage(),
+                                             memoryManager.backmap(),
+                                             memoryManager.drBackmap(),
                                              seissolInstance.meshReader(),
                                              simulatedTime,
                                              Mpi::mpi.comm());

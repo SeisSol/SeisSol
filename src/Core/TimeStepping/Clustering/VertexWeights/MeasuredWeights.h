@@ -8,6 +8,8 @@
 #ifndef SEISSOL_SRC_CORE_TIMESTEPPING_CLUSTERING_VERTEXWEIGHTS_MEASUREDWEIGHTS_H_
 #define SEISSOL_SRC_CORE_TIMESTEPPING_CLUSTERING_VERTEXWEIGHTS_MEASUREDWEIGHTS_H_
 
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Descriptor/LTS.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/VertexWeightModel.h"
 
@@ -26,8 +28,6 @@ class MeshReader;
 
 namespace seissol::initializer {
 
-class MemoryManager;
-
 /**
  * @brief Splits the time the loops took over the cells that they computed.
  *
@@ -42,7 +42,9 @@ class MemoryManager;
  * HSA queues without DEVICE_HSA_QUEUE_TIMING). Collective.
  */
 std::optional<MeasuredCellCosts> measureCellCosts(const LoopStatistics& statistics,
-                                                  MemoryManager& memoryManager,
+                                                  const LTS::Storage& ltsStorage,
+                                                  const LTS::Backmap& backmap,
+                                                  const DynamicRupture::Backmap& drBackmap,
                                                   const geometry::MeshReader& meshReader,
                                                   double simulatedTime,
                                                   MPI_Comm comm);

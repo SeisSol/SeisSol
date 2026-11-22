@@ -23,13 +23,11 @@
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/Geometry/PartitioningLib.h"
 #include "Core/Parallel/MPI.h"
-#include "Core/Parallel/SystemInfo.h"
 #include "Core/TimeStepping/Clustering/Clustering.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/WeightsModels.h"
 #include "Core/TimeStepping/LtsParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "Simulation/Reader/ReaderBuilder.h"
-#include "Simulation/SeisSol.h"
 #include "TestHelper.h"
 #include "WavePropagation/Setup/Timesteps.h"
 
@@ -56,9 +54,10 @@ inline void readPumlMesh(seissol::geometry::PumlMesh& mesh, const std::string& f
   mesh.generateMesh();
 }
 
-inline std::unique_ptr<seissol::geometry::PUMLReader> readMesh(const std::string& file,
-                                                               const std::string& partitioningLib,
-                                                               seissol::SeisSol& seissolInstance) {
+inline std::unique_ptr<seissol::geometry::PUMLReader>
+    readMesh(const std::string& file,
+             const std::string& partitioningLib,
+             const seissol::initializer::parameters::SeisSolParameters& parameters) {
   using namespace seissol::initializer;
   static const auto FaceMap = defaultFaceMap();
   const ClusteringConfig config{.rate = {2},
@@ -67,17 +66,17 @@ inline std::unique_ptr<seissol::geometry::PUMLReader> readMesh(const std::string
                                 .vertexWeightFreeSurfaceWithGravity = 1,
                                 .faceMap = &FaceMap,
                                 .configCostFactors = {}};
-  Clustering clustering(
-      config,
-      seissolInstance,
-      [&parameters = seissolInstance.parameters()](const CellToVertexArray& cells) {
-        return computeTimesteps(cells,
-                                parameters.runConfigs,
-                                parameters.wavePropagation,
-                                parameters.timeStepping,
-                                parameters.model.materialFileNames,
-                                seissol::data::modelLoader());
-      });
+  Clustering clustering(config,
+                        parameters.runConfigs,
+                        parameters.timeStepping.lts,
+                        [&parameters](const CellToVertexArray& cells) {
+                          return computeTimesteps(cells,
+                                                  parameters.runConfigs,
+                                                  parameters.wavePropagation,
+                                                  parameters.timeStepping,
+                                                  parameters.model.materialFileNames,
+                                                  seissol::data::modelLoader());
+                        });
   ExponentialWeights weightModel;
   return std::make_unique<seissol::geometry::PUMLReader>(
       tpath(file),
@@ -206,9 +205,6 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
   seissolParameters.model.materialFileNames = {tpath("Testing/material-graded.yaml")};
   seissolParameters.wavePropagation.useCellHomogenizedMaterial = true;
   seissolParameters.plasticity.enabled = false;
-  const utils::Env env("SEISSOL_");
-  const seissol::SystemInfo systemInfo;
-  seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
   // "None" keeps the cells where they were read. On a single rank, there is nothing to partition
   // (PUML skips the partitioner for a single part), so the others only run with several ranks.
@@ -227,8 +223,8 @@ TEST_CASE("PUMLReader does not depend on the vertex order within a cell" *
       CAPTURE(partitioningLib);
       CAPTURE(meshFile);
       std::cout.setstate(std::ios_base::failbit);
-      const auto reader = readMesh(file, partitioningLib, seissolInstance);
-      const auto readerPermuted = readMesh(filePermuted, partitioningLib, seissolInstance);
+      const auto reader = readMesh(file, partitioningLib, seissolParameters);
+      const auto readerPermuted = readMesh(filePermuted, partitioningLib, seissolParameters);
       std::cout.clear();
 
       // with several ranks, this also requires the same partition

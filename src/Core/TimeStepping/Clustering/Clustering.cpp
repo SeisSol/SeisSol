@@ -11,6 +11,7 @@
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Constants.h"
+#include "Core/Common/RunConfigs.h"
 #include "Core/Geometry/CellToVertexArray.h"
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/TimeStepping/Clustering/ClusterLadder.h"
@@ -22,7 +23,6 @@
 #include "Core/TimeStepping/Clustering/LatticeDpSearch.h"
 #include "Core/TimeStepping/Layout/GlobalTimestep.h"
 #include "Core/TimeStepping/LtsParameters.h"
-#include "Simulation/SeisSol.h"
 #include "WavePropagation/Physics/Datastructures.h"
 
 #include <PUML/Downward.h>
@@ -40,10 +40,11 @@
 namespace seissol::initializer {
 
 Clustering::Clustering(const ClusteringConfig& config,
-                       seissol::SeisSol& seissolInstance,
+                       parameters::RunConfigs runConfigs,
+                       parameters::LtsParameters lts,
                        TimestepFunction timesteps)
-    : seissolInstance_(seissolInstance), timesteps_(std::move(timesteps)), rate_(config.rate),
-      vertexWeightElement_(config.vertexWeightElement),
+    : runConfigs_(std::move(runConfigs)), lts_(std::move(lts)), timesteps_(std::move(timesteps)),
+      rate_(config.rate), vertexWeightElement_(config.vertexWeightElement),
       vertexWeightDynamicRupture_(config.vertexWeightDynamicRupture),
       vertexWeightFreeSurfaceWithGravity_(config.vertexWeightFreeSurfaceWithGravity),
       faceMap_(config.faceMap), configCostFactors_(config.configCostFactors) {}
@@ -56,7 +57,7 @@ const ClusteringResult&
                         const std::vector<seissol::geometry::VertexOrder>& vertexOrders) {
   bool continueComputation = true;
   // the materials of all configurations of the run
-  for (const auto config : seissolInstance_.parameters().runConfigs.configs()) {
+  for (const auto config : runConfigs_.configs()) {
     dispatchConfig(config, [&](auto cfg) {
       using MaterialT = model::MaterialOf<decltype(cfg)>;
       if (!MaterialT::SupportsLTS) {
@@ -76,7 +77,7 @@ const ClusteringResult&
       timesteps_(CellToVertexArray::fromPUML(meshGeometry, geometryArrays, vertexOrders));
   auto cellCosts = computeCostsPerTimestep(meshTopology, topologyArrays);
 
-  const auto& ltsParameters = seissolInstance_.parameters().timeStepping.lts;
+  const auto& ltsParameters = lts_;
   // getMaxNumberOfClusters() is validated to be positive, so the decrement cannot wrap
   auto maxClusterIdToEnforce = static_cast<std::size_t>(ltsParameters.getMaxNumberOfClusters()) - 1;
 
@@ -185,7 +186,7 @@ std::vector<std::uint64_t>
     elementWeights[config] = static_cast<std::uint64_t>(std::max<long long>(1, weight));
   }
 
-  const auto& runConfigs = seissolInstance_.parameters().runConfigs;
+  const auto& runConfigs = runConfigs_;
   std::vector<std::uint64_t> cellCosts(cells.size());
   const auto groups = mesh.data(arrays.group);
   const auto boundaryTags = seissol::geometry::boundaryTagsOf(mesh, arrays);

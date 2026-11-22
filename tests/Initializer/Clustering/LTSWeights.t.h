@@ -14,7 +14,6 @@
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Parallel/MPI.h"
-#include "Core/Parallel/SystemInfo.h"
 #include "Core/TimeStepping/Clustering/ClusterLadder.h"
 #include "Core/TimeStepping/Clustering/Clustering.h"
 #include "Core/TimeStepping/Clustering/ClusteringCost.h"
@@ -24,7 +23,6 @@
 #include "Core/TimeStepping/LtsParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "Simulation/Reader/ReaderBuilder.h"
-#include "Simulation/SeisSol.h"
 #include "TestHelper.h"
 #include "WavePropagation/Setup/Timesteps.h"
 
@@ -92,11 +90,11 @@ TEST_CASE("LTS Weights" * doctest::test_suite("initializer")) {
   seissolParameters.model.materialFileNames = {tpath("Testing/material.yaml")};
   seissolParameters.wavePropagation.useCellHomogenizedMaterial = false;
   seissolParameters.plasticity.enabled = false;
-  const utils::Env env("SEISSOL_");
-  const seissol::SystemInfo systemInfo;
-  seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
-  Clustering clustering(config, seissolInstance, materialTimesteps(seissolInstance.parameters()));
+  Clustering clustering(config,
+                        seissolParameters.runConfigs,
+                        seissolParameters.timeStepping.lts,
+                        materialTimesteps(seissolParameters));
   ExponentialWeights weightModel;
   const auto pumlReader =
       seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
@@ -150,11 +148,11 @@ TEST_CASE("The cost of a cell follows its configuration" * doctest::test_suite("
     seissolParameters.wavePropagation.useCellHomogenizedMaterial = false;
     seissolParameters.plasticity.enabled = false;
     seissolParameters.runConfigs.groupConfigs = std::move(groupConfigs);
-    const utils::Env env("SEISSOL_");
-    const seissol::SystemInfo systemInfo;
-    seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
-    Clustering clustering(config, seissolInstance, materialTimesteps(seissolInstance.parameters()));
+    Clustering clustering(config,
+                          seissolParameters.runConfigs,
+                          seissolParameters.timeStepping.lts,
+                          materialTimesteps(seissolParameters));
     ExponentialWeights weightModel;
     const auto pumlReader =
         seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
@@ -230,11 +228,11 @@ TEST_CASE("The LTS clustering sees the vertex order of the simulation" *
     seissolParameters.model.materialFileNames = {tpath("Testing/material-graded.yaml")};
     seissolParameters.wavePropagation.useCellHomogenizedMaterial = homogenized;
     seissolParameters.plasticity.enabled = false;
-    const utils::Env env("SEISSOL_");
-    const seissol::SystemInfo systemInfo;
-    seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
-    Clustering clustering(config, seissolInstance, materialTimesteps(seissolInstance.parameters()));
+    Clustering clustering(config,
+                          seissolParameters.runConfigs,
+                          seissolParameters.timeStepping.lts,
+                          materialTimesteps(seissolParameters));
     ExponentialWeights weightModel;
     const auto pumlReader =
         seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
@@ -289,11 +287,11 @@ TEST_CASE("A cell takes the smallest time step of the materials of the simulatio
     seissolParameters.model.materialFileNames = materialFileNames;
     seissolParameters.runConfigs.simulationCount = materialFileNames.size();
     seissolParameters.plasticity.enabled = false;
-    const utils::Env env("SEISSOL_");
-    const seissol::SystemInfo systemInfo;
-    seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
-    Clustering clustering(config, seissolInstance, materialTimesteps(seissolInstance.parameters()));
+    Clustering clustering(config,
+                          seissolParameters.runConfigs,
+                          seissolParameters.timeStepping.lts,
+                          materialTimesteps(seissolParameters));
     ExponentialWeights weightModel;
     const auto pumlReader =
         seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
@@ -556,11 +554,11 @@ TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializ
   seissolParameters.model.materialFileNames = {tpath("Testing/material.yaml")};
   seissolParameters.wavePropagation.useCellHomogenizedMaterial = false;
   seissolParameters.plasticity.enabled = false;
-  const utils::Env env("SEISSOL_");
-  const seissol::SystemInfo systemInfo;
-  seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
-  Clustering clustering(config, seissolInstance, materialTimesteps(seissolInstance.parameters()));
+  Clustering clustering(config,
+                        seissolParameters.runConfigs,
+                        seissolParameters.timeStepping.lts,
+                        materialTimesteps(seissolParameters));
   ExponentialWeights weightModel;
   const auto pumlReader =
       seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),

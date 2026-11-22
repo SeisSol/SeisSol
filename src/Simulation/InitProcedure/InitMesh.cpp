@@ -242,7 +242,8 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
 
   seissol::initializer::Clustering clustering(
       config,
-      seissolInstance,
+      seissolParams.runConfigs,
+      seissolParams.timeStepping.lts,
       [&seissolParams](const seissol::initializer::CellToVertexArray& cells) {
         return seissol::initializer::computeTimesteps(cells,
                                                       seissolParams.runConfigs,

@@ -12,6 +12,8 @@
 #include "Core/IO/Reader/Distribution.h"
 #include "Core/IO/Reader/File/Hdf5Reader.h"
 #include "Core/Kernels/Common.h"
+#include "Core/Memory/Descriptor/DynamicRupture.h"
+#include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Colormap.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Monitoring/LoopStatistics.h"
@@ -19,7 +21,6 @@
 #include "Core/Parallel/MPI.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/WeightsModels.h"
-#include "Simulation/MemoryManager.h"
 
 #include <algorithm>
 #include <array>
@@ -98,7 +99,9 @@ void writeRun(hid_t file,
 } // namespace
 
 std::optional<MeasuredCellCosts> measureCellCosts(const LoopStatistics& statistics,
-                                                  MemoryManager& memoryManager,
+                                                  const LTS::Storage& ltsStorage,
+                                                  const LTS::Backmap& backmap,
+                                                  const DynamicRupture::Backmap& drBackmap,
                                                   const geometry::MeshReader& meshReader,
                                                   double simulatedTime,
                                                   MPI_Comm comm) {
@@ -107,7 +110,6 @@ std::optional<MeasuredCellCosts> measureCellCosts(const LoopStatistics& statisti
                                       statistics.getRegion("computePointSources")};
   const auto faceRegion = statistics.getRegion("computeDynamicRupture");
 
-  auto& ltsStorage = memoryManager.ltsStorage();
   const auto& colorMap = ltsStorage.getColorMap();
   const auto colors = colorMap.size();
 
@@ -145,9 +147,7 @@ std::optional<MeasuredCellCosts> measureCellCosts(const LoopStatistics& statisti
   }
 
   const auto& elements = meshReader.getElements();
-  const auto& backmap = memoryManager.backmap();
   const auto& faults = meshReader.getFault();
-  const auto& drBackmap = memoryManager.drBackmap();
 
   // the cells and faces of each group, each once: the copies of a cell or face lie in the layer of
   // the first one, and what they take counts for the cell or face of the mesh

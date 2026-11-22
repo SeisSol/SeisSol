@@ -10,8 +10,6 @@
 # removing rule breaks.
 core-includes-composition Core/IO/Manager.cpp Simulation/SeisSol.h
 core-includes-composition Core/IO/Writer/Module/WriterModule.cpp Simulation/SeisSol.h
-core-includes-composition Core/TimeStepping/Clustering/Clustering.cpp Simulation/SeisSol.h
-core-includes-composition Core/TimeStepping/Clustering/VertexWeights/MeasuredWeights.cpp Simulation/MemoryManager.h
 core-includes-composition Core/TimeStepping/Compute/CellCluster.cpp Simulation/MemoryManager.h
 core-includes-composition Core/TimeStepping/Compute/CellCluster.cpp Simulation/SeisSol.h
 core-includes-composition Core/TimeStepping/TimeManager.cpp Simulation/MemoryManager.h

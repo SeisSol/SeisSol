@@ -20,10 +20,8 @@
 
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/Parallel/MPI.h"
-#include "Core/Parallel/SystemInfo.h"
 #include "Core/TimeStepping/LtsParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
-#include "Simulation/SeisSol.h"
 #include "TestHelper.h"
 #include "VertexOrderInvariance.t.h"
 
@@ -103,13 +101,10 @@ TEST_CASE("PUMLReader reads straight-sided cells of a higher order as cells of t
   seissolParameters.model.materialFileNames = {tpath("Testing/material.yaml")};
   seissolParameters.wavePropagation.useCellHomogenizedMaterial = true;
   seissolParameters.plasticity.enabled = false;
-  const utils::Env env("SEISSOL_");
-  const seissol::SystemInfo systemInfo;
-  seissol::SeisSol seissolInstance(seissolParameters, env, systemInfo);
 
   // the reader takes the mesh, and forgets the nodes beyond the vertices
-  const auto reader =
-      vertexorderinvariancetest::readMesh("Testing/cube2-o2-straight.h5", "None", seissolInstance);
+  const auto reader = vertexorderinvariancetest::readMesh(
+      "Testing/cube2-o2-straight.h5", "None", seissolParameters);
   const auto cells =
       seissol::Mpi::mpi.allreduce<std::uint64_t>(reader->getElements().size(), MPI_SUM);
   CHECK(cells == 48);
