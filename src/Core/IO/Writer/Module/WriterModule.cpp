@@ -7,6 +7,7 @@
 
 #include "WriterModule.h"
 
+#include "Core/IO/OutputContext.h"
 #include "Core/IO/Writer/Instructions/Data.h"
 #include "Core/IO/Writer/Instructions/Hdf5.h"
 #include "Core/IO/Writer/Module/AsyncWriter.h"
@@ -15,7 +16,6 @@
 #include "Core/Parallel/Helper.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/Parallel/Pin.h"
-#include "Simulation/SeisSol.h"
 
 #include <async/Config.h>
 #include <cassert>
@@ -46,13 +46,9 @@ std::uint64_t nextTicket(async::Mode mode) {
 }
 } // namespace
 
-WriterModule::WriterModule(std::string prefix,
-                           ScheduledWriter settings,
-                           const parallel::Pinning& pinning,
-                           SeisSol& seissolInstance)
-    : AsyncWriterModule(seissolInstance.asyncIO().config()), rank_(seissol::Mpi::mpi.rank()),
-      prefix_(std::move(prefix)), settings_(std::move(settings)), pinning_(pinning),
-      seissolInstance_(seissolInstance) {}
+WriterModule::WriterModule(std::string prefix, ScheduledWriter settings, OutputContext context)
+    : AsyncWriterModule(context.asyncIO.config()), rank_(seissol::Mpi::mpi.rank()),
+      prefix_(std::move(prefix)), settings_(std::move(settings)), context_(context) {}
 
 void WriterModule::setUp() {
   logInfo() << "Output Writer" << settings_.name << ": setup.";
@@ -62,14 +58,14 @@ void WriterModule::setUp() {
   // left to ASYNC, it takes the last CPU of the mask it inherits from the main thread, which is the
   // main thread's own core, or its own CPU, while that core computes. The ranks of a node find
   // those CPUs together, so every rank looks them up, also where no thread of the output runs.
-  const auto freeCpus = pinning_.getFreeCPUsMask();
+  const auto freeCpus = context_.pinning.getFreeCPUsMask();
   if (isAffinityNecessary()) {
     if (!parallel::Pinning::freeCPUsMaskEmpty(freeCpus)) {
       logInfo() << "Output Writer" << settings_.name
                 << ": thread affinity: " << parallel::Pinning::maskToString(freeCpus) << "("
                 << parallel::Pinning::maskToStringShort(freeCpus).c_str() << ")";
       setAffinityIfNecessary(freeCpus);
-    } else if (useCommThread(seissol::Mpi::mpi, seissolInstance_.env())) {
+    } else if (useCommThread(seissol::Mpi::mpi, context_.env)) {
       logError() << "There are no free CPUs left. Make sure to leave one for the I/O thread(s).";
     }
   }
@@ -79,7 +75,7 @@ void WriterModule::startup() {
   logInfo() << "Output Writer" << settings_.name << ": startup, running at interval"
             << settings_.interval;
   // the dispatcher runs already; the module joins it, together with all ranks
-  seissolInstance_.asyncIO().attach(*this);
+  context_.asyncIO.attach(*this);
   init();
 
   // we want ASYNC to like us, hence we need to enter a non-zero size here
@@ -89,10 +85,10 @@ void WriterModule::startup() {
   callInit(AsyncWriterInit{});
   // TODO: pinning
 
-  seissolInstance_.modules().registerHook(*this, ModuleHook::SimulationStart);
-  seissolInstance_.modules().registerHook(*this, ModuleHook::SynchronizationPoint);
-  seissolInstance_.modules().registerHook(*this, ModuleHook::SimulationEnd);
-  seissolInstance_.modules().registerHook(*this, ModuleHook::Shutdown);
+  context_.modules.registerHook(*this, ModuleHook::SimulationStart);
+  context_.modules.registerHook(*this, ModuleHook::SynchronizationPoint);
+  context_.modules.registerHook(*this, ModuleHook::SimulationEnd);
+  context_.modules.registerHook(*this, ModuleHook::Shutdown);
   setSyncInterval(settings_.interval);
 }
 
@@ -129,12 +125,12 @@ void WriterModule::processSyncPoint(double time) {
   auto writer = settings_.planWrite(prefix_, writeCount_, time);
 
   // every HDF5 file of the output says which run wrote to it last
-  if (!seissolInstance_.runId().empty()) {
+  if (!context_.runId.empty()) {
     for (const auto& file : writer.hdf5Files()) {
       writer.addInstruction(std::make_shared<instructions::Hdf5AttributeWrite>(
           instructions::Hdf5Location(file, {}),
           "runId",
-          WriteInline::createString(seissolInstance_.runId())));
+          WriteInline::createString(context_.runId)));
     }
   }
   const auto planned = std::chrono::steady_clock::now();
@@ -167,8 +163,8 @@ void WriterModule::processSyncPoint(double time) {
             << "s)";
   lastWrite_ = time;
   ++writeCount_;
-  call(AsyncWriterExec{.resumed = resumed_,
-                       .ticket = nextTicket(seissolInstance_.asyncIO().config().mode())});
+  call(
+      AsyncWriterExec{.resumed = resumed_, .ticket = nextTicket(context_.asyncIO.config().mode())});
 }
 
 int WriterModule::addBuffer(const void* pointer, std::size_t size) {
@@ -184,7 +180,7 @@ void* WriterModule::managedBuffer(int id) { return AsyncWriterModule::managedBuf
 
 bool WriterModule::collective() const {
   // the executors of a node join the parts of its ranks under the same id
-  return seissolInstance_.asyncIO().config().mode() == async::Mode::MPI;
+  return context_.asyncIO.config().mode() == async::Mode::MPI;
 }
 
 void WriterModule::agreeOnAny(std::vector<int>& flags) {
@@ -196,9 +192,8 @@ void WriterModule::simulationEnd() {
   wait();
   // the files the writes kept open for the next one; closing is collective, and takes its turn
   // like a write
-  call(AsyncWriterExec{.resumed = resumed_,
-                       .ticket = nextTicket(seissolInstance_.asyncIO().config().mode()),
-                       .close = true});
+  call(AsyncWriterExec{
+      .resumed = resumed_, .ticket = nextTicket(context_.asyncIO.config().mode()), .close = true});
   wait();
 }
 

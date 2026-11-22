@@ -21,6 +21,7 @@
 #include "Core/Monitoring/RunSummary.h"
 #include "Core/Parallel/Pin.h"
 #include "Core/Parallel/SystemInfo.h"
+#include "Core/Run/Context.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Core/TimeStepping/TimeManager.h"
 #include "Features/InitialConditions/Output/AnalysisWriter.h"
@@ -65,28 +66,16 @@ class MeshReader;
  * Modules holds non-owning pointers to the modules registered with it. All of those are members
  * of SeisSol.
  */
-class SeisSolCore {
-  protected:
-  explicit SeisSolCore(utils::Env env) : env_(std::move(env)) {}
-
-  parallel::Pinning pinning_;
-  utils::Env env_;
-  Modules modules_;
-};
 
 /**
  * @todo Initialize rank
  */
-class SeisSol : private SeisSolCore {
+class SeisSol : public RunContext {
   public:
   /**
    * Cleanup data structures
    */
-  virtual ~SeisSol();
-
-  const parallel::Pinning& pinning() { return pinning_; }
-
-  Modules& modules() { return modules_; }
+  ~SeisSol() override;
 
   /**
    * Initialize C++ part of the program
@@ -147,8 +136,6 @@ class SeisSol : private SeisSolCore {
 
   writer::AnalysisWriter& analysisWriter() { return analysisWriter_; }
 
-  io::AsyncIO& asyncIO() { return asyncIO_; }
-
   /**
    * Get the receiver writer module
    */
@@ -157,7 +144,6 @@ class SeisSol : private SeisSolCore {
   /**
    * Get the receiver writer module
    */
-  writer::PickpointWriter& pickpointWriter() { return pickpointWriter_; }
 
   /**
    * Get the receiver writer module
@@ -172,7 +158,6 @@ class SeisSol : private SeisSolCore {
   /**
    * Get the flop counter
    */
-  monitoring::FlopCounter& flopCounter() { return flopCounter_; }
 
   /**
    * Get the summary of the run, which it writes for programs to read
@@ -255,39 +240,12 @@ class SeisSol : private SeisSolCore {
    * */
   const std::string& backupTimeStamp() const { return backupTimeStamp_; }
 
-  seissol::io::OutputManager& outputManager() { return outputManager_; }
-
-  utils::Env& env() { return env_; }
-
-  /**
-   * Sets the ID of this run (see Core/Common/RunId.h); the same on every rank.
-   */
-  void setRunId(const std::string& runId) { runId_ = runId; }
-
-  /**
-   * The ID of this run, which every file of its output carries.
-   */
-  const std::string& runId() const { return runId_; }
-
-  /**
-   * Sets what the names of the output files start with, their directory included (see
-   * initprocedure::createOutputDirectory).
-   */
-  void setOutputPrefix(const std::string& outputPrefix) { outputPrefix_ = outputPrefix; }
-
-  /**
-   * What the names of the output files start with, their directory included.
-   */
-  const std::string& outputPrefix() const { return outputPrefix_; }
-
   /**
    * What the run knows about the nodes and devices it runs on.
    */
   const SystemInfo& systemInfo() const { return systemInfo_; }
 
   private:
-  seissol::io::OutputManager outputManager_;
-
   //! Collection of Parameters
   seissol::initializer::parameters::SeisSolParameters seissolParameters_;
 
@@ -295,7 +253,6 @@ class SeisSol : private SeisSolCore {
   GravitationSetup gravitationSetup_;
 
   //! Async I/O handler (needs to be initialize before other I/O modules)
-  io::AsyncIO asyncIO_;
 
   //! Mesh Reader
   std::unique_ptr<seissol::geometry::MeshReader> meshReader_;
@@ -319,7 +276,6 @@ class SeisSol : private SeisSolCore {
   writer::ReceiverWriter receiverWriter_;
 
   //! Receiver (on-fault) writer module
-  writer::PickpointWriter pickpointWriter_;
 
   //! Dof sync (for output) module
   writer::DofSync dofSync_;
@@ -328,7 +284,6 @@ class SeisSol : private SeisSolCore {
   writer::EnergyOutput energyOutput_;
 
   //! Flop Counter
-  monitoring::FlopCounter flopCounter_;
 
   //! Run summary
   monitoring::RunSummary runSummary_;
@@ -353,10 +308,6 @@ class SeisSol : private SeisSolCore {
 
   std::optional<std::size_t> executionPlaceCutoff_;
 
-  std::string runId_;
-
-  std::string outputPrefix_;
-
   double timestepScale_{1.0};
   std::vector<std::uint64_t> effectiveClusterRates_;
 
@@ -366,9 +317,9 @@ class SeisSol : private SeisSolCore {
   SeisSol(initializer::parameters::SeisSolParameters parameters,
           const utils::Env& env,
           const SystemInfo& systemInfo)
-      : SeisSolCore(env), outputManager_(*this), seissolParameters_(std::move(parameters)),
-        asyncIO_(env_), memoryManager_(std::make_unique<initializer::MemoryManager>(*this)),
-        timeManager_(*this), analysisWriter_(*this), receiverWriter_(*this), energyOutput_(*this),
+      : RunContext(env), seissolParameters_(std::move(parameters)),
+        memoryManager_(std::make_unique<initializer::MemoryManager>(*this)), timeManager_(*this),
+        analysisWriter_(*this), receiverWriter_(*this), energyOutput_(*this),
         systemInfo_(systemInfo) {}
 
   SeisSol(const SeisSol&) = delete;

@@ -7,25 +7,21 @@
 
 #include "Manager.h"
 
+#include "Core/IO/OutputContext.h"
 #include "Core/IO/Writer/Writer.h"
-#include "Simulation/SeisSol.h"
 #include "Writer/Module/WriterModule.h"
 
 #include <memory>
 #include <string>
 #include <vector>
 
-namespace seissol {
-class SeisSol;
-} // namespace seissol
-
 namespace seissol::io {
 
-OutputManager::OutputManager(SeisSol& seissolInstance) : seissolInstance_(seissolInstance) {}
+OutputManager::OutputManager(OutputContext context) : context_(context) {}
 
 void OutputManager::addOutput(const writer::ScheduledWriter& writer) {
   modules_.emplace_back(std::make_unique<seissol::io::writer::module::WriterModule>(
-      seissolInstance_.outputPrefix(), writer, seissolInstance_.pinning(), seissolInstance_));
+      context_.outputPrefix, writer, context_));
   modules_.back()->startup();
 }
 

@@ -10,6 +10,7 @@
 
 #include "AsyncWriter.h"
 #include "BufferRegistry.h"
+#include "Core/IO/OutputContext.h"
 #include "Core/Memory/HostData.h"
 #include "Core/Modules/Module.h"
 #include "Core/Parallel/Pin.h"
@@ -22,10 +23,6 @@
 #include <memory>
 #include <string>
 #include <vector>
-
-namespace seissol {
-class SeisSol;
-} // namespace seissol
 
 namespace seissol::io::writer::module {
 
@@ -50,10 +47,7 @@ inline std::size_t outputCountBefore(double startTime, double interval) {
 
 class WriterModule : public seissol::Module, private AsyncWriterModule, private BufferAllocator {
   public:
-  WriterModule(std::string prefix,
-               ScheduledWriter settings,
-               const parallel::Pinning& pinning,
-               SeisSol& seissolInstance);
+  WriterModule(std::string prefix, ScheduledWriter settings, OutputContext context);
   void startup();
   void simulationStart(std::optional<double> checkpointTime) override;
   void captureSyncPoint(double time) override;
@@ -85,10 +79,7 @@ class WriterModule : public seissol::Module, private AsyncWriterModule, private 
   std::size_t writeCount_{0};
   //! Whether the run continues one that stopped at a checkpoint.
   bool resumed_{false};
-  const parallel::Pinning& pinning_;
-
-  // TODO: remove?
-  SeisSol& seissolInstance_;
+  OutputContext context_;
 };
 
 } // namespace seissol::io::writer::module

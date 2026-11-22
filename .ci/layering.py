@@ -82,6 +82,7 @@ CORE_ORDER = (
     ("Core/Monitoring",),
     ("Core/Modules",),
     ("Core/IO",),
+    ("Core/Run",),
     ("Core/TimeStepping",),
 )
 CORE_LEVEL = {unit: level for level, units in enumerate(CORE_ORDER) for unit in units}
@@ -95,6 +96,7 @@ RUNTIME_CORE = (
     "Core/Modules",
     "Core/IO",
     "Core/Kernels",
+    "Core/Run",
     "Core/TimeStepping",
 )
 LIBRARIES = ("mpi.h", "yaml-cpp/", "easi/", "Device/", "asagi.h", "hdf5.h", "netcdf.h")

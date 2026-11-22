@@ -8,8 +8,6 @@
 # The include rule breaks that .ci/layering.py tolerates (rule, includer, included;
 # paths in the target layout). Only ever shrinks: run .ci/layering.py --update after
 # removing rule breaks.
-core-includes-composition Core/IO/Manager.cpp Simulation/SeisSol.h
-core-includes-composition Core/IO/Writer/Module/WriterModule.cpp Simulation/SeisSol.h
 core-includes-composition Core/TimeStepping/Compute/CellCluster.cpp Simulation/MemoryManager.h
 core-includes-composition Core/TimeStepping/Compute/CellCluster.cpp Simulation/SeisSol.h
 core-includes-composition Core/TimeStepping/TimeManager.cpp Simulation/MemoryManager.h

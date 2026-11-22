@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_CORE_IO_MANAGER_H_
 
 #include "Core/IO/Instance/Checkpoint/CheckpointManager.h"
+#include "Core/IO/OutputContext.h"
 #include "Core/IO/Writer/Writer.h"
 #include "Core/Modules/Module.h"
 #include "Core/Modules/Modules.h"
@@ -17,15 +18,11 @@
 #include <memory>
 #include <vector>
 
-namespace seissol {
-class SeisSol;
-} // namespace seissol
-
 namespace seissol::io {
 
 class OutputManager : public seissol::Module {
   public:
-  explicit OutputManager(SeisSol& seissolInstance);
+  explicit OutputManager(OutputContext context);
 
   void addOutput(const writer::ScheduledWriter& writer);
 
@@ -40,7 +37,7 @@ class OutputManager : public seissol::Module {
   private:
   instance::checkpoint::CheckpointManager checkpointManager_;
   std::vector<std::unique_ptr<seissol::io::writer::module::WriterModule>> modules_;
-  SeisSol& seissolInstance_;
+  OutputContext context_;
 };
 
 } // namespace seissol::io
