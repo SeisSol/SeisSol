@@ -24,6 +24,8 @@ add_library(seissol-wavepropagation OBJECT
     Solver/LocalIntegrationRecorder.cpp
     Solver/NeighIntegrationRecorder.cpp
     Solver/TimeCommon.cpp
+    Solver/WaveCluster.cpp
+    Solver/WaveClusterFactory.cpp
 )
 
 target_link_libraries(seissol-wavepropagation PUBLIC seissol-common-properties)

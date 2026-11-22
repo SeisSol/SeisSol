@@ -9,9 +9,7 @@
 #define SEISSOL_SRC_CORE_TIMESTEPPING_COMPUTE_FACECLUSTERFACTORY_H_
 
 #include "Core/Common/Executor.h"
-#include "Core/Monitoring/ActorStateStatistics.h"
-#include "Core/Monitoring/DeviceTimeline.h"
-#include "Core/Monitoring/LoopStatistics.h"
+#include "Core/TimeStepping/Compute/ComputeCluster.h"
 #include "Core/TimeStepping/Compute/FaceCluster.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 
@@ -19,13 +17,6 @@
 #include <memory>
 
 namespace seissol::solver {
-
-/// Where a cluster reports what it does.
-struct ClusterMonitoring {
-  LoopStatistics* loopStatistics{nullptr};
-  DeviceTimeline* deviceTimeline{nullptr};
-  ActorStateStatistics* actorStateStatistics{nullptr};
-};
 
 /**
  * Makes the clusters of a feature whose work lies on faces between cells, such as the dynamic

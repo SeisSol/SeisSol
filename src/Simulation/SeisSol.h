@@ -33,6 +33,7 @@
 #include "Simulation/Simulator.h"
 #include "WavePropagation/Output/DofSync.h"
 #include "WavePropagation/Output/FreeSurfaceIntegrator.h"
+#include "WavePropagation/Output/ReceiverWriter.h"
 
 #include <cstdint>
 #include <list>

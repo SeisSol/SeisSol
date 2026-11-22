@@ -1044,7 +1044,13 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
                                  .settings = memoryManager.simulationSettings(),
                                  .gravitationalAcceleration =
                                      seissolInstance.gravitationSetup().acceleration});
-      seissolInstance.timeManager().addReceivers(receiverWriter);
+      // the cell clusters sample the receivers of their layers
+      for (auto* cluster : seissolInstance.timeManager().cellClusters()) {
+        if (auto* receivers = receiverWriter.receiverCluster(cluster->layerId());
+            receivers != nullptr) {
+          cluster->addReceiverCluster(receivers);
+        }
+      }
     }
   }
 

@@ -8,8 +8,6 @@
 # The include rule breaks that .ci/layering.py tolerates (rule, includer, included;
 # paths in the target layout). Only ever shrinks: run .ci/layering.py --update after
 # removing rule breaks.
-core-includes-composition Core/TimeStepping/Compute/CellCluster.cpp Simulation/MemoryManager.h
-core-includes-composition Core/TimeStepping/Compute/CellCluster.cpp Simulation/SeisSol.h
 core-includes-composition Core/TimeStepping/TimeManager.cpp Simulation/MemoryManager.h
 core-includes-composition Core/TimeStepping/TimeManager.cpp Simulation/SeisSol.h
 core-includes-feature Core/Memory/Descriptor/DynamicRupture.h Features/DynamicRupture/DRParameters.h
@@ -69,20 +67,6 @@ core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Physics/Dat
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/Data.h
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/SolverSelector.h
 core-includes-wavepropagation Core/TimeStepping/Clustering/Clustering.cpp WavePropagation/Physics/Datastructures.h
-core-includes-wavepropagation Core/TimeStepping/Compute/CellCluster.cpp WavePropagation/Output/Receiver.h
-core-includes-wavepropagation Core/TimeStepping/Compute/CellCluster.cpp WavePropagation/Solver/Interface.h
-core-includes-wavepropagation Core/TimeStepping/Compute/CellCluster.cpp WavePropagation/Solver/LinearCK/GravitationalFreeSurfaceBC.h
-core-includes-wavepropagation Core/TimeStepping/Compute/CellCluster.cpp WavePropagation/Solver/Solver.h
-core-includes-wavepropagation Core/TimeStepping/Compute/CellCluster.cpp WavePropagation/Solver/SolverSelector.h
-core-includes-wavepropagation Core/TimeStepping/Compute/CellCluster.cpp WavePropagation/Solver/TimeCommon.h
-core-includes-wavepropagation Core/TimeStepping/Compute/CellCluster.h WavePropagation/Output/FreeSurfaceIntegrator.h
-core-includes-wavepropagation Core/TimeStepping/Compute/CellCluster.h WavePropagation/Output/Receiver.h
-core-includes-wavepropagation Core/TimeStepping/Compute/CellCluster.h WavePropagation/Solver/ConfigBoundary.h
-core-includes-wavepropagation Core/TimeStepping/Compute/CellCluster.h WavePropagation/Solver/Solver.h
-core-includes-wavepropagation Core/TimeStepping/Compute/CellCluster.h WavePropagation/Solver/TimeCommon.h
-core-includes-wavepropagation Core/TimeStepping/TimeManager.cpp WavePropagation/Output/ReceiverWriter.h
-core-includes-wavepropagation Core/TimeStepping/TimeManager.h WavePropagation/Output/FreeSurfaceIntegrator.h
-core-includes-wavepropagation Core/TimeStepping/TimeManager.h WavePropagation/Output/ReceiverWriter.h
 feature-includes-composition Features/DynamicRupture/Output/OutputManager.cpp Simulation/MemoryManager.h
 feature-includes-composition Features/DynamicRupture/Output/OutputManager.cpp Simulation/Parameters/SeisSolParameters.h
 feature-includes-composition Features/DynamicRupture/Output/OutputManager.cpp Simulation/SeisSol.h

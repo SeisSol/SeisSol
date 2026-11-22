@@ -12,6 +12,7 @@
 #include "Core/Common/Executor.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Monitoring/ActorStateStatistics.h"
+#include "Core/Monitoring/DeviceTimeline.h"
 #include "Core/Monitoring/DeviceTimer.h"
 #include "Core/Monitoring/LoopStatistics.h"
 #include "Core/Parallel/Runtime/Stream.h"
@@ -28,6 +29,13 @@
 #endif
 
 namespace seissol::solver {
+
+/// Where a cluster reports what it does.
+struct ClusterMonitoring {
+  LoopStatistics* loopStatistics{nullptr};
+  DeviceTimeline* deviceTimeline{nullptr};
+  ActorStateStatistics* actorStateStatistics{nullptr};
+};
 
 /**
  * The frame of a cluster that computes on a layer of a storage: its stream and clock, the events of

@@ -38,6 +38,7 @@
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Output/IntegrationFeature.h"
 #include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Solver/WaveClusterFactory.h"
 
 #include <algorithm>
 #include <array>
@@ -502,8 +503,16 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       faceClusters.push_back(factory);
     }
   }
+  // the clusters of the cells, with the numerics of the wave propagation
+  seissol::solver::WaveClusterFactory cellClusters(
+      seissolInstance,
+      memoryManager.globalDataStore(),
+      seissolParams.runConfigs.configs(),
+      memoryManager.initialConditions(),
+      seissolInstance.gravitationSetup().acceleration,
+      [&seissolInstance](std::size_t cells) { return seissolInstance.executionPlace(cells); });
   seissolInstance.timeManager().addClusters(
-      clusterLayout, haloCommunication, ltsStorage, memoryManager.globalDataStore(), faceClusters);
+      clusterLayout, haloCommunication, ltsStorage, cellClusters, faceClusters);
 
   // the work of the features on the clusters of the cells
   for (auto& feature : features) {

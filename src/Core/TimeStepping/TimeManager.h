@@ -10,7 +10,6 @@
 #ifndef SEISSOL_SRC_CORE_TIMESTEPPING_TIMEMANAGER_H_
 #define SEISSOL_SRC_CORE_TIMESTEPPING_TIMEMANAGER_H_
 #include "Core/Common/Json.h"
-#include "Core/Kernels/GlobalDataStore.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/HostData.h"
 #include "Core/Memory/HostSnapshot.h"
@@ -22,6 +21,7 @@
 #include "Core/Parallel/Helper.h"
 #include "Core/TimeStepping/Clustering/ClusteringWriter.h"
 #include "Core/TimeStepping/Compute/CellCluster.h"
+#include "Core/TimeStepping/Compute/CellClusterFactory.h"
 #include "Core/TimeStepping/Compute/CellStage.h"
 #include "Core/TimeStepping/Compute/ClusterStage.h"
 #include "Core/TimeStepping/Compute/FaceCluster.h"
@@ -31,8 +31,6 @@
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Core/TimeStepping/Plan/SuperStepRecorder.h"
 #include "Core/TimeStepping/Plan/TimeSteppingPlan.h"
-#include "WavePropagation/Output/FreeSurfaceIntegrator.h"
-#include "WavePropagation/Output/ReceiverWriter.h"
 
 #include <array>
 #include <cassert>
@@ -45,6 +43,10 @@
 #include <set>
 #include <utils/logger.h>
 #include <vector>
+
+namespace seissol {
+class SeisSol;
+} // namespace seissol
 
 namespace seissol::solver {
 class AbstractCommunicationManager;
@@ -76,7 +78,7 @@ class TimeManager {
   DeviceTimeline deviceTimeline_;
 
   //! the clusters of the local (copy & interior) cells
-  std::vector<std::unique_ptr<CellClusterInterface>> cellClusters_;
+  std::vector<std::unique_ptr<CellCluster>> cellClusters_;
 
   //! what each cell and face cluster updates in a time step, for the counts of updates()
   struct ClusterSize {
@@ -212,16 +214,19 @@ class TimeManager {
   ~TimeManager();
 
   /**
-   * Adds the clusters of the cells of the layers of `ltsStorage`, with the global data
-   * `globalData`, those of the faces that `faceClusterFactories` make (e.g. the dynamic rupture
-   * faces), with the time steps of `clusterLayout`, and the ghost clusters that exchange the halos
-   * `haloStructure`.
+   * Adds the clusters of the cells of the layers of `ltsStorage`, which `cellClusterFactory`
+   * makes with their numerics, those of the faces that `faceClusterFactories` make (e.g. the
+   * dynamic rupture faces), with the time steps of `clusterLayout`, and the ghost clusters that
+   * exchange the halos `haloStructure`.
    **/
   void addClusters(const initializer::ClusterLayout& clusterLayout,
                    const HaloCommunication& haloStructure,
                    LTS::Storage& ltsStorage,
-                   GlobalDataStore& globalData,
+                   CellClusterFactory& cellClusterFactory,
                    const std::vector<FaceClusterFactory*>& faceClusterFactories);
+
+  /// The clusters of the local (copy and interior) cells.
+  [[nodiscard]] std::vector<CellCluster*> cellClusters() const;
 
   /**
    * Writes the clustering table recorded by addClusters. Collective: every rank has to call it.
@@ -265,12 +270,6 @@ class TimeManager {
    * `layerId`, after the stages added before.
    */
   void addCellStage(std::size_t layerId, std::unique_ptr<CellStageBase> stage);
-
-  /**
-   * Returns the writer for the receivers
-   */
-  /// Lets the cell clusters sample the receivers of the output `receiverWriter` writes.
-  void addReceivers(writer::ReceiverWriter& receiverWriter);
 
   /**
    * Sets the initial time (time DOFS/DOFs/receivers) of all time clusters.

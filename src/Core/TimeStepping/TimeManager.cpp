@@ -11,13 +11,11 @@
 
 #include "Alignment.h"
 #include "Core/Common/BasicTypedefs.h"
-#include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/Executor.h"
 #include "Core/Common/Iterator.h"
 #include "Core/Common/Json.h"
 #include "Core/Common/Typedefs.h"
 #include "Core/Kernels/Common.h"
-#include "Core/Kernels/GlobalDataStore.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/HostData.h"
 #include "Core/Memory/HostSnapshot.h"
@@ -40,8 +38,10 @@
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Clustering/ClusteringWriter.h"
 #include "Core/TimeStepping/Compute/CellCluster.h"
+#include "Core/TimeStepping/Compute/CellClusterFactory.h"
 #include "Core/TimeStepping/Compute/CellStage.h"
 #include "Core/TimeStepping/Compute/ClusterStage.h"
+#include "Core/TimeStepping/Compute/ComputeCluster.h"
 #include "Core/TimeStepping/Compute/FaceCluster.h"
 #include "Core/TimeStepping/Compute/FaceClusterFactory.h"
 #include "Core/TimeStepping/Halo/CommunicationManager.h"
@@ -55,7 +55,6 @@
 #include "Core/TimeStepping/Plan/TimeSteppingPlan.h"
 #include "Simulation/MemoryManager.h"
 #include "Simulation/SeisSol.h"
-#include "WavePropagation/Output/ReceiverWriter.h"
 
 #include <algorithm>
 #include <array>
@@ -153,7 +152,7 @@ void reportClusterDependencies(LTS::Storage& ltsStorage, const HaloCommunication
 void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                               const HaloCommunication& haloStructure,
                               LTS::Storage& ltsStorage,
-                              GlobalDataStore& globalData,
+                              CellClusterFactory& cellClusterFactory,
                               const std::vector<FaceClusterFactory*>& faceClusterFactories) {
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
   std::vector<std::unique_ptr<GhostCluster>> ghostClusters;
@@ -203,24 +202,15 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                                (layer.getIdentifier().halo == HaloType::Interior);
     const auto profilingId = layer.id();
 
-    // the cluster computes in the configuration of its layer
-    auto& cluster = cellClusters_.emplace_back(dispatchConfig(
-        layer.getIdentifier().config, [&](auto cfg) -> std::unique_ptr<CellClusterInterface> {
-          using Cfg = decltype(cfg);
-          return std::make_unique<CellCluster<Cfg>>(
-              clusterId,
-              clusterId,
-              profilingId,
-              timeStepSize,
-              timeStepRate,
-              printProgress,
-              globalData.get<Cfg>(),
-              &layer,
-              seissolInstance_,
-              &loopStatistics_,
-              &deviceTimeline_,
-              &actorStateStatisticsManager_.addCluster(profilingId));
-        }));
+    // the cluster computes in the configuration of its layer, with the numerics of the factory
+    auto& cluster = cellClusters_.emplace_back(cellClusterFactory.makeCluster(
+        layer,
+        clusterLayout,
+        printProgress,
+        ClusterMonitoring{.loopStatistics = &loopStatistics_,
+                          .deviceTimeline = &deviceTimeline_,
+                          .actorStateStatistics =
+                              &actorStateStatisticsManager_.addCluster(profilingId)}));
 
     const auto clusterSize = layer.size();
     const auto dynRupSize = faceCount(layer.id());
@@ -1115,13 +1105,13 @@ void TimeManager::addCellStage(std::size_t layerId, std::unique_ptr<CellStageBas
   logError() << "There is no cell cluster of the layer" << layerId << "to add a cell stage to.";
 }
 
-void TimeManager::addReceivers(writer::ReceiverWriter& receiverWriter) {
-  for (auto& cluster : cellClusters_) {
-    if (auto* receivers = receiverWriter.receiverCluster(cluster->layerId());
-        receivers != nullptr) {
-      cluster->addReceiverCluster(receivers);
-    }
+std::vector<CellCluster*> TimeManager::cellClusters() const {
+  std::vector<CellCluster*> clusters;
+  clusters.reserve(cellClusters_.size());
+  for (const auto& cluster : cellClusters_) {
+    clusters.push_back(cluster.get());
   }
+  return clusters;
 }
 
 void TimeManager::setInitialTimes(double time) {
