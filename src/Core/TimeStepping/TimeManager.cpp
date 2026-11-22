@@ -17,6 +17,7 @@
 #include "Core/Common/Json.h"
 #include "Core/Common/Typedefs.h"
 #include "Core/Kernels/Common.h"
+#include "Core/Kernels/GlobalDataStore.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/HostData.h"
 #include "Core/Memory/HostSnapshot.h"
@@ -41,6 +42,8 @@
 #include "Core/TimeStepping/Compute/CellCluster.h"
 #include "Core/TimeStepping/Compute/CellStage.h"
 #include "Core/TimeStepping/Compute/ClusterStage.h"
+#include "Core/TimeStepping/Compute/FaceCluster.h"
+#include "Core/TimeStepping/Compute/FaceClusterFactory.h"
 #include "Core/TimeStepping/Halo/CommunicationManager.h"
 #include "Core/TimeStepping/Halo/GhostCluster.h"
 #include "Core/TimeStepping/Halo/HaloCheck.h"
@@ -50,9 +53,6 @@
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Core/TimeStepping/Plan/SuperStepRecorder.h"
 #include "Core/TimeStepping/Plan/TimeSteppingPlan.h"
-#include "Features/DynamicRupture/Output/OutputManager.h"
-#include "Features/DynamicRupture/Output/PickpointSampling.h"
-#include "Features/DynamicRupture/Solver/DynamicRuptureCluster.h"
 #include "Simulation/MemoryManager.h"
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Output/ReceiverWriter.h"
@@ -66,7 +66,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <functional>
-#include <limits>
 #include <memory>
 #include <mpi.h>
 #include <set>
@@ -103,16 +102,15 @@ namespace {
  * data with. Dependencies without a connection are an error; connections without a dependency
  * only cost synchronization.
  */
-void reportClusterDependencies(initializer::MemoryManager& memoryManager,
-                               const HaloCommunication& haloStructure) {
-  const auto& colorMap = memoryManager.ltsStorage().getColorMap();
+void reportClusterDependencies(LTS::Storage& ltsStorage, const HaloCommunication& haloStructure) {
+  const auto& colorMap = ltsStorage.getColorMap();
 
   std::size_t connections = 0;
   std::size_t dependencies = 0;
   std::size_t missing = 0;
-  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
+  for (auto& layer : ltsStorage.leaves(Ghost)) {
     std::vector<bool> connected(colorMap.size(), false);
-    for (const auto& other : memoryManager.ltsStorage().leaves(Ghost)) {
+    for (const auto& other : ltsStorage.leaves(Ghost)) {
       const auto lts1 = static_cast<int64_t>(layer.getIdentifier().lts);
       const auto lts2 = static_cast<int64_t>(other.getIdentifier().lts);
       connected[other.id()] = other.id() != layer.id() && std::abs(lts1 - lts2) <= 1;
@@ -154,7 +152,9 @@ void reportClusterDependencies(initializer::MemoryManager& memoryManager,
 
 void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
                               const HaloCommunication& haloStructure,
-                              initializer::MemoryManager& memoryManager) {
+                              LTS::Storage& ltsStorage,
+                              GlobalDataStore& globalData,
+                              const std::vector<FaceClusterFactory*>& faceClusterFactories) {
   SCOREP_USER_REGION("addClusters", SCOREP_USER_REGION_TYPE_FUNCTION);
   std::vector<std::unique_ptr<GhostCluster>> ghostClusters;
 
@@ -169,41 +169,28 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
   auto& clusteringWriter =
       clusteringWriter_.emplace(seissolInstance_.outputPrefix(), seissolInstance_.runId());
 
-  std::vector<std::size_t> drCellsPerCluster(clusterLayout.globalClusterCount);
-
-  for (const auto& layer : memoryManager.drStorage().leaves()) {
-    drCellsPerCluster[layer.getIdentifier().lts] += layer.size();
+  for (auto* factory : faceClusterFactories) {
+    factory->prepare(clusterLayout);
   }
-
-  std::size_t drClusterOutput = std::numeric_limits<std::size_t>::max();
-  for (std::size_t clusterId = 0; clusterId < drCellsPerCluster.size(); ++clusterId) {
-    if (drCellsPerCluster[clusterId] > 0) {
-      drClusterOutput = clusterId;
-      break;
+  // the faces of all features on a layer
+  const auto faceCount = [&](std::size_t layerId) {
+    std::size_t count = 0;
+    for (const auto* factory : faceClusterFactories) {
+      count += factory->faceCount(layerId);
     }
-  }
-  drClusterOutput = Mpi::mpi.allreduce(drClusterOutput, MPI_MIN);
+    return count;
+  };
 
-  const auto drOutputTimestep = drClusterOutput == std::numeric_limits<std::size_t>::max()
-                                    ? std::numeric_limits<double>::infinity()
-                                    : clusterLayout.timestepRate(drClusterOutput);
-
-  // the on-fault receivers sample at the multiples of their interval, counted from time zero
-  const dr::output::PickpointSampling pickpointSampling(
-      memoryManager.faultOutputManager()->pickpointInterval(drOutputTimestep),
-      seissolInstance_.parameters().timeStepping.endTime);
-
-  std::vector<AbstractTimeCluster*> cellClusterBackmap(
-      memoryManager.ltsStorage().getColorMap().size());
+  std::vector<AbstractTimeCluster*> cellClusterBackmap(ltsStorage.getColorMap().size());
 
   const auto haloId = [&](const auto& id, HaloType halo) {
     auto cloned = id;
     cloned.halo = halo;
-    return memoryManager.ltsStorage().getColorMap().colorId(cloned);
+    return ltsStorage.getColorMap().colorId(cloned);
   };
 
   // iterate over local time clusters
-  for (auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
+  for (auto& layer : ltsStorage.leaves(Ghost)) {
     const auto clusterId = layer.getIdentifier().lts;
 
     // chop off at synchronization time
@@ -227,7 +214,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
               timeStepSize,
               timeStepRate,
               printProgress,
-              memoryManager.globalData<Cfg>(),
+              globalData.get<Cfg>(),
               &layer,
               seissolInstance_,
               &loopStatistics_,
@@ -236,7 +223,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
         }));
 
     const auto clusterSize = layer.size();
-    const auto dynRupSize = memoryManager.drStorage().layer(layer.id()).size();
+    const auto dynRupSize = faceCount(layer.id());
     // a copy cell is stored once per neighbor it sends to, and every copy is computed
     const auto* secondaryInformation = layer.var<LTS::SecondaryInformation>();
     std::size_t duplicateCells = 0;
@@ -275,8 +262,8 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   };
 
-  for (const auto& layer : memoryManager.ltsStorage().leaves(Ghost)) {
-    for (const auto& otherLayer : memoryManager.ltsStorage().leaves(Ghost)) {
+  for (const auto& layer : ltsStorage.leaves(Ghost)) {
+    for (const auto& otherLayer : ltsStorage.leaves(Ghost)) {
       // only traverse half of all combinations
       if (layer.id() < otherLayer.id()) {
         const int64_t lts1 = layer.getIdentifier().lts;
@@ -288,54 +275,43 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
     }
   }
 
-  // The dynamic rupture faces are laid out along the same colors as the cells, and both sides of a
-  // fault face lie in the same time cluster. The faces of an interior layer lie between interior or
-  // copy cells; the faces of a copy layer between copy and ghost cells.
-  std::vector<DynamicRuptureClusterInterface*> faceClusterBackmap(
-      memoryManager.drStorage().getColorMap().size(), nullptr);
-  for (auto& layer : memoryManager.drStorage().leaves(Ghost)) {
-    if (layer.size() == 0) {
-      continue;
+  // The faces of the features are laid out along the same colors as the cells; the faces of an
+  // interior layer lie between interior or copy cells, those of a copy layer between copy and ghost
+  // cells. E.g. both sides of a dynamic rupture face lie in the same time cluster.
+  std::vector<std::vector<FaceCluster*>> faceClustersOfLayer(ltsStorage.getColorMap().size());
+  for (const auto& layer : ltsStorage.leaves(Ghost)) {
+    const auto* cellCluster = cellClusterBackmap[layer.id()];
+    for (auto* factory : faceClusterFactories) {
+      const auto faces = factory->faceCount(layer.id());
+      if (faces == 0) {
+        continue;
+      }
+
+      const auto clusterId = layer.getIdentifier().lts;
+      const auto profilingId = layer.id();
+      auto& cluster = faceClusters_.emplace_back(factory->makeCluster(
+          layer.id(),
+          clusterLayout,
+          cellCluster->getExecutor(),
+          ClusterMonitoring{.loopStatistics = &loopStatistics_,
+                            .deviceTimeline = &deviceTimeline_,
+                            .actorStateStatistics =
+                                &actorStateStatisticsManager_.addCluster(profilingId)}));
+
+      cluster->setPriority(cellCluster->getPriority());
+      clusterSizes_.push_back(ClusterSize{.cluster = cluster.get(),
+                                          .globalClusterId = clusterId,
+                                          .cells = 0,
+                                          .duplicateCells = 0,
+                                          .dynamicRuptureFaces = faces});
+
+      cluster->connect(*cellClusterBackmap[haloId(layer.getIdentifier(), HaloType::Copy)]);
+      if (layer.getIdentifier().halo == HaloType::Interior) {
+        cluster->connect(*cellClusterBackmap[haloId(layer.getIdentifier(), HaloType::Interior)]);
+      }
+
+      faceClustersOfLayer[layer.id()].push_back(cluster.get());
     }
-
-    const auto clusterId = layer.getIdentifier().lts;
-    const auto profilingId = layer.id();
-    auto* cellCluster = cellClusterBackmap[layer.id()];
-
-    auto& cluster = faceClusters_.emplace_back(
-        dispatchConfig(layer.getIdentifier().config,
-                       [&](auto cfg) -> std::unique_ptr<DynamicRuptureClusterInterface> {
-                         using Cfg = decltype(cfg);
-                         return std::make_unique<DynamicRuptureCluster<Cfg>>(
-                             clusterLayout.timestepRate(clusterId),
-                             clusterLayout.clusterRate(clusterId),
-                             cellCluster->getExecutor(),
-                             profilingId,
-                             pickpointSampling,
-                             memoryManager.globalData<Cfg>(),
-                             &layer,
-                             memoryManager.frictionLaw(),
-                             memoryManager.frictionLawDevice(),
-                             memoryManager.faultOutputManager(),
-                             seissolInstance_,
-                             &loopStatistics_,
-                             &deviceTimeline_,
-                             &actorStateStatisticsManager_.addCluster(profilingId));
-                       }));
-
-    cluster->setPriority(cellCluster->getPriority());
-    clusterSizes_.push_back(ClusterSize{.cluster = cluster.get(),
-                                        .globalClusterId = clusterId,
-                                        .cells = 0,
-                                        .duplicateCells = 0,
-                                        .dynamicRuptureFaces = layer.size()});
-
-    cluster->connect(*cellClusterBackmap[haloId(layer.getIdentifier(), HaloType::Copy)]);
-    if (layer.getIdentifier().halo == HaloType::Interior) {
-      cluster->connect(*cellClusterBackmap[haloId(layer.getIdentifier(), HaloType::Interior)]);
-    }
-
-    faceClusterBackmap[layer.id()] = cluster.get();
   }
 
   // Create ghost time clusters for MPI
@@ -349,14 +325,14 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       dataTransferMode, usePersistentMpi(seissolInstance_.env()));
   // what the test of the halo exchange before the time stepping goes through
   std::vector<CheckedTransport> checkedTransports;
-  for (const auto& layer : memoryManager.ltsStorage().leaves(Ghost | Interior)) {
+  for (const auto& layer : ltsStorage.leaves(Ghost | Interior)) {
 
     const auto displayName = "copy-" + std::to_string(layer.getIdentifier().lts);
 
     for (const auto [i, halo] : common::enumerate(haloStructure.at(layer.id()))) {
 
       const bool hasNeighborRegions = !halo.copy.empty() || !halo.ghost.empty();
-      const auto other = memoryManager.ltsStorage().getColorMap().argument(i);
+      const auto other = ltsStorage.getColorMap().argument(i);
 
       if (hasNeighborRegions) {
 
@@ -387,16 +363,17 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
         // Connect with previous copy layer.
         ghostClusters.back()->connect(*cellClusterBackmap[layer.id()]);
 
-        // the dynamic rupture faces of the copy layer read the ghost cells of their own cluster
-        auto* faceCluster = faceClusterBackmap[layer.id()];
-        if (faceCluster != nullptr && other.lts == layer.getIdentifier().lts) {
-          faceCluster->observe(*ghostClusters.back());
+        // the faces of the copy layer read the ghost cells of their own cluster
+        if (other.lts == layer.getIdentifier().lts) {
+          for (auto* faceCluster : faceClustersOfLayer[layer.id()]) {
+            faceCluster->observe(*ghostClusters.back());
+          }
         }
       }
     }
   }
 
-  reportClusterDependencies(memoryManager, haloStructure);
+  reportClusterDependencies(ltsStorage, haloStructure);
 
   // Sort clusters by time step size in increasing order
   const auto rateSorter = [](const auto& a, const auto& b) {
@@ -627,18 +604,6 @@ TimeManager::Updates TimeManager::updates() const {
         static_cast<double>(size.dynamicRuptureFaces) * steps;
   }
   return updates;
-}
-
-void TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {
-  this->faultOutputManager_ = faultOutputManager;
-  for (auto& cluster : faceClusters_) {
-    cluster->setFaultOutputManager(faultOutputManager);
-  }
-}
-
-seissol::dr::output::OutputManager* TimeManager::faultOutputManager() {
-  assert(faultOutputManager_ != nullptr);
-  return faultOutputManager_;
 }
 
 void TimeManager::advanceInTime(const double& synchronizationTime) {

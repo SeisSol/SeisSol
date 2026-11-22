@@ -10,6 +10,8 @@
 #ifndef SEISSOL_SRC_CORE_TIMESTEPPING_TIMEMANAGER_H_
 #define SEISSOL_SRC_CORE_TIMESTEPPING_TIMEMANAGER_H_
 #include "Core/Common/Json.h"
+#include "Core/Kernels/GlobalDataStore.h"
+#include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/HostData.h"
 #include "Core/Memory/HostSnapshot.h"
 #include "Core/Memory/Typedefs.h"
@@ -22,13 +24,13 @@
 #include "Core/TimeStepping/Compute/CellCluster.h"
 #include "Core/TimeStepping/Compute/CellStage.h"
 #include "Core/TimeStepping/Compute/ClusterStage.h"
+#include "Core/TimeStepping/Compute/FaceCluster.h"
+#include "Core/TimeStepping/Compute/FaceClusterFactory.h"
 #include "Core/TimeStepping/Halo/GhostCluster.h"
 #include "Core/TimeStepping/HaloTransportFactory.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Core/TimeStepping/Plan/SuperStepRecorder.h"
 #include "Core/TimeStepping/Plan/TimeSteppingPlan.h"
-#include "Features/DynamicRupture/Solver/DynamicRuptureCluster.h"
-#include "Simulation/MemoryManager.h"
 #include "WavePropagation/Output/FreeSurfaceIntegrator.h"
 #include "WavePropagation/Output/ReceiverWriter.h"
 
@@ -88,8 +90,8 @@ class TimeManager {
   };
   std::vector<ClusterSize> clusterSizes_;
 
-  //! the clusters of the local (copy & interior) dynamic rupture faces
-  std::vector<std::unique_ptr<DynamicRuptureClusterInterface>> faceClusters_;
+  //! the clusters of the local (copy & interior) faces of the features, e.g. of the dynamic rupture
+  std::vector<std::unique_ptr<FaceCluster>> faceClusters_;
 
   //! all cell and face clusters, i.e. all clusters under control of this time manager that do
   //! local work; ordered by rate
@@ -195,9 +197,6 @@ class TimeManager {
   LoopStatistics loopStatistics_;
   ActorStateStatisticsManager actorStateStatisticsManager_;
 
-  //! dynamic rupture output
-  dr::output::OutputManager* faultOutputManager_{};
-
   //! the clusters as laid out, kept until the output is set up
   std::optional<writer::ClusteringWriter> clusteringWriter_;
 
@@ -213,13 +212,16 @@ class TimeManager {
   ~TimeManager();
 
   /**
-   * Adds the clusters of the cells and of the dynamic rupture faces of the layers of the storages
-   * of `memoryManager`, with the time steps of `clusterLayout`, and the ghost clusters that
-   * exchange the halos `haloStructure`.
+   * Adds the clusters of the cells of the layers of `ltsStorage`, with the global data
+   * `globalData`, those of the faces that `faceClusterFactories` make (e.g. the dynamic rupture
+   * faces), with the time steps of `clusterLayout`, and the ghost clusters that exchange the halos
+   * `haloStructure`.
    **/
   void addClusters(const initializer::ClusterLayout& clusterLayout,
                    const HaloCommunication& haloStructure,
-                   initializer::MemoryManager& memoryManager);
+                   LTS::Storage& ltsStorage,
+                   GlobalDataStore& globalData,
+                   const std::vector<FaceClusterFactory*>& faceClusterFactories);
 
   /**
    * Writes the clustering table recorded by addClusters. Collective: every rank has to call it.
@@ -242,9 +244,6 @@ class TimeManager {
    * dynamic rupture faces once, and the copy cells next to several neighbors once per neighbor.
    **/
   [[nodiscard]] Updates updates() const;
-
-  void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
-  seissol::dr::output::OutputManager* faultOutputManager();
 
   /**
    * Advance in time until all clusters reach the next synchronization time.

@@ -12,6 +12,7 @@
 #include "Core/Geometry/MeshReader.h"
 #include "Core/TimeStepping/Settings.h"
 #include "Core/TimeStepping/TimeManager.h"
+#include "Features/SourceTerm/SourceParameters.h"
 
 #include <cstdarg>
 

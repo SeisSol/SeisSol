@@ -26,6 +26,7 @@
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Core/TimeStepping/Layout/Halo.h"
 #include "Core/TimeStepping/Settings.h"
+#include "Features/DynamicRupture/Solver/DynamicRuptureClusterFactory.h"
 #include "Features/Plasticity/Solver/PlasticityStage.h"
 #include "Features/Plasticity/Solver/Storage.h"
 #include "Internal/MeshLayout.h"
@@ -473,8 +474,20 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
   const auto haloCommunication = internal::bucketsAndCommunication(ltsStorage, meshLayoutCopy);
 
   logInfo() << "Setting up kernel clusters...";
-  seissolInstance.timeManager().addClusters(
-      clusterLayout, haloCommunication, seissolInstance.memoryManager());
+  auto& memoryManager = seissolInstance.memoryManager();
+  // the clusters of the dynamic rupture faces, with the on-fault receivers of its output
+  seissol::dr::DynamicRuptureClusterFactory faultClusters(seissolInstance,
+                                                          memoryManager.drStorage(),
+                                                          memoryManager.globalDataStore(),
+                                                          memoryManager.frictionLaw(),
+                                                          memoryManager.frictionLawDevice(),
+                                                          memoryManager.faultOutputManager(),
+                                                          seissolParams.timeStepping.endTime);
+  seissolInstance.timeManager().addClusters(clusterLayout,
+                                            haloCommunication,
+                                            ltsStorage,
+                                            memoryManager.globalDataStore(),
+                                            {&faultClusters});
 
   // the work of the features on each cell after its correction: first the plasticity, then the
   // time integral of the DOFs for the outputs, which integrates the DOFs after the plasticity

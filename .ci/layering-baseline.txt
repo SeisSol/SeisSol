@@ -12,15 +12,10 @@ core-includes-composition Core/TimeStepping/Compute/CellCluster.cpp Simulation/M
 core-includes-composition Core/TimeStepping/Compute/CellCluster.cpp Simulation/SeisSol.h
 core-includes-composition Core/TimeStepping/TimeManager.cpp Simulation/MemoryManager.h
 core-includes-composition Core/TimeStepping/TimeManager.cpp Simulation/SeisSol.h
-core-includes-composition Core/TimeStepping/TimeManager.h Simulation/MemoryManager.h
 core-includes-feature Core/Memory/Descriptor/DynamicRupture.h Features/DynamicRupture/DRParameters.h
 core-includes-feature Core/Memory/Descriptor/DynamicRupture.h Features/DynamicRupture/Misc.h
 core-includes-feature Core/Memory/Descriptor/DynamicRupture.h Features/DynamicRupture/Typedefs.h
 core-includes-feature Core/Memory/Typedefs.h Features/DynamicRupture/Misc.h
-core-includes-feature Core/TimeStepping/TimeManager.cpp Features/DynamicRupture/Output/OutputManager.h
-core-includes-feature Core/TimeStepping/TimeManager.cpp Features/DynamicRupture/Output/PickpointSampling.h
-core-includes-feature Core/TimeStepping/TimeManager.cpp Features/DynamicRupture/Solver/DynamicRuptureCluster.h
-core-includes-feature Core/TimeStepping/TimeManager.h Features/DynamicRupture/Solver/DynamicRuptureCluster.h
 core-includes-later-core Core/Common/PreProcessorMacros.h Core/Monitoring/Instrumentation.h
 core-includes-later-core Core/Geometry/MeshReader.cpp Core/Parallel/MPI.h
 core-includes-later-core Core/Geometry/PUMLReader.cpp Core/Monitoring/Instrumentation.h

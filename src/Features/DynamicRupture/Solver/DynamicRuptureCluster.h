@@ -37,26 +37,14 @@
 #include <Device/device.h>
 #endif
 
-namespace seissol {} // namespace seissol
-
 namespace seissol::solver {
-
-/**
- * What the time manager sees of a dynamic rupture cluster, whatever the configuration of its faces.
- */
-class DynamicRuptureClusterInterface : public FaceCluster {
-  public:
-  using FaceCluster::FaceCluster;
-
-  virtual void setFaultOutputManager(dr::output::OutputManager* outputManager) = 0;
-};
 
 /**
  * The dynamic rupture faces of one layer, all of the configuration `Cfg`: the space-time
  * interpolation of the adjacent cells, the friction law, and the on-fault receiver output.
  */
 template <typename Cfg>
-class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
+class DynamicRuptureCluster : public FaceCluster {
   public:
   using real = Real<Cfg>;
 
@@ -78,10 +66,6 @@ class DynamicRuptureCluster : public DynamicRuptureClusterInterface {
   ~DynamicRuptureCluster() override = default;
 
   void finalize() override;
-
-  void setFaultOutputManager(dr::output::OutputManager* outputManager) override {
-    faultOutputManager_ = outputManager;
-  }
 
   protected:
   void interact(const StepParams& params) override;

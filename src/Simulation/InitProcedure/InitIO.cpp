@@ -1089,8 +1089,6 @@ void initFaultOutputManager(seissol::SeisSol& seissolInstance) {
     faultOutputManager->setBackupTimeStamp(backupTimeStamp);
     faultOutputManager->init();
   }
-
-  seissolInstance.timeManager().setFaultOutputManager(faultOutputManager);
 }
 
 void enableFreeSurfaceOutput(const seissol::SeisSol& seissolInstance) {}

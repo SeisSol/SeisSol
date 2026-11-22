@@ -30,6 +30,7 @@
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
 #include "Core/TimeStepping/Compute/ComputeCluster.h"
+#include "Core/TimeStepping/Compute/FaceCluster.h"
 #include "Features/DynamicRupture/Output/OutputManager.h"
 #include "Features/DynamicRupture/Output/PickpointSampling.h"
 #include "Features/DynamicRupture/Solver/DynamicRupture.h"
@@ -87,16 +88,16 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
     LoopStatistics* loopStatistics,
     DeviceTimeline* deviceTimeline,
     ActorStateStatistics* actorStateStatistics)
-    : DynamicRuptureClusterInterface(maxTimeStepSize,
-                                     timeStepRate,
-                                     executor,
-                                     layerData,
-                                     "dr",
-                                     /*faces=*/true,
-                                     profilingId,
-                                     loopStatistics,
-                                     deviceTimeline,
-                                     actorStateStatistics),
+    : FaceCluster(maxTimeStepSize,
+                  timeStepRate,
+                  executor,
+                  layerData,
+                  "dr",
+                  /*faces=*/true,
+                  profilingId,
+                  loopStatistics,
+                  deviceTimeline,
+                  actorStateStatistics),
       run_(run), globalData_(globalData), layerData_(layerData),
       frictionSolver_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactory)),
       frictionSolverDevice_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactoryDevice)),

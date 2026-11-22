@@ -199,7 +199,7 @@ json::Value writeVertexWeights(SeisSol& seissolInstance, double simulatedTime) {
 void Simulator::simulate(SeisSol& seissolInstance) {
   SCOREP_USER_REGION("simulate", SCOREP_USER_REGION_TYPE_FUNCTION)
 
-  auto* faultOutputManager = seissolInstance.timeManager().faultOutputManager();
+  auto* faultOutputManager = seissolInstance.memoryManager().faultOutputManager();
   faultOutputManager->recordInitialPickpointOutput(currentTime_);
 
   auto& summary = seissolInstance.runSummary();

@@ -28,6 +28,7 @@
 #include "Features/SourceTerm/Setup/Manager.h"
 #include "Features/TimeMirror/Solver/InstantaneousTimeMirrorManager.h"
 #include "Simulation/EnergyOutput.h"
+#include "Simulation/MemoryManager.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "Simulation/Simulator.h"
 #include "WavePropagation/Output/DofSync.h"
