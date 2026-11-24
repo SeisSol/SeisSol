@@ -6,9 +6,9 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "Alignment.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Executor.h"
-#include "Core/Kernels/Common.h"
 #include "Proxy/Common.h"
 #include "Proxy/LikwidWrapper.h"
 #include "Proxy/Runner.h"
@@ -25,7 +25,6 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include "Alignment.h"
 #include "Core/Common/Typedefs.h"
 #include "Core/Parallel/Helper.h"
 #include "Core/Parallel/Runtime/Stream.h"

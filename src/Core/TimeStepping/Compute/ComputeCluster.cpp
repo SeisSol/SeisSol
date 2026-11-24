@@ -7,11 +7,11 @@
 
 #include "ComputeCluster.h"
 
+#include "Alignment.h"
 #include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Executor.h"
 #include "Core/Common/Marker.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Monitoring/DeviceTimeline.h"
 #include "Core/Monitoring/DeviceTimer.h"

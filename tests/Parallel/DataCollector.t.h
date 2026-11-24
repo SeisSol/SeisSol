@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Alignment.h"
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Parallel/DataCollector.h"

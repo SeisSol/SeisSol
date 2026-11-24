@@ -7,6 +7,7 @@
 
 #include "Features/DynamicRupture/Output/OutputManager.h"
 
+#include "Alignment.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/Filesystem.h"
 #include "Core/Geometry/MeshReader.h"
@@ -14,7 +15,6 @@
 #include "Core/IO/Instance/Geometry/Typedefs.h"
 #include "Core/IO/Writer/Writer.h"
 #include "Core/IO/WriterParameters.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Backmap.h"

@@ -7,6 +7,7 @@
 
 #include "InitModel.h"
 
+#include "Alignment.h"
 #include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
@@ -18,7 +19,6 @@
 #include "Core/Geometry/QueryGenerator.h"
 #include "Core/IO/Easi/EasiContext.h"
 #include "Core/IO/Easi/ReaderBuilder.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Tree/LTSTree.h"

@@ -10,7 +10,6 @@
 #ifndef SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_ANISOTROPIC_SETUP_H_
 #define SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_ANISOTROPIC_SETUP_H_
 
-#include "Core/Kernels/Common.h"
 #include "Core/Numerical/Transformation.h"
 #include "Datastructures.h"
 #include "GeneratedCode/init.h"

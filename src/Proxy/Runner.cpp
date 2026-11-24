@@ -8,7 +8,7 @@
 
 #include "Runner.h"
 
-#include "Core/Kernels/Common.h"
+#include "Alignment.h"
 #include "Core/Monitoring/Metric.h"
 #include "Core/Parallel/Runtime/Stream.h"
 #include "KernelDevice.h"

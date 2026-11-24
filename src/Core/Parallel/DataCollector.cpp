@@ -6,7 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "DataCollector.h"
 
-#include "Core/Kernels/Common.h"
+#include "Alignment.h"
 #include "Core/Memory/MemoryAllocator.h"
 
 #include <cassert>

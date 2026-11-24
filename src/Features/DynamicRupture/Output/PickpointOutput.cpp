@@ -18,7 +18,6 @@
 #include "Core/IO/Instance/Point/Hdf5Table.h"
 #include "Core/IO/Instance/Point/TableWriter.h"
 #include "Core/IO/Writer/Writer.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Backmap.h"

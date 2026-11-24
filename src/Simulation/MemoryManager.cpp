@@ -10,9 +10,9 @@
 
 #include "MemoryManager.h"
 
+#include "Alignment.h"
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/Boundary.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"

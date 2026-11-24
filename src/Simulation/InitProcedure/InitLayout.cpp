@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "InitLayout.h"
 
+#include "Alignment.h"
 #include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
@@ -14,7 +15,6 @@
 #include "Core/Common/Iterator.h"
 #include "Core/Common/Json.h"
 #include "Core/Geometry/MeshReader.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/SimulationSettings.h"

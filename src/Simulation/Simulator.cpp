@@ -9,9 +9,9 @@
 
 #include "Simulator.h"
 
+#include "Alignment.h"
 #include "Core/Common/Instrumentation.h"
 #include "Core/Common/Json.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Modules/Modules.h"
 #include "Core/Modules/OutputWorker.h"

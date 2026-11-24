@@ -12,7 +12,6 @@
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/Real.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/CellLocalInformation.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/LtsSetup.h"

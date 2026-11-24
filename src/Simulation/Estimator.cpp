@@ -8,11 +8,11 @@
 
 #include "Estimator.h"
 
+#include "Alignment.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/ConfigValue.h"
 #include "Core/Common/Executor.h"
 #include "Core/Common/Real.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Numerical/Statistics.h"
 #include "Core/Parallel/MPI.h"
 #include "Proxy/Common.h"

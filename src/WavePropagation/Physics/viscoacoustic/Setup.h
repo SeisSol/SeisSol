@@ -10,7 +10,6 @@
 #ifndef SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_VISCOACOUSTIC_SETUP_H_
 #define SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_VISCOACOUSTIC_SETUP_H_
 
-#include "Core/Kernels/Common.h"
 #include "Core/Numerical/Transformation.h"
 #include "GeneratedCode/init.h"
 #include "WavePropagation/Physics/Common.h"

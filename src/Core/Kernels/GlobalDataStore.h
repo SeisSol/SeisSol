@@ -8,6 +8,7 @@
 #ifndef SEISSOL_SRC_CORE_KERNELS_GLOBALDATASTORE_H_
 #define SEISSOL_SRC_CORE_KERNELS_GLOBALDATASTORE_H_
 
+#include "Alignment.h"
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/Typedefs.h"

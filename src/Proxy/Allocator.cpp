@@ -14,7 +14,6 @@
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Constants.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Kernels/Touch.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"

@@ -11,9 +11,9 @@
 
 #include "CellCluster.h"
 
+#include "Alignment.h"
 #include "Core/Common/Executor.h"
 #include "Core/Common/Instrumentation.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Monitoring/DeviceTimeline.h"

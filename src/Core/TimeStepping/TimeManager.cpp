@@ -17,7 +17,6 @@
 #include "Core/Common/Json.h"
 #include "Core/Common/Typedefs.h"
 #include "Core/Common/Unit.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/HostData.h"
 #include "Core/Memory/HostSnapshot.h"

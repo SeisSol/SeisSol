@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Alignment.h"
 #include "Core/Kernels/Common.h"
 #include "Core/Parallel/Runtime/Stream.h"
 #include "Core/TimeStepping/Compute/ClusterClock.h"

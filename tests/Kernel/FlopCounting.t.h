@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Alignment.h"
 #include "Config.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/Real.h"

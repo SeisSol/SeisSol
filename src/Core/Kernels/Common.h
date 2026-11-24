@@ -12,7 +12,6 @@
 
 #include "Alignment.h"
 #include "Core/Common/Constants.h"
-#include "Core/Common/Typedefs.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 
@@ -72,8 +71,7 @@
   }                                                                                                \
   } // namespace
 
-namespace seissol {
-namespace kernels {
+namespace seissol::kernels {
 /**
  * Gets the number of basis functions for the given convergence order.
  *
@@ -172,9 +170,6 @@ constexpr auto familySize(std::size_t alignedReals = 1) -> std::size_t {
   }
 }
 
-} // namespace kernels
-
-constexpr bool isDeviceOn() { return HardwareSupport == BuildType::Gpu; }
-} // namespace seissol
+} // namespace seissol::kernels
 
 #endif // SEISSOL_SRC_CORE_KERNELS_COMMON_H_

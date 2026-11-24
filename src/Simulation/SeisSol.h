@@ -9,6 +9,7 @@
 #ifndef SEISSOL_SRC_SIMULATION_SEISSOL_H_
 #define SEISSOL_SRC_SIMULATION_SEISSOL_H_
 
+#include "Alignment.h"
 #include "Core/Common/Executor.h"
 #include "Core/IO/AsyncIO.h"
 #include "Core/IO/Manager.h"

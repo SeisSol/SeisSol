@@ -22,6 +22,9 @@ constexpr std::size_t PagesizeStack = 4096;
 
 constexpr BuildType HardwareSupport = BuildType::@BUILDTYPE_STR@;
 constexpr DeviceBackend Backend = DeviceBackend::@DEVICE_BACKEND_STR@;
+
+/// whether the build computes on a device
+constexpr bool isDeviceOn() { return HardwareSupport == BuildType::Gpu; }
 } // namespace seissol
 
 #endif // SEISSOL_SRC_ALIGNMENT_IN_H_

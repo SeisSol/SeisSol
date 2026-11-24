@@ -7,9 +7,9 @@
 
 #include "PlasticityStage.h"
 
+#include "Alignment.h"
 #include "Config.h"
 #include "Core/Common/Marker.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Memory/Tree/Layer.h"

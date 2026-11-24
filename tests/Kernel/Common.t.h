@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Alignment.h"
 #include "Core/Kernels/Common.h"
 
 namespace seissol::unit_test {

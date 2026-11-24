@@ -10,7 +10,6 @@
 
 #include "Alignment.h"
 #include "Core/IO/Instance/Checkpoint/CheckpointManager.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/Tree/LTSTree.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Memory/Typedefs.h"

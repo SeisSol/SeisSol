@@ -8,7 +8,6 @@
 #ifndef SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_POROELASTIC_SETUP_H_
 #define SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_POROELASTIC_SETUP_H_
 
-#include "Core/Kernels/Common.h"
 #include "Core/Numerical/Eigenvalues.h"
 #include "Core/Numerical/Transformation.h"
 #include "GeneratedCode/init.h"

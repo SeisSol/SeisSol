@@ -7,12 +7,12 @@
 
 #include "DynamicRuptureCluster.h"
 
+#include "Alignment.h"
 #include "Config.h"
 #include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/Executor.h"
 #include "Core/Common/Instrumentation.h"
 #include "Core/Common/Marker.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Memory/Typedefs.h"

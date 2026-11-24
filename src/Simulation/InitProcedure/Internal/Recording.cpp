@@ -6,9 +6,9 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #include "Recording.h"
 
+#include "Alignment.h"
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Kernels/BatchRecorders/Recorders.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Layer.h"

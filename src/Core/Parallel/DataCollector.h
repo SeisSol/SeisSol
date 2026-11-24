@@ -8,7 +8,6 @@
 #ifndef SEISSOL_SRC_CORE_PARALLEL_DATACOLLECTOR_H_
 #define SEISSOL_SRC_CORE_PARALLEL_DATACOLLECTOR_H_
 
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Parallel/BlockSet.h"
 

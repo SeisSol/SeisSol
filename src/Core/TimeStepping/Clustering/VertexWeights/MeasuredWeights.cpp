@@ -7,11 +7,11 @@
 
 #include "MeasuredWeights.h"
 
+#include "Alignment.h"
 #include "Core/Common/BasicTypedefs.h"
 #include "Core/Geometry/MeshReader.h"
 #include "Core/IO/Reader/Distribution.h"
 #include "Core/IO/Reader/File/Hdf5Reader.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Colormap.h"

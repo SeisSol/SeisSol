@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Alignment.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Kernels/Common.h"
 #include "Simulation/Estimator.h"

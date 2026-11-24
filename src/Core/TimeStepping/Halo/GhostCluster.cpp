@@ -7,9 +7,9 @@
 
 #include "GhostCluster.h"
 
+#include "Alignment.h"
 #include "Core/Common/Executor.h"
 #include "Core/Common/Instrumentation.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Parallel/Trace.h"
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/ActorState.h"

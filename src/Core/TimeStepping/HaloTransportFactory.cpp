@@ -7,7 +7,7 @@
 
 #include "HaloTransportFactory.h"
 
-#include "Core/Kernels/Common.h"
+#include "Alignment.h"
 #include "Core/Parallel/Helper.h"
 #include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Core/TimeStepping/Halo/HaloCommunication.h"
