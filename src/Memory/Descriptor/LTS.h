@@ -16,6 +16,7 @@
 #include "Equations/Datastructures.h"
 #include "GeneratedCode/tensor.h"
 #include "IO/Instance/Checkpoint/CheckpointManager.h"
+#include "Initializer/BasicTypedefs.h"
 #include "Initializer/CellLocalInformation.h"
 #include "Initializer/Typedefs.h"
 #include "Kernels/Common.h"
@@ -27,6 +28,8 @@
 #include "Solver/Settings.h"
 
 #include <cstdint>
+#include <functional>
+#include <utility>
 
 namespace seissol {
 
@@ -39,6 +42,7 @@ struct LTS {
     TimedofsConstant,
     ConstantShared,
     Timebucket,
+    TimebucketHalo,
     Plasticity,
     PlasticityData
   };
@@ -59,6 +63,8 @@ struct LTS {
       case AllocationPreset::PlasticityData:
         return AllocationMode::HostOnly;
       case AllocationPreset::Timebucket:
+        [[fallthrough]];
+      case AllocationPreset::TimebucketHalo:
         [[fallthrough]];
       case AllocationPreset::Timedofs:
         return (MaxOrder <= 7 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
@@ -89,8 +95,11 @@ struct LTS {
         [[fallthrough]];
       case AllocationPreset::PlasticityData:
         return useUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompressPinned;
-      case AllocationPreset::Timebucket:
+      case AllocationPreset::TimebucketHalo:
+        // what MPI sends and receives
         return useMPIUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompress;
+      case AllocationPreset::Timebucket:
+        [[fallthrough]];
       default:
         return useUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompress;
       }
@@ -146,7 +155,12 @@ struct LTS {
   struct BoundaryMapping : public initializer::VariantVariable<FaceBoundaryMappings> {};
   struct PStrain : public initializer::VariantVariable<PStrainArray> {};
   struct FaceDisplacements : public initializer::VariantVariable<FaceRealPtrs> {};
+  // The buffers and derivatives of the cells (see StepIntegrals, AccumulatedIntegrals and
+  // Derivatives): of the interior in Buffers; of the copy and ghost layers, which MPI sends and
+  // receives, in BuffersHalo, which SEISSOL_USM_MPI makes unified memory (see
+  // AllocationPreset::TimebucketHalo). withBuffersOf() picks the one of a layer.
   struct Buffers : public initializer::VariantBucket<Real> {};
+  struct BuffersHalo : public initializer::VariantBucket<Real> {};
 
   struct StepIntegralsDevice : public initializer::VariantVariable<RealPtr> {};
   struct AccumulatedIntegralsDevice : public initializer::VariantVariable<RealPtr> {};
@@ -198,6 +212,7 @@ struct LTS {
                                                         PStrain,
                                                         FaceDisplacements,
                                                         Buffers,
+                                                        BuffersHalo,
                                                         StepIntegralsDevice,
                                                         AccumulatedIntegralsDevice,
                                                         DerivativesDevice,
@@ -224,6 +239,17 @@ struct LTS {
   template <typename Cfg>
   using Ref = initializer::Layer<LTSVarmap>::CellRef<Cfg>;
   using Backmap = initializer::StorageBackmap<Cell::NumFaces>;
+
+  /// Calls `function` with the bucket that holds the buffers and derivatives of the cells of
+  /// `layer`: Buffers in the interior, BuffersHalo in the copy and ghost layers.
+  template <typename F>
+  static void withBuffersOf(const Layer& layer, F&& function) {
+    if (layer.getIdentifier().halo == HaloType::Interior) {
+      std::invoke(std::forward<F>(function), Buffers{});
+    } else {
+      std::invoke(std::forward<F>(function), BuffersHalo{});
+    }
+  }
 
   static void addTo(Storage& storage, const SimulationSettings& settings) {
     using namespace initializer;
@@ -289,8 +315,14 @@ struct LTS {
 
     // TODO(David): remove/rename "constant" flag (the data is temporary; and copying it for IO is
     // handled differently)
-    storage.add<Buffers>(
-        LayerMask(), PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
+    storage.add<Buffers>(LayerMask(Ghost) | LayerMask(Copy),
+                         PagesizeHeap,
+                         allocationModeWP(AllocationPreset::Timebucket),
+                         true);
+    storage.add<BuffersHalo>(LayerMask(Interior),
+                             PagesizeHeap,
+                             allocationModeWP(AllocationPreset::TimebucketHalo),
+                             true);
 
     storage.add<StepIntegralsDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
     storage.add<AccumulatedIntegralsDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
