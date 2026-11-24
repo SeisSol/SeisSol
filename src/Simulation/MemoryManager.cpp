@@ -12,7 +12,6 @@
 
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
-#include "Core/IO/Easi/ReaderBuilder.h"
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/Boundary.h"
 #include "Core/Memory/Descriptor/DynamicRupture.h"
@@ -72,7 +71,7 @@ void MemoryManager::initializeFrictionLaw() {
   const auto factory = seissol::dr::factory::getFactory(
       drParameters,
       dr::initializer::FaultMesh{.mesh = seissolInstance_.meshReader(), .backmap = drBackmap_},
-      seissol::data::modelLoader());
+      seissolInstance_.modelLoader());
   auto product = factory->produce();
   dynRup_ = std::move(product.storage);
   drInitializer_ = std::move(product.initializer);

@@ -114,7 +114,7 @@ void AnalysisWriter::printAnalysisOf(double simulationTime,
 
   if (initialConditionType == seissol::initializer::parameters::InitializationType::Easi) {
     data = initializer::projectEasiFields<Cfg>(
-        easiFields.files, simulationTime, *meshReader_, initialization_.hasTime);
+        easiFields.files, simulationTime, *meshReader_, initialization_.hasTime, run_.easi());
   }
 
   const auto rule = seissol::quadrature::simplexRule<3>(QuadPolyDegree);

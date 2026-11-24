@@ -18,7 +18,6 @@
 
 #include <asagi.h>
 #include <limits>
-#include <memory>
 #include <optional>
 #include <string>
 #include <utils/env.h>
@@ -120,18 +119,6 @@ void AsagiModule::postModel() {
     ::asagi::Grid::stopCommThread();
   }
 }
-
-void AsagiModule::initInstance(utils::Env& env) {
-  AsagiModule::instance = std::make_shared<AsagiModule>(env);
-}
-
-AsagiModule& AsagiModule::getInstance() { return *AsagiModule::instance; }
-
-AsagiMPIMode AsagiModule::mpiMode() { return getInstance().mpiMode_; }
-
-int AsagiModule::totalThreads() { return getInstance().totalThreads_; }
-
-std::shared_ptr<AsagiModule> AsagiModule::instance{nullptr};
 
 } // namespace seissol::asagi
 

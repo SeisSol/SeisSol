@@ -15,7 +15,6 @@
 #include "Core/Modules/Modules.h"
 #include "Core/Parallel/Pin.h"
 
-#include <memory>
 #include <string>
 #include <utils/env.h>
 
@@ -23,6 +22,11 @@ namespace seissol::asagi {
 
 enum class AsagiMPIMode { Off, Windows, CommThread, Unknown };
 
+/**
+ * The settings of ASAGI of the process, from the environment before MPI is set up (see Main), with
+ * which the runs read the files of ASAGI of their easi models (see data::EasiContext); in the MPI
+ * mode CommThread, it runs the communication thread of ASAGI while a run reads its models.
+ */
 class AsagiModule : public Module {
   private:
   utils::Env env_;
@@ -41,8 +45,6 @@ class AsagiModule : public Module {
 
   /** The pinning of the SeisSol instance, for the CPU of the communication thread */
   const parallel::Pinning* pinning_{nullptr};
-
-  static std::shared_ptr<AsagiModule> instance;
 
   public:
   explicit AsagiModule(utils::Env& env);
@@ -85,10 +87,6 @@ class AsagiModule : public Module {
    */
   void postModel() override;
 
-  static void initInstance(utils::Env& env);
-
-  static AsagiModule& getInstance();
-
   private:
   /**
    * First guess on the MPI mode
@@ -108,12 +106,12 @@ class AsagiModule : public Module {
   /**
    * @return The MPI mode for ASAGI
    */
-  static AsagiMPIMode mpiMode();
+  [[nodiscard]] AsagiMPIMode mpiMode() const { return mpiMode_; }
 
   /**
    * @return The total number of threads available for ASAGI
    */
-  static int totalThreads();
+  [[nodiscard]] int totalThreads() const { return totalThreads_; }
 
   private:
   static const inline std::string EnvMpiMode = "ASAGI_MPI_MODE";

@@ -12,6 +12,7 @@ add_library(seissol-io OBJECT
     Datatype/MPIType.cpp
     Easi/AsagiModule.cpp
     Easi/AsagiReader.cpp
+    Easi/EasiContext.cpp
     Easi/EasiReader.cpp
     Easi/ReaderBuilder.cpp
     Instance/Checkpoint/CheckpointManager.cpp

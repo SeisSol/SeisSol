@@ -49,6 +49,7 @@
 
 #ifdef USE_ASAGI
 #include "Core/IO/Easi/AsagiModule.h"
+#include "Core/IO/Easi/EasiContext.h"
 #endif
 
 #ifdef ACL_DEVICE
@@ -369,10 +370,9 @@ int main(int argc, char* argv[]) {
     utils::Env env("SEISSOL_");
 
 #ifdef USE_ASAGI
-    // Construct an instance of AsagiModule, to initialize it.
-    // Its MPI mode is derived from the environment at construction time, i.e. before MPI
-    // is set up.
-    seissol::asagi::AsagiModule::initInstance(env);
+    // The settings of ASAGI of the process, for all of its runs. Its MPI mode is derived from the
+    // environment at construction time, i.e. before MPI is set up.
+    seissol::asagi::AsagiModule asagiModule(env);
 #endif
 
     seissol::Mpi::mpi.init(argc, argv);
@@ -549,9 +549,9 @@ int main(int argc, char* argv[]) {
       // Initialize SeisSol
       seissol::SeisSol seissolInstance(runParameters, measuring ? measuringEnv : env, systemInfo);
 #ifdef USE_ASAGI
-      auto& asagiModule = seissol::asagi::AsagiModule::getInstance();
       asagiModule.setPinning(seissolInstance.pinning());
       asagiModule.registerHooks(seissolInstance.modules());
+      seissolInstance.setEasi(seissol::data::EasiContext{.asagi = &asagiModule});
 #endif
       seissolInstance.setRunId(runId);
       seissolInstance.runSummary()["invocation"] = invocation(

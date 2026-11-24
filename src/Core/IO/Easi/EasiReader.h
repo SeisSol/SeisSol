@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_CORE_IO_EASI_EASIREADER_H_
 
 #include "Core/Data/DataReader.h"
+#include "Core/IO/Easi/EasiContext.h"
 
 #include <memory>
 #include <string>
@@ -29,7 +30,11 @@ class EasiReader : public DataReader {
   public:
   ~EasiReader() override;
 
-  EasiReader(const std::string& script, const std::vector<std::string>& inVars);
+  /// Reads through the model of the easi file `script` with the dimensions `inVars`; it opens the
+  /// files of ASAGI that the model names as `context` says.
+  EasiReader(const std::string& script,
+             const std::vector<std::string>& inVars,
+             const EasiContext& context);
 
   /// Reads through the model of the easi file `script`, parsed already with the dimensions
   /// `inVars` (e.g. by a check that reports what does not parse rather than stopping).

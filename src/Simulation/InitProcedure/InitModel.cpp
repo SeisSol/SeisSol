@@ -16,6 +16,7 @@
 #include "Core/Data/SimulationFiles.h"
 #include "Core/Geometry/CellToVertexArray.h"
 #include "Core/Geometry/QueryGenerator.h"
+#include "Core/IO/Easi/EasiContext.h"
 #include "Core/IO/Easi/ReaderBuilder.h"
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/LTS.h"
@@ -97,11 +98,12 @@ std::vector<std::array<double, Cell::Dim>> plasticityNodes() {
 
 template <typename T>
 std::vector<T> queryDB(const std::shared_ptr<seissol::initializer::QueryGenerator>& queryGen,
-                       const std::string& fileName) {
+                       const std::string& fileName,
+                       const seissol::data::EasiContext& easi) {
   std::vector<T> vectorDB;
   seissol::initializer::MaterialParameterDB<T> parameterDB;
   parameterDB.setMaterialVector(&vectorDB);
-  parameterDB.evaluate(*seissol::data::buildReader(fileName, {"x", "y", "z"}), *queryGen);
+  parameterDB.evaluate(*seissol::data::buildReader(fileName, {"x", "y", "z"}, easi), *queryGen);
   return vectorDB;
 }
 
@@ -146,7 +148,7 @@ void initializeCellMaterialOfConfig(
   std::vector<std::vector<MaterialT>> materialsDB;
   materialsDB.reserve(materialFiles.files.size());
   for (const auto& materialFile : materialFiles.files) {
-    materialsDB.push_back(queryDB<MaterialT>(queryGen, materialFile));
+    materialsDB.push_back(queryDB<MaterialT>(queryGen, materialFile, seissolInstance.easi()));
   }
 
   // plasticity (if needed); a material without the stresses of a solid has none, so its file need
@@ -165,7 +167,8 @@ void initializeCellMaterialOfConfig(
     const auto plasticityGen = std::make_shared<PlasticityPointGenerator>(
         ctvOfConfig, plasticityNodes<Cfg>(), plasticityPointwise);
     for (size_t i = 0; i < plasticityDB.size(); i++) {
-      plasticityDB[i] = queryDB<Plasticity>(plasticityGen, plasticityFiles.files[i]);
+      plasticityDB[i] =
+          queryDB<Plasticity>(plasticityGen, plasticityFiles.files[i], seissolInstance.easi());
     }
   }
 
@@ -330,8 +333,8 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   std::vector<std::optional<DirichletCondition>> dirichletConditions(boundaryFiles.files.size());
   for (std::size_t i = 0; i < boundaryFiles.files.size(); ++i) {
     if (!boundaryFiles.files[i].empty()) {
-      dirichletConditions[i] =
-          DirichletCondition(seissol::data::buildReader(boundaryFiles.files[i], {"x", "y", "z"}));
+      dirichletConditions[i] = DirichletCondition(seissol::data::buildReader(
+          boundaryFiles.files[i], {"x", "y", "z"}, seissolInstance.easi()));
     }
   }
 

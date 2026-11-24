@@ -8,6 +8,7 @@
 #include <doctest.h>
 
 #include "Core/Data/DataTable.h"
+#include "Core/IO/Easi/EasiContext.h"
 #include "Core/IO/Easi/EasiReader.h"
 
 #include <array>
@@ -38,7 +39,7 @@ TEST_CASE("EasiReader: a model may supply more than the table asks for" *
             "    bulkFriction: return 0.6;\n";
   }
 
-  data::EasiReader reader(path.string(), {"x", "y", "z"});
+  data::EasiReader reader(path.string(), {"x", "y", "z"}, data::EasiContext{});
   CHECK(reader.outputVars().size() == 4);
 
   constexpr std::size_t Points = 3;

@@ -22,6 +22,7 @@
 #include "Core/Geometry/MeshParameters.h"
 #include "Core/Geometry/PUMLReader.h"
 #include "Core/Geometry/PartitioningLib.h"
+#include "Core/IO/Easi/EasiContext.h"
 #include "Core/IO/Easi/ReaderBuilder.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/TimeStepping/Clustering/Clustering.h"
@@ -70,12 +71,13 @@ inline std::unique_ptr<seissol::geometry::PUMLReader>
                         parameters.runConfigs,
                         parameters.timeStepping.lts,
                         [&parameters](const CellToVertexArray& cells) {
-                          return computeTimesteps(cells,
-                                                  parameters.runConfigs,
-                                                  parameters.wavePropagation,
-                                                  parameters.timeStepping,
-                                                  parameters.model.materialFileNames,
-                                                  seissol::data::modelLoader());
+                          return computeTimesteps(
+                              cells,
+                              parameters.runConfigs,
+                              parameters.wavePropagation,
+                              parameters.timeStepping,
+                              parameters.model.materialFileNames,
+                              seissol::data::modelLoader(seissol::data::EasiContext{}));
                         });
   ExponentialWeights weightModel;
   return std::make_unique<seissol::geometry::PUMLReader>(

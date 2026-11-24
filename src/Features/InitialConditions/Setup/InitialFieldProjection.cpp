@@ -17,6 +17,7 @@
 #include "Core/Data/SimulationFiles.h"
 #include "Core/Geometry/CellTransform.h"
 #include "Core/Geometry/MeshReader.h"
+#include "Core/IO/Easi/EasiContext.h"
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Layer.h"
@@ -41,7 +42,6 @@
 
 #ifdef USE_ASAGI
 #include "Core/Common/Real.h"
-#include "Core/IO/Easi/AsagiReader.h"
 
 #include <easi/util/AsagiReader.h>
 #endif
@@ -71,13 +71,10 @@ struct EasiLoader {
   std::vector<std::unique_ptr<easi::Component>> components;
   std::unique_ptr<easi::AsagiReader> asagiReader;
   std::unique_ptr<easi::YAMLParser> parser;
-  EasiLoader(bool hasTime, const std::vector<std::string>& files) : hasTime(hasTime) {
-#ifdef USE_ASAGI
-    asagiReader = std::make_unique<seissol::asagi::AsagiReader>();
-#else
-    asagiReader.reset();
-#endif
-
+  EasiLoader(bool hasTime,
+             const std::vector<std::string>& files,
+             const seissol::data::EasiContext& easi)
+      : hasTime(hasTime), asagiReader(seissol::data::makeAsagiReader(easi)) {
     // NOTE: easi currently sorts the dimension names lexicographically (due to using std::set)
     // hence: if we have time as a dimension, it will come first
 #ifdef SUPPORTS_EASI_TIME
@@ -247,7 +244,8 @@ template <typename Cfg>
 std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
                                       double time,
                                       const seissol::geometry::MeshReader& meshReader,
-                                      bool needsTime) {
+                                      bool needsTime,
+                                      const data::EasiContext& easi) {
   using MaterialT = model::MaterialOf<Cfg>;
   const auto& elements = meshReader.getElements();
 
@@ -283,7 +281,7 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
                            elements.size());
   const auto dataPointStride = iniFields.size() * MaterialT::Quantities.size();
   {
-    auto models = EasiLoader(needsTime, iniFields);
+    auto models = EasiLoader(needsTime, iniFields, easi);
     for (std::size_t i = 0; i < iniFields.size(); ++i) {
       auto adapter = easi::ArraysAdapter();
       for (std::size_t j = 0; j < MaterialT::Quantities.size(); ++j) {
@@ -305,20 +303,24 @@ std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
 }
 
 #define SEISSOL_CONFIG_INSTANTIATE(Cfg)                                                            \
-  template std::vector<double> projectEasiFields<Cfg>(                                             \
-      const std::vector<std::string>&, double, const seissol::geometry::MeshReader&, bool);
+  template std::vector<double> projectEasiFields<Cfg>(const std::vector<std::string>&,             \
+                                                      double,                                      \
+                                                      const seissol::geometry::MeshReader&,        \
+                                                      bool,                                        \
+                                                      const data::EasiContext&);
 SEISSOL_FOR_EACH_CONFIG(SEISSOL_CONFIG_INSTANTIATE)
 #undef SEISSOL_CONFIG_INSTANTIATE
 
 void projectEasiInitialField(const parameters::SimulationFiles& iniFields,
                              const seissol::geometry::MeshReader& meshReader,
                              LTS::Storage& storage,
-                             bool needsTime) {
+                             bool needsTime,
+                             const data::EasiContext& easi) {
   // the fields are sampled at the points of each configuration, once for all of its layers
   for (const auto config : storage.configs()) {
     dispatchConfig(config, [&](auto cfg) {
       using Cfg = decltype(cfg);
-      const auto data = projectEasiFields<Cfg>(iniFields.files, 0, meshReader, needsTime);
+      const auto data = projectEasiFields<Cfg>(iniFields.files, 0, meshReader, needsTime, easi);
       for (auto& layer : storage.leaves(Ghost)) {
         if (layer.getIdentifier().config == config) {
           projectEasiFieldsOnLayer<Cfg>(

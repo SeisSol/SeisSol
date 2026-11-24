@@ -119,7 +119,8 @@ void initInitialCondition(seissol::SeisSol& seissolInstance) {
     seissol::initializer::projectEasiInitialField(iniFields,
                                                   seissolInstance.meshReader(),
                                                   memoryManager.ltsStorage(),
-                                                  initConditionParams.hasTime);
+                                                  initConditionParams.hasTime,
+                                                  seissolInstance.easi());
   } else {
     logInfo() << "Using initial condition"
               << physics::scenario::name(initConditionParams.type).data() << ".";

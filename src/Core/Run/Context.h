@@ -8,7 +8,10 @@
 #ifndef SEISSOL_SRC_CORE_RUN_CONTEXT_H_
 #define SEISSOL_SRC_CORE_RUN_CONTEXT_H_
 
+#include "Core/Data/DataReader.h"
 #include "Core/IO/AsyncIO.h"
+#include "Core/IO/Easi/EasiContext.h"
+#include "Core/IO/Easi/ReaderBuilder.h"
 #include "Core/IO/Manager.h"
 #include "Core/IO/OutputContext.h"
 #include "Core/Modules/Modules.h"
@@ -25,8 +28,8 @@ namespace seissol {
 /**
  * The services of a run, which its parts use whatever parts it has: its environment, the pinning of
  * its threads, its hooks, its asynchronous IO and its outputs, its FLOP counter, the actor of its
- * work on the host for the device, and its ID and the prefix of its files. The composition
- * (SeisSol) is one, and holds the parts besides.
+ * work on the host for the device, how it reads its easi models, and its ID and the prefix of its
+ * files. The composition (SeisSol) is one, and holds the parts besides.
  */
 class RunContext {
   public:
@@ -65,6 +68,22 @@ class RunContext {
   parallel::runtime::HostActor& hostActor() { return hostActor_; }
 
   /**
+   * Sets how the run reads its easi models (e.g. with the settings of ASAGI of the process, see
+   * Main).
+   */
+  void setEasi(const data::EasiContext& easi) { easi_ = easi; }
+
+  /**
+   * How the run reads its easi models.
+   */
+  [[nodiscard]] const data::EasiContext& easi() const { return easi_; }
+
+  /**
+   * Reads the easi models of the run (see easi()).
+   */
+  [[nodiscard]] data::ModelLoader modelLoader() const { return data::modelLoader(easi_); }
+
+  /**
    * Sets the ID of this run (see Core/Common/RunId.h); the same on every rank.
    */
   void setRunId(const std::string& runId) { runId_ = runId; }
@@ -97,6 +116,7 @@ class RunContext {
   io::AsyncIO asyncIO_;
   io::OutputManager outputManager_;
   monitoring::FlopCounter flopCounter_;
+  data::EasiContext easi_;
 };
 
 } // namespace seissol

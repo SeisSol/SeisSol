@@ -29,7 +29,7 @@ namespace seissol::asagi {
 ::asagi::Grid* AsagiReader::open(const char* file, const char* varname) {
   SCOREP_USER_REGION("AsagiReader_open", SCOREP_USER_REGION_TYPE_FUNCTION);
 
-  auto& env = AsagiModule::getInstance().getEnv();
+  auto& env = module_.getEnv();
 
   ::asagi::Grid* grid = ::asagi::Grid::createArray();
 
@@ -38,7 +38,7 @@ namespace seissol::asagi {
   }
 
   // Set MPI mode
-  if (AsagiModule::mpiMode() != AsagiMPIMode::Off) {
+  if (module_.mpiMode() != AsagiMPIMode::Off) {
     // USE_MPI kept on purpose
 #ifdef USE_MPI
     const ::asagi::Grid::Error err = grid->setComm(comm_);
@@ -47,7 +47,7 @@ namespace seissol::asagi {
     }
 #endif // USE_MPI
 
-    if (AsagiModule::mpiMode() == AsagiMPIMode::CommThread) {
+    if (module_.mpiMode() == AsagiMPIMode::CommThread) {
       grid->setParam("MPI_COMMUNICATION", "THREAD");
     }
   }
@@ -55,14 +55,14 @@ namespace seissol::asagi {
   // Set NUMA mode
   asagiThreads_ = env.get("ASAGI_NUM_THREADS", 0U);
   if (asagiThreads_ == 0) {
-    asagiThreads_ = AsagiModule::totalThreads();
-  } else if (static_cast<int>(asagiThreads_) > AsagiModule::totalThreads()) {
-    logWarning() << "Only" << AsagiModule::totalThreads()
+    asagiThreads_ = module_.totalThreads();
+  } else if (static_cast<int>(asagiThreads_) > module_.totalThreads()) {
+    logWarning() << "Only" << module_.totalThreads()
                  << "threads can be used for ASAGI initialization.";
-    asagiThreads_ = AsagiModule::totalThreads();
+    asagiThreads_ = module_.totalThreads();
   }
 
-  if (AsagiModule::mpiMode() == AsagiMPIMode::CommThread) {
+  if (module_.mpiMode() == AsagiMPIMode::CommThread) {
     // one thread is used for communication
     --asagiThreads_;
   }
@@ -118,9 +118,8 @@ namespace seissol::asagi {
   return grid;
 }
 
-NumaCacheMode AsagiReader::getNumaMode() {
-  const std::string numaModeName =
-      AsagiModule::getInstance().getEnv().get("ASAGI_NUMA_MODE", "OFF");
+NumaCacheMode AsagiReader::getNumaMode() const {
+  const std::string numaModeName = module_.getEnv().get("ASAGI_NUMA_MODE", "OFF");
 
   if (numaModeName == "ON") {
     return NumaCacheMode::On;
@@ -138,7 +137,8 @@ NumaCacheMode AsagiReader::getNumaMode() {
 
 unsigned AsagiReader::numberOfThreads() const { return asagiThreads_; }
 
-AsagiReader::AsagiReader(MPI_Comm comm) : comm_(comm) {}
+AsagiReader::AsagiReader(AsagiModule& asagiModule, MPI_Comm comm)
+    : module_(asagiModule), comm_(comm) {}
 
 } // namespace seissol::asagi
 

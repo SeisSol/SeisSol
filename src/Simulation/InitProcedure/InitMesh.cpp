@@ -11,7 +11,6 @@
 #include "Core/Geometry/CellToVertexArray.h"
 #include "Core/Geometry/MeshDefinition.h"
 #include "Core/Geometry/MeshParameters.h"
-#include "Core/IO/Easi/ReaderBuilder.h"
 #include "Core/Monitoring/RunSummary.h"
 #include "Core/TimeStepping/Clustering/Clustering.h"
 #include "Simulation/Estimator.h"
@@ -82,7 +81,7 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
         parameters.wavePropagation,
         parameters.timeStepping,
         parameters.model.materialFileNames,
-        seissol::data::modelLoader());
+        seissolInstance.modelLoader());
     meshReader.setTimesteps(timesteps.cellTimeStepWidths);
   }
 
@@ -244,13 +243,14 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       config,
       seissolParams.runConfigs,
       seissolParams.timeStepping.lts,
-      [&seissolParams](const seissol::initializer::CellToVertexArray& cells) {
+      [&seissolParams, models = seissolInstance.modelLoader()](
+          const seissol::initializer::CellToVertexArray& cells) {
         return seissol::initializer::computeTimesteps(cells,
                                                       seissolParams.runConfigs,
                                                       seissolParams.wavePropagation,
                                                       seissolParams.timeStepping,
                                                       seissolParams.model.materialFileNames,
-                                                      seissol::data::modelLoader());
+                                                      models);
       });
   // the costs measured in a run before, if there are any, in place of the model: those of the run
   // before in this process, or else those of a file

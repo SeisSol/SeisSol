@@ -8,7 +8,7 @@
 #include "EasiReader.h"
 
 #include "Core/Data/DataTable.h"
-#include "Core/IO/Easi/AsagiReader.h"
+#include "Core/IO/Easi/EasiContext.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -28,7 +28,11 @@
 #include <utils/logger.h>
 #include <vector>
 
-#ifndef USE_ASAGI
+#ifdef USE_ASAGI
+// completes the type of the reader of ASAGI files, as the destructor of the pointer that holds it
+// needs
+#include <easi/util/AsagiReader.h> // IWYU pragma: keep
+#else
 // Without ASAGI, the reader of ASAGI files the parser takes is never made; the empty class
 // completes its type, as the destructor of the pointer that holds it needs (see
 // InitialFieldProjection.cpp).
@@ -153,14 +157,10 @@ class MixedResultsAdapter : public easi::ResultAdapter {
 
 EasiReader::~EasiReader() = default;
 
-EasiReader::EasiReader(const std::string& script, const std::vector<std::string>& inVars)
-    : script_(script) {
-#ifdef USE_ASAGI
-  asagiReader_ = std::make_unique<seissol::asagi::AsagiReader>();
-#else
-  asagiReader_.reset();
-#endif
-
+EasiReader::EasiReader(const std::string& script,
+                       const std::vector<std::string>& inVars,
+                       const EasiContext& context)
+    : asagiReader_(makeAsagiReader(context)), script_(script) {
   const auto dimensionNames = std::set<std::string>(inVars.begin(), inVars.end());
   inVars_ = std::vector<std::string>(dimensionNames.begin(), dimensionNames.end());
   parser_ = std::make_unique<easi::YAMLParser>(dimensionNames, asagiReader_.get());

@@ -21,8 +21,16 @@ class Grid;
 namespace seissol::asagi {
 enum class NumaCacheMode { Off, On, Cache };
 
+class AsagiModule;
+
+/**
+ * Opens the files of ASAGI for the easi models of a run, with the settings of ASAGI of the process.
+ */
 class AsagiReader : public easi::AsagiReader {
   private:
+  /** The settings of ASAGI of the process */
+  AsagiModule& module_;
+
   /** Number of threads used by ASAGI */
   unsigned int asagiThreads_{0};
 
@@ -30,13 +38,13 @@ class AsagiReader : public easi::AsagiReader {
   MPI_Comm comm_;
 
   public:
-  explicit AsagiReader(MPI_Comm comm = seissol::Mpi::mpi.comm());
+  explicit AsagiReader(AsagiModule& asagiModule, MPI_Comm comm = seissol::Mpi::mpi.comm());
 
   ::asagi::Grid* open(const char* file, const char* varname) override;
   [[nodiscard]] unsigned numberOfThreads() const override;
 
   private:
-  static NumaCacheMode getNumaMode();
+  [[nodiscard]] NumaCacheMode getNumaMode() const;
 };
 
 } // namespace seissol::asagi

@@ -12,6 +12,7 @@
 #include "Core/Geometry/FaceMap.h"
 #include "Core/Geometry/MeshParameters.h"
 #include "Core/Geometry/PUMLReader.h"
+#include "Core/IO/Easi/EasiContext.h"
 #include "Core/IO/Easi/ReaderBuilder.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Parallel/MPI.h"
@@ -49,7 +50,7 @@ inline seissol::initializer::GlobalTimestep
                                                 parameters.wavePropagation,
                                                 parameters.timeStepping,
                                                 parameters.model.materialFileNames,
-                                                data::modelLoader());
+                                                data::modelLoader(data::EasiContext{}));
 }
 
 /// The time steps of the cells with the materials of `parameters`, as the run computes them.

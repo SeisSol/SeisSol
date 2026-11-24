@@ -8,6 +8,7 @@
 #include "ReaderBuilder.h"
 
 #include "Core/Data/DataReader.h"
+#include "Core/IO/Easi/EasiContext.h"
 #include "Core/IO/Easi/EasiReader.h"
 
 #include <memory>
@@ -28,11 +29,16 @@ std::string fileOf(const std::string& path) {
 } // namespace
 
 std::unique_ptr<DataReader> buildReader(const std::string& path,
-                                        const std::vector<std::string>& defaultInArgs) {
+                                        const std::vector<std::string>& defaultInArgs,
+                                        const EasiContext& context) {
   logInfo() << "Loading easi file" << fileOf(path);
-  return std::make_unique<EasiReader>(fileOf(path), defaultInArgs);
+  return std::make_unique<EasiReader>(fileOf(path), defaultInArgs, context);
 }
 
-ModelLoader modelLoader() { return &buildReader; }
+ModelLoader modelLoader(const EasiContext& context) {
+  return [context](const std::string& path, const std::vector<std::string>& inputs) {
+    return buildReader(path, inputs, context);
+  };
+}
 
 } // namespace seissol::data

@@ -11,6 +11,7 @@
 
 #include "Core/Data/SimulationFiles.h"
 #include "Core/Geometry/MeshReader.h"
+#include "Core/IO/Easi/EasiContext.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Typedefs.h"
 #include "WavePropagation/InitialField.h"
@@ -33,14 +34,16 @@ template <typename Cfg>
 std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
                                       double time,
                                       const seissol::geometry::MeshReader& meshReader,
-                                      bool needsTime);
+                                      bool needsTime,
+                                      const data::EasiContext& easi);
 
 /// Projects the easi fields `iniFields`, given for every simulation of the run, onto the cells of
 /// `storage`; each file is sampled once.
 void projectEasiInitialField(const parameters::SimulationFiles& iniFields,
                              const seissol::geometry::MeshReader& meshReader,
                              LTS::Storage& storage,
-                             bool needsTime);
+                             bool needsTime,
+                             const data::EasiContext& easi);
 } // namespace seissol::initializer
 
 #endif // SEISSOL_SRC_FEATURES_INITIALCONDITIONS_SETUP_INITIALFIELDPROJECTION_H_
