@@ -24,10 +24,6 @@ core-includes-later-core Core/Memory/MemoryAllocator.cpp Core/Kernels/Common.h
 core-includes-later-core Core/Memory/Tree/Layer.h Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h
 core-includes-later-core Core/Memory/Typedefs.h Core/IO/Datatype/Datatype.h
 core-includes-later-core Core/Memory/Typedefs.h Core/IO/Datatype/Inference.h
-core-includes-later-core Core/Monitoring/MiniSeisSolWriter.cpp Core/IO/Instance/Point/Csv.h
-core-includes-later-core Core/Monitoring/RunSummary.cpp Core/IO/Instance/Point/Csv.h
-core-includes-later-core Core/Monitoring/RunSummary.h Core/IO/Instance/Point/Csv.h
-core-includes-later-core Core/Monitoring/ThreadsPinningWriter.cpp Core/IO/Instance/Point/Csv.h
 core-includes-later-core Core/Numerical/Projection.h Core/Memory/MemoryAllocator.h
 core-includes-later-core Core/Numerical/Transformation.h Core/Memory/Typedefs.h
 core-includes-later-core Core/Parallel/DataCollector.cpp Core/Kernels/Common.h

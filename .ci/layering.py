@@ -80,8 +80,8 @@ CORE_ORDER = (
     ("Core/Memory",),
     ("Core/Kernels",),
     ("Core/Modules",),
-    ("Core/Monitoring",),
     ("Core/IO",),
+    ("Core/Monitoring",),
     ("Core/Run",),
     ("Core/TimeStepping",),
 )
