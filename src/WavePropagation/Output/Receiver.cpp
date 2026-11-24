@@ -543,7 +543,7 @@ void ReceiverClusterImpl<Cfg>::allocateData() {
       if constexpr (kernels::size<tensor::Qane<Cfg>>() > 0) {
         bytes += deviceCollectorAne_->gatheredBytes();
       }
-      hostQueue_ = std::make_unique<parallel::runtime::HostActor::Queue>(bytes);
+      hostQueue_ = std::make_unique<parallel::runtime::HostActor::Queue>(run_.hostActor(), bytes);
       // nothing runs on it then
       extraRuntime_.reset();
     }

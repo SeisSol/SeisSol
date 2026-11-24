@@ -14,6 +14,7 @@
 #include "Core/Modules/Modules.h"
 #include "Core/Monitoring/FlopCounter.h"
 #include "Core/Parallel/Pin.h"
+#include "Core/Parallel/Runtime/HostActor.h"
 
 #include <string>
 #include <utility>
@@ -23,8 +24,9 @@ namespace seissol {
 
 /**
  * The services of a run, which its parts use whatever parts it has: its environment, the pinning of
- * its threads, its hooks, its asynchronous IO and its outputs, its FLOP counter, and its ID and the
- * prefix of its files. The composition (SeisSol) is one, and holds the parts besides.
+ * its threads, its hooks, its asynchronous IO and its outputs, its FLOP counter, the actor of its
+ * work on the host for the device, and its ID and the prefix of its files. The composition
+ * (SeisSol) is one, and holds the parts besides.
  */
 class RunContext {
   public:
@@ -57,6 +59,12 @@ class RunContext {
   monitoring::FlopCounter& flopCounter() { return flopCounter_; }
 
   /**
+   * Runs the work on the host that reads what the device has written (e.g. the samples of the
+   * receivers), for all parts of the run.
+   */
+  parallel::runtime::HostActor& hostActor() { return hostActor_; }
+
+  /**
    * Sets the ID of this run (see Core/Common/RunId.h); the same on every rank.
    */
   void setRunId(const std::string& runId) { runId_ = runId; }
@@ -78,6 +86,8 @@ class RunContext {
   [[nodiscard]] const std::string& outputPrefix() const { return outputPrefix_; }
 
   protected:
+  // first, so that it outlives the queues of all parts of the run
+  parallel::runtime::HostActor hostActor_;
   // the composition sets them up (see SeisSol::init)
   parallel::Pinning pinning_;
   utils::Env env_;

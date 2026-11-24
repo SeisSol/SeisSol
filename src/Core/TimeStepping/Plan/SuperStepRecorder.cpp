@@ -32,8 +32,8 @@ namespace {
 device::DeviceInstance& deviceInstance() { return device::DeviceInstance::instance(); }
 } // namespace
 
-SuperStepRecorder::SuperStepRecorder(bool branches)
-    : stream_(runtime_.stream()), branches_(branches) {}
+SuperStepRecorder::SuperStepRecorder(parallel::runtime::HostActor& hostActor, bool branches)
+    : hostActor_(hostActor), stream_(runtime_.stream()), branches_(branches) {}
 
 SuperStepRecorder::~SuperStepRecorder() { dispose(); }
 
@@ -64,7 +64,7 @@ void SuperStepRecorder::beginRecording(const std::vector<AbstractTimeCluster*>& 
   beginReplay(runtimes);
 
   hostWork_ = std::make_unique<parallel::runtime::HostActor::Recording>();
-  parallel::runtime::HostActor::instance().beginRecording(*hostWork_);
+  hostActor_.beginRecording(*hostWork_);
   runtime_.beginGraph();
   for (auto* runtime : runtimes) {
     runtime->attach(runtime_, branches_);
@@ -77,7 +77,7 @@ void SuperStepRecorder::beginRecording(const std::vector<AbstractTimeCluster*>& 
 
 void SuperStepRecorder::endRecording(const Key& key) {
   parallel::runtime::recordingOuterGraph() = false;
-  parallel::runtime::HostActor::instance().endRecording();
+  hostActor_.endRecording();
   graphs_[key] = Recording{.graph = runtime_.endGraph(), .hostWork = std::move(hostWork_)};
   used_.insert(key);
 }
@@ -86,7 +86,7 @@ void SuperStepRecorder::endRecordingAndLaunch(const std::vector<AbstractTimeClus
                                               const Runtimes& runtimes,
                                               double* deviceTime) {
   parallel::runtime::recordingOuterGraph() = false;
-  parallel::runtime::HostActor::instance().endRecording();
+  hostActor_.endRecording();
   auto recording = Recording{.graph = runtime_.endGraph(), .hostWork = std::move(hostWork_)};
   // the graphs launched once before that have run by now go (no event may be queried while
   // recording)
@@ -163,7 +163,8 @@ void SuperStepRecorder::launch(const Recording& recording,
 
 #else
 
-SuperStepRecorder::SuperStepRecorder(bool /*branches*/) {}
+SuperStepRecorder::SuperStepRecorder(parallel::runtime::HostActor& /*hostActor*/,
+                                     bool /*branches*/) {}
 
 void SuperStepRecorder::dispose() {}
 

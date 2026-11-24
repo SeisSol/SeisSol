@@ -99,8 +99,8 @@ void startOutputThread(SeisSol& seissolInstance) {
       parallel::runtime::HostRuntime::scheduling() == parallel::runtime::HostScheduling::Static) {
     auto& modules = seissolInstance.modules();
     // (e.g. the initial samples of the fault receivers are there already)
-    parallel::runtime::HostActor::instance().drain();
-    parallel::runtime::HostActor::instance().setExecutor(
+    seissolInstance.hostActor().drain();
+    seissolInstance.hostActor().setExecutor(
         [&modules](std::function<void()> task) { modules.enqueueOnOutputThread(std::move(task)); });
     logInfo() << "The work on the host for the device (e.g. the receiver samples) runs on the"
               << "thread of the outputs.";
@@ -376,8 +376,8 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   modules.callSyncHook(currentTime_, timeTolerance, true);
   // the outputs end on the main thread, and so does the work on the host for the device
-  parallel::runtime::HostActor::instance().drain();
-  parallel::runtime::HostActor::instance().setExecutor({});
+  seissolInstance.hostActor().drain();
+  seissolInstance.hostActor().setExecutor({});
   modules.stopOutputWorker();
 
   // and the writes still under way finish

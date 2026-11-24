@@ -54,10 +54,11 @@ class SuperStepRecorder {
   using Runtimes = std::vector<parallel::runtime::StreamRuntime*>;
 
   /**
-   * With `branches`, the independent branches of the work of the runtimes become nodes of their own
-   * (see parallel::runtime::StreamRuntime::attach()).
+   * Records the work for the host that `hostActor` gets along with the super-timesteps. With
+   * `branches`, the independent branches of the work of the runtimes become nodes of their own (see
+   * parallel::runtime::StreamRuntime::attach()).
    */
-  explicit SuperStepRecorder(bool branches = true);
+  explicit SuperStepRecorder(parallel::runtime::HostActor& hostActor, bool branches = true);
 #ifdef ACL_DEVICE
   ~SuperStepRecorder();
 #else
@@ -149,6 +150,8 @@ class SuperStepRecorder {
               const Runtimes& runtimes,
               double* deviceTime);
 
+  // gets the work for the host of the super-timesteps
+  parallel::runtime::HostActor& hostActor_;
   // builds the recordings, and launches them on its stream; the pool of the events around them
   parallel::runtime::StreamRuntime runtime_;
   void* stream_{nullptr};

@@ -48,7 +48,8 @@ class StreamRuntime;
  * recording instead, which posts it after each launch of the graph (see Recording).
  *
  * Only for the thread that enqueues the work of the device; no event gets queried while a graph is
- * being recorded (see recordingOuterGraph()).
+ * being recorded (see recordingOuterGraph()). A run has one (see RunContext), which has to outlive
+ * its queues.
  */
 class HostActor {
   public:
@@ -73,9 +74,7 @@ class HostActor {
    */
   class Queue {
 public:
-    /// a queue of the actor of the process, whose pieces of work read `bytes` each (see take())
-    explicit Queue(std::size_t bytes = 0);
-
+    /// a queue of `actor`, whose pieces of work read `bytes` each (see take())
     explicit Queue(HostActor& actor, std::size_t bytes = 0);
 
     ~Queue();
@@ -219,9 +218,6 @@ private:
   HostActor& operator=(const HostActor&) = delete;
   HostActor(HostActor&&) = delete;
   HostActor& operator=(HostActor&&) = delete;
-
-  /// the actor of the process
-  static HostActor& instance();
 
   /**
    * Hands the ready work to `executor` from now on, which runs what it gets in that order on a

@@ -7,6 +7,7 @@
 
 #include <doctest.h>
 
+#include "Core/Parallel/Runtime/HostActor.h"
 #include "Core/Parallel/Runtime/Stream.h"
 #include "Core/TimeStepping/Plan/SuperStepRecorder.h"
 
@@ -87,7 +88,8 @@ TEST_CASE("A recorded super-timestep replays its work, on the data of the time o
   }
 
   CopyOnDevice work;
-  solver::SuperStepRecorder recorder;
+  parallel::runtime::HostActor hostActor;
+  solver::SuperStepRecorder recorder(hostActor);
   const solver::SuperStepRecorder::Key key{0.5, 1.0};
   const solver::SuperStepRecorder::Key otherKey{0.25, 1.0};
   CHECK_FALSE(recorder.has(key));

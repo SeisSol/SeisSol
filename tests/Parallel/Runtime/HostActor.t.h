@@ -163,7 +163,8 @@ TEST_CASE("The host actor hands each piece of work the data staged for it" *
   hostactortest::setUpDevice();
   parallel::runtime::StreamRuntime runtime;
   {
-    HostActor::Queue queue(sizeof(int));
+    HostActor actor;
+    HostActor::Queue queue(actor, sizeof(int));
     std::vector<int> seen;
     for (int value = 0; value < 3; ++value) {
       // as if the device wrote it
@@ -187,15 +188,16 @@ TEST_CASE("The work for the host in a recording runs after each launch, with the
   auto& api = ::device::DeviceInstance::instance().api();
   parallel::runtime::StreamRuntime runtime;
   {
-    HostActor::Queue first(sizeof(int));
-    HostActor::Queue second(2 * sizeof(int));
+    HostActor actor;
+    HostActor::Queue first(actor, sizeof(int));
+    HostActor::Queue second(actor, 2 * sizeof(int));
     HostActor::Recording recording;
     // by queue: the queues do not wait for each other
     std::vector<int> seenFirst;
     std::vector<int> seenSecond;
 
     // what the recorded work stages, as a graph would keep its addresses
-    HostActor::instance().beginRecording(recording);
+    actor.beginRecording(recording);
     const auto a = first.take(runtime);
     const auto b = second.take(runtime);
     first.post(runtime, a, [&seenFirst](const void* data) {
@@ -204,7 +206,7 @@ TEST_CASE("The work for the host in a recording runs after each launch, with the
     second.post(runtime, b, [&seenSecond](const void* data) {
       seenSecond.push_back(static_cast<const int*>(data)[0] + static_cast<const int*>(data)[1]);
     });
-    HostActor::instance().endRecording();
+    actor.endRecording();
     CHECK(a.host == nullptr);
     CHECK_FALSE(recording.empty());
     CHECK(seenFirst.empty());
@@ -218,7 +220,7 @@ TEST_CASE("The work for the host in a recording runs after each launch, with the
       api.copyTo(b.device, pair.data(), sizeof(pair));
       recording.launched(runtime);
     }
-    HostActor::instance().drain();
+    actor.drain();
     CHECK(seenFirst == std::vector<int>{10, 20});
     CHECK(seenSecond == std::vector<int>{11, 21});
   }

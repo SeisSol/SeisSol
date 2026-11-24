@@ -223,7 +223,8 @@ void PickpointOutput::init(const std::string& backupTimeStamp) {
       const auto bytes =
           data->variablesOffset +
           (data->deviceVariables != nullptr ? data->deviceVariables->gatheredBytes() : 0);
-      data->hostQueue = std::make_unique<parallel::runtime::HostActor::Queue>(bytes);
+      data->hostQueue =
+          std::make_unique<parallel::runtime::HostActor::Queue>(run_.hostActor(), bytes);
       data->extraRuntime.reset();
     }
   }

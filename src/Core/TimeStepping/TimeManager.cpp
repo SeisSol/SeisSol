@@ -467,7 +467,7 @@ void TimeManager::addClusters(const initializer::ClusterLayout& clusterLayout,
       // computed other results than the runs without recordings, see the documentation)
       constexpr bool BranchesByDefault = Backend != DeviceBackend::Hip;
       const bool branches = useSuperStepBranches(run_.env(), BranchesByDefault);
-      recorder_ = std::make_unique<SuperStepRecorder>(branches);
+      recorder_ = std::make_unique<SuperStepRecorder>(run_.hostActor(), branches);
       if (!branches) {
         logInfo() << "The branches of the work of a cluster run one after another in the recordings"
                   << (BranchesByDefault
@@ -635,7 +635,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
     communicationManager_->awaitExchanges();
   });
   // the work on the host that is left
-  parallel::runtime::HostActor::instance().drain();
+  run_.hostActor().drain();
 #ifdef ACL_DEVICE
   if (concurrent_) {
     // the clusters have only enqueued their work
@@ -645,7 +645,7 @@ void TimeManager::advanceInTime(const double& synchronizationTime) {
 #endif
   // the work on the host for the data of the epoch, before anything reads what it writes (e.g. the
   // samples of the receivers at the synchronization point)
-  parallel::runtime::HostActor::instance().drain();
+  run_.hostActor().drain();
   for (auto& cluster : clusters_) {
     cluster->finishPhase();
   }
@@ -744,7 +744,7 @@ void TimeManager::actUntilSynchronized() {
 
 void TimeManager::throttleHostWork() {
   // the work on the host whose data the device has written meanwhile
-  parallel::runtime::HostActor::instance().progress();
+  run_.hostActor().progress();
   // with a task graph, the actions do not run too far ahead of their work
   parallel::runtime::HostRuntime::throttle([this] { communicationManager_->progression(); });
 }
@@ -820,7 +820,7 @@ StepWork TimeManager::takeSteps(const std::vector<PlannedAction>& plan,
     auto action = cluster->getNextLegalAction();
     while (action == ActorAction::Nothing) {
       communicationManager_->progression();
-      parallel::runtime::HostActor::instance().progress();
+      run_.hostActor().progress();
       watchProgress();
       action = cluster->getNextLegalAction();
     }

@@ -44,8 +44,6 @@ std::size_t aligned(std::size_t bytes) {
 }
 } // namespace
 
-HostActor::Queue::Queue(std::size_t bytes) : Queue(HostActor::instance(), bytes) {}
-
 HostActor::Queue::Queue(HostActor& actor, std::size_t bytes) : actor_(actor), bytes_(bytes) {
   if (bytes_ > 0) {
     buffers_ = std::make_unique<HostBufferPool>(bytes_);
@@ -135,11 +133,6 @@ HostActor::HostActor()
 }
 
 HostActor::HostActor(Completed completed) : completed_(std::move(completed)) {}
-
-HostActor& HostActor::instance() {
-  static HostActor actor;
-  return actor;
-}
 
 void HostActor::setExecutor(Executor executor) {
   if (pending() > 0) {
