@@ -78,6 +78,7 @@ LAYOUT = [
     ("Initializer/LtsSetup.h", "Core/Memory/LtsSetup.h"),
     ("Initializer/Typedefs.h", "Core/Memory/Typedefs.h"),
     ("Initializer/DeviceGraph.h", "Core/Parallel/DeviceGraph.h"),
+    ("Core/Parallel/DataCollector.", "Core/Memory/DataCollector."),
     ("Initializer/FaceMap.", "Core/Geometry/FaceMap."),
     ("Initializer/PointMapper.", "Core/Geometry/PointMapper."),
     (

@@ -6,6 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-memory OBJECT
+    DataCollector.cpp
     GlobalData.cpp
     HostData.cpp
     HostSnapshot.cpp

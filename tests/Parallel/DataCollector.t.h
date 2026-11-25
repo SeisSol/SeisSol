@@ -9,8 +9,8 @@
 
 #include "Alignment.h"
 #include "Core/Kernels/Common.h"
+#include "Core/Memory/DataCollector.h"
 #include "Core/Memory/MemoryAllocator.h"
-#include "Core/Parallel/DataCollector.h"
 #include "Core/Parallel/Runtime/HostBufferPool.h"
 #include "Core/Parallel/Runtime/Stream.h"
 

@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_CORE_PARALLEL_DATACOLLECTOR_H_
-#define SEISSOL_SRC_CORE_PARALLEL_DATACOLLECTOR_H_
+#ifndef SEISSOL_SRC_CORE_MEMORY_DATACOLLECTOR_H_
+#define SEISSOL_SRC_CORE_MEMORY_DATACOLLECTOR_H_
 
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Parallel/BlockSet.h"
@@ -137,4 +137,4 @@ class DataCollector : DataCollectorUntyped {
 
 } // namespace seissol::parallel
 
-#endif // SEISSOL_SRC_CORE_PARALLEL_DATACOLLECTOR_H_
+#endif // SEISSOL_SRC_CORE_MEMORY_DATACOLLECTOR_H_
