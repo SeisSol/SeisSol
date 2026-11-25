@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_CORE_KERNELS_BATCHRECORDERS_RECORDERS_H_
 #define SEISSOL_SRC_CORE_KERNELS_BATCHRECORDERS_RECORDERS_H_
 
-#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalKey.h"
-#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Core/Memory/Batch/ConditionalKey.h"
+#include "Core/Memory/Batch/ConditionalTable.h"
 #include "Core/Memory/Tree/Layer.h"
 
 #include <cstddef>

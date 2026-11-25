@@ -14,7 +14,7 @@
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/Marker.h"
-#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Core/Memory/Batch/ConditionalTable.h"
 #include "Core/Memory/CellLocalInformation.h"
 #include "Core/Memory/LtsSetup.h"
 #include "Core/Parallel/Runtime/Stream.h"
@@ -26,8 +26,8 @@
 #include <cstdint>
 
 #ifdef ACL_DEVICE
-#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalKey.h"
-#include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Core/Memory/Batch/ConditionalKey.h"
+#include "Core/Memory/Batch/EncodedConstants.h"
 #endif
 
 #ifndef ACL_DEVICE

@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_CORE_KERNELS_BATCHRECORDERS_DATATYPES_CONDITIONALTABLE_H_
-#define SEISSOL_SRC_CORE_KERNELS_BATCHRECORDERS_DATATYPES_CONDITIONALTABLE_H_
+#ifndef SEISSOL_SRC_CORE_MEMORY_BATCH_CONDITIONALTABLE_H_
+#define SEISSOL_SRC_CORE_MEMORY_BATCH_CONDITIONALTABLE_H_
 
 #include "Condition.h"
 #include "ConditionalKey.h"
@@ -19,4 +19,4 @@ using ConditionalTable =
     std::unordered_map<ConditionalKey, BatchTable, ConditionalHash<ConditionalKey>>;
 } // namespace seissol::recording
 
-#endif // SEISSOL_SRC_CORE_KERNELS_BATCHRECORDERS_DATATYPES_CONDITIONALTABLE_H_
+#endif // SEISSOL_SRC_CORE_MEMORY_BATCH_CONDITIONALTABLE_H_

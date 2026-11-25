@@ -53,9 +53,9 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalKey.h"
-#include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
-#include "Core/Parallel/DeviceGraph.h"
+#include "Core/Memory/Batch/ConditionalKey.h"
+#include "Core/Memory/Batch/DeviceGraph.h"
+#include "Core/Memory/Batch/EncodedConstants.h"
 #include "GeneratedCode/tensor.h"
 
 #include <Device/AbstractAPI.h>

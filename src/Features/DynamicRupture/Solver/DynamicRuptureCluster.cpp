@@ -45,7 +45,7 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include "Core/Parallel/DeviceGraph.h"
+#include "Core/Memory/Batch/DeviceGraph.h"
 
 #include <Device/AbstractAPI.h>
 #endif

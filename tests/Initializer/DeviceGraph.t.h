@@ -6,7 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Core/Common/BasicTypedefs.h"
-#include "Core/Parallel/DeviceGraph.h"
+#include "Core/Memory/Batch/DeviceGraph.h"
 
 namespace seissol::unit_test {
 

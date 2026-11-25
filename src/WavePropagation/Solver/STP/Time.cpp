@@ -10,8 +10,8 @@
 #include "Alignment.h"
 #include "Config.h"
 #include "Core/Common/Marker.h"
-#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Core/Kernels/Common.h"
+#include "Core/Memory/Batch/ConditionalTable.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Monitoring/Metric.h"
@@ -32,8 +32,8 @@
 
 #ifdef ACL_DEVICE
 #include "Core/Common/Offset.h"
-#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalKey.h"
-#include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Core/Memory/Batch/ConditionalKey.h"
+#include "Core/Memory/Batch/EncodedConstants.h"
 #include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Core/Parallel/Trace.h"
 #endif

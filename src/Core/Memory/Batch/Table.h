@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_CORE_KERNELS_BATCHRECORDERS_DATATYPES_TABLE_H_
-#define SEISSOL_SRC_CORE_KERNELS_BATCHRECORDERS_DATATYPES_TABLE_H_
+#ifndef SEISSOL_SRC_CORE_MEMORY_BATCH_TABLE_H_
+#define SEISSOL_SRC_CORE_MEMORY_BATCH_TABLE_H_
 
 #include "Condition.h"
 #include "Core/Memory/MemoryAllocator.h"
@@ -94,4 +94,4 @@ class BatchTable {
 
 } // namespace seissol::recording
 
-#endif // SEISSOL_SRC_CORE_KERNELS_BATCHRECORDERS_DATATYPES_TABLE_H_
+#endif // SEISSOL_SRC_CORE_MEMORY_BATCH_TABLE_H_

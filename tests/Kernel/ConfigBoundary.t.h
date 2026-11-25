@@ -24,8 +24,8 @@
 #include "WavePropagation/Solver/ConfigBoundary.h"
 
 #ifdef ACL_DEVICE
-#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h"
-#include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Core/Memory/Batch/ConditionalTable.h"
+#include "Core/Memory/Batch/EncodedConstants.h"
 #include "Core/Memory/GlobalData.h"
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Memory/Typedefs.h"

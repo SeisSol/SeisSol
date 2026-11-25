@@ -8,8 +8,8 @@
 #include "PlasticityRecorder.h"
 
 #include "Config.h"
-#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalKey.h"
-#include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Core/Memory/Batch/ConditionalKey.h"
+#include "Core/Memory/Batch/EncodedConstants.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Features/Plasticity/Solver/Storage.h"

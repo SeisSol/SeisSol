@@ -5,11 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_CORE_PARALLEL_DEVICEGRAPH_H_
-#define SEISSOL_SRC_CORE_PARALLEL_DEVICEGRAPH_H_
+#ifndef SEISSOL_SRC_CORE_MEMORY_BATCH_DEVICEGRAPH_H_
+#define SEISSOL_SRC_CORE_MEMORY_BATCH_DEVICEGRAPH_H_
 
 #include "Core/Common/BasicTypedefs.h"
-#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalKey.h"
+#include "Core/Memory/Batch/ConditionalKey.h"
 
 #include <cstddef>
 
@@ -41,4 +41,4 @@ struct GraphKeyHash {
 };
 } // namespace seissol::initializer
 
-#endif // SEISSOL_SRC_CORE_PARALLEL_DEVICEGRAPH_H_
+#endif // SEISSOL_SRC_CORE_MEMORY_BATCH_DEVICEGRAPH_H_

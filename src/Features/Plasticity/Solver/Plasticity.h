@@ -11,7 +11,7 @@
 #define SEISSOL_SRC_FEATURES_PLASTICITY_SOLVER_PLASTICITY_H_
 
 #include "Core/Common/Real.h"
-#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Core/Memory/Batch/ConditionalTable.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Monitoring/Metric.h"
 #include "Core/Parallel/Runtime/Stream.h"

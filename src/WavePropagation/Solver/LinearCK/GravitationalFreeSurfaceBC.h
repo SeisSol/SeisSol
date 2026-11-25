@@ -22,7 +22,7 @@
 #include <utility>
 
 #ifdef ACL_DEVICE
-#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h"
+#include "Core/Memory/Batch/ConditionalTable.h"
 #include "WavePropagation/Solver/LinearCK/DeviceAux/KernelsAux.h"
 
 #include <Device/device.h>

@@ -24,7 +24,7 @@
 
 #ifdef ACL_DEVICE
 #include "Core/Common/BasicTypedefs.h"
-#include "Core/Parallel/DeviceGraph.h"
+#include "Core/Memory/Batch/DeviceGraph.h"
 #endif
 
 namespace seissol::kernels {

@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_CORE_KERNELS_BATCHRECORDERS_DATATYPES_CONDITION_H_
-#define SEISSOL_SRC_CORE_KERNELS_BATCHRECORDERS_DATATYPES_CONDITION_H_
+#ifndef SEISSOL_SRC_CORE_MEMORY_BATCH_CONDITION_H_
+#define SEISSOL_SRC_CORE_MEMORY_BATCH_CONDITION_H_
 
 #include "EncodedConstants.h"
 
@@ -88,4 +88,4 @@ size_t operator!(const T& condition) {
   return highBitsMask & (~static_cast<size_t>(condition));
 }
 
-#endif // SEISSOL_SRC_CORE_KERNELS_BATCHRECORDERS_DATATYPES_CONDITION_H_
+#endif // SEISSOL_SRC_CORE_MEMORY_BATCH_CONDITION_H_

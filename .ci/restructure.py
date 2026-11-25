@@ -77,13 +77,13 @@ LAYOUT = [
     ("Initializer/CellLocalInformation.h", "Core/Memory/CellLocalInformation.h"),
     ("Initializer/LtsSetup.h", "Core/Memory/LtsSetup.h"),
     ("Initializer/Typedefs.h", "Core/Memory/Typedefs.h"),
-    ("Initializer/DeviceGraph.h", "Core/Parallel/DeviceGraph.h"),
+    ("Initializer/DeviceGraph.h", "Core/Memory/Batch/DeviceGraph.h"),
     ("Core/Parallel/DataCollector.", "Core/Memory/DataCollector."),
     ("Initializer/FaceMap.", "Core/Geometry/FaceMap."),
     ("Initializer/PointMapper.", "Core/Geometry/PointMapper."),
     (
         "Initializer/BatchRecorders/DataTypes/",
-        "Core/Kernels/BatchRecorders/DataTypes/",
+        "Core/Memory/Batch/",
     ),
     (
         "Initializer/BatchRecorders/Recorders.h",

@@ -18,8 +18,8 @@
 
 #ifdef ACL_DEVICE
 #include "Core/Common/Real.h"
-#include "Core/Kernels/BatchRecorders/DataTypes/ConditionalKey.h"
-#include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
+#include "Core/Memory/Batch/ConditionalKey.h"
+#include "Core/Memory/Batch/EncodedConstants.h"
 
 #include <Device/device.h>
 #endif
