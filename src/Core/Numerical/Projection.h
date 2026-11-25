@@ -8,7 +8,8 @@
 #ifndef SEISSOL_SRC_CORE_NUMERICAL_PROJECTION_H_
 #define SEISSOL_SRC_CORE_NUMERICAL_PROJECTION_H_
 
-#include "Core/Memory/MemoryAllocator.h"
+#include "Alignment.h"
+#include "Core/Common/AlignedAllocator.h"
 #include "Core/Numerical/SymmetricTetrahedronRule.h"
 
 #include <array>
@@ -323,7 +324,8 @@ class Table {
   //! Offset of a given order inside one subcell block.
   std::vector<std::size_t> orderOffsets_;
   std::size_t subcellStride_{};
-  memory::MemkindArray<RealT> storage_{memory::Memkind::Standard};
+  // aligned as the generated kernels read the matrices
+  std::vector<RealT, AlignedAllocator<RealT, Alignment>> storage_;
 };
 
 } // namespace projection
