@@ -13,7 +13,6 @@
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Real.h"
-#include "Core/IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/CellLocalInformation.h"
 #include "Core/Memory/SimulationSettings.h"
@@ -256,22 +255,6 @@ struct LTS {
 
       storage.add<ZinvExtra>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
       storage.add<ConfigBoundaryScratch>(LayerMask(), Alignment, mode);
-    }
-  }
-
-  /// The variables to checkpoint for cells of the configuration `config`.
-  static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                          Storage& storage,
-                                          ConfigId config) {
-    manager.registerData<Dofs>("dofs", storage);
-    dispatchConfig(config, [&](auto cfg) {
-      if constexpr (kernels::size<tensor::Qane<decltype(cfg)>>() > 0) {
-        manager.registerData<DofsAne>("dofsAne", storage);
-      }
-    });
-    // the time integrals of the unknowns, if the output integrates them
-    if (storage.info<Integrals>().mask == initializer::LayerMask(Ghost)) {
-      manager.registerData<Integrals>("integrals", storage);
     }
   }
 };

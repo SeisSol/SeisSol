@@ -38,6 +38,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Simulation/Parameters/OutputParameters.h"
 #include "Simulation/SeisSol.h"
+#include "WavePropagation/Output/Checkpoint.h"
 #include "WavePropagation/Output/FreeSurfaceIntegrator.h"
 #include "WavePropagation/Output/Receiver.h"
 #include "WavePropagation/Output/ReceiverParameters.h"
@@ -175,7 +176,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
       offset += layer.size();
     }
     checkpoint.registerTree("lts", storage, globalIds);
-    LTS::registerCheckpointVariables(checkpoint, storage, config);
+    solver::registerCellCheckpoint(checkpoint, storage, config);
     // what the features keep, e.g. the plastic strain of the cells and the faces of the fault
     for (auto& feature : seissolInstance.features()) {
       feature->registerCheckpoint(checkpoint, storage);
@@ -201,7 +202,7 @@ void setupCheckpointing(seissol::SeisSol& seissolInstance) {
           copyIds[i];
     }
     checkpoint.registerTree("surface", storage, faceIdentifiers);
-    SurfaceLTS::registerCheckpointVariables(checkpoint, storage);
+    solver::registerSurfaceCheckpoint(checkpoint, storage);
   }
 
   const auto& checkpointFile = seissolInstance.checkpointLoadFile();

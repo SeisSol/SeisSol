@@ -47,11 +47,6 @@ struct SurfaceLTS {
 
     storage.add<DisplacementDofs>(ghostMask, PagesizeHeap, allocationModeBoundary());
   }
-
-  static void registerCheckpointVariables(io::instance::checkpoint::CheckpointManager& manager,
-                                          Storage& storage) {
-    manager.registerData<DisplacementDofs>("displacementDofs", storage);
-  }
 };
 
 } // namespace seissol

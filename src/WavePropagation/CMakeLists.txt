@@ -6,6 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-wavepropagation OBJECT
+    Output/Checkpoint.cpp
     Output/DofSync.cpp
     Output/FreeSurfaceIntegrator.cpp
     Output/IntegrationFeature.cpp
