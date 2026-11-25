@@ -40,8 +40,9 @@ ComputeCluster::ComputeCluster(double maxTimeStepSize,
                                ActorStateStatistics* actorStateStatistics)
     : AbstractTimeCluster(maxTimeStepSize, timeStepRate, executor), layer_(layer),
       streamRuntime_(4,
-                     parallel::runtime::hsaQueuePriorityOf(layer->getIdentifier(), faces),
-                     parallel::runtime::hsaQueueOf(layer->getIdentifier(), faces)),
+                     parallel::runtime::hsaQueuePriorityOf(layer->getIdentifier().halo, faces),
+                     parallel::runtime::hsaQueueOf(
+                         layer->getIdentifier().halo, layer->getIdentifier().lts, faces)),
       loopStatistics_(loopStatistics),
       deviceLoops_(loopStatistics, deviceTimeline, DeviceTimeline::Kind::Loops),
       actorStateStatistics_(actorStateStatistics), profilingId_(profilingId),

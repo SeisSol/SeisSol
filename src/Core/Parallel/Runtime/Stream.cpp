@@ -7,7 +7,6 @@
 #include "Stream.h"
 
 #include "Core/Common/BasicTypedefs.h"
-#include "Core/Memory/Tree/Colormap.h"
 
 #include <cstddef>
 #include <optional>
@@ -50,25 +49,24 @@ const HsaQueues& hsaQueues() { return hsaQueueSetup(); }
 
 void useHsaQueues(const HsaQueues& queues) { hsaQueueSetup() = queues; }
 
-int hsaQueueOf(const initializer::LayerIdentifier& identifier, bool faces) {
+int hsaQueueOf(HaloType halo, std::size_t cluster, bool faces) {
   const auto& queues = hsaQueues();
   if (queues.count <= 0) {
     return SharedHsaQueue;
   }
-  const bool copy = identifier.halo == HaloType::Copy;
+  const bool copy = halo == HaloType::Copy;
   if (faces && queues.faceCount > 0) {
-    const auto layer = identifier.lts * 2 + (copy ? 1 : 0);
+    const auto layer = cluster * 2 + (copy ? 1 : 0);
     return FirstFaceHsaQueue - static_cast<int>(layer % static_cast<std::size_t>(queues.faceCount));
   }
   if (queues.layout == HsaQueueLayout::Halo) {
     return queues.count > 1 && !copy ? 2 : 1;
   }
-  const auto layer = identifier.lts * 2 + (copy ? 1 : 0);
+  const auto layer = cluster * 2 + (copy ? 1 : 0);
   return 1 + static_cast<int>(layer % static_cast<std::size_t>(queues.count));
 }
 
-std::optional<double> hsaQueuePriorityOf(const initializer::LayerIdentifier& identifier,
-                                         bool faces) {
+std::optional<double> hsaQueuePriorityOf(HaloType halo, bool faces) {
   const auto& queues = hsaQueues();
   if (queues.count <= 0) {
     return std::nullopt;
@@ -84,7 +82,7 @@ std::optional<double> hsaQueuePriorityOf(const initializer::LayerIdentifier& ide
   if (!byLayer) {
     return std::nullopt;
   }
-  return identifier.halo == HaloType::Copy ? 1.0 : 0.0;
+  return halo == HaloType::Copy ? 1.0 : 0.0;
 }
 
 auto ManagedStream::operator=(ManagedStream&& old) noexcept -> ManagedStream& {

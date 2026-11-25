@@ -8,7 +8,9 @@
 #ifndef SEISSOL_SRC_CORE_PARALLEL_RUNTIME_STREAM_H_
 #define SEISSOL_SRC_CORE_PARALLEL_RUNTIME_STREAM_H_
 
-#include "Core/Memory/Tree/Layer.h"
+#include "Alignment.h"
+#include "Core/Common/BasicTypedefs.h"
+#include "Core/Common/Typedefs.h"
 #include "Core/Parallel/Helper.h"
 #include "Core/Parallel/Runtime/Event.h"
 #include "Core/Parallel/Runtime/EventPool.h"
@@ -126,12 +128,13 @@ void useHsaQueues(const HsaQueues& queues);
 /// whether the branches of the stream runtimes go to HSA queues of their own
 inline bool branchesOnHsaQueues() { return hsaQueues().count > 0 && hsaQueues().branchCount > 0; }
 
-/// the HSA queue of the work of a layer: of its cell cluster, or of its dynamic rupture cluster
-int hsaQueueOf(const initializer::LayerIdentifier& identifier, bool faces = false);
+/// the HSA queue of the work of a layer, of the halo type `halo` in the time cluster `cluster`:
+/// of its cell cluster, or with `faces` of its dynamic rupture cluster
+int hsaQueueOf(HaloType halo, std::size_t cluster, bool faces = false);
 
-/// the priority of the HSA queue of a layer (see HsaQueues::layout), or none
-std::optional<double> hsaQueuePriorityOf(const initializer::LayerIdentifier& identifier,
-                                         bool faces = false);
+/// the priority of the HSA queue of a layer of the halo type `halo` (see HsaQueues::layout), or
+/// none
+std::optional<double> hsaQueuePriorityOf(HaloType halo, bool faces = false);
 
 class ManagedStream {
   public:
@@ -478,10 +481,13 @@ class StreamRuntime {
    * synchronization point - would otherwise capture and instantiate a graph that is replayed
    * a single time and then kept forever, so the number of live graphs would grow with the
    * number of synchronization points.
+   *
+   * `graphs` keeps the graph of each key (e.g. a layer, see initializer::Layer::
+   * getDeviceComputeGraphHandle()).
    */
-  template <typename F>
-  void runGraph(seissol::initializer::GraphKey computeGraphKey,
-                initializer::Layer& layer,
+  template <typename KeyT, typename GraphsT, typename F>
+  void runGraph(const KeyT& computeGraphKey,
+                GraphsT& graphs,
                 F&& handler,
                 bool cacheable = true,
                 GraphMode mode = GraphMode::Nodes) {
@@ -492,14 +498,14 @@ class StreamRuntime {
       return;
     }
 
-    auto computeGraphHandle = layer.getDeviceComputeGraphHandle(computeGraphKey);
+    auto computeGraphHandle = graphs.getDeviceComputeGraphHandle(computeGraphKey);
 
     const bool needsUpdate = !computeGraphHandle.isInitialized();
 
     runGraphGeneric(computeGraphHandle, std::forward<F>(handler), mode);
 
     if (needsUpdate && computeGraphHandle.isInitialized()) {
-      layer.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
+      graphs.updateDeviceComputeGraphHandle(computeGraphKey, computeGraphHandle);
     }
   }
 
