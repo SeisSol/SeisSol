@@ -9,10 +9,10 @@
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_GPUIMPL_RATEANDSTATE_H_
 
 #include "Core/Common/Real.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Features/DynamicRupture/Physics/RateAndStateCommon.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <cmath>
 #include <limits>

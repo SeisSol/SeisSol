@@ -10,13 +10,13 @@
 
 #include "BaseFrictionSolver.h"
 #include "Core/Common/Real.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Numerical/DeltaPulse.h"
 #include "Core/Numerical/GaussianNucleationFunction.h"
 #include "Core/Numerical/RegularizedYoffe.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 #include "FrictionSolverInterface.h"
 
 namespace seissol::dr::friction_law::gpu {

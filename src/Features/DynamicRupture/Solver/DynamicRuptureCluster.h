@@ -10,7 +10,6 @@
 
 #include "Core/Common/Executor.h"
 #include "Core/Common/Real.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Monitoring/DeviceTimer.h"
 #include "Core/Monitoring/LoopStatistics.h"
@@ -26,6 +25,7 @@
 #include "Features/DynamicRupture/Output/PickpointSampling.h"
 #include "Features/DynamicRupture/Solver/DynamicRupture.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <cstddef>
 #include <cstdint>

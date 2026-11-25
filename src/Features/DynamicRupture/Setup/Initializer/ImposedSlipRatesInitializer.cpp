@@ -12,9 +12,9 @@
 #include "Core/Common/Real.h"
 #include "Core/Geometry/MeshDefinition.h"
 #include "Core/Geometry/MeshTools.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <algorithm>
 #include <array>

@@ -8,12 +8,12 @@
 #include "Factory.h"
 
 #include "Core/Data/DataReader.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Output/Output.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionLaws.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 #include "Initializer/Initializers.h"
 
 #include <memory>

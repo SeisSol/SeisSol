@@ -15,7 +15,6 @@
 #include "Core/IO/Instance/Geometry/Typedefs.h"
 #include "Core/IO/Writer/Writer.h"
 #include "Core/IO/WriterParameters.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Tree/Layer.h"
@@ -34,6 +33,7 @@
 #include "Features/DynamicRupture/Output/OutputAux.h"
 #include "Features/DynamicRupture/Output/PickpointOutput.h"
 #include "Features/DynamicRupture/Output/ReceiverBasedOutput.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 #include "WavePropagation/Output/DofSync.h"
 
 #include <algorithm>

@@ -12,8 +12,8 @@
 #include "Core/Geometry/MeshReader.h"
 #include "Core/IO/Reader/Distribution.h"
 #include "Core/IO/Reader/File/Hdf5Reader.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Tree/Colormap.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Monitoring/LoopStatistics.h"
@@ -101,7 +101,7 @@ void writeRun(hid_t file,
 std::optional<MeasuredCellCosts> measureCellCosts(const LoopStatistics& statistics,
                                                   const LTS::Storage& ltsStorage,
                                                   const LTS::Backmap& backmap,
-                                                  const DynamicRupture::Backmap& drBackmap,
+                                                  const initializer::StorageBackmap<1>& drBackmap,
                                                   const geometry::MeshReader& meshReader,
                                                   double simulatedTime,
                                                   MPI_Comm comm) {

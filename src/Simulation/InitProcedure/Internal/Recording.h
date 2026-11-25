@@ -7,8 +7,8 @@
 #ifndef SEISSOL_SRC_SIMULATION_INITPROCEDURE_INTERNAL_RECORDING_H_
 #define SEISSOL_SRC_SIMULATION_INITPROCEDURE_INTERNAL_RECORDING_H_
 
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 namespace seissol::initializer::internal {
 

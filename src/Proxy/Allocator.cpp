@@ -15,7 +15,6 @@
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Constants.h"
 #include "Core/Kernels/Touch.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/GlobalData.h"
 #include "Core/Memory/MemoryAllocator.h"
@@ -24,6 +23,7 @@
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Parallel/OpenMP.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 #include "Features/Plasticity/Solver/Storage.h"
 #include "GeneratedCode/tensor.h"
 #include "Proxy/Constants.h"
@@ -38,6 +38,8 @@
 #include "Core/Common/Real.h"
 #include "Core/Common/Typedefs.h"
 #include "Core/Kernels/BatchRecorders/Recorders.h"
+#include "Features/DynamicRupture/Solver/DynamicRuptureRecorder.h"
+#include "Features/Plasticity/Solver/PlasticityRecorder.h"
 #include "Simulation/InitProcedure/Internal/Scratchpads.h"
 
 #include <Device/device.h>

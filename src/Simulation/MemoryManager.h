@@ -16,7 +16,6 @@
 #include "Core/Common/InputAux.h"
 #include "Core/Kernels/GlobalDataStore.h"
 #include "Core/Memory/Descriptor/Boundary.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Descriptor/Surface.h"
 #include "Core/Memory/MemoryAllocator.h"
@@ -26,6 +25,7 @@
 #include "Core/Memory/Typedefs.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Features/DynamicRupture/Setup/Factory.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "WavePropagation/Physics/InitialField.h"
 

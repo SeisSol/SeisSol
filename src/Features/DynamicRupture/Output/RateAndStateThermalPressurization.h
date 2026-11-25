@@ -9,9 +9,9 @@
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_OUTPUT_RATEANDSTATETHERMALPRESSURIZATION_H_
 
 #include "Core/Common/Real.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Features/DynamicRupture/Output/RateAndState.h"
 #include "Features/DynamicRupture/Output/ReceiverBasedOutput.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 namespace seissol::dr::output {
 class RateAndStateThermalPressurization

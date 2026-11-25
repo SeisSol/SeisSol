@@ -10,7 +10,6 @@
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/Executor.h"
 #include "Core/Kernels/GlobalDataStore.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/Run/Context.h"
@@ -20,6 +19,7 @@
 #include "Features/DynamicRupture/Output/OutputManager.h"
 #include "Features/DynamicRupture/Solver/DynamicRuptureCluster.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <cstddef>
 #include <limits>

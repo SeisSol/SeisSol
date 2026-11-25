@@ -14,7 +14,6 @@
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Memory/Descriptor/Boundary.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Descriptor/Surface.h"
 #include "Core/Memory/GlobalData.h"
@@ -26,6 +25,7 @@
 #include "Features/DynamicRupture/Output/OutputManager.h"
 #include "Features/DynamicRupture/Setup/Factory.h"
 #include "Features/DynamicRupture/Setup/Initializer/BaseDRInitializer.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "Simulation/SeisSol.h"
 

@@ -9,9 +9,9 @@
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_OUTPUT_RATEANDSTATE_H_
 
 #include "Core/Common/Real.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Output/ReceiverBasedOutput.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 namespace seissol::dr::output {
 /**

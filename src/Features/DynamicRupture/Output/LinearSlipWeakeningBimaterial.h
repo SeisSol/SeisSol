@@ -9,8 +9,8 @@
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_OUTPUT_LINEARSLIPWEAKENINGBIMATERIAL_H_
 
 #include "Core/Common/Real.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Features/DynamicRupture/Output/ReceiverBasedOutput.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <algorithm>
 #include <cmath>

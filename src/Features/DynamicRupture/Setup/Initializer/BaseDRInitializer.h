@@ -12,10 +12,10 @@
 #include "Core/Common/Real.h"
 #include "Core/Data/DataReader.h"
 #include "Core/Geometry/MeshReader.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Setup/FaultParameterDB.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 #include "WavePropagation/Physics/MaterialType.h"
 
 #include <utility>

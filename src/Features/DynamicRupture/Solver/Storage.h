@@ -6,8 +6,8 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Carsten Uphoff
 
-#ifndef SEISSOL_SRC_CORE_MEMORY_DESCRIPTOR_DYNAMICRUPTURE_H_
-#define SEISSOL_SRC_CORE_MEMORY_DESCRIPTOR_DYNAMICRUPTURE_H_
+#ifndef SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_STORAGE_H_
+#define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_STORAGE_H_
 
 #include "Alignment.h"
 #include "Core/Common/Real.h"
@@ -413,4 +413,4 @@ struct LTSImposedSlipRatesDelta : public LTSImposedSlipRates {
 
 } // namespace seissol
 
-#endif // SEISSOL_SRC_CORE_MEMORY_DESCRIPTOR_DYNAMICRUPTURE_H_
+#endif // SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_STORAGE_H_

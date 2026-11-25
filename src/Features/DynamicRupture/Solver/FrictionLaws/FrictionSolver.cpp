@@ -8,9 +8,9 @@
 #include "FrictionSolver.h"
 
 #include "Config.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <cstddef>
 #include <utils/logger.h>

@@ -10,9 +10,9 @@
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SETUP_DYNAMICRUPTUREMATRICES_H_
 
 #include "Core/Geometry/MeshReader.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 namespace seissol::initializer {
 

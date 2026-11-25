@@ -10,12 +10,12 @@
 #include "Core/Geometry/MeshReader.h"
 #include "Core/IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Core/Kernels/GlobalDataStore.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Run/Context.h"
 #include "Features/DynamicRupture/Output/OutputManager.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <cstddef>
 #include <vector>

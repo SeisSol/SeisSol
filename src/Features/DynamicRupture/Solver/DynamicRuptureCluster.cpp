@@ -13,7 +13,6 @@
 #include "Core/Common/Executor.h"
 #include "Core/Common/Instrumentation.h"
 #include "Core/Common/Marker.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Monitoring/DeviceTimeline.h"
@@ -34,6 +33,7 @@
 #include "Features/DynamicRupture/Output/PickpointSampling.h"
 #include "Features/DynamicRupture/Solver/DynamicRupture.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 #include "WavePropagation/Solver/Solver.h"
 
 #include <algorithm>

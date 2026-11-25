@@ -11,7 +11,6 @@
 #include "Core/Geometry/MeshReader.h"
 #include "Core/IO/Instance/Point/Hdf5Table.h"
 #include "Core/IO/PickpointWriter.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Parallel/Runtime/Stream.h"
@@ -21,6 +20,7 @@
 #include "Features/DynamicRupture/Output/DataTypes.h"
 #include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/DynamicRupture/Output/ReceiverBasedOutput.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <array>
 #include <cstddef>

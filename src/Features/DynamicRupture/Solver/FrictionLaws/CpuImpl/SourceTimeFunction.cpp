@@ -9,10 +9,10 @@
 
 #include "Config.h"
 #include "Core/Common/Real.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Numerical/DeltaPulse.h"
 #include "Core/Numerical/GaussianNucleationFunction.h"
 #include "Core/Numerical/RegularizedYoffe.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <cstddef>
 #include <cstdint>

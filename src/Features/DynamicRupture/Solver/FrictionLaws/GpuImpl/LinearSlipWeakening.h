@@ -9,9 +9,9 @@
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_GPUIMPL_LINEARSLIPWEAKENING_H_
 
 #include "Core/Common/Real.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 namespace seissol::dr::friction_law::gpu {
 

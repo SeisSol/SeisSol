@@ -5,10 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "PlasticityRecorder.h"
+
 #include "Config.h"
 #include "Core/Kernels/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
-#include "Core/Kernels/BatchRecorders/Recorders.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Features/Plasticity/Solver/Storage.h"

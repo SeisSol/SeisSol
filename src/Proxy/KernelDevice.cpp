@@ -18,9 +18,9 @@
 #ifdef ACL_DEVICE
 #include "Constants.h"
 #include "Core/Common/BasicTypedefs.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Numerical/Quadrature.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 #include "WavePropagation/Solver/Interface.h"
 #include "WavePropagation/Solver/Solver.h"
 #include "WavePropagation/Solver/TimeCommon.h"

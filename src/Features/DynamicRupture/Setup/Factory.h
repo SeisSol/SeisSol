@@ -9,10 +9,10 @@
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SETUP_FACTORY_H_
 
 #include "Core/Data/DataReader.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Features/DynamicRupture/Output/Output.h"
 #include "Features/DynamicRupture/Setup/Initializer/Initializers.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <stdexcept>
 #include <tuple>

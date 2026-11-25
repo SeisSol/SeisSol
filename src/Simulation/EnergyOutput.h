@@ -12,7 +12,6 @@
 #include "Core/Common/Unit.h"
 #include "Core/Geometry/MeshReader.h"
 #include "Core/IO/Instance/Point/Csv.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/HostData.h"
 #include "Core/Memory/MemoryAllocator.h"
@@ -20,6 +19,7 @@
 #include "Core/Modules/Module.h"
 #include "Core/Modules/Modules.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "WavePropagation/Physics/Energy.h"
 

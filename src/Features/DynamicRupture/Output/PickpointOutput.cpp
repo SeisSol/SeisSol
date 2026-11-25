@@ -18,7 +18,6 @@
 #include "Core/IO/Instance/Point/Hdf5Table.h"
 #include "Core/IO/Instance/Point/TableWriter.h"
 #include "Core/IO/Writer/Writer.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Tree/Layer.h"
@@ -34,6 +33,7 @@
 #include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/DynamicRupture/Output/Geometry.h"
 #include "Features/DynamicRupture/Output/ReceiverBasedOutput.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 #include "GeneratedCode/runtime.h"
 #include "WavePropagation/Output/ReceiverParameters.h"
 

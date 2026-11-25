@@ -11,12 +11,12 @@
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/Iterator.h"
 #include "Core/Common/Real.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Parallel/DataCollector.h"
 #include "Core/Parallel/Runtime/HostActor.h"
 #include "Core/Parallel/Runtime/Stream.h"
 #include "Features/DynamicRupture/DRParameters.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry.h"
 

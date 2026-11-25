@@ -10,7 +10,6 @@
 
 #include "Core/Common/Executor.h"
 #include "Core/Kernels/GlobalDataStore.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Run/Context.h"
 #include "Core/TimeStepping/Compute/FaceCluster.h"
 #include "Core/TimeStepping/Compute/FaceClusterFactory.h"
@@ -18,6 +17,7 @@
 #include "Features/DynamicRupture/Output/OutputManager.h"
 #include "Features/DynamicRupture/Solver/DynamicRuptureCluster.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <cstddef>
 #include <memory>

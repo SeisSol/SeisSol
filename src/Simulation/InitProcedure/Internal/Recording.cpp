@@ -9,9 +9,11 @@
 #include "Alignment.h"
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Kernels/BatchRecorders/Recorders.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Layer.h"
+#include "Features/DynamicRupture/Solver/DynamicRuptureRecorder.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
+#include "Features/Plasticity/Solver/PlasticityRecorder.h"
 
 namespace seissol::initializer::internal {
 

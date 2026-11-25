@@ -10,12 +10,12 @@
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/Real.h"
 #include "Core/Data/DataReader.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Physics/RateAndStateCommon.h"
 #include "Features/DynamicRupture/Setup/Initializer/BaseDRInitializer.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <cmath>
 #include <cstdint>

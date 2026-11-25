@@ -9,11 +9,11 @@
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_CPUIMPL_SOURCETIMEFUNCTION_H_
 
 #include "Core/Common/Real.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Numerical/DeltaPulse.h"
 #include "Core/Numerical/GaussianNucleationFunction.h"
 #include "Core/Numerical/RegularizedYoffe.h"
 #include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 namespace seissol::dr::friction_law::cpu {
 template <typename Cfg>

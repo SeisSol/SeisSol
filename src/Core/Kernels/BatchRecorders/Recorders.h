@@ -12,7 +12,6 @@
 #include "Core/Common/Constants.h"
 #include "Core/Common/Real.h"
 #include "Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "GeneratedCode/configboundary.h"
 #include "WavePropagation/Physics/Common.h"
@@ -175,37 +174,6 @@ class NeighIntegrationRecorder : public AbstractRecorder {
   std::unordered_map<const void*, Canonical*> canonicalRegistry_;
   std::map<std::pair<const void*, std::size_t>, real*> convertedRegistry_;
   std::size_t configBoundaryScratchCounter_{0};
-};
-
-/// Records the batches of the plasticity of a layer of the configuration `Cfg`.
-template <typename Cfg>
-class PlasticityRecorder : public AbstractRecorder {
-  public:
-  using real = Real<Cfg>;
-
-  protected:
-  void setUpContext(LTS::Layer& layer) override { AbstractRecorder::setUpContext(layer); }
-
-  public:
-  void record(LTS::Layer& layer) override;
-};
-
-/// Records the batches of a layer of dynamic rupture faces of the configuration `Cfg`.
-template <typename Cfg>
-class DynamicRuptureRecorder : public AbstractRecorder {
-  public:
-  using real = Real<Cfg>;
-
-  void record(DynamicRupture::Layer& layer) override;
-
-  protected:
-  void setUpContext(DynamicRupture::Layer& layer) override {
-    AbstractRecorder::setUpContext(layer);
-  }
-
-  private:
-  void recordSpaceInterpolation();
-  std::unordered_map<real*, real*> idofsAddressRegistry_;
 };
 
 } // namespace seissol::recording

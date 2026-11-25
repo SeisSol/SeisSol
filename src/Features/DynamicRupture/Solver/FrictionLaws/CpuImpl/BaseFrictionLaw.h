@@ -11,13 +11,13 @@
 #include "Alignment.h"
 #include "Core/Common/Instrumentation.h"
 #include "Core/Common/Real.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Core/Parallel/Trace.h"
 #include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolverCommon.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 #include "WavePropagation/Physics/Datastructures.h"
 
 #include <algorithm>

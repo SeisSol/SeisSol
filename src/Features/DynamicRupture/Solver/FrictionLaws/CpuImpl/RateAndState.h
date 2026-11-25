@@ -10,8 +10,8 @@
 
 #include "BaseFrictionLaw.h"
 #include "Core/Common/Real.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Features/DynamicRupture/Physics/RateAndStateCommon.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <cmath>
 #include <limits>

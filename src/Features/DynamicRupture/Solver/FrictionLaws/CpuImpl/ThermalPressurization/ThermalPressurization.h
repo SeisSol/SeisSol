@@ -9,10 +9,10 @@
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_THERMALPRESSURIZATION_H_
 
 #include "Core/Common/Real.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Physics/TPCommon.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <array>
 

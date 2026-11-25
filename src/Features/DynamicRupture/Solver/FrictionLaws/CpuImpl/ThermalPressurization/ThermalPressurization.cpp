@@ -8,8 +8,8 @@
 #include "ThermalPressurization.h"
 
 #include "Config.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <array>
 #include <cmath>

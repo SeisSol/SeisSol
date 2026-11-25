@@ -8,8 +8,8 @@
 #ifndef SEISSOL_SRC_CORE_TIMESTEPPING_CLUSTERING_VERTEXWEIGHTS_MEASUREDWEIGHTS_H_
 #define SEISSOL_SRC_CORE_TIMESTEPPING_CLUSTERING_VERTEXWEIGHTS_MEASUREDWEIGHTS_H_
 
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Backmap.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/MeasuredCellCosts.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/VertexWeightModel.h"
 
@@ -44,7 +44,7 @@ namespace seissol::initializer {
 std::optional<MeasuredCellCosts> measureCellCosts(const LoopStatistics& statistics,
                                                   const LTS::Storage& ltsStorage,
                                                   const LTS::Backmap& backmap,
-                                                  const DynamicRupture::Backmap& drBackmap,
+                                                  const initializer::StorageBackmap<1>& drBackmap,
                                                   const geometry::MeshReader& meshReader,
                                                   double simulatedTime,
                                                   MPI_Comm comm);

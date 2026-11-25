@@ -11,7 +11,6 @@
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/InputAux.h"
 #include "Core/Geometry/MeshReader.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Numerical/Transformation.h"
@@ -19,6 +18,7 @@
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Output/DataTypes.h"
 #include "Features/DynamicRupture/Output/OutputAux.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 #include "WavePropagation/Physics/Common.h"
 
 #include <memory>

@@ -10,7 +10,6 @@
 
 #include "Core/Common/Real.h"
 #include "Core/Geometry/MeshReader.h"
-#include "Core/Memory/Descriptor/DynamicRupture.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Parallel/Runtime/Stream.h"
@@ -19,6 +18,7 @@
 #include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/DynamicRupture/Output/ParametersInitializer.h"
 #include "Features/DynamicRupture/Output/PickpointSampling.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 #include "GeneratedCode/tensor.h"
 
 #include <cstddef>
