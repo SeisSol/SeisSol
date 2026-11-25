@@ -11,6 +11,7 @@
 #include "MPI/Distribution.t.h"
 #include "MPI/HaloCheck.t.h"
 #include "MPI/MeasuredCosts.t.h"
+#include "MPI/NeighborLinks.t.h"
 #include "MPI/ParallelFS.t.h"
 #include "MPI/ParallelStatistics.t.h"
 #include "MPI/StagedMpiHaloTransport.t.h"

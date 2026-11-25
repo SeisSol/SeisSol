@@ -128,6 +128,13 @@ members of the summary are:
        their dynamic rupture faces (``dynamicRuptureFaceUpdates``); the smallest
        cell timestep before and after the wiggle factor; and how many times fewer cell updates elementwise and
        clustered LTS take in theory than global time stepping does (``theoreticalSpeedup``)
+   * - ``layers``
+     - the copy and interior layers (see :ref:`env_vars`): the setting of ``SEISSOL_ICCOMBINE`` (``combine``)
+       and, where it combines, per time cluster the copy layers of all ranks whose interior layer has cells
+       (``withInterior``) and how many of them took these (``combined``); with ``auto``, also the times of a
+       step of a layer per configuration (``layerCost``: ``cells`` and ``time`` per size), and per rank the
+       latency of its slowest neighbor rank (``neighborLatency``) and the longest halo of its clusters
+       (``haloTime``)
    * - ``time``
      - ``init``: reading the mesh (``meshRead``), setting it up (``mesh``, which includes reading it), laying out the
        cells (``layout``), setting up the model (``model``), the side conditions (``sideConditions``) and the output

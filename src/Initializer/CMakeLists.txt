@@ -31,6 +31,7 @@ add_library(seissol-initializer OBJECT
     InitProcedure/Internal/FaceTypeCheck.cpp
     InitProcedure/Internal/LtsSetup.cpp
     InitProcedure/Internal/MeshLayout.cpp
+    InitProcedure/Internal/NeighborLinks.cpp
     InitProcedure/Internal/Recording.cpp
     InitProcedure/Internal/Scratchpads.cpp
 
