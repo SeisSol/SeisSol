@@ -13,7 +13,7 @@
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Real.h"
-#include "Core/Kernels/Common.h"
+#include "Core/Common/TensorTraits.h"
 #include "Core/Memory/CellLocalInformation.h"
 #include "Core/Memory/SimulationSettings.h"
 #include "Core/Memory/Tree/Backmap.h"

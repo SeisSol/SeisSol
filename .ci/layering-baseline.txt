@@ -10,7 +10,6 @@
 # removing rule breaks.
 core-includes-later-core Core/Geometry/PUMLReader.cpp Core/TimeStepping/Clustering/Clustering.h
 core-includes-later-core Core/Geometry/PUMLReader.cpp Core/TimeStepping/Clustering/VertexWeights/VertexWeightModel.h
-core-includes-later-core Core/Memory/Descriptor/LTS.h Core/Kernels/Common.h
 core-includes-wavepropagation Core/Memory/Descriptor/LTS.h WavePropagation/Physics/Datastructures.h
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Physics/Datastructures.h
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/Data.h
