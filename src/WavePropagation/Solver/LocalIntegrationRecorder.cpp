@@ -5,6 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
+#include "LocalIntegrationRecorder.h"
+
 #include "Config.h"
 #include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/Constants.h"
@@ -15,7 +17,6 @@
 #include "Core/Kernels/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h"
 #include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
-#include "Core/Kernels/BatchRecorders/Recorders.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/LtsSetup.h"
 #include "Core/Memory/Tree/Layer.h"

@@ -42,6 +42,8 @@
 #include "Features/DynamicRupture/Solver/DynamicRuptureRecorder.h"
 #include "Features/Plasticity/Solver/PlasticityRecorder.h"
 #include "Simulation/InitProcedure/Internal/Scratchpads.h"
+#include "WavePropagation/Solver/LocalIntegrationRecorder.h"
+#include "WavePropagation/Solver/NeighIntegrationRecorder.h"
 
 #include <Device/device.h>
 #include <memory>

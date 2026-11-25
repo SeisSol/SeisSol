@@ -14,6 +14,8 @@
 #include "Features/DynamicRupture/Solver/DynamicRuptureRecorder.h"
 #include "Features/DynamicRupture/Solver/Storage.h"
 #include "Features/Plasticity/Solver/PlasticityRecorder.h"
+#include "WavePropagation/Solver/LocalIntegrationRecorder.h"
+#include "WavePropagation/Solver/NeighIntegrationRecorder.h"
 
 namespace seissol::initializer::internal {
 
