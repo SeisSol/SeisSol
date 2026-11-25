@@ -6,6 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-initialconditions OBJECT
+    EasiFields.cpp
     Output/AnalysisWriter.cpp
     Physics/Scenario/Registry.cpp
     Physics/Scenario/Scenarios.cpp

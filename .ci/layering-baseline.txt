@@ -32,4 +32,3 @@ core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/Solv
 physics-includes-solver Features/InitialConditions/Physics/Scenario/Scenarios.cpp WavePropagation/Solver/Setup.h
 physics-includes-solver WavePropagation/Physics/Common.h WavePropagation/Solver/SolverSelector.h
 physics-includes-solver WavePropagation/Physics/poroelastic/Datastructures.cpp WavePropagation/Solver/Setup.h
-solver-includes-setup Features/InitialConditions/Output/AnalysisWriter.cpp Features/InitialConditions/Setup/InitialFieldProjection.h

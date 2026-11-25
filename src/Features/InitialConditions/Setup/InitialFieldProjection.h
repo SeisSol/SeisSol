@@ -28,15 +28,6 @@ void projectInitialField(
     const seissol::geometry::MeshReader& meshReader,
     LTS::Storage& storage);
 
-/// The values of the easi fields `iniFields` at the quadrature points of every element, as the
-/// configuration `Cfg` projects them: by element, point, quantity and field.
-template <typename Cfg>
-std::vector<double> projectEasiFields(const std::vector<std::string>& iniFields,
-                                      double time,
-                                      const seissol::geometry::MeshReader& meshReader,
-                                      bool needsTime,
-                                      const data::EasiContext& easi);
-
 /// Projects the easi fields `iniFields`, given for every simulation of the run, onto the cells of
 /// `storage`; each file is sampled once.
 void projectEasiInitialField(const parameters::SimulationFiles& iniFields,
