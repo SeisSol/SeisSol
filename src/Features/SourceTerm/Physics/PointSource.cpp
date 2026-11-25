@@ -11,10 +11,10 @@
 #include "PointSource.h"
 
 #include "Config.h"
+#include "Core/Common/MaterialType.h"
 #include "Core/Common/Real.h"
 #include "GeneratedCode/tensor.h"
 #include "WavePropagation/Physics/Datastructures.h"
-#include "WavePropagation/Physics/MaterialType.h"
 
 #include <algorithm>
 #include <cmath>

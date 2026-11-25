@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Config.h"
+#include "Core/Common/MaterialType.h"
 #include "Core/Common/Real.h"
 #include "Core/Common/Typedefs.h"
 #include "Features/SourceTerm/Physics/PointSource.h"
@@ -14,7 +15,6 @@
 #include "TestHelper.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h"
-#include "WavePropagation/Physics/MaterialType.h"
 
 #include <algorithm>
 #include <array>

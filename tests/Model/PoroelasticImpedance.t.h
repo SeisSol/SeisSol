@@ -16,6 +16,7 @@
 #include <doctest.h>
 
 #include "Alignment.h"
+#include "Core/Common/MaterialType.h"
 #include "Core/Common/Real.h"
 #include "Features/DynamicRupture/Setup/DynamicRuptureImpedance.h"
 #include "GeneratedCode/init.h"
@@ -25,7 +26,6 @@
 #include "WavePropagation/Physics/Datastructures.h"
 #include "WavePropagation/Physics/Impedance.h"
 #include "WavePropagation/Physics/ImpedanceBase.h"
-#include "WavePropagation/Physics/MaterialType.h"
 #include "WavePropagation/Solver/Setup.h"
 
 #include <Eigen/Dense>

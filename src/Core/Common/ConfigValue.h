@@ -8,9 +8,9 @@
 #ifndef SEISSOL_SRC_CORE_COMMON_CONFIGVALUE_H_
 #define SEISSOL_SRC_CORE_COMMON_CONFIGVALUE_H_
 
+#include "Core/Common/MaterialType.h"
 #include "Core/Common/Real.h"
 #include "Core/Common/Typedefs.h"
-#include "WavePropagation/Physics/MaterialType.h"
 
 #include <cstddef>
 #include <optional>

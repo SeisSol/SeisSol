@@ -12,9 +12,9 @@
 // DO NOT EDIT!
 
 #include "Core/Common/ConfigValue.h"
+#include "Core/Common/MaterialType.h"
 #include "Core/Common/Real.h"
 #include "Core/Common/Typedefs.h"
-#include "WavePropagation/Physics/MaterialType.h"
 
 #include <cstddef>
 

@@ -147,6 +147,7 @@ LAYOUT = [
     ("Equations/", f"{WP}/Physics/"),
     *[(f"Equations/{name}/Model/", f"{WP}/Physics/{name}/") for name in EQUATIONS],
     ("Model/", f"{WP}/Physics/"),
+    ("Model/MaterialType.h", "Core/Common/MaterialType.h"),
     # the bridges between the equations and the schemes
     ("Equations/Setup.h", f"{WP}/Solver/Setup.h"),
     ("Model/Concepts.h", f"{WP}/Solver/Concepts.h"),

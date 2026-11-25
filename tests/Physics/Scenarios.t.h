@@ -8,6 +8,7 @@
 #include <doctest.h>
 
 #include "Core/Common/ConfigRegistry.h"
+#include "Core/Common/MaterialType.h"
 #include "Core/Common/Real.h"
 #include "Features/InitialConditions/InitializationParameters.h"
 #include "Features/InitialConditions/Physics/Scenario/Parameters.h"
@@ -20,7 +21,6 @@
 #include "TestConfigs.h"
 #include "TestHelper.h"
 #include "WavePropagation/Physics/Datastructures.h"
-#include "WavePropagation/Physics/MaterialType.h"
 
 #include <Eigen/Core>
 #include <algorithm>

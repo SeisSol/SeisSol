@@ -7,9 +7,9 @@
 
 #include "ConfigValue.h"
 
+#include "Core/Common/MaterialType.h"
 #include "Core/Common/Real.h"
 #include "Core/Common/Typedefs.h"
-#include "WavePropagation/Physics/MaterialType.h"
 
 #include <array>
 #include <cstddef>

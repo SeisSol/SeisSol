@@ -11,13 +11,13 @@
 #include "Core/Common/ConfigLayout.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/ConfigValue.h"
+#include "Core/Common/MaterialType.h"
 #include "Core/Numerical/Eigenvalues.h"
 #include "Features/InitialConditions/InitializationParameters.h"
 #include "Features/InitialConditions/Physics/Scenario/Parameters.h"
 #include "WavePropagation/Physics/Common.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h"
-#include "WavePropagation/Physics/MaterialType.h"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>

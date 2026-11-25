@@ -8,10 +8,10 @@
 #include <doctest.h>
 
 #include "Config.h"
+#include "Core/Common/MaterialType.h"
 #include "TestConfigs.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h"
-#include "WavePropagation/Physics/MaterialType.h"
 
 #include <limits>
 

@@ -9,10 +9,10 @@
 
 #include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/ConfigValue.h"
+#include "Core/Common/MaterialType.h"
 #include "Core/Common/Real.h"
 #include "Core/Common/Typedefs.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
-#include "WavePropagation/Physics/MaterialType.h"
 #include "WavePropagation/Physics/Quantities.h"
 #include "WavePropagation/Solver/Local.h"
 #include "WavePropagation/Solver/Neighbor.h"

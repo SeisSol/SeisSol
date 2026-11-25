@@ -10,7 +10,7 @@
 #ifndef SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_COMMONDATASTRUCTURES_H_
 #define SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_COMMONDATASTRUCTURES_H_
 
-#include "WavePropagation/Physics/MaterialType.h" // IWYU pragma: export
+#include "Core/Common/MaterialType.h" // IWYU pragma: export
 #include "WavePropagation/WavePropagationParameters.h"
 
 #include <array>

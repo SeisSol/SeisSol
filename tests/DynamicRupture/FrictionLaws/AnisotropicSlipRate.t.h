@@ -14,12 +14,12 @@
 
 #include <doctest.h>
 
+#include "Core/Common/MaterialType.h"
 #include "Core/Common/Real.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolverCommon.h"
 #include "Features/DynamicRupture/Typedefs.h"
 #include "GeneratedCode/init.h"
 #include "TestConfigs.h"
-#include "WavePropagation/Physics/MaterialType.h"
 
 #include <cmath>
 

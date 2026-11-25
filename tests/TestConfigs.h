@@ -17,9 +17,9 @@
 
 #include "Config.h"
 #include "Core/Common/ConfigValue.h"
+#include "Core/Common/MaterialType.h"
 #include "Core/Common/Typedefs.h"
 #include "WavePropagation/Physics/Datastructures.h"
-#include "WavePropagation/Physics/MaterialType.h"
 
 #include <string>
 #include <tuple>

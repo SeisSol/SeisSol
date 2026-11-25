@@ -5,10 +5,14 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_MATERIALTYPE_H_
-#define SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_MATERIALTYPE_H_
+#ifndef SEISSOL_SRC_CORE_COMMON_MATERIALTYPE_H_
+#define SEISSOL_SRC_CORE_COMMON_MATERIALTYPE_H_
 
 namespace seissol::model {
+
+/// The kinds of material a configuration computes in; part of the vocabulary of the
+/// configurations, as the solvers are (SolverType). What a kind of material is, the wave
+/// propagation says (model::MaterialOf).
 enum class MaterialType {
   Solid,
   Acoustic,
@@ -20,4 +24,4 @@ enum class MaterialType {
 };
 } // namespace seissol::model
 
-#endif // SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_MATERIALTYPE_H_
+#endif // SEISSOL_SRC_CORE_COMMON_MATERIALTYPE_H_

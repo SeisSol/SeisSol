@@ -9,6 +9,7 @@
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SETUP_INITIALIZER_BASEDRINITIALIZER_H_
 
 #include "Core/Common/InputAux.h"
+#include "Core/Common/MaterialType.h"
 #include "Core/Common/Real.h"
 #include "Core/Data/DataReader.h"
 #include "Core/Geometry/MeshReader.h"
@@ -16,7 +17,6 @@
 #include "Features/DynamicRupture/Setup/FaultParameterDB.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
 #include "Features/DynamicRupture/Solver/Storage.h"
-#include "WavePropagation/Physics/MaterialType.h"
 
 #include <utility>
 #include <yaml-cpp/yaml.h>
