@@ -10,7 +10,7 @@
 #include "Core/Parallel/Runtime/Stream.h"
 
 #ifdef ACL_DEVICE
-#include "Core/Kernels/DeviceAux/ClockAux.h"
+#include "Core/Parallel/DeviceAux/ClockAux.h"
 
 #include <Device/AbstractAPI.h>
 #include <Device/device.h>

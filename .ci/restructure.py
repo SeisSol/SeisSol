@@ -93,13 +93,13 @@ LAYOUT = [
     ("Kernels/MemoryOps.h", "Core/Kernels/MemoryOps.h"),
     ("Kernels/Touch.", "Proxy/Touch."),
     *[
-        (f"Kernels/DeviceAux/{name}.h", f"Core/Kernels/DeviceAux/{name}.h")
+        (f"Kernels/DeviceAux/{name}.h", f"Core/Parallel/DeviceAux/{name}.h")
         for name in ("ClockAux", "GatherAux", "HostCopyAux")
     ],
     *[
         (
             f"Kernels/DeviceAux/{backend}/{name}.cpp",
-            f"Core/Kernels/DeviceAux/{backend}/{name}.cpp",
+            f"Core/Parallel/DeviceAux/{backend}/{name}.cpp",
         )
         for backend in ("cudahip", "sycl")
         for name in ("ClockAux", "GatherAux", "HostCopyAux")

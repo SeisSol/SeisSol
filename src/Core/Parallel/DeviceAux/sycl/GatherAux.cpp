@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Core/Kernels/DeviceAux/GatherAux.h"
+#include "Core/Parallel/DeviceAux/GatherAux.h"
 
 #include "Core/Parallel/BlockSet.h"
 

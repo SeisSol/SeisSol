@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Core/Kernels/DeviceAux/ClockAux.h"
+#include "Core/Parallel/DeviceAux/ClockAux.h"
 
 #include <sycl/sycl.hpp>
 

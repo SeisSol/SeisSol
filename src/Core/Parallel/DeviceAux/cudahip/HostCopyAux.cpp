@@ -5,7 +5,7 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Core/Kernels/DeviceAux/HostCopyAux.h"
+#include "Core/Parallel/DeviceAux/HostCopyAux.h"
 
 #include <algorithm>
 #include <cstddef>

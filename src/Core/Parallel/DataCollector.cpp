@@ -15,7 +15,7 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include "Core/Kernels/DeviceAux/GatherAux.h"
+#include "Core/Parallel/DeviceAux/GatherAux.h"
 
 #include <Device/device.h>
 #endif

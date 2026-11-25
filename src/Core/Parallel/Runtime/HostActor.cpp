@@ -23,7 +23,7 @@
 #include <utils/logger.h>
 
 #ifdef ACL_DEVICE
-#include "Core/Kernels/DeviceAux/HostCopyAux.h"
+#include "Core/Parallel/DeviceAux/HostCopyAux.h"
 
 #include <Device/device.h>
 #endif

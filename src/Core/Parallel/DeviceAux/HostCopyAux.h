@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_CORE_KERNELS_DEVICEAUX_HOSTCOPYAUX_H_
-#define SEISSOL_SRC_CORE_KERNELS_DEVICEAUX_HOSTCOPYAUX_H_
+#ifndef SEISSOL_SRC_CORE_PARALLEL_DEVICEAUX_HOSTCOPYAUX_H_
+#define SEISSOL_SRC_CORE_PARALLEL_DEVICEAUX_HOSTCOPYAUX_H_
 
 #include <cstddef>
 
@@ -21,4 +21,4 @@ void copyToHost(void* hostOnDevice, const void* device, std::size_t bytes, void*
 
 } // namespace seissol::kernels::device::aux::hostcopy
 
-#endif // SEISSOL_SRC_CORE_KERNELS_DEVICEAUX_HOSTCOPYAUX_H_
+#endif // SEISSOL_SRC_CORE_PARALLEL_DEVICEAUX_HOSTCOPYAUX_H_

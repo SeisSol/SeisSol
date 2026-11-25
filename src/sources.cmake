@@ -63,9 +63,9 @@ if (WITH_GPU)
     set(DEVICE_SRC ${DEVICE_SRC}
       ${SEISSOL_CODEGEN_DEVICE}
       Core/Common/TypeId.cpp
-      Core/Kernels/DeviceAux/cudahip/ClockAux.cpp
-      Core/Kernels/DeviceAux/cudahip/GatherAux.cpp
-      Core/Kernels/DeviceAux/cudahip/HostCopyAux.cpp
+      Core/Parallel/DeviceAux/cudahip/ClockAux.cpp
+      Core/Parallel/DeviceAux/cudahip/GatherAux.cpp
+      Core/Parallel/DeviceAux/cudahip/HostCopyAux.cpp
       Features/Plasticity/Solver/DeviceAux/cudahip/PlasticityAux.cpp
       WavePropagation/Solver/LinearCK/DeviceAux/cudahip/KernelsAux.cpp
       Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/BaseFrictionSolverCudaHip.cpp
@@ -74,9 +74,9 @@ if (WITH_GPU)
     set(DEVICE_SRC ${DEVICE_SRC}
           ${SEISSOL_CODEGEN_DEVICE}
           Core/Common/TypeId.cpp
-          Core/Kernels/DeviceAux/sycl/ClockAux.cpp
-          Core/Kernels/DeviceAux/sycl/GatherAux.cpp
-          Core/Kernels/DeviceAux/sycl/HostCopyAux.cpp
+          Core/Parallel/DeviceAux/sycl/ClockAux.cpp
+          Core/Parallel/DeviceAux/sycl/GatherAux.cpp
+          Core/Parallel/DeviceAux/sycl/HostCopyAux.cpp
           Features/Plasticity/Solver/DeviceAux/sycl/PlasticityAux.cpp
           WavePropagation/Solver/LinearCK/DeviceAux/sycl/KernelsAux.cpp
           Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/BaseFrictionSolverSycl.cpp

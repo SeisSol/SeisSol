@@ -13,11 +13,9 @@ core-includes-later-core Core/Geometry/PUMLReader.cpp Core/TimeStepping/Clusteri
 core-includes-later-core Core/Memory/Descriptor/LTS.h Core/Kernels/Common.h
 core-includes-later-core Core/Memory/Tree/Layer.h Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h
 core-includes-later-core Core/Numerical/Projection.h Core/Memory/MemoryAllocator.h
-core-includes-later-core Core/Parallel/DataCollector.cpp Core/Kernels/DeviceAux/GatherAux.h
 core-includes-later-core Core/Parallel/DataCollector.cpp Core/Memory/MemoryAllocator.h
 core-includes-later-core Core/Parallel/DataCollector.h Core/Memory/MemoryAllocator.h
 core-includes-later-core Core/Parallel/DeviceGraph.h Core/Kernels/BatchRecorders/DataTypes/ConditionalKey.h
-core-includes-later-core Core/Parallel/Runtime/HostActor.cpp Core/Kernels/DeviceAux/HostCopyAux.h
 core-includes-later-core Core/Parallel/Runtime/Stream.cpp Core/Memory/Tree/Colormap.h
 core-includes-later-core Core/Parallel/Runtime/Stream.h Core/Memory/Tree/Layer.h
 core-includes-wavepropagation Config.h.in WavePropagation/Physics/MaterialType.h

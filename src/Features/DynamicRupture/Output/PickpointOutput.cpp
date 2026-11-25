@@ -61,7 +61,7 @@
 #include <vector>
 
 #ifdef ACL_DEVICE
-#include "Core/Kernels/DeviceAux/HostCopyAux.h"
+#include "Core/Parallel/DeviceAux/HostCopyAux.h"
 #endif
 
 namespace {

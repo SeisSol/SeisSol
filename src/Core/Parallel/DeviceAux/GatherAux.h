@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_CORE_KERNELS_DEVICEAUX_GATHERAUX_H_
-#define SEISSOL_SRC_CORE_KERNELS_DEVICEAUX_GATHERAUX_H_
+#ifndef SEISSOL_SRC_CORE_PARALLEL_DEVICEAUX_GATHERAUX_H_
+#define SEISSOL_SRC_CORE_PARALLEL_DEVICEAUX_GATHERAUX_H_
 
 #include "Core/Parallel/BlockSet.h"
 
@@ -30,4 +30,4 @@ void copyBlocks(const parallel::BlockSet* sets,
 
 } // namespace seissol::kernels::device::aux::gather
 
-#endif // SEISSOL_SRC_CORE_KERNELS_DEVICEAUX_GATHERAUX_H_
+#endif // SEISSOL_SRC_CORE_PARALLEL_DEVICEAUX_GATHERAUX_H_
