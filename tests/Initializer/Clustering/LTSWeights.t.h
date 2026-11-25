@@ -19,6 +19,7 @@
 #include "Core/TimeStepping/Clustering/ClusterLadder.h"
 #include "Core/TimeStepping/Clustering/Clustering.h"
 #include "Core/TimeStepping/Clustering/ClusteringCost.h"
+#include "Core/TimeStepping/Clustering/MeshPartitioning.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/WeightsFactory.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/WeightsModels.h"
 #include "Core/TimeStepping/Layout/GlobalTimestep.h"
@@ -98,14 +99,12 @@ TEST_CASE("LTS Weights" * doctest::test_suite("initializer")) {
                         seissolParameters.timeStepping.lts,
                         materialTimesteps(seissolParameters));
   ExponentialWeights weightModel;
-  const auto pumlReader =
+  auto pumlReader =
       seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
-                                    "Default",
                                     faceMap,
                                     seissol::initializer::parameters::BoundaryFormat::I32,
-                                    seissol::initializer::parameters::TopologyFormat::Geometric,
-                                    &clustering,
-                                    &weightModel);
+                                    seissol::initializer::parameters::TopologyFormat::Geometric);
+  seissol::initializer::clusterAndPartition(pumlReader, clustering, weightModel, "Default");
   std::cout.clear();
 
   const auto givenWeights =
@@ -157,14 +156,12 @@ TEST_CASE("The cost of a cell follows its configuration" * doctest::test_suite("
                           seissolParameters.timeStepping.lts,
                           materialTimesteps(seissolParameters));
     ExponentialWeights weightModel;
-    const auto pumlReader =
+    auto pumlReader =
         seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
-                                      "Default",
                                       faceMap,
                                       seissol::initializer::parameters::BoundaryFormat::I32,
-                                      seissol::initializer::parameters::TopologyFormat::Geometric,
-                                      &clustering,
-                                      &weightModel);
+                                      seissol::initializer::parameters::TopologyFormat::Geometric);
+    seissol::initializer::clusterAndPartition(pumlReader, clustering, weightModel, "Default");
     std::cout.clear();
     return clustering.result().cellCosts;
   };
@@ -238,14 +235,12 @@ TEST_CASE("The LTS clustering sees the vertex order of the simulation" *
                           seissolParameters.timeStepping.lts,
                           materialTimesteps(seissolParameters));
     ExponentialWeights weightModel;
-    const auto pumlReader =
+    auto pumlReader =
         seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
-                                      "Default",
                                       faceMap,
                                       seissol::initializer::parameters::BoundaryFormat::I32,
-                                      seissol::initializer::parameters::TopologyFormat::Geometric,
-                                      &clustering,
-                                      &weightModel);
+                                      seissol::initializer::parameters::TopologyFormat::Geometric);
+    seissol::initializer::clusterAndPartition(pumlReader, clustering, weightModel, "Default");
     const auto recomputed =
         timestepsOf(CellToVertexArray::fromMeshReader(pumlReader), seissolParameters);
     std::cout.clear();
@@ -298,14 +293,12 @@ TEST_CASE("A cell takes the smallest time step of the materials of the simulatio
                           seissolParameters.timeStepping.lts,
                           materialTimesteps(seissolParameters));
     ExponentialWeights weightModel;
-    const auto pumlReader =
+    auto pumlReader =
         seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
-                                      "Default",
                                       faceMap,
                                       seissol::initializer::parameters::BoundaryFormat::I32,
-                                      seissol::initializer::parameters::TopologyFormat::Geometric,
-                                      &clustering,
-                                      &weightModel);
+                                      seissol::initializer::parameters::TopologyFormat::Geometric);
+    seissol::initializer::clusterAndPartition(pumlReader, clustering, weightModel, "Default");
     return timestepsOf(CellToVertexArray::fromMeshReader(pumlReader), seissolParameters)
         .cellTimeStepWidths;
   };
@@ -566,14 +559,12 @@ TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializ
                         seissolParameters.timeStepping.lts,
                         materialTimesteps(seissolParameters));
   ExponentialWeights weightModel;
-  const auto pumlReader =
+  auto pumlReader =
       seissol::geometry::PUMLReader(tpath("Testing/mesh.h5"),
-                                    "Default",
                                     faceMap,
                                     seissol::initializer::parameters::BoundaryFormat::I32,
-                                    seissol::initializer::parameters::TopologyFormat::Geometric,
-                                    &clustering,
-                                    &weightModel);
+                                    seissol::initializer::parameters::TopologyFormat::Geometric);
+  seissol::initializer::clusterAndPartition(pumlReader, clustering, weightModel, "Default");
   std::cout.clear();
 
   const auto wiggle = clustering.result().wiggleFactor;

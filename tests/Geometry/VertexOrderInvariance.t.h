@@ -26,6 +26,7 @@
 #include "Core/IO/Easi/ReaderBuilder.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/TimeStepping/Clustering/Clustering.h"
+#include "Core/TimeStepping/Clustering/MeshPartitioning.h"
 #include "Core/TimeStepping/Clustering/VertexWeights/WeightsModels.h"
 #include "Core/TimeStepping/LtsParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
@@ -81,14 +82,13 @@ inline std::unique_ptr<seissol::geometry::PUMLReader>
                               seissol::data::modelLoader(seissol::data::EasiContext{}));
                         });
   ExponentialWeights weightModel;
-  return std::make_unique<seissol::geometry::PUMLReader>(
+  auto reader = std::make_unique<seissol::geometry::PUMLReader>(
       tpath(file),
-      partitioningLib,
       FaceMap,
       seissol::initializer::parameters::BoundaryFormat::I32,
-      seissol::initializer::parameters::TopologyFormat::Geometric,
-      &clustering,
-      &weightModel);
+      seissol::initializer::parameters::TopologyFormat::Geometric);
+  seissol::initializer::clusterAndPartition(*reader, clustering, weightModel, partitioningLib);
+  return reader;
 }
 
 // a mesh, and the same mesh with the vertices of its cells listed in another order

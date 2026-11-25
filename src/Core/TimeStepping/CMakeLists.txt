@@ -20,6 +20,7 @@ add_library(seissol-timestepping OBJECT
     Clustering/GridLadderSearch.cpp
     Clustering/LadderOptimizer.cpp
     Clustering/LatticeDpSearch.cpp
+    Clustering/MeshPartitioning.cpp
     Clustering/TimestepHistogram.cpp
     Clustering/VertexWeights/MeasuredWeights.cpp
     Clustering/VertexWeights/VertexWeightModel.cpp

@@ -14,6 +14,8 @@
 #include "Core/Geometry/MeshParameters.h"
 #include "Core/Monitoring/RunSummary.h"
 #include "Core/TimeStepping/Clustering/Clustering.h"
+#include "Core/TimeStepping/Clustering/MeshPartitioning.h"
+#include "Core/TimeStepping/Clustering/VertexWeights/VertexWeightModel.h"
 #include "Simulation/Estimator.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "WavePropagation/Setup/Timesteps.h"
@@ -268,15 +270,12 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
     weightModel = seissol::initializer::getVertexWeightModel(
         seissolParams.timeStepping.lts.getLtsWeightsType());
   }
-  auto meshReader =
-      std::make_unique<seissol::geometry::PUMLReader>(seissolParams.mesh.meshFileName,
-                                                      seissolParams.mesh.partitioningLib,
-                                                      faceMap,
-                                                      boundaryFormat,
-                                                      topologyFormat,
-                                                      &clustering,
-                                                      weightModel.get(),
-                                                      nodeWeight);
+  // the reader reads the mesh; then the clustering and the weights of its cells decide how it gets
+  // partitioned
+  auto meshReader = std::make_unique<seissol::geometry::PUMLReader>(
+      seissolParams.mesh.meshFileName, faceMap, boundaryFormat, topologyFormat);
+  seissol::initializer::clusterAndPartition(
+      *meshReader, clustering, *weightModel, seissolParams.mesh.partitioningLib, nodeWeight);
   seissolInstance.setMeshReader(std::move(meshReader));
   seissolInstance.setTimestepScale(clustering.result().wiggleFactor);
   seissolInstance.setEffectiveClusterRates(clustering.result().ratios);

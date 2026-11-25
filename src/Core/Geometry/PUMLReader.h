@@ -26,12 +26,6 @@
 #include <string>
 #include <vector>
 
-namespace seissol::initializer {
-class Clustering;
-struct ClusteringResult;
-class VertexWeightModel;
-} // namespace seissol::initializer
-
 namespace seissol::geometry {
 constexpr PUML::TopoType PumlTopology = PUML::TETRAHEDRON;
 using PumlMesh = PUML::PUML<PumlTopology>;
@@ -190,16 +184,53 @@ class PUMLReader : public seissol::geometry::MeshReader {
   /// the straight-sided one for the scheme
   static constexpr double StraightTolerance = 1e-8;
 
+  /**
+   * What the partitioning of the cells takes (see partition()): the weights of the cells, as the
+   * partitioner wants them (a block of `weightsPerVertex` per cell), the imbalance it may leave
+   * (e.g. 0.05), and what goes along with every cell: its time cluster and its time step.
+   */
+  struct Partitioning {
+    const std::uint64_t* vertexWeights{nullptr};
+    int weightsPerVertex{1};
+    double imbalance{0};
+    const std::size_t* clusterIds{nullptr};
+    const double* timesteps{nullptr};
+  };
+
+  /**
+   * Reads the mesh of `meshFile`: the cells of its geometry, and of its topology if that is not the
+   * geometry, with the arrays of the cells and their canonical vertex orders. The composition
+   * clusters and weighs the cells from what it has read (see topologyMesh() etc.), and partitions
+   * them with partition(); only then is the reader a mesh reader. Collective.
+   */
   PUMLReader(const std::string& meshFile,
-             const std::string& partitioningLib,
              const seissol::FaceMap& faceMap,
              seissol::initializer::parameters::BoundaryFormat boundaryFormat =
                  seissol::initializer::parameters::BoundaryFormat::I32,
              seissol::initializer::parameters::TopologyFormat topologyFormat =
-                 seissol::initializer::parameters::TopologyFormat::Geometric,
-             initializer::Clustering* clustering = nullptr,
-             initializer::VertexWeightModel* weightModel = nullptr,
-             double tpwgt = 1.0);
+                 seissol::initializer::parameters::TopologyFormat::Geometric);
+
+  /// the mesh of the topology as read (the geometry, if the file has no topology of its own), and
+  /// the arrays of its cells; until partition()
+  [[nodiscard]] const PumlMesh& topologyMesh() const {
+    return separateTopology_ ? meshTopologyExtra_ : meshGeometry_;
+  }
+  [[nodiscard]] const PumlCellArrays& topologyArrays() const {
+    return separateTopology_ ? topologyArrays_ : cellArrays_;
+  }
+  /// the mesh of the geometry as read, and the arrays of its cells; until partition()
+  [[nodiscard]] const PumlMesh& geometryMesh() const { return meshGeometry_; }
+  [[nodiscard]] const PumlCellArrays& geometryArrays() const { return cellArrays_; }
+  /// the canonical vertex order of every cell, the one the simulation uses later; until partition()
+  [[nodiscard]] const std::vector<VertexOrder>& vertexOrders() const { return vertexOrders_; }
+
+  /**
+   * Partitions the cells across the ranks as `partitioning` says, with the node weight `tpwgt` of
+   * this rank and the library `partitioningLib`, distributes them, and sets up the mesh data
+   * structures; the meshes of PUML go then. Collective.
+   */
+  void
+      partition(const Partitioning& partitioning, const std::string& partitioningLib, double tpwgt);
 
   bool inlineTimestepCompute() const override;
   bool inlineClusterCompute() const override;
@@ -240,13 +271,12 @@ class PUMLReader : public seissol::geometry::MeshReader {
   /**
    * Create the partitioning
    */
-  static auto partition(PumlMesh& meshTopology,
-                        PumlMesh& meshGeometry,
-                        const initializer::ClusteringResult* clustering,
-                        const std::vector<VertexOrder>& vertexOrders,
-                        initializer::VertexWeightModel* weightModel,
-                        double tpwgt,
-                        const std::string& partitioningLib) -> PartitionArrays;
+  static auto partitionMeshes(PumlMesh& meshTopology,
+                              PumlMesh& meshGeometry,
+                              const Partitioning& partitioning,
+                              const std::vector<VertexOrder>& vertexOrders,
+                              double tpwgt,
+                              const std::string& partitioningLib) -> PartitionArrays;
   /**
    * Generate the PUML data structure
    */
@@ -265,6 +295,15 @@ class PUMLReader : public seissol::geometry::MeshReader {
                      int rank,
                      const std::vector<PUML::LocalId>& faces,
                      const std::vector<std::array<std::uint8_t, Cell::NumFaces>>& pumlFaceMaps);
+
+  // what the reading leaves for the partitioning
+  PumlMesh meshTopologyExtra_;
+  PumlMesh meshGeometry_;
+  PumlCellArrays cellArrays_;
+  PumlCellArrays topologyArrays_;
+  std::vector<VertexOrder> vertexOrders_;
+  const FaceMap* faceMap_{nullptr};
+  bool separateTopology_{false};
 };
 
 } // namespace seissol::geometry

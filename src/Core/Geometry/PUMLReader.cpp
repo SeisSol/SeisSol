@@ -19,8 +19,6 @@
 #include "Core/Geometry/MeshDefinition.h"
 #include "Core/Geometry/MeshParameters.h"
 #include "Core/Parallel/MPI.h"
-#include "Core/TimeStepping/Clustering/Clustering.h"
-#include "Core/TimeStepping/Clustering/VertexWeights/VertexWeightModel.h"
 #include "PartitioningLib.h"
 
 #include <Eigen/Dense>
@@ -559,53 +557,48 @@ std::vector<VertexOrder> canonicalVertexOrders(const PumlMesh& meshTopology,
 }
 
 PUMLReader::PUMLReader(const std::string& meshFile,
-                       const std::string& partitioningLib,
                        const seissol::FaceMap& faceMap,
                        seissol::initializer::parameters::BoundaryFormat boundaryFormat,
-                       seissol::initializer::parameters::TopologyFormat topologyFormat,
-                       initializer::Clustering* clustering,
-                       initializer::VertexWeightModel* weightModel,
-                       double tpwgt) {
+                       seissol::initializer::parameters::TopologyFormat topologyFormat)
+    : faceMap_(&faceMap),
+      separateTopology_(topologyFormat != initializer::parameters::TopologyFormat::Geometric) {
   // we need up to two meshes, potentially:
   // one mesh for the geometry
   // one mesh for the topology
   // they will only differ if we have periodic boundary conditions
 
-  PumlMesh meshTopologyExtra;
-  PumlMesh meshGeometry;
-  meshTopologyExtra.setComm(seissol::Mpi::mpi.comm());
-  meshGeometry.setComm(seissol::Mpi::mpi.comm());
+  meshTopologyExtra_.setComm(seissol::Mpi::mpi.comm());
+  meshGeometry_.setComm(seissol::Mpi::mpi.comm());
 
   logInfo() << "Read (geometric) connectivity data.";
-  const auto cellArrays = read(meshGeometry, meshFile, boundaryFormat);
-  const auto highOrderArrays = readHighOrderGeometry(meshGeometry, meshFile);
+  cellArrays_ = read(meshGeometry_, meshFile, boundaryFormat);
+  const auto highOrderArrays = readHighOrderGeometry(meshGeometry_, meshFile);
 
   // Note: we need to call generatePUML in order to create the dual graph of the mesh
   // Note 2: we also need it for vertex identification
   logInfo() << "Generate (geometric) mesh.";
-  meshGeometry.generateMesh();
-  acceptHighOrderGeometry(meshGeometry, highOrderArrays);
+  meshGeometry_.generateMesh();
+  acceptHighOrderGeometry(meshGeometry_, highOrderArrays);
 
-  // the arrays of the cells in the topology mesh
-  auto topologyArrays = cellArrays;
+  // the arrays of the cells in the topology mesh, if it is one of its own (see topologyArrays())
   if (topologyFormat != initializer::parameters::TopologyFormat::Geometric) {
     // We have a topology mesh, separate from the physical one. It holds the same cells, with the
     // same data, and the same vertices, so it is a clone of the physical mesh rather than read from
     // the file once more; only what makes it a topology of its own comes from there.
     logInfo() << "Clone the (geometric) mesh for the topology.";
-    meshTopologyExtra = meshGeometry.clone();
-    topologyArrays = cellArrays.rebasedTo(meshTopologyExtra);
+    meshTopologyExtra_ = meshGeometry_.clone();
+    topologyArrays_ = cellArrays_.rebasedTo(meshTopologyExtra_);
 
     PUML::DataHandle<PUML::GlobalId> identify;
     {
-      PUML::Hdf5Reader<PumlTopology> reader(meshTopologyExtra);
+      PUML::Hdf5Reader<PumlTopology> reader(meshTopologyExtra_);
       if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyFace) {
         // the cells by the vertices of the topology, in place of those of the geometry
         logInfo() << "Read (topologic) connectivity data.";
-        meshTopologyExtra.setConnectivity(reader.addData<PUML::GlobalId>(pumldata::Topology,
-                                                                         meshFile + ":/topology",
-                                                                         PUML::DataType::Cell,
-                                                                         {Cell::NumVertices}));
+        meshTopologyExtra_.setConnectivity(reader.addData<PUML::GlobalId>(pumldata::Topology,
+                                                                          meshFile + ":/topology",
+                                                                          PUML::DataType::Cell,
+                                                                          {Cell::NumVertices}));
       }
       if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyVertex) {
         logInfo() << "Read topologic identification data.";
@@ -616,50 +609,43 @@ PUMLReader::PUMLReader(const std::string& meshFile,
 
     // generate the topology mesh for the dual graph
     logInfo() << "Generate (topologic) mesh.";
-    meshTopologyExtra.generateMesh();
+    meshTopologyExtra_.generateMesh();
 
     if (topologyFormat == initializer::parameters::TopologyFormat::IdentifyVertex) {
       // re-identify vertices; then re-distribute
       logInfo() << "Identify topologic vertex data.";
-      meshTopologyExtra.identify(meshTopologyExtra.connectivity(), identify);
+      meshTopologyExtra_.identify(meshTopologyExtra_.connectivity(), identify);
 
       logInfo() << "Generate (topologic) mesh again.";
-      meshTopologyExtra.generateMesh();
+      meshTopologyExtra_.generateMesh();
     }
   }
-
-  auto& meshTopology = topologyFormat == initializer::parameters::TopologyFormat::Geometric
-                           ? meshGeometry
-                           : meshTopologyExtra;
 
   // Everything that looks at the vertices of a cell from here on -- the clustering first, getMesh
   // later -- has to see them in the canonical order. It is decided once, here, and carried through
   // the partitioning with the cell.
-  const auto vertexOrders = canonicalVertexOrders(meshTopology, meshGeometry);
+  vertexOrders_ = canonicalVertexOrders(topologyMesh(), meshGeometry_);
+}
 
-  // The clustering needs the meshes, which only exist here -- hence the orchestrator is passed
-  // in and run rather than its result.
-  const initializer::ClusteringResult* clusteringResult = nullptr;
-  if (clustering != nullptr) {
-    logInfo() << "Compute clustering.";
-    clusteringResult =
-        &clustering->compute(meshTopology, topologyArrays, meshGeometry, cellArrays, vertexOrders);
-  }
+void PUMLReader::partition(const Partitioning& partitioning,
+                           const std::string& partitioningLib,
+                           double tpwgt) {
+  auto& meshTopology = separateTopology_ ? meshTopologyExtra_ : meshGeometry_;
 
   logInfo() << "Partition the mesh.";
-  const auto partitionArrays = partition(meshTopology,
-                                         meshGeometry,
-                                         clusteringResult,
-                                         vertexOrders,
-                                         weightModel,
-                                         tpwgt,
-                                         partitioningLib);
+  const auto partitionArrays = partitionMeshes(
+      meshTopology, meshGeometry_, partitioning, vertexOrders_, tpwgt, partitioningLib);
 
   logInfo() << "Generate the correctly-distributed meshes.";
-  generatePUML(meshTopology, meshGeometry);
+  generatePUML(meshTopology, meshGeometry_);
 
   logInfo() << "Set up mesh data structures.";
-  getMesh(meshTopology, meshGeometry, cellArrays, partitionArrays, faceMap);
+  getMesh(meshTopology, meshGeometry_, cellArrays_, partitionArrays, *faceMap_);
+
+  // the mesh data structures hold all of it now
+  meshTopologyExtra_ = PumlMesh();
+  meshGeometry_ = PumlMesh();
+  vertexOrders_ = {};
 }
 
 auto PUMLReader::read(PumlMesh& mesh,
@@ -768,13 +754,12 @@ void PUMLReader::acceptHighOrderGeometry(PumlMesh& meshGeometry, const HighOrder
       pumldata::HighOrderNodes, std::vector<PUML::Size>(meshGeometry.numOriginalCells(), 0));
 }
 
-auto PUMLReader::partition(PumlMesh& meshTopology,
-                           PumlMesh& meshGeometry,
-                           const initializer::ClusteringResult* clustering,
-                           const std::vector<VertexOrder>& vertexOrders,
-                           initializer::VertexWeightModel* weightModel,
-                           double tpwgt,
-                           const std::string& partitioningLib) -> PartitionArrays {
+auto PUMLReader::partitionMeshes(PumlMesh& meshTopology,
+                                 PumlMesh& meshGeometry,
+                                 const Partitioning& partitioning,
+                                 const std::vector<VertexOrder>& vertexOrders,
+                                 double tpwgt,
+                                 const std::string& partitioningLib) -> PartitionArrays {
   SCOREP_USER_REGION("PUMLReader_partition", SCOREP_USER_REGION_TYPE_FUNCTION);
 
   const auto partType = toPartitionerType(std::string_view(partitioningLib));
@@ -789,8 +774,7 @@ auto PUMLReader::partition(PumlMesh& meshTopology,
     logError() << "Unrecognized partition library: " << partitioningLib;
   }
   auto graph = PUML::TETPartitionGraph(meshTopology);
-  weightModel->build(*clustering);
-  graph.setVertexWeights(weightModel->vertexWeights(), weightModel->nWeightsPerVertex());
+  graph.setVertexWeights(partitioning.vertexWeights, partitioning.weightsPerVertex);
 
   auto nodeWeights = Mpi::mpi.allgather(tpwgt);
   double sum = 0.0;
@@ -803,18 +787,16 @@ auto PUMLReader::partition(PumlMesh& meshTopology,
 
   auto target = PUML::PartitionTarget{};
   target.setPartitionWeights(nodeWeights);
-  target.setImbalance(weightModel->imbalances()[0] - 1.0);
+  target.setImbalance(partitioning.imbalance);
 
   auto newPartition = partitioner->partition(graph, target);
 
   // carried along with the cells, for getMesh
   PartitionArrays arrays;
   arrays.clusterIds = meshGeometry.addDataArray(
-      pumldata::ClusterIds, clustering->clusterIds.data(), PUML::DataType::Cell, {});
-  arrays.timesteps = meshGeometry.addDataArray(pumldata::Timesteps,
-                                               clustering->timesteps.cellTimeStepWidths.data(),
-                                               PUML::DataType::Cell,
-                                               {});
+      pumldata::ClusterIds, partitioning.clusterIds, PUML::DataType::Cell, {});
+  arrays.timesteps = meshGeometry.addDataArray(
+      pumldata::Timesteps, partitioning.timesteps, PUML::DataType::Cell, {});
 
   // the vertex order the clustering has used
   static_assert(sizeof(VertexOrder) == Cell::NumVertices * sizeof(std::uint8_t));

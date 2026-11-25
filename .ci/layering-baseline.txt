@@ -8,8 +8,6 @@
 # The include rule breaks that .ci/layering.py tolerates (rule, includer, included;
 # paths in the target layout). Only ever shrinks: run .ci/layering.py --update after
 # removing rule breaks.
-core-includes-later-core Core/Geometry/PUMLReader.cpp Core/TimeStepping/Clustering/Clustering.h
-core-includes-later-core Core/Geometry/PUMLReader.cpp Core/TimeStepping/Clustering/VertexWeights/VertexWeightModel.h
 core-includes-wavepropagation Core/Memory/Descriptor/LTS.h WavePropagation/Physics/Datastructures.h
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Physics/Datastructures.h
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/Data.h
