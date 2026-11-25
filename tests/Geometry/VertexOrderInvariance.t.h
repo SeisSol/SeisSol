@@ -66,7 +66,8 @@ inline std::unique_ptr<seissol::geometry::PUMLReader>
                                 .vertexWeightDynamicRupture = 1,
                                 .vertexWeightFreeSurfaceWithGravity = 1,
                                 .faceMap = &FaceMap,
-                                .configCostFactors = {}};
+                                .configCostFactors = {},
+                                .ltsUnsupportedMaterial = {}};
   Clustering clustering(config,
                         parameters.runConfigs,
                         parameters.timeStepping.lts,

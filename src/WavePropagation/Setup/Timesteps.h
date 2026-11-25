@@ -30,6 +30,10 @@ GlobalTimestep computeTimesteps(const CellToVertexArray& cellToVertex,
                                 const std::vector<std::string>& materialFileNames,
                                 const data::ModelLoader& models);
 
+/// The material of a configuration of `runConfigs` that does not support local time stepping, if
+/// any; empty if all of them do.
+std::string ltsUnsupportedMaterial(const parameters::RunConfigs& runConfigs);
+
 } // namespace seissol::initializer
 
 #endif // SEISSOL_SRC_WAVEPROPAGATION_SETUP_TIMESTEPS_H_

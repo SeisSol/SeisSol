@@ -72,7 +72,8 @@ TEST_CASE("LTS Weights" * doctest::test_suite("initializer")) {
                                 .vertexWeightDynamicRupture = 1,
                                 .vertexWeightFreeSurfaceWithGravity = 1,
                                 .faceMap = &faceMap,
-                                .configCostFactors = {}};
+                                .configCostFactors = {},
+                                .ltsUnsupportedMaterial = {}};
 
   const seissol::initializer::parameters::LtsParameters ltsParameters(
       {2},
@@ -130,7 +131,8 @@ TEST_CASE("The cost of a cell follows its configuration" * doctest::test_suite("
                                   .vertexWeightDynamicRupture = 1,
                                   .vertexWeightFreeSurfaceWithGravity = 1,
                                   .faceMap = &faceMap,
-                                  .configCostFactors = std::move(configCostFactors)};
+                                  .configCostFactors = std::move(configCostFactors),
+                                  .ltsUnsupportedMaterial = {}};
 
     seissol::initializer::parameters::SeisSolParameters seissolParameters{};
     seissolParameters.timeStepping.lts = seissol::initializer::parameters::LtsParameters(
@@ -207,7 +209,8 @@ TEST_CASE("The LTS clustering sees the vertex order of the simulation" *
                                 .vertexWeightDynamicRupture = 1,
                                 .vertexWeightFreeSurfaceWithGravity = 1,
                                 .faceMap = &faceMap,
-                                .configCostFactors = {}};
+                                .configCostFactors = {},
+                                .ltsUnsupportedMaterial = {}};
 
   for (const bool homogenized : {false, true}) {
     CAPTURE(homogenized);
@@ -269,7 +272,8 @@ TEST_CASE("A cell takes the smallest time step of the materials of the simulatio
                                 .vertexWeightDynamicRupture = 1,
                                 .vertexWeightFreeSurfaceWithGravity = 1,
                                 .faceMap = &faceMap,
-                                .configCostFactors = {}};
+                                .configCostFactors = {},
+                                .ltsUnsupportedMaterial = {}};
 
   const auto timesteps = [&](const std::vector<std::string>& materialFileNames) {
     seissol::initializer::parameters::SeisSolParameters seissolParameters{};
@@ -535,7 +539,8 @@ TEST_CASE("LTS clustering invariants on a mesh" * doctest::test_suite("initializ
                                 .vertexWeightDynamicRupture = 1,
                                 .vertexWeightFreeSurfaceWithGravity = 1,
                                 .faceMap = &faceMap,
-                                .configCostFactors = {}};
+                                .configCostFactors = {},
+                                .ltsUnsupportedMaterial = {}};
 
   const seissol::initializer::parameters::LtsParameters ltsParameters(
       rate,

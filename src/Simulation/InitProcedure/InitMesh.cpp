@@ -238,7 +238,9 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       .vertexWeightFreeSurfaceWithGravity =
           seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity,
       .faceMap = &faceMap,
-      .configCostFactors = std::move(configCostFactors)};
+      .configCostFactors = std::move(configCostFactors),
+      .ltsUnsupportedMaterial =
+          seissol::initializer::ltsUnsupportedMaterial(seissolParams.runConfigs)};
 
   seissol::initializer::Clustering clustering(
       config,

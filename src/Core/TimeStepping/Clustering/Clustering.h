@@ -16,6 +16,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace seissol::initializer {
@@ -29,6 +30,9 @@ struct ClusteringConfig {
   /// The cost of a cell of each configuration relative to vertexWeightElement, indexed by the id of
   /// the configuration; empty if a cell costs the same in all of them.
   std::vector<double> configCostFactors;
+  /// The material of a configuration of the run that does not support local time stepping, if any
+  /// (see initializer::ltsUnsupportedMaterial); then all cells advance with the same time step.
+  std::string ltsUnsupportedMaterial;
 };
 
 /// Everything the clustering decided.
@@ -89,6 +93,7 @@ class Clustering {
   std::uint64_t vertexWeightFreeSurfaceWithGravity_{};
   const FaceMap* faceMap_{nullptr};
   std::vector<double> configCostFactors_;
+  std::string ltsUnsupportedMaterial_;
 
   ClusteringResult result_;
 };

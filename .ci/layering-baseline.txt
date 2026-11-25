@@ -29,7 +29,6 @@ core-includes-wavepropagation Core/Memory/Descriptor/LTS.h WavePropagation/Physi
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Physics/Datastructures.h
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/Data.h
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/SolverSelector.h
-core-includes-wavepropagation Core/TimeStepping/Clustering/Clustering.cpp WavePropagation/Physics/Datastructures.h
 physics-includes-solver Features/InitialConditions/Physics/Scenario/Scenarios.cpp WavePropagation/Solver/Setup.h
 physics-includes-solver WavePropagation/Physics/Common.h WavePropagation/Solver/SolverSelector.h
 physics-includes-solver WavePropagation/Physics/poroelastic/Datastructures.cpp WavePropagation/Solver/Setup.h

@@ -98,4 +98,17 @@ GlobalTimestep computeTimesteps(const CellToVertexArray& cellToVertex,
   return timestep;
 }
 
+std::string ltsUnsupportedMaterial(const parameters::RunConfigs& runConfigs) {
+  std::string material;
+  for (const auto config : runConfigs.configs()) {
+    dispatchConfig(config, [&](auto cfg) {
+      using MaterialT = model::MaterialOf<decltype(cfg)>;
+      if (!MaterialT::SupportsLTS && material.empty()) {
+        material = MaterialT::Text;
+      }
+    });
+  }
+  return material;
+}
+
 } // namespace seissol::initializer

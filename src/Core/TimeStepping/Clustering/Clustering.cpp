@@ -8,7 +8,6 @@
 #include "Core/TimeStepping/Clustering/Clustering.h"
 
 #include "Core/Common/BasicTypedefs.h"
-#include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/RunConfigs.h"
@@ -23,7 +22,6 @@
 #include "Core/TimeStepping/Clustering/LatticeDpSearch.h"
 #include "Core/TimeStepping/Layout/GlobalTimestep.h"
 #include "Core/TimeStepping/LtsParameters.h"
-#include "WavePropagation/Physics/Datastructures.h"
 
 #include <PUML/Downward.h>
 #include <PUML/Types.h>
@@ -47,7 +45,8 @@ Clustering::Clustering(const ClusteringConfig& config,
       rate_(config.rate), vertexWeightElement_(config.vertexWeightElement),
       vertexWeightDynamicRupture_(config.vertexWeightDynamicRupture),
       vertexWeightFreeSurfaceWithGravity_(config.vertexWeightFreeSurfaceWithGravity),
-      faceMap_(config.faceMap), configCostFactors_(config.configCostFactors) {}
+      faceMap_(config.faceMap), configCostFactors_(config.configCostFactors),
+      ltsUnsupportedMaterial_(config.ltsUnsupportedMaterial) {}
 
 const ClusteringResult&
     Clustering::compute(const seissol::geometry::PumlMesh& meshTopology,
@@ -56,15 +55,10 @@ const ClusteringResult&
                         const seissol::geometry::PumlCellArrays& geometryArrays,
                         const std::vector<seissol::geometry::VertexOrder>& vertexOrders) {
   bool continueComputation = true;
-  // the materials of all configurations of the run
-  for (const auto config : runConfigs_.configs()) {
-    dispatchConfig(config, [&](auto cfg) {
-      using MaterialT = model::MaterialOf<decltype(cfg)>;
-      if (!MaterialT::SupportsLTS) {
-        logInfo() << "The material" << MaterialT::Text << "does not support LTS. Switching to GTS.";
-        continueComputation = false;
-      }
-    });
+  if (!ltsUnsupportedMaterial_.empty()) {
+    logInfo() << "The material" << ltsUnsupportedMaterial_
+              << "does not support LTS. Switching to GTS.";
+    continueComputation = false;
   }
   if (rate_.empty() || (rate_.size() == 1 && rate_[0] == 1)) {
     logInfo() << "GTS has been selected.";
