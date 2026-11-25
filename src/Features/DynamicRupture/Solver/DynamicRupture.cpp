@@ -18,6 +18,7 @@
 #include "Core/Monitoring/Metric.h"
 #include "Core/Parallel/Runtime/Stream.h"
 #include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Typedefs.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 

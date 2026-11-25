@@ -34,6 +34,7 @@
 #include "Features/DynamicRupture/Solver/DynamicRupture.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
 #include "Features/DynamicRupture/Solver/Storage.h"
+#include "Features/DynamicRupture/Typedefs.h"
 #include "WavePropagation/Solver/Solver.h"
 
 #include <algorithm>

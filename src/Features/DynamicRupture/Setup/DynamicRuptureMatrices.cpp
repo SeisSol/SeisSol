@@ -20,7 +20,6 @@
 #include "Core/Memory/LtsSetup.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Tree/Layer.h"
-#include "Core/Memory/Typedefs.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "Features/DynamicRupture/Setup/DynamicRuptureImpedance.h"
 #include "Features/DynamicRupture/Solver/Storage.h"

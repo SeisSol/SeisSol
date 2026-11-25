@@ -28,6 +28,7 @@
 #include "Core/Parallel/MPI.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Solver/Storage.h"
+#include "Features/DynamicRupture/Typedefs.h"
 #include "Features/Plasticity/Solver/Storage.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"

@@ -18,9 +18,6 @@
 #include "Core/Common/Constants.h"
 #include "Core/Common/MultipleSimulations.h"
 #include "Core/Common/Real.h"
-#include "Core/IO/Datatype/Datatype.h"
-#include "Core/IO/Datatype/Inference.h"
-#include "Features/DynamicRupture/Misc.h"
 #include "GeneratedCode/pool.h"
 #include "GeneratedCode/tensor.h"
 #include "WavePropagation/Physics/Datastructures.h"
@@ -28,7 +25,6 @@
 #include "WavePropagation/Solver/SolverSelector.h"
 
 #include <cstddef>
-#include <vector>
 
 namespace seissol {
 
@@ -76,65 +72,6 @@ struct alignas(Alignment) NeighboringIntegrationData {
 
   // solver-specific data
   seissol::kernels::SolverOf<Cfg>::NeighborData specific;
-};
-
-struct DRFaceInformation {
-  std::size_t meshFace{};
-  std::size_t copy{};
-  std::uint8_t plusSide{};
-  std::uint8_t minusSide{};
-  std::uint8_t faceRelation{};
-  bool plusSideOnThisRank{};
-};
-
-template <typename Cfg>
-struct DRGodunovData {
-  Real<Cfg> dataTinvT[seissol::tensor::TinvT<Cfg>::size()]{};
-  Real<Cfg> tractionPlusMatrix[seissol::tensor::tractionPlusMatrix<Cfg>::size()]{};
-  Real<Cfg> tractionMinusMatrix[seissol::tensor::tractionMinusMatrix<Cfg>::size()]{};
-  // When integrating quantities over the fault
-  // we need to integrate over each physical element.
-  // The integration is effectively done in the reference element, and the scaling factor of
-  // the transformation, the surface Jacobian (e.g. |n^e(\chi)| in eq. (35) of Uphoff et al. (2023))
-  // is incorporated. This explains the factor 2 (doubledSurfaceArea)
-  //
-  // Uphoff, C., May, D. A., & Gabriel, A. A. (2023). A discontinuous Galerkin method for
-  // sequences of earthquakes and aseismic slip on multiple faults using unstructured curvilinear
-  // grids. Geophysical Journal International, 233(1), 586-626.
-  double doubledSurfaceArea{};
-};
-
-template <typename Cfg>
-struct DREnergyOutput {
-  Real<Cfg> slip[seissol::tensor::slipInterpolated<Cfg>::size()]{};
-  // Sums over the whole simulation of increments that do not change sign, of the slip rate
-  // magnitude and of the frictional power; in single precision, the small ones after the slip has
-  // stopped would fall below the rounding of the sums and be lost, which biases the seismic moment
-  // and the potency low
-  double accumulatedSlip[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
-  double frictionalEnergy[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
-  Real<Cfg> timeSinceSlipRateBelowThreshold[seissol::dr::misc::NumPaddedPoints<Cfg>]{};
-
-  static std::vector<seissol::io::datatype::StructDatatype::MemberInfo> datatypeLayout() {
-    return {
-        seissol::io::datatype::StructDatatype::MemberInfo{
-            "slip",
-            offsetof(DREnergyOutput, slip),
-            seissol::io::datatype::inferDatatype<decltype(slip)>()},
-        seissol::io::datatype::StructDatatype::MemberInfo{
-            "accumulatedSlip",
-            offsetof(DREnergyOutput, accumulatedSlip),
-            seissol::io::datatype::inferDatatype<decltype(accumulatedSlip)>()},
-        seissol::io::datatype::StructDatatype::MemberInfo{
-            "frictionalEnergy",
-            offsetof(DREnergyOutput, frictionalEnergy),
-            seissol::io::datatype::inferDatatype<decltype(frictionalEnergy)>()},
-        seissol::io::datatype::StructDatatype::MemberInfo{
-            "timeSinceSlipRateBelowThreshold",
-            offsetof(DREnergyOutput, timeSinceSlipRateBelowThreshold),
-            seissol::io::datatype::inferDatatype<decltype(timeSinceSlipRateBelowThreshold)>()},
-    };
-  }
 };
 
 template <typename Cfg>

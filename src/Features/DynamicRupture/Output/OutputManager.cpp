@@ -18,7 +18,6 @@
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Tree/Layer.h"
-#include "Core/Memory/Typedefs.h"
 #include "Core/Parallel/Helper.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/Parallel/Runtime/HostActor.h"

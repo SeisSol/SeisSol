@@ -13,6 +13,7 @@
 #include "Core/Kernels/Kernel.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Monitoring/Metric.h"
+#include "Features/DynamicRupture/Typedefs.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "WavePropagation/Solver/Solver.h"

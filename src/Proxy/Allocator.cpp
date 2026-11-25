@@ -24,6 +24,7 @@
 #include "Core/Memory/Typedefs.h"
 #include "Core/Parallel/OpenMP.h"
 #include "Features/DynamicRupture/Solver/Storage.h"
+#include "Features/DynamicRupture/Typedefs.h"
 #include "Features/Plasticity/Solver/Storage.h"
 #include "GeneratedCode/tensor.h"
 #include "Proxy/Constants.h"

@@ -8,15 +8,12 @@
 # The include rule breaks that .ci/layering.py tolerates (rule, includer, included;
 # paths in the target layout). Only ever shrinks: run .ci/layering.py --update after
 # removing rule breaks.
-core-includes-feature Core/Memory/Typedefs.h Features/DynamicRupture/Misc.h
 core-includes-later-core Core/Geometry/PUMLReader.cpp Core/TimeStepping/Clustering/Clustering.h
 core-includes-later-core Core/Geometry/PUMLReader.cpp Core/TimeStepping/Clustering/VertexWeights/VertexWeightModel.h
 core-includes-later-core Core/Memory/Descriptor/Boundary.h Core/IO/Instance/Checkpoint/CheckpointManager.h
 core-includes-later-core Core/Memory/Descriptor/LTS.h Core/IO/Instance/Checkpoint/CheckpointManager.h
 core-includes-later-core Core/Memory/Descriptor/LTS.h Core/Kernels/Common.h
 core-includes-later-core Core/Memory/Tree/Layer.h Core/Kernels/BatchRecorders/DataTypes/ConditionalTable.h
-core-includes-later-core Core/Memory/Typedefs.h Core/IO/Datatype/Datatype.h
-core-includes-later-core Core/Memory/Typedefs.h Core/IO/Datatype/Inference.h
 core-includes-later-core Core/Numerical/Projection.h Core/Memory/MemoryAllocator.h
 core-includes-later-core Core/Parallel/DataCollector.cpp Core/Kernels/DeviceAux/GatherAux.h
 core-includes-later-core Core/Parallel/DataCollector.cpp Core/Memory/MemoryAllocator.h

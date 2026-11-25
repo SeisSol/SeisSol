@@ -12,9 +12,9 @@
 #include "Core/Kernels/BatchRecorders/DataTypes/ConditionalKey.h"
 #include "Core/Kernels/BatchRecorders/DataTypes/EncodedConstants.h"
 #include "Core/Memory/Tree/Layer.h"
-#include "Core/Memory/Typedefs.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Solver/Storage.h"
+#include "Features/DynamicRupture/Typedefs.h"
 #include "GeneratedCode/tensor.h"
 
 #include <array>
