@@ -21,13 +21,12 @@
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Layer.h"
-#include "Core/Memory/Typedefs.h"
 #include "Core/Numerical/Quadrature.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "WavePropagation/InitialField.h"
 #include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Physics/InitialField.h"
 
 #include <array>
 #include <cstddef>

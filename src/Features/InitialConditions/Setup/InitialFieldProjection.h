@@ -14,7 +14,7 @@
 #include "Core/IO/Easi/EasiContext.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Typedefs.h"
-#include "WavePropagation/InitialField.h"
+#include "WavePropagation/Physics/InitialField.h"
 
 #include <memory>
 #include <string>

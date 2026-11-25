@@ -11,7 +11,6 @@
 #include "Core/Common/ConfigValue.h"
 #include "Core/Data/SimulationFiles.h"
 #include "Core/Memory/Descriptor/LTS.h"
-#include "Core/Memory/Typedefs.h"
 #include "Features/InitialConditions/InitializationParameters.h"
 #include "Features/InitialConditions/Physics/Scenario/Registry.h"
 #include "Features/InitialConditions/Setup/InitialFieldProjection.h"
@@ -21,7 +20,8 @@
 #include "Simulation/Parameters/ModelParameters.h"
 #include "Simulation/Parameters/SeisSolParameters.h"
 #include "Simulation/SeisSol.h"
-#include "WavePropagation/InitialField.h"
+#include "WavePropagation/Physics/CommonDatastructures.h"
+#include "WavePropagation/Physics/InitialField.h"
 
 #include <cstddef>
 #include <memory>
@@ -47,7 +47,7 @@ physics::scenario::MirrorSettings
 /// The initial conditions of the cells of the configuration `config`, set up with the material
 /// `materialData` of one of them; for the simulation `simulation` alone, if given.
 std::vector<std::unique_ptr<physics::InitialField>>
-    buildInitialConditionList(seissol::SeisSol& seissolInstance,
+    buildInitialConditionList(const seissol::SeisSol& seissolInstance,
                               ConfigId config,
                               const CellMaterialData& materialData,
                               std::optional<std::size_t> simulation = {}) {
@@ -68,7 +68,8 @@ std::vector<std::unique_ptr<physics::InitialField>>
                                .timeMirror = mirrorSettings(parameters.timeMirror),
                                .simulationCount = parameters.runConfigs.simulationCount,
                                .materialData = materialData,
-                               .gravitation = seissolInstance.gravitationSetup(),
+                               .gravitationalAcceleration =
+                                   parameters.wavePropagation.gravitationalAcceleration,
                                .config = config,
                                .simulation = simulation});
 }

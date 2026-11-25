@@ -512,7 +512,7 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
       memoryManager.globalDataStore(),
       seissolParams.runConfigs.configs(),
       memoryManager.initialConditions(),
-      seissolInstance.gravitationSetup().acceleration,
+      seissolParams.wavePropagation.gravitationalAcceleration,
       [&seissolInstance](std::size_t cells) { return seissolInstance.executionPlace(cells); });
   seissolInstance.timeManager().addClusters(
       clusterLayout, haloCommunication, ltsStorage, cellClusters, faceClusters);

@@ -12,7 +12,7 @@
 
 #include "Core/Common/Real.h"
 #include "GeneratedCode/kernel.h"
-#include "WavePropagation/InitialField.h"
+#include "WavePropagation/Physics/InitialField.h"
 #include "WavePropagation/Solver/AnalyticalBoundary.h"
 #include "WavePropagation/Solver/Interface.h"
 #include "WavePropagation/Solver/Local.h"

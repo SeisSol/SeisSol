@@ -11,9 +11,9 @@
 #include "Core/Common/ConfigLayout.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/ConfigValue.h"
-#include "Core/Memory/Typedefs.h"
 #include "Core/Numerical/Eigenvalues.h"
 #include "Features/InitialConditions/InitializationParameters.h"
+#include "Features/InitialConditions/Physics/Scenario/Parameters.h"
 #include "WavePropagation/Physics/Common.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h"
@@ -39,7 +39,7 @@
 
 // FIXME: the following line is absolutely necessary for the plain-wave operator to work correctly
 // (template specializations for the equations).
-#include "WavePropagation/InitialField.h"
+#include "WavePropagation/Physics/InitialField.h"
 #include "WavePropagation/Solver/Setup.h" // IWYU pragma: keep
 
 namespace {

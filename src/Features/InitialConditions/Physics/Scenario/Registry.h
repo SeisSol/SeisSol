@@ -9,9 +9,10 @@
 #define SEISSOL_SRC_FEATURES_INITIALCONDITIONS_PHYSICS_SCENARIO_REGISTRY_H_
 
 #include "Core/Common/ConfigRegistry.h"
-#include "Core/Memory/Typedefs.h"
 #include "Features/InitialConditions/InitializationParameters.h"
-#include "WavePropagation/InitialField.h"
+#include "Features/InitialConditions/Physics/Scenario/Parameters.h"
+#include "WavePropagation/Physics/CommonDatastructures.h"
+#include "WavePropagation/Physics/InitialField.h"
 
 #include <cstddef>
 #include <memory>
@@ -43,7 +44,8 @@ struct Input {
   // the number of simulations of the run
   std::size_t simulationCount{1};
   const CellMaterialData& materialData;
-  GravitationSetup gravitation;
+  // the gravitational acceleration, for the scenarios of the ocean
+  double gravitationalAcceleration{};
   // the configuration the scenario is set up for: its material and its fused simulations
   ConfigId config{};
   // the simulation of the run to set the scenario up for alone, e.g. with a material of its own;

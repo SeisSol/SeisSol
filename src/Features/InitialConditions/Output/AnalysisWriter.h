@@ -16,7 +16,7 @@
 #include "Core/Parallel/MPI.h"
 #include "Core/Run/Context.h"
 #include "Features/InitialConditions/InitializationParameters.h"
-#include "WavePropagation/InitialField.h"
+#include "WavePropagation/Physics/InitialField.h"
 
 #include <array>
 #include <cmath>

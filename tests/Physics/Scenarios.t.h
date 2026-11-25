@@ -9,8 +9,8 @@
 
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Real.h"
-#include "Core/Memory/Typedefs.h"
 #include "Features/InitialConditions/InitializationParameters.h"
+#include "Features/InitialConditions/Physics/Scenario/Parameters.h"
 #include "Features/InitialConditions/Physics/Scenario/Registry.h"
 #include "Features/InitialConditions/Physics/Scenario/Scenarios.h"
 #include "Features/TimeMirror/ITMParameters.h"

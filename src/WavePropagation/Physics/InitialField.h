@@ -5,11 +5,11 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_WAVEPROPAGATION_INITIALFIELD_H_
-#define SEISSOL_SRC_WAVEPROPAGATION_INITIALFIELD_H_
+#ifndef SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_INITIALFIELD_H_
+#define SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_INITIALFIELD_H_
 
-#include "Core/Memory/Typedefs.h"
 #include "GeneratedCode/init.h"
+#include "WavePropagation/Physics/CommonDatastructures.h"
 
 #include <array>
 #include <cstddef>
@@ -75,4 +75,4 @@ class ZeroField : public InitialFieldOf<ZeroField> {
 
 } // namespace seissol::physics
 
-#endif // SEISSOL_SRC_WAVEPROPAGATION_INITIALFIELD_H_
+#endif // SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_INITIALFIELD_H_

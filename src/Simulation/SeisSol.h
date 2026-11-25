@@ -215,8 +215,6 @@ class SeisSol : public RunContext {
    */
   void deleteMemoryManager() { memoryManager_.reset(nullptr); }
 
-  GravitationSetup& gravitationSetup() { return gravitationSetup_; }
-
   /*
    * sets a time stamp for backuping
    * */
@@ -255,9 +253,6 @@ class SeisSol : public RunContext {
   private:
   //! Collection of Parameters
   seissol::initializer::parameters::SeisSolParameters seissolParameters_;
-
-  //! Gravitation setup for tsunami boundary condition
-  GravitationSetup gravitationSetup_;
 
   //! Async I/O handler (needs to be initialize before other I/O modules)
 

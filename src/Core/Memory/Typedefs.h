@@ -27,8 +27,6 @@
 #include "WavePropagation/Solver/Data.h"
 #include "WavePropagation/Solver/SolverSelector.h"
 
-#include <Eigen/Dense>
-#include <complex>
 #include <cstddef>
 #include <vector>
 
@@ -78,12 +76,6 @@ struct alignas(Alignment) NeighboringIntegrationData {
 
   // solver-specific data
   seissol::kernels::SolverOf<Cfg>::NeighborData specific;
-};
-
-// material constants per cell
-struct CellMaterialData {
-  seissol::model::Material* local{};
-  seissol::model::Material* neighbor[4]{};
 };
 
 struct DRFaceInformation {
@@ -181,30 +173,6 @@ struct CellBoundaryMapping {
       : nodes(faceInfo.nodes), dataT(faceInfo.dataT), dataTinv(faceInfo.dataTinv),
         dirichletOffset(faceInfo.dirichletOffset), dirichletMap(faceInfo.dirichletMap),
         fsgData(faceInfo.fsgData) {}
-};
-
-struct GravitationSetup {
-  double acceleration = 9.81; // m/s
-};
-
-struct TravellingWaveParameters {
-  Eigen::Vector3d origin;
-  Eigen::Vector3d kVec;
-  std::vector<int> varField;
-  std::vector<std::complex<double>> ampField;
-};
-
-struct AcousticTravellingWaveParametersITM {
-  double k{};
-  double itmStartingTime{};
-  double itmDuration{};
-  double itmVelocityScalingFactor{};
-};
-
-struct PressureInjectionParameters {
-  std::array<double, 3> origin{};
-  double magnitude{};
-  double width{};
 };
 
 } // namespace seissol

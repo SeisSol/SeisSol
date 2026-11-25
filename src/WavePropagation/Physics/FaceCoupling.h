@@ -8,7 +8,7 @@
 #ifndef SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_FACECOUPLING_H_
 #define SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_FACECOUPLING_H_
 
-#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Common/Constants.h"
 #include "WavePropagation/Physics/Common.h"
 #include "WavePropagation/Physics/Datastructures.h"
 #include "WavePropagation/Physics/Quantities.h"

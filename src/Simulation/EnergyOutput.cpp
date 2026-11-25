@@ -812,7 +812,7 @@ void EnergyOutput::computeVolumeEnergies() {
   const std::vector<Element>& elements = meshReader_->getElements();
   const std::vector<Vertex>& vertices = meshReader_->getVertices();
 
-  const auto g = seissolInstance_.gravitationSetup().acceleration;
+  const auto g = seissolInstance_.parameters().wavePropagation.gravitationalAcceleration;
 
   for (const auto& layer : ltsStorage_->leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {

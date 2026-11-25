@@ -9,7 +9,6 @@
 #include "Transformation.h"
 
 #include "Core/Common/Constants.h"
-#include "Core/Geometry/MeshDefinition.h"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>

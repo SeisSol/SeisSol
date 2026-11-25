@@ -14,7 +14,6 @@
 #include "Core/Common/Real.h"
 #include "Core/Geometry/CellTransform.h"
 #include "Core/Geometry/FaceTransform.h"
-#include "Core/Geometry/MeshDefinition.h"
 #include "Core/Geometry/MeshTools.h"
 #include "Core/Numerical/BasisFunction.h"
 #include "Features/DynamicRupture/Output/DataTypes.h"

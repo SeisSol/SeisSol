@@ -22,7 +22,6 @@ core-includes-later-core Core/Memory/Tree/Layer.h Core/Kernels/BatchRecorders/Da
 core-includes-later-core Core/Memory/Typedefs.h Core/IO/Datatype/Datatype.h
 core-includes-later-core Core/Memory/Typedefs.h Core/IO/Datatype/Inference.h
 core-includes-later-core Core/Numerical/Projection.h Core/Memory/MemoryAllocator.h
-core-includes-later-core Core/Numerical/Transformation.h Core/Memory/Typedefs.h
 core-includes-later-core Core/Parallel/DataCollector.cpp Core/Kernels/DeviceAux/GatherAux.h
 core-includes-later-core Core/Parallel/DataCollector.cpp Core/Memory/MemoryAllocator.h
 core-includes-later-core Core/Parallel/DataCollector.h Core/Memory/MemoryAllocator.h
@@ -41,15 +40,6 @@ core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Physics/Dat
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/Data.h
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/SolverSelector.h
 core-includes-wavepropagation Core/TimeStepping/Clustering/Clustering.cpp WavePropagation/Physics/Datastructures.h
-physics-includes-runtime Features/InitialConditions/Physics/Scenario/Registry.cpp Core/Memory/Typedefs.h
-physics-includes-runtime Features/InitialConditions/Physics/Scenario/Registry.h Core/Memory/Typedefs.h
-physics-includes-runtime Features/InitialConditions/Physics/Scenario/Scenarios.cpp Core/Memory/Typedefs.h
-physics-includes-runtime Features/InitialConditions/Physics/Scenario/Scenarios.h Core/Memory/Typedefs.h
-physics-includes-runtime Features/SourceTerm/Physics/PointSource.h Core/Memory/MemoryAllocator.h
-physics-includes-runtime WavePropagation/Physics/Common.cpp Core/Geometry/MeshDefinition.h
-physics-includes-runtime WavePropagation/Physics/Common.h Core/Geometry/MeshTools.h
-physics-includes-runtime WavePropagation/Physics/Common.h Core/Memory/Typedefs.h
-physics-includes-runtime WavePropagation/Physics/FaceCoupling.h Core/Geometry/MeshDefinition.h
 physics-includes-solver Features/InitialConditions/Physics/Scenario/Scenarios.cpp WavePropagation/Solver/Setup.h
 physics-includes-solver WavePropagation/Physics/Common.h WavePropagation/Solver/SolverSelector.h
 physics-includes-solver WavePropagation/Physics/poroelastic/Datastructures.cpp WavePropagation/Solver/Setup.h

@@ -18,8 +18,6 @@
 
 namespace seissol {
 
-using CoordinateT = std::array<double, Cell::Dim>;
-
 struct Element {
   // global cell ID
   size_t globalId{};

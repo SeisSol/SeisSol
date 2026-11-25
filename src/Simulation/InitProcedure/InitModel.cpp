@@ -23,7 +23,6 @@
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Tree/LTSTree.h"
 #include "Core/Memory/Tree/Layer.h"
-#include "Core/Memory/Typedefs.h"
 #include "Core/Modules/Modules.h"
 #include "Core/Monitoring/RunSummary.h"
 #include "Core/Monitoring/Stopwatch.h"
@@ -364,7 +363,7 @@ void initializeCellMatrices(seissol::SeisSol& seissolInstance) {
   internal::setupRecorders(memoryManager.ltsStorage(),
                            memoryManager.drStorage(),
                            seissolParams.plasticity.enabled,
-                           seissolInstance.gravitationSetup().acceleration);
+                           seissolParams.wavePropagation.gravitationalAcceleration);
 
   const auto itmParameters = seissolInstance.parameters().timeMirror;
 

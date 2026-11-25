@@ -37,6 +37,9 @@ struct Face {
   static constexpr std::array<double, Dim> ReferenceBarycenter{1.0 / (Dim + 1), 1.0 / (Dim + 1)};
 };
 
+/// a point or a direction in space
+using CoordinateT = std::array<double, Cell::Dim>;
+
 constexpr auto zeroGuard(std::size_t x) -> std::size_t { return x == 0 ? 1 : x; }
 } // namespace seissol
 

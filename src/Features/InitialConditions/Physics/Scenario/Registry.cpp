@@ -9,11 +9,11 @@
 
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/ConfigValue.h"
-#include "Core/Memory/Typedefs.h"
 #include "Features/InitialConditions/InitializationParameters.h"
+#include "Features/InitialConditions/Physics/Scenario/Parameters.h"
 #include "Features/InitialConditions/Physics/Scenario/Scenarios.h"
-#include "WavePropagation/InitialField.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
+#include "WavePropagation/Physics/InitialField.h"
 #include "WavePropagation/Physics/MaterialType.h"
 
 #include <Eigen/Dense>
@@ -203,7 +203,7 @@ constexpr std::array<Entry, 12> Registry = {{
      .timeDependent = true,
      .build =
          [](const Input& input) {
-           return single<Ocean>(0, input.gravitation.acceleration, input.config);
+           return single<Ocean>(0, input.gravitationalAcceleration, input.config);
          }},
     {.type = InitializationType::Ocean1,
      .name = "ocean, an uncoupled ocean test case for acoustic equations (mode 1)",
@@ -213,7 +213,7 @@ constexpr std::array<Entry, 12> Registry = {{
      .timeDependent = true,
      .build =
          [](const Input& input) {
-           return single<Ocean>(1, input.gravitation.acceleration, input.config);
+           return single<Ocean>(1, input.gravitationalAcceleration, input.config);
          }},
     {.type = InitializationType::Ocean2,
      .name = "ocean, an uncoupled ocean test case for acoustic equations (mode 2)",
@@ -223,7 +223,7 @@ constexpr std::array<Entry, 12> Registry = {{
      .timeDependent = true,
      .build =
          [](const Input& input) {
-           return single<Ocean>(2, input.gravitation.acceleration, input.config);
+           return single<Ocean>(2, input.gravitationalAcceleration, input.config);
          }},
     {.type = InitializationType::PressureInjection,
      .name = "pressure injection",

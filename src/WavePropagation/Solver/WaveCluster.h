@@ -26,8 +26,8 @@
 #include "Core/TimeStepping/Actor/StepParams.h"
 #include "Core/TimeStepping/Compute/CellCluster.h"
 #include "Core/TimeStepping/Compute/CellStage.h"
-#include "WavePropagation/InitialField.h"
 #include "WavePropagation/Output/Receiver.h"
+#include "WavePropagation/Physics/InitialField.h"
 #include "WavePropagation/Solver/ConfigBoundary.h"
 #include "WavePropagation/Solver/Solver.h"
 

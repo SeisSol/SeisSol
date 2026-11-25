@@ -1022,11 +1022,12 @@ void setupOutput(seissol::SeisSol& seissolInstance) {
       receiverWriter.addPoints(
           seissolInstance.meshReader(),
           memoryManager.backmap(),
-          kernels::ReceiverCells{.storage = memoryManager.ltsStorage(),
-                                 .globalData = memoryManager.globalDataStore(),
-                                 .settings = memoryManager.simulationSettings(),
-                                 .gravitationalAcceleration =
-                                     seissolInstance.gravitationSetup().acceleration});
+          kernels::ReceiverCells{
+              .storage = memoryManager.ltsStorage(),
+              .globalData = memoryManager.globalDataStore(),
+              .settings = memoryManager.simulationSettings(),
+              .gravitationalAcceleration =
+                  seissolInstance.parameters().wavePropagation.gravitationalAcceleration});
       // the cell clusters sample the receivers of their layers
       for (auto* cluster : seissolInstance.timeManager().cellClusters()) {
         if (auto* receivers = receiverWriter.receiverCluster(cluster->layerId());

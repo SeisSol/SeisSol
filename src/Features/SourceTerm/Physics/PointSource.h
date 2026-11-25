@@ -12,7 +12,6 @@
 #define SEISSOL_SRC_FEATURES_SOURCETERM_PHYSICS_POINTSOURCE_H_
 
 #include "Core/Common/Real.h"
-#include "Core/Memory/MemoryAllocator.h"
 #include "Features/SourceTerm/Typedefs.h"
 
 namespace seissol::sourceterm {

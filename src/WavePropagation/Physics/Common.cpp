@@ -9,7 +9,7 @@
 
 #include "WavePropagation/Physics/Common.h"
 
-#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Common/Constants.h"
 
 #include <array>
 

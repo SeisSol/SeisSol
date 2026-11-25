@@ -100,10 +100,6 @@ void initSeisSol(seissol::SeisSol& seissolInstance) {
   const auto& seissolParams = seissolInstance.parameters();
   auto& summary = seissolInstance.runSummary();
 
-  // set g
-  seissolInstance.gravitationSetup().acceleration =
-      seissolParams.wavePropagation.gravitationalAcceleration;
-
   // the stages that do not time themselves are timed here; the summary gets all of them
   const auto timed = [&](const char* name, const char* column, const char* message, auto&& stage) {
     seissol::Stopwatch watch;

@@ -7,6 +7,7 @@
 
 #include "InitMesh.h"
 
+#include "Core/Common/Constants.h"
 #include "Core/Common/Instrumentation.h"
 #include "Core/Geometry/CellToVertexArray.h"
 #include "Core/Geometry/MeshDefinition.h"

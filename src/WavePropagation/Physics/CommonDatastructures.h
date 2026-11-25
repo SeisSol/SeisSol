@@ -116,4 +116,14 @@ struct IsotropicWaveSpeeds {
 };
 } // namespace seissol::model
 
+namespace seissol {
+
+/// the materials of a cell and of its neighbors across its faces
+struct CellMaterialData {
+  seissol::model::Material* local{};
+  seissol::model::Material* neighbor[4]{};
+};
+
+} // namespace seissol
+
 #endif // SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_COMMONDATASTRUCTURES_H_

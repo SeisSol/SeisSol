@@ -9,7 +9,7 @@
 #define SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_DATASTRUCTURES_H_
 
 #include "Config.h"
-#include "WavePropagation/Physics/CommonDatastructures.h"
+#include "WavePropagation/Physics/CommonDatastructures.h" // IWYU pragma: export
 
 // IWYU pragma: begin_exports
 

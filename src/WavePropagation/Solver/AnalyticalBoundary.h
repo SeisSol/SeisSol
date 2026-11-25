@@ -17,7 +17,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
-#include "WavePropagation/InitialField.h"
+#include "WavePropagation/Physics/InitialField.h"
 
 #include <array>
 #include <cassert>

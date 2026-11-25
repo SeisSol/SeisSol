@@ -8,7 +8,6 @@
 #include "CellTransform.h"
 
 #include "Core/Common/Constants.h"
-#include "Core/Geometry/MeshDefinition.h"
 #include "Core/Geometry/MeshReader.h"
 
 #include <Eigen/Dense>

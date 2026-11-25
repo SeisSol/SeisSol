@@ -9,10 +9,11 @@
 #define SEISSOL_SRC_FEATURES_INITIALCONDITIONS_PHYSICS_SCENARIO_SCENARIOS_H_
 
 #include "Core/Common/ConfigRegistry.h"
-#include "Core/Memory/Typedefs.h"
 #include "Features/InitialConditions/InitializationParameters.h"
+#include "Features/InitialConditions/Physics/Scenario/Parameters.h"
 #include "GeneratedCode/init.h"
-#include "WavePropagation/InitialField.h"
+#include "WavePropagation/Physics/CommonDatastructures.h"
+#include "WavePropagation/Physics/InitialField.h"
 
 #include <Eigen/Dense>
 #include <array>

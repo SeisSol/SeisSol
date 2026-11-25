@@ -229,7 +229,7 @@ LAYOUT = [
     ("SourceTerm/PointSource.", f"{ST}/Physics/PointSource."),
     ("Kernels/PointSourceCluster", f"{ST}/Solver/PointSourceCluster"),
     # initial conditions
-    ("Physics/InitialField.h", f"{WP}/InitialField.h"),
+    ("Physics/InitialField.h", f"{WP}/Physics/InitialField.h"),
     ("Physics/Scenario/", f"{IC}/Physics/Scenario/"),
     ("Initializer/InitialFieldProjection.", f"{IC}/Setup/InitialFieldProjection."),
     ("ResultWriter/AnalysisWriter.", f"{IC}/Output/AnalysisWriter."),

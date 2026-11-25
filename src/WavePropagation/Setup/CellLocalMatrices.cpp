@@ -20,7 +20,6 @@
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Tree/Layer.h"
-#include "Core/Memory/Typedefs.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"

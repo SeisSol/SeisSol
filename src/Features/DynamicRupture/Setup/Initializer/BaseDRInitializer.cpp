@@ -9,6 +9,7 @@
 
 #include "Config.h"
 #include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/Constants.h"
 #include "Core/Common/Real.h"
 #include "Core/Geometry/MeshDefinition.h"
 #include "Core/Geometry/MeshReader.h"

@@ -17,7 +17,7 @@
 #include "Core/TimeStepping/Compute/CellClusterFactory.h"
 #include "Core/TimeStepping/Compute/ComputeCluster.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
-#include "WavePropagation/InitialField.h"
+#include "WavePropagation/Physics/InitialField.h"
 
 #include <cstddef>
 #include <functional>

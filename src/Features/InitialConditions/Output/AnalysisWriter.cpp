@@ -11,6 +11,7 @@
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/ConfigValue.h"
+#include "Core/Common/Constants.h"
 #include "Core/Common/MultipleSimulations.h"
 #include "Core/Common/PreProcessorMacros.h"
 #include "Core/Common/Real.h"
@@ -23,7 +24,6 @@
 #include "Core/IO/Instance/Point/Csv.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Tree/Layer.h"
-#include "Core/Memory/Typedefs.h"
 #include "Core/Numerical/Quadrature.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/Parallel/OpenMP.h"
@@ -32,7 +32,8 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "WavePropagation/InitialField.h" // IWYU pragma: keep
+#include "WavePropagation/Physics/CommonDatastructures.h"
+#include "WavePropagation/Physics/InitialField.h" // IWYU pragma: keep
 
 #include <algorithm>
 #include <array>

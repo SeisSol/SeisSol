@@ -9,6 +9,7 @@
 
 #include "Alignment.h"
 #include "Core/Common/ConfigDispatch.h"
+#include "Core/Common/Constants.h"
 #include "Core/Common/MultipleSimulations.h"
 #include "Core/Common/Real.h"
 #include "Core/Geometry/MeshDefinition.h"

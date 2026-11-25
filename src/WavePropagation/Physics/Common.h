@@ -11,8 +11,8 @@
 #define SEISSOL_SRC_WAVEPROPAGATION_PHYSICS_COMMON_H_
 
 #include "Config.h"
-#include "Core/Geometry/MeshTools.h"
-#include "Core/Memory/Typedefs.h"
+#include "Core/Common/BasicTypedefs.h"
+#include "Core/Common/Constants.h"
 #include "Core/Numerical/Eigenvalues.h"
 #include "Core/Numerical/Transformation.h"
 #include "GeneratedCode/init.h"

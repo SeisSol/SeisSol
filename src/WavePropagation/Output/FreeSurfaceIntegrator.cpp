@@ -15,7 +15,7 @@
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/Descriptor/Surface.h"
 #include "Core/Memory/Tree/Layer.h"
-#include "Core/Memory/Typedefs.h"
+#include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Setup/BoundaryHelper.h"
 
 #include <array>

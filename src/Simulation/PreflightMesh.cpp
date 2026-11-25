@@ -10,7 +10,6 @@
 #include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/Constants.h"
 #include "Core/Geometry/FaultOrientation.h"
-#include "Core/Geometry/MeshDefinition.h"
 #include "Core/Geometry/MeshParameters.h"
 #include "Core/Geometry/MeshTools.h"
 #include "Core/Geometry/PUMLReader.h"

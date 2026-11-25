@@ -7,7 +7,7 @@
 
 #include "Misc.h"
 
-#include "Core/Geometry/MeshDefinition.h"
+#include "Core/Common/Constants.h"
 #include "Features/DynamicRupture/DRParameters.h"
 
 #include <cmath>
