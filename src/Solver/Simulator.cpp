@@ -15,12 +15,16 @@
 #include "Memory/Tree/Layer.h"
 #include "Modules/Modules.h"
 #include "Modules/OutputWorker.h"
+#include "Monitoring/Counters.h"
 #include "Monitoring/DeviceTimeline.h"
+#include "Monitoring/Energy/Sensor.h"
+#include "Monitoring/EnergyMeter.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/Instrumentation.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
 #include "Monitoring/Trace.h"
+#include "Monitoring/Unit.h"
 #include "Monitoring/Watchdog.h"
 #include "Numerical/Statistics.h"
 #include "Parallel/Helper.h"
@@ -40,6 +44,7 @@
 #include <functional>
 #include <mpi.h>
 #include <optional>
+#include <string>
 #include <utility>
 #include <utils/logger.h>
 
@@ -272,6 +277,12 @@ void Simulator::simulate(SeisSol& seissolInstance) {
 
   double lastSplit = simulationStopwatch.split();
 
+  // the counters of the run, read at the end of every epoch; the rates of an epoch are taken over
+  // its time on each rank, like its wall time
+  auto& counters = seissolInstance.counters();
+  auto lastCounters = counters.snapshot(lastSplit);
+  const auto firstCounters = lastCounters;
+
   // use an empty log message as visual separator
   logInfo() << "";
 
@@ -346,11 +357,20 @@ void Simulator::simulate(SeisSol& seissolInstance) {
     lastCompute = compute;
     lastIo = io;
 
-    const auto rates = seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
-    epoch.hardwareFlopPerSecond = rates.hardwareFlopPerSecond;
-    epoch.nonzeroFlopPerSecond = rates.nonzeroFlopPerSecond;
-    epoch.kernelBytesPerSecond = rates.kernelBytesPerSecond;
+    seissolInstance.flopCounter().printPerformanceUpdate(currentSplit);
+    const auto currentCounters = counters.snapshot(currentSplit);
+    epoch.counters = counters.reduce(lastCounters, currentCounters);
+    lastCounters = currentCounters;
     lastSplit = currentSplit;
+    // the cost of the epoch, which the FLOP counter does not print
+    for (std::size_t counter = 0; counter < counters.size(); ++counter) {
+      const auto& info = counters.info(counter);
+      if (info.perStage && epoch.counters.counted(counter)) {
+        logInfo() << (info.name + " last epoch:").c_str()
+                  << info.unit->formatPrefix(epoch.counters.amounts[counter]).c_str() << "("
+                  << info.rateUnit->formatPrefix(epoch.counters.rates[counter]).c_str() << ")";
+      }
+    }
     printActivity(seissolInstance.timeManager().lastEpochActivity(), epoch);
 
     summary["time"]["simulation"]["elapsed"] =
@@ -457,6 +477,41 @@ void Simulator::simulate(SeisSol& seissolInstance) {
   summary["performance"]["cellUpdatesPerSecond"] = cellUpdates / totalTime.max;
   logInfo() << "Cell updates:" << cellUpdates << "(" << cellUpdates / totalTime.max
             << "per second); duplicate updates of copy cells:" << duplicateUpdates;
+
+  // the work per energy, over the epochs: on the energy of the nodes where all of them count it,
+  // else on the sum of what all of them count of their CPUs, memory and GPUs (energy::basisParts)
+  const auto simulated = counters.reduce(firstCounters, lastCounters);
+  const int nodes = Mpi::mpi.allreduce(Mpi::mpi.sharedMemMpiRank() == 0 ? 1 : 0, MPI_SUM);
+  const auto everywhere = [&](monitoring::energy::Part part) -> std::optional<double> {
+    const auto energy = counters.find(monitoring::EnergyMeter::counterName(part));
+    if (!energy.has_value() || simulated.contributors[energy.value()] != nodes ||
+        simulated.amounts[energy.value()] <= 0) {
+      return {};
+    }
+    return simulated.amounts[energy.value()];
+  };
+  const auto parts = monitoring::energy::basisParts(
+      [&](monitoring::energy::Part part) { return everywhere(part).has_value(); });
+  std::string basis;
+  double joules = 0;
+  for (const auto part : parts) {
+    basis += (basis.empty() ? "" : "+") + std::string(monitoring::EnergyMeter::counterName(part));
+    joules += everywhere(part).value();
+  }
+  if (basis.empty()) {
+    return;
+  }
+  auto& performance = summary["performance"];
+  performance["energyBasis"] = basis;
+  performance["energy"] = joules;
+  for (const auto* work : {"cellUpdates", "hardwareFlop", "nonzeroFlop"}) {
+    if (const auto counter = counters.find(work); counter.has_value()) {
+      performance[std::string(work) + "PerJoule"] = simulated.amounts[counter.value()] / joules;
+    }
+  }
+  logInfo() << "Energy of the simulation (" << basis
+            << "):" << UnitEnergy.formatPrefix(joules).c_str()
+            << "; cell updates per joule:" << cellUpdates / joules;
 }
 
 } // namespace seissol

@@ -46,7 +46,7 @@ class GravitationalFreeSurfaceBc {
       : gravitationalAcceleration_(gravitationalAcceleration) {};
 
   constexpr static PerformanceEstimate metrics(int8_t face) {
-    return PerformanceEstimate::fromKernel<kernel::fsgKernel<Cfg>>(face);
+    return SEISSOL_KERNEL_ESTIMATE(kernel::fsgKernel<Cfg>, kernel::gpu_fsgKernel<Cfg>)(face);
   }
 
   template <typename MappingKrnl>

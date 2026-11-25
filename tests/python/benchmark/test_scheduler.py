@@ -129,6 +129,20 @@ def test_parsable_job_id(output, job_id):
     assert parsable_job_id(output) == job_id
 
 
+def fake_sbatch(tmp_path, monkeypatch, output):
+    folder = tmp_path / "bin"
+    folder.mkdir()
+    (folder / "sbatch").write_text(f"#!/bin/bash\nprintf '%b' '{output}'\n")
+    (folder / "sbatch").chmod(0o755)
+    monkeypatch.setenv("PATH", str(folder))
+
+
+def test_submission_without_a_job_id(tmp_path, monkeypatch):
+    fake_sbatch(tmp_path, monkeypatch, "Welcome\\n")
+    with pytest.raises(SchedulerError, match="no job ID"):
+        SlurmScheduler(machine()).submit(tmp_path / "job.sh", after=[])
+
+
 def test_refused_submission(tmp_path, monkeypatch):
     folder = tmp_path / "bin"
     folder.mkdir()

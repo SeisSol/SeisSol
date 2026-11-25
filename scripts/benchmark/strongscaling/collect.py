@@ -63,7 +63,14 @@ RUN_COLUMNS = [
     "duplicateCellUpdates",
     "cellUpdatesPerSecond",
     "hardwareFlopPerSecond",
+    "hardwareFlopOf",
     "nonzeroFlopPerSecond",
+    "energyBasis",
+    "energy",
+    "simulationPower",
+    "runEnergy",
+    "cellUpdatesPerJoule",
+    "hardwareFlopPerJoule",
     "hostMemoryPeak",
     "version",
     "commit",
@@ -80,6 +87,18 @@ def get(data: Any, path: str, default: Any = None) -> Any:
             return default
         value = value[key]
     return value
+
+
+def basis_total(summary: Any, basis: str, path: str) -> Any:
+    """Sum the counters of @p basis that the summary has below the dotted @p path.
+
+    A basis is a counter, or a sum of counters, such as cpuEnergy+deviceEnergy; None
+    if the summary lacks any of them.
+    """
+    values = [get(summary, f"{path}.{counter}") for counter in basis.split("+")]
+    if not all(isinstance(value, (int, float)) for value in values):
+        return None
+    return sum(values)
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
@@ -267,7 +286,17 @@ def run_row(
             "duplicateCellUpdates": get(summary, "simulation.duplicateCellUpdates"),
             "cellUpdatesPerSecond": get(summary, "performance.cellUpdatesPerSecond"),
             "hardwareFlopPerSecond": get(summary, "performance.hardwareFlopPerSecond"),
+            # whose hardware FLOP these are: of the device kernels, where the device code
+            # generator reports them, or of the host kernels
+            "hardwareFlopOf": get(summary, "performance.hardwareFlopOf"),
             "nonzeroFlopPerSecond": get(summary, "performance.nonzeroFlopPerSecond"),
+            # the energy of the epochs, of the counter or the sum of counters that the
+            # summary puts the work against (e.g. nodeEnergy, cpuEnergy+deviceEnergy),
+            # where the nodes measure it
+            "energyBasis": get(summary, "performance.energyBasis"),
+            "energy": get(summary, "performance.energy"),
+            "cellUpdatesPerJoule": get(summary, "performance.cellUpdatesPerJoule"),
+            "hardwareFlopPerJoule": get(summary, "performance.hardwareFlopPerJoule"),
             "hostMemoryPeak": get(summary, "memory.atEnd.hostPeak.max"),
             "version": get(summary, "build.version"),
             "commit": get(summary, "build.commit"),
@@ -275,6 +304,12 @@ def run_row(
     )
     if row["cells"] and run.ranks:
         row["cellsPerRank"] = row["cells"] / run.ranks
+    basis = row["energyBasis"]
+    if basis:
+        # the whole run, the initialization included, and the mean power of the simulation
+        row["runEnergy"] = basis_total(summary, basis, "energy.run")
+        power = basis.replace("Energy", "Power")
+        row["simulationPower"] = basis_total(summary, power, "stages.simulation")
     ranks_reported = get(summary, "parallel.ranks")
     if ranks_reported is not None and ranks_reported != run.ranks:
         problems.append(f"it ran on {ranks_reported} ranks, not {run.ranks}")

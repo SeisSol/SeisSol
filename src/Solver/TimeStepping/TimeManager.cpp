@@ -26,6 +26,7 @@
 #include "Memory/HostData.h"
 #include "Memory/HostSnapshot.h"
 #include "Memory/Tree/Layer.h"
+#include "Monitoring/Counters.h"
 #include "Monitoring/DeviceTimeline.h"
 #include "Monitoring/DeviceTimer.h"
 #include "Monitoring/Instrumentation.h"
@@ -69,6 +70,7 @@
 #include <limits>
 #include <memory>
 #include <mpi.h>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
@@ -638,6 +640,33 @@ TimeManager::Updates TimeManager::updates() const {
         static_cast<double>(size.dynamicRuptureFaces) * steps;
   }
   return updates;
+}
+
+void TimeManager::registerCounters(monitoring::Counters& counters) const {
+  const auto total = [this](std::vector<double> Updates::* member) {
+    return [this, member]() -> std::optional<monitoring::CounterValue> {
+      double sum = 0;
+      for (const auto value : updates().*member) {
+        sum += value;
+      }
+      return monitoring::CounterValue{.amount = sum, .time = {}};
+    };
+  };
+  counters.add(monitoring::CounterInfo{.name = "cellUpdates",
+                                       .rateName = "cellUpdatesPerSecond",
+                                       .unit = &UnitScalar,
+                                       .rateUnit = &UnitScalar},
+               total(&Updates::cells));
+  counters.add(monitoring::CounterInfo{.name = "duplicateCellUpdates",
+                                       .rateName = "duplicateCellUpdatesPerSecond",
+                                       .unit = &UnitScalar,
+                                       .rateUnit = &UnitScalar},
+               total(&Updates::duplicateCells));
+  counters.add(monitoring::CounterInfo{.name = "dynamicRuptureFaceUpdates",
+                                       .rateName = "dynamicRuptureFaceUpdatesPerSecond",
+                                       .unit = &UnitScalar,
+                                       .rateUnit = &UnitScalar},
+               total(&Updates::dynamicRuptureFaces));
 }
 
 void TimeManager::setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager) {

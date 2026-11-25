@@ -19,6 +19,7 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Memory/Tree/Layer.h"
 #include "Monitoring/DeviceTimeline.h"
+#include "Monitoring/EnergyMeter.h"
 #include "Monitoring/Memory.h"
 #include "Monitoring/RunSummary.h"
 #include "Monitoring/Stopwatch.h"
@@ -241,8 +242,14 @@ void closeSeisSol(seissol::SeisSol& seissolInstance) {
 void seissolMain(seissol::SeisSol& seissolInstance) {
   createOutputDirectory(seissolInstance);
 
+  // the energy is counted from here on, for the whole run
+  auto& energyMeter = seissolInstance.energyMeter();
+  energyMeter.setup(seissolInstance.counters(), seissolInstance.env().get<bool>("ENERGY", true));
+
   auto& summary = seissolInstance.runSummary();
   summary["configurations"] = configurationNames(seissolInstance);
+  summary["energy"] = energyMeter.describe();
+  summary.setCounters(seissolInstance.counters());
   summary.start(
       seissolInstance.outputPrefix(), seissolInstance.runId(), seissolInstance.systemInfo());
   // the log as JSON Lines next to the summary, from rank 0, with the messages from before as well
@@ -276,6 +283,7 @@ void seissolMain(seissol::SeisSol& seissolInstance) {
   monitoring::Trace::write(seissolInstance.outputPrefix() + "-trace.json",
                            seissol::Mpi::mpi.comm());
   summary["memory"]["atEnd"] = memorySection(summary, "AtEnd");
+  summary["energy"]["run"] = summary.writeStages();
   summary.writeRanks();
   summary.finish();
 

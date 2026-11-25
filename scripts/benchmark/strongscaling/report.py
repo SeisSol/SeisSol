@@ -60,6 +60,8 @@ SCALING_COLUMNS = [
     "ioShare",
     "initTime",
     "hostMemoryPeak",
+    "energy",
+    "cellUpdatesPerJoule",
 ]
 
 
@@ -205,6 +207,8 @@ def scaling_rows(all_series: list[Series]) -> list[dict[str, Any]]:
                     "ioShare": io / wall if io is not None and wall else None,
                     "initTime": point.median_of("initTime"),
                     "hostMemoryPeak": point.median_of("hostMemoryPeak"),
+                    "energy": point.median_of("energy"),
+                    "cellUpdatesPerJoule": point.median_of("cellUpdatesPerJoule"),
                 }
             )
     return rows
@@ -342,6 +346,31 @@ def plots(
         axis.legend()
         save(figure, "throughput.png")
 
+    energy = [r for r in table if r.get("energy")]
+    if energy:
+        figure, axis = axes("Energy of the simulation", "energy [J]")
+        for series in drawn:
+            mine = [
+                r
+                for r in energy
+                if r["build"] == series.build and r["variant"] == series.variant
+            ]
+            if not mine:
+                continue
+            line = axis.plot(
+                [r["nodes"] for r in mine],
+                [r["energy"] for r in mine],
+                marker="o",
+                label=series.label,
+            )
+            # with ideal scaling, more nodes take as much less time: the energy stays
+            axis.axhline(
+                mine[0]["energy"], color=line[0].get_color(), linestyle="--", alpha=0.5
+            )
+        axis.set_ylim(bottom=0)
+        axis.legend()
+        save(figure, "energy.png")
+
     imbalance = [r for r in table if r.get("loadImbalance") is not None]
     if imbalance:
         figure, axis = axes("Load imbalance of the kernels", "1 - mean / max")
@@ -441,13 +470,17 @@ def report(
         f"- written: {utc_now()}",
         "",
     ]
+    # the energy, where the nodes measure it
+    measured = any(entry.get("energy") for entry in table)
     for series in all_series:
         lines += [
             f"## {series.label}",
             "",
             "| nodes | ranks | cells/rank | runs | time [s] | range [s] | speedup | efficiency | "
-            "cell updates/s/node | duplicates | imbalance | outside kernels | IO |",
-            "|---:|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|",
+            "cell updates/s/node | duplicates | imbalance | outside kernels | IO |"
+            + (" energy [J] | cell updates/J |" if measured else ""),
+            "|---:|---:|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|"
+            + ("---:|---:|" if measured else ""),
         ]
         for entry in table:
             if entry["build"] != series.build or entry["variant"] != series.variant:
@@ -469,6 +502,11 @@ def report(
                 f"{fmt(entry['loadImbalance'])} | "
                 f"{fmt(100 * share if share is not None else None, 2)}% | "
                 f"{fmt(100 * io if io is not None else None, 2)}% |"
+                + (
+                    f" {fmt(entry['energy'])} | {fmt(entry['cellUpdatesPerJoule'])} |"
+                    if measured
+                    else ""
+                )
             )
         lines.append("")
     lines += ["## Checks", ""]

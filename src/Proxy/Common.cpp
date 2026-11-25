@@ -9,6 +9,7 @@
 
 #include "Common/Json.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <iostream>
@@ -116,6 +117,23 @@ void Aux::writeOutput(std::ostream& stream,
     stream << "GFLOPS (hardware) for seissol proxy : " << output.hardwareGFlops << '\n';
     stream << "GiB/s (estimate) for seissol proxy  : " << output.gibPerSecond << '\n';
     stream << "GiB/s (kernel) for seissol proxy    : " << output.kernelGibPerSecond << '\n';
+    stream << '\n';
+    if (output.partJoules.empty()) {
+      stream << "energy                              : not measured\n";
+    }
+    for (const auto& [part, joules] : output.partJoules) {
+      stream << "energy (" << part << ") [J]" << std::string(23 - part.size(), ' ') << ": "
+             << joules << '\n';
+    }
+    if (output.energyBasis != "none") {
+      // the basis may be a sum of parts, e.g. cpu+devices
+      const auto padding = std::max<std::size_t>(24, output.energyBasis.size() + 1);
+      stream << "power (" << output.energyBasis << ") [W]"
+             << std::string(padding - output.energyBasis.size(), ' ') << ": " << output.watts
+             << '\n';
+      stream << "GFLOP/J (non-zero)                  : " << output.nonZeroGFlopPerJoule << '\n';
+      stream << "GFLOP/J (hardware)                  : " << output.hardwareGFlopPerJoule << '\n';
+    }
     stream << "=================================================\n";
     stream << '\n';
   } else {
@@ -143,6 +161,17 @@ void Aux::writeOutput(std::ostream& stream,
     document["gflops-hw"] = finite(output.hardwareGFlops);
     document["gibs"] = finite(output.gibPerSecond);
     document["gibs-kernel"] = finite(output.kernelGibPerSecond);
+    // zero where the node measures no energy, which energy-basis says
+    document["energy-basis"] = output.energyBasis;
+    document["joules"] = finite(output.joules);
+    document["watts"] = finite(output.watts);
+    document["gflopj-nz"] = finite(output.nonZeroGFlopPerJoule);
+    document["gflopj-hw"] = finite(output.hardwareGFlopPerJoule);
+    // the energy of every part of the node that it measures: the basis is the node or a sum of them
+    auto& parts = document["energy-parts"] = json::Value::object();
+    for (const auto& [part, joules] : output.partJoules) {
+      parts[part] = finite(joules);
+    }
     stream << document.dump(-1) << '\n';
   }
 }

@@ -229,6 +229,16 @@ def mode_run(args: argparse.Namespace) -> int:
                 "gflops_nz": [sample["gflops-nz"] for sample in samples],
                 "gibs": [sample["gibs"] for sample in samples],
             }
+            # the energy, where the node measures it (see energy_probe.py)
+            bases = {sample.get("energy-basis", "none") for sample in samples}
+            if bases != {"none"}:
+                report["benchmarks"][name]["energy_basis"] = sorted(bases)
+                report["benchmarks"][name]["joules_per_cell_step"] = [
+                    sample.get("joules", 0.0) / cell_steps for sample in samples
+                ]
+                report["benchmarks"][name]["gflopj_hw"] = [
+                    sample.get("gflopj-hw", 0.0) for sample in samples
+                ]
             print(
                 f"{name}: {median(times):.1f} ns/(cell step), "
                 f"spread {100 * robust_spread(times):.2f} %, "

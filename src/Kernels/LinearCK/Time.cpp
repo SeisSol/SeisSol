@@ -217,7 +217,7 @@ void Spacetime<Cfg>::computeBatchedAder(
 
 template <typename Cfg>
 PerformanceEstimate Spacetime<Cfg>::metrics() const {
-  auto estimate = PerformanceEstimate::fromKernel<kernel::derivative<Cfg>>();
+  auto estimate = SEISSOL_KERNEL_ESTIMATE(kernel::derivative<Cfg>, kernel::gpu_derivative<Cfg>)();
 
   // legacy memory estimate
   std::uint64_t reals = 0;
@@ -298,7 +298,8 @@ void Time<Cfg>::evaluateBatched(
 
 template <typename Cfg>
 PerformanceEstimate Time<Cfg>::metrics() const {
-  return PerformanceEstimate::fromKernel<kernel::derivativeTaylorExpansion<Cfg>>();
+  return SEISSOL_KERNEL_ESTIMATE(kernel::derivativeTaylorExpansion<Cfg>,
+                                 kernel::gpu_derivativeTaylorExpansion<Cfg>)();
 }
 
 template <typename Cfg>

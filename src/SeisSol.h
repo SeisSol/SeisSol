@@ -15,6 +15,8 @@
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/Typedefs.h"
 #include "Modules/Modules.h"
+#include "Monitoring/Counters.h"
+#include "Monitoring/EnergyMeter.h"
 #include "Monitoring/EpochSynchronization.h"
 #include "Monitoring/FlopCounter.h"
 #include "Monitoring/RunSummary.h"
@@ -168,6 +170,16 @@ class SeisSol : private SeisSolCore {
    * Get the energy writer module
    */
   writer::EnergyOutput& energyOutput() { return energyOutput_; }
+
+  /**
+   * Get the counters of the run: the work it does and what it costs
+   */
+  monitoring::Counters& counters() { return counters_; }
+
+  /**
+   * Get the energy meter, which counts the energy of the nodes of the run
+   */
+  monitoring::EnergyMeter& energyMeter() { return energyMeter_; }
 
   /**
    * Get the flop counter
@@ -327,6 +339,12 @@ class SeisSol : private SeisSolCore {
   //! Energy writer module
   writer::EnergyOutput energyOutput_;
 
+  //! Counters of the work and of the cost of the run
+  monitoring::Counters counters_;
+
+  //! Energy of the nodes of the run
+  monitoring::EnergyMeter energyMeter_;
+
   //! Flop Counter
   monitoring::FlopCounter flopCounter_;
 
@@ -369,7 +387,9 @@ class SeisSol : private SeisSolCore {
       : SeisSolCore(env), outputManager_(*this), seissolParameters_(std::move(parameters)),
         asyncIO_(env_), memoryManager_(std::make_unique<initializer::MemoryManager>(*this)),
         timeManager_(*this), analysisWriter_(*this), receiverWriter_(*this), energyOutput_(*this),
-        systemInfo_(systemInfo) {}
+        systemInfo_(systemInfo) {
+    flopCounter_.registerCounters(counters_);
+  }
 
   SeisSol(const SeisSol&) = delete;
   SeisSol(SeisSol&&) = delete;

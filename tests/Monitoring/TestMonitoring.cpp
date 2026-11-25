@@ -7,7 +7,9 @@
 
 #include <doctest.h>
 
+#include "Counters.t.h"
 #include "DeviceTimeline.t.h"
+#include "Energy.t.h"
 #include "FailureReport.t.h"
 #include "FlopCounter.t.h"
 #include "LoopStatistics.t.h"

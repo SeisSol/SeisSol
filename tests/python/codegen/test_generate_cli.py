@@ -18,6 +18,7 @@ Out of scope:
    compiler architecture. That belongs in a golden-file test (see plan).
 """
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -217,3 +218,97 @@ class TestPlatformDerivation:
         gpu_platforms = ["cuda", "hip", "hipsycl", "acpp", "oneapi"]
         targets = ["gpu", "cpu"] if backend in gpu_platforms else ["cpu"]
         assert targets == expected
+
+
+# =============================================================================
+# The configurations of one executable
+# =============================================================================
+
+
+class TestConfigurationsOfOneExecutable:
+    """Configurations that cannot share an executable stop generate.py at once.
+
+    It stops when CMake runs (--mode collect), instead of late in the build.
+    """
+
+    CONFIGS = {
+        "elastic-o3-f32": ("ConfigElasticO3F32", 3, "s"),
+        "elastic-o6-f32": ("ConfigElasticO6F32", 6, "s"),
+        "elastic-o3-f64": ("ConfigElasticO3F64", 3, "d"),
+    }
+    MIXED_PRECISIONS = "chainforge names its kernels without their precision"
+
+    def collect(self, tmp_path, names, device_codegen):
+        configs = [
+            {
+                "key": f"seissol::{self.CONFIGS[name][0]}",
+                "name": name,
+                "equations": "elastic",
+                "solver": "linearck",
+                "numMechanisms": 0,
+                "order": self.CONFIGS[name][1],
+                "precision": self.CONFIGS[name][2],
+                "multipleSimulations": 1,
+            }
+            for name in names
+        ]
+        path = tmp_path / "configs.json"
+        path.write_text(json.dumps(configs), encoding="utf-8")
+        return run_generate(
+            "--equations",
+            "elastic",
+            "--matricesDir",
+            str(SEISSOL_ROOT / "codegen" / "matrices"),
+            "--outputDir",
+            str(tmp_path / "out"),
+            "--host_arch",
+            "hsw",
+            "--order",
+            "3",
+            "--precision",
+            "s",
+            "--numMechanisms",
+            "0",
+            "--memLayout",
+            "auto",
+            "--multipleSimulations",
+            "1",
+            "--PlasticityMethod",
+            "ip",
+            "--gemm_tools",
+            "none",
+            "--drQuadRule",
+            "dunavant",
+            "--device_backend",
+            "cuda",
+            "--device_arch",
+            "sm_90",
+            "--device_vendor",
+            "nvidia",
+            "--device_codegen",
+            device_codegen,
+            "--configs",
+            str(path),
+            "--mode",
+            "collect",
+        )
+
+    def test_chainforge_takes_one_precision_per_executable(self, tmp_path):
+        result = self.collect(
+            tmp_path, ["elastic-o3-f32", "elastic-o3-f64"], "gemmforge-chainforge"
+        )
+        assert result.returncode != 0
+        assert self.MIXED_PRECISIONS in result.stderr
+
+    def test_chainforge_takes_several_configurations_of_one_precision(self, tmp_path):
+        # chainforge itself need not be installed: whatever else stops the run, it is not this
+        result = self.collect(
+            tmp_path, ["elastic-o3-f32", "elastic-o6-f32"], "gemmforge-chainforge"
+        )
+        assert self.MIXED_PRECISIONS not in result.stderr
+
+    def test_other_code_generators_take_both_precisions(self, tmp_path):
+        result = self.collect(
+            tmp_path, ["elastic-o3-f32", "elastic-o3-f64"], "tensorforge"
+        )
+        assert self.MIXED_PRECISIONS not in result.stderr

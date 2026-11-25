@@ -159,7 +159,7 @@ void Spacetime<Cfg>::computeAder(const real* coeffs,
 
 template <typename Cfg>
 PerformanceEstimate Spacetime<Cfg>::metrics() const {
-  auto estimate = PerformanceEstimate::fromKernel<kernel::derivative<Cfg>>();
+  auto estimate = SEISSOL_KERNEL_ESTIMATE(kernel::derivative<Cfg>, kernel::gpu_derivative<Cfg>)();
 
   // legacy memory estimate
   std::uint64_t reals = 0;
@@ -204,7 +204,8 @@ void Time<Cfg>::evaluate(const real* coeffs,
 
 template <typename Cfg>
 PerformanceEstimate Time<Cfg>::metrics() const {
-  return PerformanceEstimate::fromKernel<kernel::derivativeTaylorExpansionEla<Cfg>>();
+  return SEISSOL_KERNEL_ESTIMATE(kernel::derivativeTaylorExpansionEla<Cfg>,
+                                 kernel::gpu_derivativeTaylorExpansionEla<Cfg>)();
 }
 
 template <typename Cfg>

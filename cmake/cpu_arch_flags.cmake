@@ -157,3 +157,28 @@ function(get_arch_flags architecture compiler)
     endif()
 
 endfunction()
+
+# Stops the configuration if the C++ compiler does not target what the host kernels of the build
+# need. The kernels of PSpaMM for sve128 to sve2048 are SVE assembly, and for these SeisSol gives
+# the compiler no flags, as only the build knows the CPU (e.g. -mcpu=neoverse-v2): a compiler that
+# targets plain Armv8 would fail at the first kernel, long after the configuration.
+function(check_host_compiler)
+    if (HOST_ARCH MATCHES "^sve[0-9]+$" AND GEMM_TOOLS_LIST MATCHES "PSpaMM")
+        include(CheckCXXSourceCompiles)
+        # anew in every configuration, so that it passes once the build gives the flags
+        unset(SEISSOL_COMPILER_TARGETS_SVE CACHE)
+        check_cxx_source_compiles([[
+#ifndef __ARM_FEATURE_SVE
+#error "no SVE"
+#endif
+int main() { return 0; }
+]] SEISSOL_COMPILER_TARGETS_SVE)
+        if (NOT SEISSOL_COMPILER_TARGETS_SVE)
+            message(FATAL_ERROR
+                "HOST_ARCH=${HOST_ARCH}: the C++ compiler (${CMAKE_CXX_COMPILER}) does not target "
+                "SVE with the flags of this build, and the host kernels of PSpaMM are SVE assembly. "
+                "Give it the CPU, e.g. -DCMAKE_CXX_FLAGS=-mcpu=neoverse-v2 (NVIDIA Grace: "
+                "-mcpu=grace) or -march=armv8.2-a+sve, and the same in CMAKE_C_FLAGS.")
+        endif()
+    endif()
+endfunction()

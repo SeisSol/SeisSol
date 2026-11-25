@@ -41,6 +41,12 @@ VALID_FIELDS = {
     "gflops-hw": 170.0,
     "gibs": 32.0,
     "gibs-kernel": 24.0,
+    "energy-basis": "none",
+    "joules": 0.0,
+    "watts": 0.0,
+    "gflopj-nz": 0.0,
+    "gflopj-hw": 0.0,
+    "energy-parts": {},
 }
 
 
@@ -58,6 +64,73 @@ def test_non_finite_value_is_rejected(field):
     document = dict(VALID_FIELDS)
     document[field] = float("inf")
     with pytest.raises(smoke.CheckFailed, match="not finite"):
+        smoke.check_proxy_fields(document, "all")
+
+
+def test_measured_energy_passes():
+    document = dict(VALID_FIELDS)
+    document.update(
+        {
+            "energy-basis": "node",
+            "joules": 120.0,
+            "watts": 400.0,
+            "gflopj-nz": 0.0125,
+            "gflopj-hw": 0.0175,
+            "energy-parts": {"node": 120.0, "cpu": 30.0},
+        }
+    )
+    smoke.check_proxy_fields(document, "all")
+
+
+def measured_sum(**changes):
+    """A document of a node that counts its CPUs and its GPUs, not itself."""
+    document = dict(VALID_FIELDS)
+    document.update(
+        {
+            "energy-basis": "cpu+devices",
+            "joules": 120.0,
+            "watts": 400.0,
+            "gflopj-nz": 0.0125,
+            "gflopj-hw": 0.0175,
+            "energy-parts": {"cpu": 40.0, "devices": 80.0},
+        }
+    )
+    document.update(changes)
+    return document
+
+
+def test_sum_of_parts_passes():
+    smoke.check_proxy_fields(measured_sum(), "all")
+
+
+@pytest.mark.parametrize("basis", ["rack", "devices+cpu", "devices+accelerators"])
+def test_unknown_energy_basis_is_rejected(basis):
+    # an unknown part, the parts out of order, the GPUs counted twice
+    document = dict(VALID_FIELDS)
+    document["energy-basis"] = basis
+    with pytest.raises(smoke.CheckFailed, match="energy-basis"):
+        smoke.check_proxy_fields(document, "all")
+
+
+def test_energy_other_than_its_parts_is_rejected():
+    with pytest.raises(smoke.CheckFailed, match="is not the energy-parts"):
+        smoke.check_proxy_fields(measured_sum(joules=100.0), "all")
+    with pytest.raises(smoke.CheckFailed, match="lacks cpu"):
+        smoke.check_proxy_fields(
+            measured_sum(**{"energy-parts": {"devices": 80.0}}), "all"
+        )
+
+
+def test_unknown_or_negative_part_is_rejected():
+    for parts in ({"rack": 1.0}, {"cpu": -1.0, "devices": 80.0}, [40.0]):
+        with pytest.raises(smoke.CheckFailed, match="energy-parts: expected"):
+            smoke.check_proxy_fields(measured_sum(**{"energy-parts": parts}), "all")
+
+
+def test_energy_without_a_basis_is_rejected():
+    document = dict(VALID_FIELDS)
+    document["joules"] = 5.0
+    with pytest.raises(smoke.CheckFailed, match="energy-basis is 'none'"):
         smoke.check_proxy_fields(document, "all")
 
 

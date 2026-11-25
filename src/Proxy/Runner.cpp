@@ -11,17 +11,25 @@
 #include "KernelDevice.h"
 #include "KernelHost.h"
 #include "Kernels/Common.h"
+#include "Monitoring/Energy/Discovery.h"
+#include "Monitoring/Energy/Sensor.h"
 #include "Monitoring/Metric.h"
 #include "Parallel/Runtime/Stream.h"
 #include "Proxy/Cycles.h"
 #include "Proxy/Kernel.h"
 
+#include <algorithm>
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <optional>
+#include <string>
 #include <sys/time.h>
+#include <utils/env.h>
 #include <vector>
 
 #ifdef USE_MEMKIND
@@ -40,6 +48,109 @@
 namespace seissol::proxy {
 
 namespace {
+
+//! @brief The sensors of the node, and what they read at the start of the run.
+struct EnergyMeasurement {
+  std::vector<std::unique_ptr<monitoring::energy::Sensor>> sensors;
+  std::vector<std::optional<monitoring::energy::EnergyReading>> start;
+};
+
+EnergyMeasurement startEnergy() {
+  EnergyMeasurement measurement;
+  if (utils::Env("SEISSOL_").get<bool>("ENERGY", true)) {
+    measurement.sensors = monitoring::energy::nodeSensors("/");
+  }
+  for (auto& sensor : measurement.sensors) {
+    measurement.start.push_back(sensor->read());
+  }
+  return measurement;
+}
+
+/**
+ * @brief Puts the energy since startEnergy() into @p output , over @p time seconds of the run.
+ *
+ * A part whose sensors share a clock that did not advance during the run is not counted: the run
+ * was too short for them to update.
+ */
+void endEnergy(EnergyMeasurement& measurement,
+               double time,
+               double nonzeroFlops,
+               double hardwareFlops,
+               ProxyOutput& output) {
+  using monitoring::energy::Part;
+  constexpr std::array<Part, 5> Parts{
+      Part::Node, Part::Cpu, Part::Memory, Part::Accelerators, Part::Devices};
+  // two spans of the clocks of sensors closer than this, in seconds, are the same
+  constexpr double SameTime = 1e-6;
+  std::array<std::optional<double>, Parts.size()> joules{};
+  // the span of the clock of the sensors of a part, if they all have the same, as the files of the
+  // HPE Cray counters have
+  std::array<std::optional<double>, Parts.size()> seconds{};
+  std::array<bool, Parts.size()> shared{};
+  shared.fill(true);
+  for (std::size_t i = 0; i < measurement.sensors.size(); ++i) {
+    const auto end = measurement.sensors[i]->read();
+    const auto& start = measurement.start[i];
+    if (!start.has_value() || !end.has_value()) {
+      continue;
+    }
+    for (std::size_t part = 0; part < Parts.size(); ++part) {
+      if (measurement.sensors[i]->part() != Parts[part]) {
+        continue;
+      }
+      joules[part] = joules[part].value_or(0.0) + end.value().joules - start.value().joules;
+      if (!start.value().seconds.has_value() || !end.value().seconds.has_value()) {
+        shared[part] = false;
+        continue;
+      }
+      const double span = end.value().seconds.value() - start.value().seconds.value();
+      if (seconds[part].has_value() && std::abs(seconds[part].value() - span) > SameTime) {
+        shared[part] = false;
+      }
+      seconds[part] = span;
+    }
+  }
+  // a part whose sensors share a clock takes its power over it, and is not counted if they did
+  // not update during the run, which was too short then
+  std::array<bool, Parts.size()> counted{};
+  for (std::size_t part = 0; part < Parts.size(); ++part) {
+    const bool clocked = shared[part] && seconds[part].has_value();
+    counted[part] = joules[part].has_value() && (!clocked || seconds[part].value() > 0.0);
+    if (counted[part]) {
+      output.partJoules.emplace_back(monitoring::energy::partName(Parts[part]),
+                                     joules[part].value());
+    }
+  }
+  // the basis, as in the run summary: the whole node, else the sum of its CPUs, memory and GPUs
+  // (energy::basisParts), with the sum of their powers
+  const auto index = [&](Part part) {
+    return static_cast<std::size_t>(std::ranges::find(Parts, part) - Parts.begin());
+  };
+  const auto parts = monitoring::energy::basisParts([&](Part part) {
+    const auto i = index(part);
+    return counted[i] && joules[i].value() > 0.0;
+  });
+  if (parts.empty()) {
+    return;
+  }
+  std::string basis;
+  double total = 0.0;
+  double watts = 0.0;
+  for (const auto part : parts) {
+    const auto i = index(part);
+    const double value = joules[i].value();
+    const bool clocked = shared[i] && seconds[i].has_value();
+    const double span = clocked ? seconds[i].value() : time;
+    basis += (basis.empty() ? "" : "+") + std::string(monitoring::energy::partName(part));
+    total += value;
+    watts += span > 0.0 ? value / span : 0.0;
+  }
+  output.energyBasis = basis;
+  output.joules = total;
+  output.watts = watts;
+  output.nonZeroGFlopPerJoule = nonzeroFlops * 1.e-9 / total;
+  output.hardwareGFlopPerJoule = hardwareFlops * 1.e-9 / total;
+}
 
 void testKernel(const std::shared_ptr<ProxyData>& data,
                 const std::shared_ptr<parallel::runtime::StreamRuntime>& runtime,
@@ -110,6 +221,7 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
 
   const seissol::monitoring::FlopCounter flopCounter{};
 
+  auto energy = startEnergy();
   gettimeofday(&startTime, nullptr);
   cyclesStart = readCycles();
 
@@ -159,6 +271,8 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   output.hardwareGFlops = perSecond(static_cast<double>(hardwareFlops) * 1.e-9);
   output.gibPerSecond = perSecond(bytesEstimate / (1024.0 * 1024.0 * 1024.0));
   output.kernelGibPerSecond = perSecond(bytesKernel / (1024.0 * 1024.0 * 1024.0));
+
+  endEnergy(energy, total, nonzeroFlops, hardwareFlops, output);
 
   runtime.reset();
 

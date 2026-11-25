@@ -16,6 +16,7 @@
 #include "Kernels/PointSourceCluster.h"
 #include "Memory/HostData.h"
 #include "Memory/HostSnapshot.h"
+#include "Monitoring/Counters.h"
 #include "Monitoring/DeviceTimeline.h"
 #include "Monitoring/DeviceTimer.h"
 #include "Monitoring/Stopwatch.h"
@@ -243,6 +244,12 @@ class TimeManager {
    * dynamic rupture faces once, and the copy cells next to several neighbors once per neighbor.
    **/
   [[nodiscard]] Updates updates() const;
+
+  /**
+   * Registers the updates of the cells, of the further copies of copy cells and of the dynamic
+   * rupture faces, over all clusters, as counters of the run.
+   **/
+  void registerCounters(monitoring::Counters& counters) const;
 
   void setFaultOutputManager(seissol::dr::output::OutputManager* faultOutputManager);
   seissol::dr::output::OutputManager* faultOutputManager();

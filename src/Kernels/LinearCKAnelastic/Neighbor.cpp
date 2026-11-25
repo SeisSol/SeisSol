@@ -133,15 +133,17 @@ std::pair<PerformanceEstimate, PerformanceEstimate> Neighbor<Cfg>::metrics(
     if (faceTypes[face] == FaceType::Regular) {
       assert(neighboringIndices[face][0] < Cell::NumFaces && neighboringIndices[face][1] == 0);
 
-      regular += PerformanceEstimate::fromKernel<seissol::kernel::neighborFluxExt<Cfg>>(
+      regular += SEISSOL_KERNEL_ESTIMATE(seissol::kernel::neighborFluxExt<Cfg>,
+                                         seissol::kernel::gpu_neighborFluxExt<Cfg>)(
           neighboringIndices[face][0], face);
     } else if (faceTypes[face] == FaceType::DynamicRupture) {
-      dr += PerformanceEstimate::fromKernel<dynamicRupture::kernel::nodalFlux<Cfg>>(
+      dr += SEISSOL_KERNEL_ESTIMATE(dynamicRupture::kernel::nodalFlux<Cfg>,
+                                    dynamicRupture::kernel::gpu_nodalFlux<Cfg>)(
           cellDrMapping[face].side, cellDrMapping[face].faceRelation);
     }
   }
 
-  regular += PerformanceEstimate::fromKernel<kernel::neighbor<Cfg>>();
+  regular += SEISSOL_KERNEL_ESTIMATE(kernel::neighbor<Cfg>, kernel::gpu_neighbor<Cfg>)();
 
   // legacy memory estimate
   std::uint64_t reals = 0;

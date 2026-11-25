@@ -47,7 +47,12 @@ PYBIND11_MODULE(seissol_proxy_bindings, module) {
       .def_readwrite("bytes_per_cycle", &ProxyOutput::bytesPerCycle)
       .def_readwrite("non_zero_gflops", &ProxyOutput::nonZeroGFlops)
       .def_readwrite("hardware_gflops", &ProxyOutput::hardwareGFlops)
-      .def_readwrite("gib_per_second", &ProxyOutput::gibPerSecond);
+      .def_readwrite("gib_per_second", &ProxyOutput::gibPerSecond)
+      .def_readwrite("energy_basis", &ProxyOutput::energyBasis)
+      .def_readwrite("joules", &ProxyOutput::joules)
+      .def_readwrite("watts", &ProxyOutput::watts)
+      .def_readwrite("non_zero_gflop_per_joule", &ProxyOutput::nonZeroGFlopPerJoule)
+      .def_readwrite("hardware_gflop_per_joule", &ProxyOutput::hardwareGFlopPerJoule);
 
   py::class_<Aux>(module, "Aux")
       .def(py::init<>())
