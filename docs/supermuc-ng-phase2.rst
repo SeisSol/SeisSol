@@ -23,7 +23,7 @@ We use ``skx`` as CPU architecture, ``pvc`` as GPU architecture, and ``oneapi`` 
 These instructions were tested in November 2026. The GPU driver of the nodes at that time
 (compute-runtime 23.43 with the Level Zero loader 1.14) limits the oneAPI versions that work, see
 :ref:`supermuc-ng-phase2-known-issues`: use oneAPI 2025.0. Its graphics compiler, however, is old:
-build the GPU kernels with a newer one, which makes SeisSol about twice as fast there,
+build the GPU kernels with a newer one, which makes SeisSol more than twice as fast there,
 see :ref:`supermuc-ng-phase2-igc`.
 
 The login nodes have no access to the internet. Download the sources (and Python packages) elsewhere and copy them over,
@@ -118,18 +118,28 @@ A newer graphics compiler (recommended)
 
 The ahead-of-time compile of the GPU kernels goes through ``ocloc`` and the Intel Graphics Compiler (IGC) of the GPU
 driver of the nodes (ocloc 23.43 with IGC 1.0.15468 as of November 2026). A recent IGC makes much faster kernels from
-the same code: with ocloc 26.35 and IGC 2.41.5, the TPV12/13 example (``tpv12_13`` of
-https://github.com/SeisSol/Examples, 0.5 s simulated time; not one of the verification cases) ran 2.3 times as
-fast on one node with eight stacks (26 s instead of 59 s), and the verification cases of single precision passed.
-We therefore recommend building with a recent IGC.
+the same code: built with IGC 2.42.6 (ocloc 26.40), the TPV12/13 example (``tpv12_13`` of
+https://github.com/SeisSol/Examples, 0.5 s simulated time; not one of the verification cases) ran 2.2 times as fast on
+one node with eight stacks (27 s instead of 60 s), and all verification cases of single precision passed. We
+recommend IGC 2.42.6 or newer. Do not use IGC 2.41.5: it is as fast, but computes the volume kernel of orders 3 and 5
+in single precision wrongly. The IGC of the nodes, in turn, computes the local flux kernel of eight fused simulations
+wrongly. Run the verification cases for your configuration before production runs.
 
 Only the compiler changes; the binary runs on the driver of the nodes as before. ``icpx`` calls the first ``ocloc``
-in ``PATH``, so it suffices to put a newer one there for ``cmake`` and the build. The packaged builds of recent
-versions need a newer C library than the nodes have. We took those of Arch Linux (``ocloc`` of
-``intel-compute-runtime``, the libraries of ``intel-graphics-compiler`` and the ones they need; the packages of
-Intel's releases on GitHub, intel/compute-runtime and intel/intel-graphics-compiler, work the same way), copied them
-into one folder, renamed ``ocloc`` to ``ocloc.bin``, and start it with the loader of that distribution through a
-script named ``ocloc`` in the same folder:
+in ``PATH``, so it suffices to put a newer one there for ``cmake`` and the build. We took the packages of Intel's
+releases on GitHub: ``intel-igc-core-2`` and ``intel-igc-opencl-2`` (2.42.6+23070) of
+https://github.com/intel/intel-graphics-compiler, and ``intel-ocloc`` (26.40.40196.8) and ``libigdgmm12`` (22.10.2)
+as listed for the release 26.40.40196.8 of https://github.com/intel/compute-runtime. Unpack them on a machine with
+internet (``ar x <package>.deb && tar xf data.tar.*``, for each package in a folder of its own), and copy into one
+folder (with ``cp -L``, as some of these names are links):
+``usr/bin/ocloc-26.40.1``, renamed to ``ocloc.bin``; ``libocloc.so`` and ``libigdgmm.so.12`` from
+``usr/lib/x86_64-linux-gnu``; ``libigc.so.2``, ``libiga64.so.2``, ``libigdfcl.so.2``, ``libigc-clang.so.23.0git`` and
+``libopencl-clang2.so.22.1`` from ``usr/local/lib``.
+
+These builds need a newer C library than the nodes have (glibc 2.31). So the folder also gets the loader and the
+libraries of a newer distribution (we took those of Arch Linux): ``ld-linux-x86-64.so.2``, ``libc.so.6``,
+``libm.so.6``, ``libstdc++.so.6``, ``libgcc_s.so.1``, ``libz.so.1`` and ``libzstd.so.1``. A script named ``ocloc``
+in the same folder starts ``ocloc.bin`` with that loader:
 
 .. code-block:: bash
 
@@ -137,16 +147,8 @@ script named ``ocloc`` in the same folder:
     D=$(dirname "$(readlink -f "$0")")
     exec "$D/ld-linux-x86-64.so.2" --library-path "$D" "$D/ocloc.bin" "$@"
 
-Besides ``ocloc.bin``, the folder holds ``libocloc.so``, ``libigc.so.2``, ``libiga64.so.2``, ``libigdfcl.so.2``,
-``libopencl-clang.so.*`` and ``libigdgmm.so.12``, and, from the same distribution, ``ld-linux-x86-64.so.2``,
-``libc.so.6``, ``libm.so.6``, ``libstdc++.so.6``, ``libgcc_s.so.1``, ``libz.so.1`` and ``libzstd.so.1``.
-Then add ``export PATH=<that-folder>:$PATH`` to ``env.sh`` before configuring and building.
-
-Not every IGC computes every kernel right. In tests of the generated kernels, IGC 2.41.5 computed the volume kernel of
-orders 3 and 5 in single precision wrongly (IGC 2.40.13 and 2.42.6 did not), and the IGC of the nodes computed the
-local flux kernel of eight fused simulations wrongly. For order 6 in single precision, all verification cases
-passed with IGC 2.41.5. Prefer IGC 2.42.6 or newer (we have not measured SeisSol's speed with it yet), and run the
-verification cases for your configuration before production runs.
+Copy the folder to the machine, make the script executable, and add ``export PATH=<that-folder>:$PATH`` to ``env.sh``
+before configuring and building; ``ocloc query OCL_DRIVER_VERSION`` then prints ``26.40.40196.8``.
 
 Running Jobs
 ~~~~~~~~~~~~
