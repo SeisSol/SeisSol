@@ -24,4 +24,4 @@ jobs:
       - name: run-header-checker
         run: |
           set -euo pipefail
-          python .ci/header.py src app
+          python scripts/ci/header.py src app

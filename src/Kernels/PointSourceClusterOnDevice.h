@@ -15,18 +15,23 @@
 #include <array>
 
 namespace seissol::kernels {
+/// The point sources of a time cluster whose cells compute in the configuration `Cfg`, on the
+/// device.
+template <typename Cfg>
 class PointSourceClusterOnDevice : public PointSourceCluster {
   public:
   PointSourceClusterOnDevice(std::shared_ptr<sourceterm::ClusterMapping> mapping,
-                             std::shared_ptr<sourceterm::PointSources> sources);
+                             std::shared_ptr<sourceterm::PointSources<Cfg>> sources);
   void addTimeIntegratedPointSources(double from,
-                                     double to,
+                                     double timeStepSize,
                                      seissol::parallel::runtime::StreamRuntime& runtime) override;
+  void setClock(const double* deviceClock) override;
   [[nodiscard]] std::size_t size() const override;
 
   private:
   std::shared_ptr<sourceterm::ClusterMapping> clusterMapping_;
-  std::shared_ptr<sourceterm::PointSources> sources_;
+  std::shared_ptr<sourceterm::PointSources<Cfg>> sources_;
+  const double* clock_{nullptr};
 };
 } // namespace seissol::kernels
 

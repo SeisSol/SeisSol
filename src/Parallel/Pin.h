@@ -13,8 +13,9 @@
 
 #include <async/as/Pin.h>
 #include <deque>
-#include <sched.h>
+#include <optional>
 #include <string>
+#include <utils/env.h>
 
 namespace seissol::parallel {
 
@@ -32,13 +33,22 @@ class Pinning {
   [[nodiscard]] static async::as::CpuMask getWorkerUnionMask();
   [[nodiscard]] async::as::CpuMask getFreeCPUsMask() const;
   static bool freeCPUsMaskEmpty(const async::as::CpuMask& mask);
+  /**
+   * @return The lowest CPU in @p mask, or none if the mask is empty.
+   */
+  [[nodiscard]] static std::optional<int> firstCpu(const async::as::CpuMask& mask);
   [[nodiscard]] async::as::CpuMask getOnlineMask() const;
   [[nodiscard]] static bool areAllCpusOnline();
   void pinToFreeCPUs() const;
+  /**
+   * Pins the calling thread to @p mask. Unlike pinToFreeCPUs(), it calls no collective, so that a
+   * thread of its own can call it with a mask that the main thread has computed.
+   */
+  static void pinCurrentThread(const async::as::CpuMask& mask);
   static std::string maskToString(const async::as::CpuMask& mask);
   static std::string maskToStringShort(const async::as::CpuMask& mask);
   [[nodiscard]] static async::as::CpuMask getNodeMask();
-  void checkEnvVariables();
+  void checkEnvVariables(utils::Env& env);
 };
 
 } // namespace seissol::parallel

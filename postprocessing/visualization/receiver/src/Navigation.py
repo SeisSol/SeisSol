@@ -46,6 +46,7 @@ from PyQt5.QtWidgets import *
 import os
 import copy
 
+import Hdf5
 import Tecplot
 import Waveform
 
@@ -102,15 +103,21 @@ class Navigation(QWidget):
 
       files = [f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder,f))]
       files.sort()
-      numValidFiles = 0
+      # an item is a receiver, holding a waveform per simulation; an HDF5 file holds all of them
+      receivers = []
       for f in files:
         if f.endswith('dat'):
-          wf = Tecplot.read(os.path.join(folder,f))
-          if wf:
-            item = QStandardItem(f)
-            item.setData(wf)
-            self.model.appendRow(item)
-            numValidFiles = numValidFiles + 1
+          waveforms = Tecplot.read(os.path.join(folder,f))
+          if waveforms:
+            receivers.append((f, waveforms))
+        elif Hdf5.isReceiverFile(f):
+          receivers += Hdf5.read(os.path.join(folder,f))
+      numValidFiles = 0
+      for label, waveforms in receivers:
+        item = QStandardItem(label)
+        item.setData(waveforms)
+        self.model.appendRow(item)
+        numValidFiles = numValidFiles + 1
 
       if currentIndex.row() >= 0 and numValidFiles > currentIndex.row():
         newIndex = self.model.index(currentIndex.row(), currentIndex.column())
@@ -120,8 +127,8 @@ class Navigation(QWidget):
   def getActiveWaveforms(self):
     waveforms = []
     for index in self.receiverList.selectedIndexes():
-      wf = self.model.itemFromIndex(index).data()
-      waveforms.append( copy.deepcopy(wf) )
+      for wf in self.model.itemFromIndex(index).data():
+        waveforms.append( copy.deepcopy(wf) )
     return waveforms
 
   def refreshFolder(self):

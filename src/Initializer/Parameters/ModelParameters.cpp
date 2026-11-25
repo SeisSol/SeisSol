@@ -7,18 +7,44 @@
 
 #include "ModelParameters.h"
 
-#include "Equations/Datastructures.h"
+#include "Common/ConfigRegistry.h"
+#include "Common/ConfigValue.h"
 #include "Initializer/Parameters/ParameterReader.h"
-#include "Solver/MultipleSimulations.h"
 
+#include <algorithm>
+#include <charconv>
 #include <cstddef>
 #include <string>
+#include <system_error>
+#include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <utils/logger.h>
 #include <utils/stringutils.h>
 #include <vector>
 
 namespace seissol::initializer::parameters {
+
+ConfigId ModelParameters::configOfGroup(int group) const {
+  const auto found = groupConfigs.find(group);
+  return found == groupConfigs.end() ? config : found->second;
+}
+
+std::vector<ConfigId> ModelParameters::configs() const {
+  std::vector<ConfigId> ofGroups;
+  ofGroups.reserve(groupConfigs.size());
+  for (const auto& [group, groupConfig] : groupConfigs) {
+    ofGroups.push_back(groupConfig);
+  }
+  std::ranges::sort(ofGroups);
+  std::vector<ConfigId> result{config};
+  for (const auto groupConfig : ofGroups) {
+    if (std::ranges::find(result, groupConfig) == result.end()) {
+      result.push_back(groupConfig);
+    }
+  }
+  return result;
+}
 
 ITMParameters readITMParameters(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("equations");
@@ -48,24 +74,149 @@ ITMParameters readITMParameters(ParameterReader* baseReader) {
     reader->markUnused(
         {"itmstartingtime", "itmtime", "itmvelocityscalingfactor", "itmreflectiontype"});
   }
-  return ITMParameters{
-      itmEnabled, itmStartingTime, itmDuration, itmVelocityScalingFactor, reflectionType};
+  return ITMParameters{.itmEnabled = itmEnabled,
+                       .itmStartingTime = itmStartingTime,
+                       .itmDuration = itmDuration,
+                       .itmVelocityScalingFactor = itmVelocityScalingFactor,
+                       .itmReflectionType = reflectionType};
 }
 
-ModelParameters readModelParameters(ParameterReader* baseReader) {
+namespace {
+
+ConfigId configByName(std::string name) {
+  sanitize(name);
+  const auto config = findConfig(name);
+  if (!config.has_value()) {
+    logError() << "The configuration" << name
+               << "is not built into this executable. It has:" << builtConfigNames();
+  }
+  return config.value();
+}
+
+} // namespace
+
+ConfigId readConfig(ParameterReader* baseReader) {
+  auto* reader = baseReader->readSubNode("equations");
+  const auto name = reader->read<std::string>("configuration");
+  if (!name.has_value()) {
+    return defaultConfig();
+  }
+  const auto config = configByName(name.value());
+  // the parameter file is the more specific of the two
+  const auto fromEnvironment = environmentConfig();
+  if (fromEnvironment.has_value() && fromEnvironment.value() != config) {
+    logWarning() << "SEISSOL_CONFIGURATION names"
+                 << configName(configValue(fromEnvironment.value()))
+                 << "but the parameter file names" << configName(configValue(config))
+                 << "which takes precedence.";
+  }
+  return config;
+}
+
+std::unordered_map<int, ConfigId> readGroupConfigs(ParameterReader* baseReader, ConfigId config) {
+  auto* reader = baseReader->readSubNode("equations");
+  const auto configMap = reader->readWithDefault<std::string>("configmap", "");
+
+  std::unordered_map<int, ConfigId> groupConfigs;
+  for (const auto& entry : utils::StringUtils::split(configMap, ';')) {
+    auto trimmed = entry;
+    if (utils::StringUtils::trim(trimmed).empty()) {
+      continue;
+    }
+    const auto groupsAndName = utils::StringUtils::split(entry, ':');
+    if (groupsAndName.size() != 2) {
+      logError() << "The configmap entry" << entry
+                 << "does not have the form \"group,group,...:configuration\".";
+    }
+    const auto groupConfig = configByName(groupsAndName[1]);
+    if (configValue(groupConfig).numSimulations != configValue(config).numSimulations) {
+      logError() << "The configuration" << configName(configValue(groupConfig))
+                 << "fuses another number of simulations than" << configName(configValue(config))
+                 << "; all configurations of a run fuse the same number.";
+    }
+    for (auto group : utils::StringUtils::split(groupsAndName[0], ',')) {
+      utils::StringUtils::trim(group);
+      int groupId = 0;
+      const auto* groupEnd = group.data() + group.size();
+      const auto parsed = std::from_chars(group.data(), groupEnd, groupId);
+      if (group.empty() || parsed.ec != std::errc{} || parsed.ptr != groupEnd) {
+        logError() << "The configmap entry" << entry << "names" << group
+                   << "as a mesh group, which is not an integer.";
+      }
+      const auto [found, inserted] = groupConfigs.emplace(groupId, groupConfig);
+      if (!inserted && found->second != groupConfig) {
+        logError() << "The configmap gives the mesh group" << groupId
+                   << "more than one configuration.";
+      }
+    }
+  }
+  return groupConfigs;
+}
+
+std::size_t readSimulationCount(ParameterReader* baseReader, ConfigId config) {
+  auto* reader = baseReader->readSubNode("equations");
+  const auto simulationCount =
+      reader->readWithDefault<std::size_t>("simcount", configValue(config).numSimulations);
+  if (simulationCount == 0) {
+    logError() << "The number of simulations (simcount) has to be positive.";
+  }
+  return simulationCount;
+}
+
+ModelParameters readModelParameters(ParameterReader* baseReader,
+                                    ConfigId config,
+                                    std::unordered_map<int, ConfigId> groupConfigs) {
   auto* reader = baseReader->readSubNode("equations");
 
-  const auto boundaryFileName = reader->readPath("boundaryfileName");
-  const std::string materialFileName =
-      reader->readPathOrFail("materialfilename", "No material file given.");
-  std::vector<std::string> plasticityFileNames(seissol::multisim::NumSimulations);
+  const auto simulationCount = readSimulationCount(baseReader, config);
 
-  for (std::size_t i = 0; i < plasticityFileNames.size(); ++i) {
-    const auto fieldname = "plasticityfilename" + (i == 0 ? std::string{} : std::to_string(i));
-    plasticityFileNames[i] = reader->readPath(fieldname).value_or(materialFileName);
+  // the easi boundary condition of every simulation, the one of the first if not given
+  std::vector<std::string> boundaryFileNames(simulationCount);
+  boundaryFileNames[0] = reader->readPath("boundaryfilename").value_or("");
+  for (std::size_t i = 1; i < simulationCount; ++i) {
+    boundaryFileNames[i] =
+        reader->readPath("boundaryfilename" + std::to_string(i)).value_or(boundaryFileNames[0]);
   }
 
-  const bool hasBoundaryFile = !boundaryFileName.value_or("").empty();
+  // The material of every simulation, the one of the first if not given. The plasticity of every
+  // simulation likewise, the one of the first if not given, and else its own material file. An
+  // empty file name counts as none.
+  std::vector<std::string> materialFileNames(simulationCount);
+  std::vector<std::string> plasticityFileNames(simulationCount);
+  const auto plasticityFileName = reader->readPath("plasticityfilename").value_or("");
+  for (std::size_t i = 0; i < simulationCount; ++i) {
+    if (i == 0) {
+      materialFileNames[i] = reader->readPathOrFail("materialfilename", "No material file given.");
+    } else {
+      materialFileNames[i] =
+          reader->readPath("materialfilename" + std::to_string(i)).value_or(materialFileNames[0]);
+    }
+    plasticityFileNames[i] =
+        i == 0 ? plasticityFileName
+               : reader->readPath("plasticityfilename" + std::to_string(i)).value_or("");
+    if (plasticityFileNames[i].empty()) {
+      plasticityFileNames[i] = plasticityFileName;
+    }
+    if (plasticityFileNames[i].empty()) {
+      plasticityFileNames[i] = materialFileNames[i];
+    }
+  }
+
+  // The simulations fused into a cell share its material, and so have to name the same file.
+  const auto fusedCount = configValue(config).numSimulations;
+  for (std::size_t i = 0; i < simulationCount; ++i) {
+    const auto first = i - i % fusedCount;
+    if (materialFileNames[i] != materialFileNames[first]) {
+      logError() << "The simulations" << first << "and" << i
+                 << "are fused into the same cell, which has one material, but they name "
+                    "different material files:"
+                 << materialFileNames[first] << "for the first and" << materialFileNames[i]
+                 << "for the second.";
+    }
+  }
+
+  const bool hasBoundaryFile =
+      std::ranges::any_of(boundaryFileNames, [](const auto& name) { return !name.empty(); });
 
   const bool plasticity = reader->readWithDefault("plasticity", false);
 
@@ -88,14 +239,15 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
       reader->readWithDefault("gravitationalacceleration", 9.81);
   const double tv = reader->readWithDefault("tv", 0.1);
 
-  constexpr auto IsAnelastic = model::MaterialT::Mechanisms > 0;
+  bool isAnelastic = configValue(config).relaxationMechanisms > 0;
+  for (const auto& [group, groupConfig] : groupConfigs) {
+    isAnelastic = isAnelastic || configValue(groupConfig).relaxationMechanisms > 0;
+  }
 
-  const auto freqCentral = reader->readIfRequired<double>("freqcentral", IsAnelastic);
-  const auto freqRatio = reader->readIfRequired<double>("freqratio", IsAnelastic);
-  if constexpr (IsAnelastic) {
-    if (freqRatio <= 0) {
-      logError() << "The freqratio parameter must be positive; but that is currently not the case.";
-    }
+  const auto freqCentral = reader->readIfRequired<double>("freqcentral", isAnelastic);
+  const auto freqRatio = reader->readIfRequired<double>("freqratio", isAnelastic);
+  if (isAnelastic && (freqRatio <= 0)) {
+    logError() << "The freqratio parameter must be positive; but that is currently not the case.";
   }
 
   const ITMParameters itmParameters = readITMParameters(baseReader);
@@ -127,25 +279,28 @@ ModelParameters readModelParameters(ParameterReader* baseReader) {
   const auto fluxGPart = reader->readWithDefault("fluxgpart", 0.0);
   const auto fluxGPartNearFault = reader->readWithDefault("fluxgpartnearfault", 0.0);
 
-  return ModelParameters{hasBoundaryFile,
-                         plasticity,
-                         plasticityPointwise,
-                         plasticityDisabledGroups,
-                         useCellHomogenizedMaterial,
-                         freqCentral,
-                         freqRatio,
-                         gravitationalAcceleration,
-                         tv,
-                         boundaryFileName.value_or(""),
-                         materialFileName,
-                         plasticityFileNames,
-                         itmParameters,
-                         flux,
-                         fluxNearFault,
-                         fluxRPart,
-                         fluxRPartNearFault,
-                         fluxGPart,
-                         fluxGPartNearFault};
+  return ModelParameters{.hasBoundaryFile = hasBoundaryFile,
+                         .plasticity = plasticity,
+                         .plasticityPointwise = plasticityPointwise,
+                         .plasticityDisabledGroups = plasticityDisabledGroups,
+                         .useCellHomogenizedMaterial = useCellHomogenizedMaterial,
+                         .freqCentral = freqCentral,
+                         .freqRatio = freqRatio,
+                         .gravitationalAcceleration = gravitationalAcceleration,
+                         .tv = tv,
+                         .boundaryFileNames = boundaryFileNames,
+                         .materialFileNames = materialFileNames,
+                         .plasticityFileNames = plasticityFileNames,
+                         .itmParameters = itmParameters,
+                         .flux = flux,
+                         .fluxNearFault = fluxNearFault,
+                         .fluxRPart = fluxRPart,
+                         .fluxNearFaultRPart = fluxRPartNearFault,
+                         .fluxGPart = fluxGPart,
+                         .fluxNearFaultGPart = fluxGPartNearFault,
+                         .config = config,
+                         .groupConfigs = std::move(groupConfigs),
+                         .simulationCount = simulationCount};
 }
 
 std::string fluxToString(NumericalFlux flux) {

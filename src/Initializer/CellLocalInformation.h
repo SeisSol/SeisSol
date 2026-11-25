@@ -26,7 +26,7 @@ struct CellLocalInformation {
   // mapping of the neighboring elements to the references element in relation to this element
   std::array<std::array<uint8_t, 2>, Cell::NumFaces> faceRelations{};
 
-  // neighbor config IDs
+  // the configurations the face neighbors compute in (the maximum value if there is none)
   std::array<std::uint32_t, Cell::NumFaces> neighborConfigIds{};
 
   // LTS setup
@@ -44,6 +44,9 @@ struct SecondaryCellLocalInformation {
 
   // local mesh ID (for interior/copy) or position in the linearized ghost layer
   std::size_t meshId{};
+
+  // simulation copy ID
+  std::size_t copyId{};
 
   // storage positions of the face neighbors
   std::array<initializer::StoragePosition, Cell::NumFaces> faceNeighbors;

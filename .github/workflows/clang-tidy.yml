@@ -9,10 +9,21 @@ name: clang-tidy
 on:
   - push
 
+# a push to a branch replaces the run of the push before it; on master, every push runs to its end
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref_name == 'master' && github.run_id || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   clang-tidy:
-    name: clang-tidy
+    name: clang-tidy (${{ matrix.shard }}/4)
     runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # with the set ci-cpu, clang-tidy takes about three and a half times as long as with one
+        # configuration; four jobs share the translation units (TIDY_SHARD of scripts/ci/tidy.sh)
+        shard: [0, 1, 2, 3]
     steps:
       - name: apt-get
         run: |
@@ -22,40 +33,85 @@ jobs:
           # fetch the latest clang-tidy manually from the LLVM sources; since that's usually not provided in the Ubuntu default repos. (and we update the clang-tidy version more often than there are Ubuntu-LTS releases)
 
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
-          sudo add-apt-repository "deb http://apt.llvm.org/resolute/ llvm-toolchain-resolute-22 main"
-          sudo add-apt-repository "deb-src http://apt.llvm.org/resolute/ llvm-toolchain-resolute-22 main"
+          sudo add-apt-repository "deb http://apt.llvm.org/resolute/ llvm-toolchain-resolute-23 main"
+          sudo add-apt-repository "deb-src http://apt.llvm.org/resolute/ llvm-toolchain-resolute-23 main"
           sudo apt-get update
 
-          sudo apt-get -y install clang-22 clang-tidy-22 libomp-22-dev
+          sudo apt-get -y install clang-23 clang-tidy-23 libomp-23-dev
 
           sudo pip3 install numpy --break-system-packages
+          sudo apt-get -y install ninja-build
           sudo mkdir -p /opt/dependencies
-
-      - name: checkout-easi
-        uses: actions/checkout@master
-        with:
-          repository: SeisSol/easi
-
-      - name: build-easi
-        run: |
-          mkdir build && cd build
-          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
-          make -j $(nproc) && make install
+          sudo chown "$(id -u):$(id -g)" /opt/dependencies
 
       - name: checkout-seissol
         uses: actions/checkout@v6
         with:
           repository: SeisSol/SeisSol
 
+      - name: checkout-easi
+        uses: actions/checkout@v6
+        with:
+          repository: SeisSol/easi
+          path: easi
+
+      - name: build-easi
+        run: scripts/ci/build-easi.sh easi /opt/dependencies
+
+      # (the steps of the job are in scripts/ci/jobs/tidy.sh, which runs them locally as well)
       - name: clang-tidy
+        run: scripts/ci/jobs/tidy.sh cpu ${{ matrix.shard }}/4
+
+      # the findings, for a look without logging in to GitHub (see scripts/ci/status.py)
+      - name: upload-findings
+        uses: actions/upload-artifact@v7
+        if: ${{ failure() }}
+        with:
+          name: tidy-cpu-${{ matrix.shard }}
+          path: build/tidy-*.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
+  clang-tidy-gpu:
+    name: clang-tidy-gpu (${{ matrix.shard }}/4)
+    runs-on: ubuntu-26.04
+    # the image of the CUDA jobs of the GPU CI, for its AdaptiveCpp: with DEVICE_BACKEND=acpp, the
+    # SYCL kernels are translation units of the build like all others, so clang-tidy reads them all.
+    # It compiles nothing, so the device of the build needs neither a GPU nor a device compiler; the
+    # kernels are generated for sm_75 (for generic, TensorForge cannot generate the set ci-gpu).
+    container: seissol/gha-gpu-nv:davschneller-gpu-image
+    strategy:
+      fail-fast: false
+      matrix:
+        # the configurations of the GPU tests (ci-gpu), the translation units shared out as in the
+        # CPU job
+        shard: [0, 1, 2, 3]
+    steps:
+      - name: apt-get
         run: |
-          set -euo pipefail
-          clang-tidy-22 --version
-          which clang-tidy-22
-          git submodule update --init
-          mkdir -p build && cd build
-          CMAKE_PREFIX_PATH=/opt/dependencies cmake -DGEMM_TOOLS_LIST=none -DNETCDF=OFF -DORDER=6 -DASAGI=OFF -DHDF5=ON -DCMAKE_BUILD_TYPE=Debug -DTESTING=ON -DLOG_LEVEL=warning -DLOG_LEVEL_MASTER=info -DHOST_ARCH=hsw -DPRECISION=double -DEQUATIONS=elastic -DNUMBER_OF_MECHANISMS=0 -DTESTING=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DGRAPH_PARTITIONING_LIBS=ptscotch ..
-          make seissol-codegen
-          # clang-tidy can not handle -fprofile-abs-path, so we remove it from the compile commands.
-          sed -i 's/-fprofile-abs-path //g' compile_commands.json
-          ../.ci/tidy.sh ../ ./ -clang-tidy-binary=$(which clang-tidy-22) -quiet -j $(nproc)
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-23 main"
+          apt-get update
+          apt-get -y install clang-tidy-23 libomp-23-dev
+          ln -sf "$(which run-clang-tidy-23)" /usr/local/bin/run-clang-tidy
+
+          pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git
+
+      - name: checkout-seissol
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      # (the steps of the job are in scripts/ci/jobs/tidy.sh, which runs them locally as well)
+      - name: clang-tidy
+        run: scripts/ci/jobs/tidy.sh gpu ${{ matrix.shard }}/4
+
+      # the findings, for a look without logging in to GitHub (see scripts/ci/status.py)
+      - name: upload-findings
+        uses: actions/upload-artifact@v7
+        if: ${{ failure() }}
+        with:
+          name: tidy-gpu-${{ matrix.shard }}
+          path: build/tidy-*.txt
+          if-no-files-found: ignore
+          retention-days: 14

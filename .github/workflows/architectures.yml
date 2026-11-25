@@ -1,0 +1,260 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+name: architectures
+on:
+  - push
+  - workflow_dispatch
+
+# a push to a branch replaces the run of the push before it; on master, every push runs to its end
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref_name == 'master' && github.run_id || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build SeisSol on Linux on 64-bit ARM, with GCC and the kernels of PSpaMM, in the configurations
+  # of the set ci-cpu, and run all its tests but those of the label spectral:
+  #
+  # - sve128, for SVE with vectors of 128 bits, as the Neoverse N2 of the runner has them, and as
+  #   Neoverse V2 has them (Grace, Graviton4);
+  # - neon, for ARM without SVE, here for a Neoverse N1 (Graviton2, Altra), which the N2 runs code
+  #   for. The macOS job builds neon as well, with Clang and the assembler of LLVM; here, the kernels
+  #   go through the assembler of GNU.
+  # ---------------------------------------------------------------------------
+  aarch64:
+    name: aarch64<${{ matrix.setup.host-arch }}>
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        setup:
+          - host-arch: sve128
+            cpu: neoverse-n2
+          - host-arch: neon
+            cpu: neoverse-n1
+    steps:
+      - name: check-sve
+        if: ${{ matrix.setup.host-arch == 'sve128' }}
+        run: |
+          # the kernels of sve128 take vectors of 128 bits (16 bytes); a runner with others would
+          # fail their tests for that
+          length=$(cat /proc/sys/abi/sve_default_vector_length 2>/dev/null || echo none)
+          if [ "${length}" != 16 ]; then
+            echo "::error::The runner has SVE vectors of ${length} bytes, sve128 needs 16."
+            exit 1
+          fi
+
+      - name: apt-get
+        run: |
+          sudo apt-get update
+          sudo apt-get install ninja-build hdf5-tools libeigen3-dev libhdf5-openmpi-dev libnuma-dev libopenmpi-dev libyaml-cpp-dev openmpi-bin openmpi-common python3 python3-pip
+
+          # h5py for the verification tests, which write their meshes with it
+          sudo pip3 install setuptools numpy h5py --break-system-packages
+          sudo pip3 install git+https://github.com/SeisSol/PSpaMM.git --break-system-packages
+          sudo mkdir -p /opt/dependencies
+          sudo chown "$(id -u):$(id -g)" /opt/dependencies
+
+      - id: checkout
+        name: checkout-seissol
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: checkout-easi
+        uses: actions/checkout@v6
+        with:
+          repository: SeisSol/easi
+          path: easi
+
+      - name: build-easi
+        run: scripts/ci/build-easi.sh easi /opt/dependencies
+
+      # (the steps of the job are in scripts/ci/jobs/aarch64.sh, which runs them locally as well)
+      - id: build
+        name: build-seissol
+        env:
+          CPU: ${{ matrix.setup.cpu }}
+          HOST_ARCH: ${{ matrix.setup.host-arch }}
+        run: scripts/ci/jobs/aarch64.sh build
+
+      - id: test
+        name: test-seissol
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: scripts/ci/jobs/aarch64.sh test
+
+      - name: upload-test-logs
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        with:
+          name: aarch64-${{ matrix.setup.host-arch }}-logs
+          path: |
+            build/junit*.xml
+            build/Testing/Temporary/LastTest*.log
+            build/tests/verification/*/work/*/seissol.log
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Build SeisSol with the cross compilers of Ubuntu for the architectures that GitHub has no
+  # runners of, and run its tests on QEMU, which emulates the CPU of qemu-cpu: the vector
+  # instructions of the kernels that PSpaMM generates for HOST_ARCH run as on that CPU.
+  #
+  # - rvv128, rvv256: RISC-V with the vector extension, its vectors of 128 and 256 bits;
+  # - sve256: SVE with vectors of 256 bits, as Neoverse V1 has them (Graviton3, Rhea1);
+  # - a64fx: SVE with vectors of 512 bits (Fugaku);
+  # - lasx: LoongArch with its vectors of 256 bits (LASX);
+  # - power10: POWER, for which no code generator of SeisSol has kernels; Eigen computes them.
+  #
+  # On QEMU, all tests of one configuration take a quarter of an hour on two cores (rvv128), nearly
+  # all of it in the verification cases: the job runs these in the first configuration only, and
+  # not the convergence cases, but the kernel tests in all. QEMU also orders the memory accesses
+  # as x86 does, more strictly than these targets: a data race that only the weaker ordering lets
+  # show stays hidden here, unlike in the aarch64 job on hardware.
+  #
+  # The libraries of the target come from scripts/ci/emulated/dependencies.sh, which the cache
+  # keeps from one run to the next.
+  # ---------------------------------------------------------------------------
+  emulated:
+    name: emulated<${{ matrix.target.host-arch }}>
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - host-arch: rvv128
+            triplet: riscv64-linux-gnu
+            compilers: g++-riscv64-linux-gnu
+            # zicbop for the prefetches of the kernels
+            flags: -march=rv64gcv_zvl128b_zicbop
+            qemu-cpu: rv64,v=true,vlen=128,vext_spec=v1.0
+            gemm-tools: PSpaMM
+            configs: ci-cpu
+          - host-arch: rvv256
+            triplet: riscv64-linux-gnu
+            compilers: g++-riscv64-linux-gnu
+            flags: -march=rv64gcv_zvl256b_zicbop
+            qemu-cpu: rv64,v=true,vlen=256,vext_spec=v1.0
+            gemm-tools: PSpaMM
+            configs: ci-cpu
+          - host-arch: sve256
+            triplet: aarch64-linux-gnu
+            compilers: g++-aarch64-linux-gnu
+            flags: -mcpu=neoverse-v1
+            qemu-cpu: neoverse-v1
+            gemm-tools: PSpaMM
+            configs: ci-cpu
+          - host-arch: a64fx
+            triplet: aarch64-linux-gnu
+            compilers: g++-aarch64-linux-gnu
+            # HOST_ARCH=a64fx sets -mcpu=a64fx itself
+            flags: ''
+            qemu-cpu: a64fx
+            gemm-tools: PSpaMM
+            # those of ci-cpu in double precision: the 8 fused simulations of ci-cpu fill no vector
+            # of 512 bits in single precision
+            configs: ci-sanitize
+          - host-arch: lasx
+            triplet: loongarch64-linux-gnu
+            compilers: g++-14-loongarch64-linux-gnu
+            cc: loongarch64-linux-gnu-gcc-14
+            cxx: loongarch64-linux-gnu-g++-14
+            flags: -march=la464
+            qemu-cpu: la464
+            gemm-tools: PSpaMM
+            configs: ci-cpu
+          - host-arch: power10
+            triplet: powerpc64le-linux-gnu
+            compilers: g++-powerpc64le-linux-gnu
+            flags: -mcpu=power10
+            qemu-cpu: power10
+            gemm-tools: Eigen
+            configs: ci-cpu
+    env:
+      # the compilers, where they are not <triplet>-gcc and <triplet>-g++
+      CC: ${{ matrix.target.cc }}
+      CXX: ${{ matrix.target.cxx }}
+      CROSS_PREFIX: /opt/cross/${{ matrix.target.triplet }}
+      # the target, for the steps in scripts/ci/jobs/emulated.sh (which runs them locally as well)
+      TRIPLET: ${{ matrix.target.triplet }}
+      QEMU_CPU: ${{ matrix.target.qemu-cpu }}
+      FLAGS: ${{ matrix.target.flags }}
+      HOST_ARCH: ${{ matrix.target.host-arch }}
+      GEMM_TOOLS: ${{ matrix.target.gemm-tools }}
+      CONFIGS: ${{ matrix.target.configs }}
+    steps:
+      - name: apt-get
+        run: |
+          sudo apt-get update
+          # the qemu-user-static of Ubuntu registers QEMU for the targets with binfmt_misc
+          sudo apt-get install ninja-build libeigen3-dev python3 python3-pip qemu-user-static ${{ matrix.target.compilers }}
+
+          # h5py for the verification tests, which write their meshes with it; the code
+          # generators run on the build machine
+          sudo pip3 install setuptools numpy h5py --break-system-packages
+          sudo pip3 install git+https://github.com/SeisSol/PSpaMM.git --break-system-packages
+
+          sudo mkdir -p /opt/cross
+          sudo chown "$(id -u):$(id -g)" /opt/cross
+
+      - id: checkout
+        name: checkout-seissol
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - id: dependencies
+        name: restore-dependencies
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ env.CROSS_PREFIX }}
+          key: emulated-${{ matrix.target.triplet }}-${{ hashFiles('scripts/ci/emulated/dependencies.sh', 'scripts/ci/emulated/toolchain.cmake') }}
+
+      - name: build-dependencies
+        if: ${{ steps.dependencies.outputs.cache-hit != 'true' }}
+        run: scripts/ci/jobs/emulated.sh dependencies
+
+      - name: save-dependencies
+        if: ${{ steps.dependencies.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ env.CROSS_PREFIX }}
+          key: ${{ steps.dependencies.outputs.cache-primary-key }}
+
+      - name: checkout-easi
+        uses: actions/checkout@v6
+        with:
+          repository: SeisSol/easi
+          path: easi
+
+      - name: build-easi
+        run: scripts/ci/jobs/emulated.sh easi
+
+      - id: build
+        name: build-seissol
+        run: scripts/ci/jobs/emulated.sh build
+
+      - id: test
+        name: test-seissol
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: scripts/ci/jobs/emulated.sh test
+
+      - name: upload-test-logs
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        with:
+          name: emulated-${{ matrix.target.host-arch }}-logs
+          path: |
+            build/junit*.xml
+            build/Testing/Temporary/LastTest*.log
+            build/tests/verification/*/work/*/seissol.log
+          if-no-files-found: ignore

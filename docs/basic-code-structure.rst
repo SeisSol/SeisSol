@@ -92,7 +92,6 @@ preprocessing/
 ============= =============
 Folder        Description
 ============= =============
-meshing       Cube generator; gmsh converter; various scripts.
 science       ASAGI converter; standard rupture format converter; various scripts.
 ============= =============
 
@@ -104,5 +103,5 @@ Folder        Description
 ============= =============
 science       Various scripts processing simulation output.
 validation    Cube mesh validation.
-visualisation Receiver viewer; scripts.
+visualization Receiver viewer; scripts.
 ============= =============

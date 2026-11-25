@@ -14,9 +14,21 @@ def generate_kernel_name_prefix(target):
     return f"{target}_" if target == "gpu" else ""
 
 
+def cold_kernel_attrs(target="cpu"):
+    """The attributes of a kernel that only setup or output run.
+
+    On the host, such a kernel also takes its operands as views, through
+    runtime.h: code that calls it hands over values together with the layout
+    they are in, which need not be the one of the configuration it computes
+    for.
+    """
+    return {"operands": "runtime"} if target == "cpu" else None
+
+
 def tensor_to_numpy(tensor):
     np_tensor = np.zeros(tensor.shape())
-    for indices in tensor.values():
+    # a tensor without a single nonzero carries no values at all
+    for indices in tensor.values() or {}:
         np_tensor[indices] = np.float64(tensor._values[indices])
     return np_tensor
 

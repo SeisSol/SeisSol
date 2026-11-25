@@ -13,13 +13,15 @@
 
 namespace seissol::kernels {
 
+/// The common base of the kernels of the configuration `Cfg`.
+template <typename Cfg>
 class Kernel {
   public:
-  virtual void setGlobalData(const CompoundGlobalData& global) {}
+  virtual void setGlobalData(const CompoundGlobalData<Cfg>& global) {}
   virtual ~Kernel() = default;
 
 #ifdef ACL_DEVICE
-  device::DeviceInstance& device = device::DeviceInstance::getInstance();
+  device::DeviceInstance& device = device::DeviceInstance::instance();
 #endif
 };
 

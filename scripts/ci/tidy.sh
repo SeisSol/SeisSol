@@ -1,0 +1,70 @@
+#! /usr/bin/env sh
+# SPDX-FileCopyrightText: 2023 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# NOTE: just an adapted format.sh script
+
+# sample command line usage: $0 clang-tidy $SEISSOL_SOURCE_DIR $SEISSOL_BUILD_DIR [$ARGS for clang-tidy]
+# e.g. do, if SEISSOL_BUILD_DIR=$SEISSOL_SOURCE_DIR/build
+# $ cd $SEISSOL_SOURCE_DIR; sh ./scripts/ci/tidy.sh ./ ./build
+# $ cd $SEISSOL_SOURCE_DIR/scripts/ci; sh tidy.sh ../../ ../../build
+
+format() {
+    # add all directories with source files here
+    # don't use a directory with whitespace
+    local allowlist_dir="
+        app
+        src
+        tests
+        "
+
+    # files outside the source directories
+    local allowlist_file=""
+
+
+    local SEISSOL_SOURCE_DIR="${1}"
+    local SEISSOL_BUILD_DIR="${2}"
+    shift 2
+
+    # check for self
+    if [ ! -f "${SEISSOL_SOURCE_DIR}/scripts/ci/tidy.sh" ]; then
+        echo "Please ensure that SEISSOL_SOURCE_DIR is passed as the first argument"
+        exit 177
+    fi
+
+    # (we'll treat all files as headers here, but that should not have any effect on the behavior of clang-tidy)
+    # regex escaping is from https://unix.stackexchange.com/a/209744
+    # (it may not be 100%ly exact, but it works for our case)
+
+    FILE_REGEX="^\$"
+    for dir in ${allowlist_dir}; do
+        escaped="$(printf '%s' "$dir" | sed 's/[.[\(*^$+?{|]/\\&/g')"
+        FILE_REGEX="${FILE_REGEX}|${escaped}/"
+    done
+    for file in ${allowlist_file}; do
+        escaped="$(printf '%s' "$file" | sed 's/[.[\(*^$+?{|]/\\&/g')"
+        FILE_REGEX="${FILE_REGEX}|${escaped}\$"
+    done
+
+    # with TIDY_SHARD=i/n, every n-th translation unit from the i-th on (by path), so that n jobs
+    # share the work; the headers are checked by the TUs that include them, in every part
+    SOURCE_REGEX="${FILE_REGEX}"
+    if [ -n "${TIDY_SHARD:-}" ]; then
+        SOURCE_REGEX=$(python3 - "${SEISSOL_BUILD_DIR}/compile_commands.json" "${FILE_REGEX}" "${TIDY_SHARD}" <<'EOF'
+import json, re, sys
+commands, allowed, shard = sys.argv[1:4]
+index, count = (int(part) for part in shard.split('/'))
+files = sorted({entry['file'] for entry in json.load(open(commands)) if re.search(allowed, entry['file'])})
+print('|'.join(re.escape(name) + '$' for name in files[index::count]) or '^$')
+EOF
+)
+    fi
+
+    run-clang-tidy -header-filter=$FILE_REGEX -p $SEISSOL_BUILD_DIR $@ $SOURCE_REGEX
+}
+
+format $@

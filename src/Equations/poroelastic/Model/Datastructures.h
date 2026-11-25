@@ -9,27 +9,28 @@
 #define SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_DATASTRUCTURES_H_
 
 #include "Equations/elastic/Model/Datastructures.h"
-#include "Kernels/STP/Solver.h"
 #include "Model/CommonDatastructures.h"
+#include "Model/Quantities.h"
 
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <limits>
 #include <string>
 #include <vector>
 
 namespace seissol::model {
-struct PoroelasticLocalData;
-struct PoroelasticNeighborData;
 
 struct PoroElasticMaterial : public ElasticMaterial {
   static constexpr std::size_t NumQuantities = 13;
   static constexpr std::size_t NumElasticQuantities = 13;
   static constexpr std::size_t NumberPerMechanism = 0;
-  static constexpr std::size_t TractionQuantities = 6;
   static constexpr std::size_t Mechanisms = 0;
   static constexpr MaterialType Type = MaterialType::Poroelastic;
   static inline const std::string Text = "poroelastic";
+  /// The material the Riemann problem at a face of a cell is posed in; the fluid takes part in
+  /// it, unlike in the elastic material this one derives from.
+  using RiemannMaterial = PoroElasticMaterial;
   static inline const std::array<std::string, NumQuantities> Quantities{"s_xx",
                                                                         "s_yy",
                                                                         "s_zz",
@@ -43,14 +44,40 @@ struct PoroElasticMaterial : public ElasticMaterial {
                                                                         "v1_f",
                                                                         "v2_f",
                                                                         "v3_f"};
+
+  static constexpr auto PrimaryGroups =
+      detail::concat(ElasticQuantities, PoroelasticExtraQuantities);
+  /// The groups of the face rotation as the solver `SolverT` lays out the quantities; every
+  /// solver lays them out alike.
+  template <typename SolverT>
+  static constexpr auto RotationGroups = PrimaryGroups;
+  template <typename SolverT>
+  static constexpr auto InverseRotationGroups = PrimaryGroups;
+
+  /// The fluid velocities relax against the solid ones through Biot drag.
+  static constexpr std::array StiffSourceRows{StiffSourceRow{.quantity = 10, .target = 6},
+                                              StiffSourceRow{.quantity = 11, .target = 7},
+                                              StiffSourceRow{.quantity = 12, .target = 8}};
+
+  /// Where the velocity components start. Everything reaching for them --
+  /// energy output, point sources, initial fields -- goes through this.
+  static constexpr std::size_t VelocityOffset = roleOffset(PrimaryGroups, FaceRole::Velocity);
+  /// Components of the mechanical traction, i.e. the stress-like quantities
+  /// dynamic rupture and plasticity operate on.
+  static constexpr std::size_t TractionComponents = roleExtent(PrimaryGroups, FaceRole::Traction);
+
   static constexpr std::size_t Parameters = ElasticMaterial::Parameters + 7;
 
   static constexpr bool SupportsDR = true;
+  static constexpr bool SupportsPlasticity = true;
   static constexpr bool SupportsLTS = true;
+  static constexpr bool SupportsEnergy = true;
 
-  using LocalSpecificData = PoroelasticLocalData;
-  using NeighborSpecificData = PoroelasticNeighborData;
-  using Solver = kernels::solver::stp::Solver;
+  using LocalSpecificData = std::monostate;
+  using NeighborSpecificData = std::monostate;
+
+  template <typename Cfg>
+  using EnergyData = std::monostate;
 
   double bulkSolid{};
   double porosity{};
@@ -59,6 +86,15 @@ struct PoroElasticMaterial : public ElasticMaterial {
   double bulkFluid{};
   double rhoFluid{};
   double viscosity{};
+  /// The hydraulic conductance [m / (Pa s)] of the boundary of the region of the mesh that the
+  /// cell is in, towards other regions: the normal filtration velocity through a face of the
+  /// boundary is the conductance times the jump of the pore pressure across it. Zero seals the
+  /// boundary; unbounded, the pore pressure is continuous across it (see sideConductance).
+  double interfaceConductance{std::numeric_limits<double>::infinity()};
+
+  static const std::unordered_map<std::string, double PoroElasticMaterial::*> ParameterMap;
+  /// The parameters that a material file may leave out, at their defaults then.
+  static const std::unordered_map<std::string, double PoroElasticMaterial::*> OptionalParameterMap;
 
   PoroElasticMaterial() = default;
 
@@ -91,6 +127,26 @@ struct PoroElasticMaterial : public ElasticMaterial {
 
   [[nodiscard]] MaterialType getMaterialType() const override { return Type; }
 };
+
+inline const std::unordered_map<std::string, double PoroElasticMaterial::*>
+    PoroElasticMaterial::ParameterMap{
+        {"rho", &PoroElasticMaterial::rho},
+        {"lambda", &PoroElasticMaterial::lambda},
+        {"mu", &PoroElasticMaterial::mu},
+        {"bulk_solid", &PoroElasticMaterial::bulkSolid},
+        {"porosity", &PoroElasticMaterial::porosity},
+        {"permeability", &PoroElasticMaterial::permeability},
+        {"tortuosity", &PoroElasticMaterial::tortuosity},
+        {"bulk_fluid", &PoroElasticMaterial::bulkFluid},
+        {"rho_fluid", &PoroElasticMaterial::rhoFluid},
+        {"viscosity", &PoroElasticMaterial::viscosity},
+    };
+
+inline const std::unordered_map<std::string, double PoroElasticMaterial::*>
+    PoroElasticMaterial::OptionalParameterMap{
+        {"interface_conductance", &PoroElasticMaterial::interfaceConductance},
+    };
+
 } // namespace seissol::model
 
 #endif // SEISSOL_SRC_EQUATIONS_POROELASTIC_MODEL_DATASTRUCTURES_H_

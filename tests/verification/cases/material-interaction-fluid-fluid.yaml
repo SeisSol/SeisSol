@@ -1,0 +1,28 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# The fluids of material-acoustic.yaml, with the quality factor that a
+# viscoacoustic configuration reads as well; an acoustic one leaves it aside.
+# Group 2, the far half of mat48, has half the bulk modulus.
+!Any
+components:
+  - !GroupFilter
+    groups: 1
+    components: !ConstantMap
+      map:
+        rho:    1000.0
+        mu:     0.0
+        lambda: 2.25e9
+        Qp:     100.0
+  - !GroupFilter
+    groups: 2
+    components: !ConstantMap
+      map:
+        rho:    1000.0
+        mu:     0.0
+        lambda: 1.125e9
+        Qp:     60.0

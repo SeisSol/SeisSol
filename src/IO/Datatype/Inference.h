@@ -55,10 +55,10 @@ struct InferDatatypeStruct<std::tuple<Ts...>> {
   template <std::size_t I, typename T>
   static StructDatatype::MemberInfo makeMemberInfo() {
     TupleT instance;
-    auto elemname = std::string("_") + std::to_string(I);
-    auto elemoffset = reinterpret_cast<std::size_t>(&std::get<I>(instance)) -
-                      reinterpret_cast<std::size_t>(&instance);
-    auto elemtype = inferDatatype<T>();
+    const auto elemname = std::string("_") + std::to_string(I);
+    const auto elemoffset = reinterpret_cast<std::size_t>(&std::get<I>(instance)) -
+                            reinterpret_cast<std::size_t>(&instance);
+    const auto elemtype = inferDatatype<T>();
     return StructDatatype::MemberInfo{elemname, elemoffset, elemtype};
   }
 

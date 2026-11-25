@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# The imposed slip of fault1d-imposed.yaml with half a metre along the dip in
+# addition to the metre along the strike, so that in an anisotropic medium the
+# slip leaves a traction in another direction and changes the normal stress.
+!ConstantMap
+map:
+  strike_slip:       1.0
+  dip_slip:          0.5
+  rupture_onset:     1.5625e-02
+  tau_S:             1.5625e-02
+  tau_R:             6.25e-02
+  rupture_rise_time: 6.25e-02

@@ -1,0 +1,140 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+name: windows
+on:
+  - push
+
+# a push to a branch replaces the run of the push before it; on master, every push runs to its end
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref_name == 'master' && github.run_id || github.ref }}
+  cancel-in-progress: true
+
+env:
+  HDF5_VERSION: 2.2.0
+
+jobs:
+  windows:
+    name: build-windows
+    runs-on: windows-2025
+    defaults:
+      run:
+        # MSYS2 provides the (MinGW-based) toolchain and most dependencies
+        shell: msys2 {0}
+    steps:
+      # keep the files as they are in the repository (i.e. no CRLF conversion)
+      - name: setup-git
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+
+      # As on macOS, the code generators and the verification tests take a Python of their own,
+      # with all their packages from pip. Its h5py brings an HDF5 of its own, which keeps apart
+      # from the one with MPI that is built below.
+      - id: setup-python
+        name: setup-python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      # the MS-MPI runtime (msmpi.dll and mpiexec; sets MSMPI_BIN);
+      # the headers and the import library for MinGW come from MSYS2
+      - name: install-msmpi
+        uses: mpi4py/setup-mpi@v1
+        with:
+          mpi: msmpi
+
+      - name: install-msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+          # (Fortran and LAPACK for the poroelastic configurations)
+          pacboy: >-
+            cc:p
+            fc:p
+            omp:p
+            cmake:p
+            ninja:p
+            eigen3:p
+            yaml-cpp:p
+            msmpi:p
+            zlib:p
+            lapack:p
+
+      - name: setup-environment
+        run: |
+          # everything built here goes into this folder
+          DEPS="$(cygpath -m "${RUNNER_TEMP}/dependencies")"
+          echo "DEPS=${DEPS}" >> "${GITHUB_ENV}"
+
+          PYTHON="$(cygpath -m '${{ steps.setup-python.outputs.python-path }}')"
+          echo "PYTHON=${PYTHON}" >> "${GITHUB_ENV}"
+
+          # use the MS-MPI SDK from MSYS2; and point CMake to it explicitly (without asking
+          # any compiler wrapper), since FindMPI may pick up an MSVC-only installation otherwise
+          PREFIX="$(cygpath -m "${MINGW_PREFIX}")"
+          echo "MPI_HINTS=-DMPI_SKIP_COMPILER_WRAPPER=ON -DMPI_C_HEADER_DIR=${PREFIX}/include -DMPI_CXX_HEADER_DIR=${PREFIX}/include -DMPI_C_LIB_NAMES=msmpi -DMPI_CXX_LIB_NAMES=msmpi -DMPI_msmpi_LIBRARY=${PREFIX}/lib/libmsmpi.dll.a -DMPI_CXX_SKIP_MPICXX=ON" >> "${GITHUB_ENV}"
+
+      - name: install-python-packages
+        run: |
+          # numpy and scipy for the code generators, h5py for the verification tests, which write
+          # their meshes with it
+          "${PYTHON}" -m pip install numpy scipy h5py git+https://github.com/SeisSol/PSpaMM.git
+
+      - id: checkout
+        name: checkout-seissol
+        uses: actions/checkout@v6
+        with:
+          path: seissol
+          submodules: recursive
+
+      - name: cache-hdf5
+        id: cache-hdf5
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/dependencies/hdf5
+          key: hdf5-${{ env.HDF5_VERSION }}-msmpi-ucrt64-v1
+
+      # MSYS2 only packages a serial HDF5; SeisSol needs a parallel one
+      # (the steps of the job are in scripts/ci/jobs/windows.sh, which runs them locally as well)
+      - name: build-hdf5
+        if: ${{ steps.cache-hdf5.outputs.cache-hit != 'true' }}
+        run: bash seissol/scripts/ci/jobs/windows.sh hdf5
+
+      - name: checkout-easi
+        uses: actions/checkout@v6
+        with:
+          repository: SeisSol/easi
+          path: easi
+
+      - name: build-easi
+        run: bash seissol/scripts/ci/jobs/windows.sh easi
+
+      - id: build
+        name: build-seissol
+        run: bash seissol/scripts/ci/jobs/windows.sh build
+
+      - name: seissol-test
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: bash seissol/scripts/ci/jobs/windows.sh test
+
+      # what a failed build or failed tests leave behind, for a look without logging in to GitHub
+      # (see scripts/ci/status.py)
+      - name: upload-logs
+        uses: actions/upload-artifact@v7
+        if: ${{ failure() }}
+        with:
+          name: windows-logs
+          path: |
+            build/junit.xml
+            build/Testing/Temporary/LastTest*.log
+            build/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: ignore
+          retention-days: 14

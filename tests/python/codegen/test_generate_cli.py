@@ -64,7 +64,7 @@ class TestGenerateArgparse:
             "--device_vendor",
             "--order",
             "--precision",
-            "--numberOfMechanisms",
+            "--numMechanisms",
             "--vectorsize",
             "--memLayout",
             "--multipleSimulations",

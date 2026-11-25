@@ -9,6 +9,7 @@
 
 #include "IO/Datatype/Inference.h"
 #include "IO/Datatype/MPIType.h"
+#include "Parallel/MPI.h"
 
 #include <algorithm>
 #include <cassert>
@@ -52,8 +53,7 @@ std::vector<std::pair<T, int>> distributeIds(const std::vector<std::pair<T, int>
                                              MPI_Datatype sizetype,
                                              MPI_Datatype datatype,
                                              int tag) {
-  int commsize = 0;
-  MPI_Comm_size(comm, &commsize);
+  const int commsize = seissol::Mpi::sizeOf(comm);
 
   std::vector<std::size_t> sourceToSend(commsize);
   for (const auto& [_, j] : source) {
@@ -125,29 +125,28 @@ std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
     MPI_Datatype sizetype,
     MPI_Datatype datatype,
     int tag) {
-  int commsize = 0;
-  MPI_Comm_size(comm, &commsize);
+  const int commsize = seissol::Mpi::sizeOf(comm);
 
   std::vector<std::size_t> sendOffsets;
   std::vector<std::size_t> sendReorder;
 
-  auto sourceToTarget = distributeIds<std::pair<std::size_t, int>>(
+  const auto sourceToTarget = distributeIds<std::pair<std::size_t, int>>(
       sourceToTargetRankMap, comm, sizetype, datatype, tag);
   {
     std::unordered_multimap<std::size_t, std::size_t> reorderMap;
     reorderMap.reserve(sourceToTarget.size());
     {
       std::vector<std::size_t> sourceCounter(commsize);
-      for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
-        ++sourceCounter[sourceToTarget[i].first.second];
+      for (const auto& entry : sourceToTarget) {
+        ++sourceCounter[entry.first.second];
       }
       sendOffsets = computeHistogram(sourceCounter);
     }
     {
       std::vector<std::size_t> tempHistogram(sendOffsets.begin(), sendOffsets.end());
-      for (std::size_t i = 0; i < sourceToTarget.size(); ++i) {
-        auto& position = tempHistogram[sourceToTarget[i].first.second];
-        reorderMap.insert({sourceToTarget[i].first.first, position});
+      for (const auto& entry : sourceToTarget) {
+        auto& position = tempHistogram[entry.first.second];
+        reorderMap.insert({entry.first.first, position});
         ++position;
       }
     }
@@ -156,7 +155,7 @@ std::pair<std::vector<std::size_t>, std::vector<std::size_t>> matchRanks(
     if (recv) {
       sendReorder.resize(source.size());
       for (std::size_t i = 0; i < source.size(); ++i) {
-        auto it = reorderMap.find(source[i]);
+        const auto it = reorderMap.find(source[i]);
         if (it == reorderMap.end()) {
           logError() << "Element requested for target" << source[i] << "but no source given.";
         }
@@ -183,16 +182,13 @@ Distributor::Distributor(MPI_Comm comm) : comm_(comm) {}
 
 void Distributor::setup(const std::vector<std::size_t>& sourceIds,
                         const std::vector<std::size_t>& targetIds) {
-  int commsize = 0;
-  int commrank = 0;
 
   constexpr int TagToIntermediateSource = 20;
   constexpr int TagToIntermediateTarget = 21;
   constexpr int TagFromIntermediateSource = 22;
   constexpr int TagFromIntermediateTarget = 23;
 
-  MPI_Comm_size(comm_, &commsize);
-  MPI_Comm_rank(comm_, &commrank);
+  const int commsize = seissol::Mpi::sizeOf(comm_);
 
   MPI_Datatype sizetype =
       seissol::io::datatype::convertToMPI(seissol::io::datatype::inferDatatype<std::size_t>());
@@ -206,9 +202,8 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   for (const auto& targetId : targetIds) {
     localMax = std::max(localMax, targetId);
   }
-  std::size_t globalMax = 0;
-  MPI_Allreduce(&localMax, &globalMax, 1, sizetype, MPI_MAX, comm_);
-  auto globalCount = globalMax + 1;
+  const auto globalMax = seissol::Mpi::mpi.allreduce(localMax, MPI_MAX, comm_);
+  const auto globalCount = globalMax + 1;
 
   // note that the following operations all need to be stable (i.e. order-preserving) for these
   // methods to work correctly right now
@@ -224,20 +219,20 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
   {
     std::unordered_set<std::size_t> seenIds;
     seenIds.reserve(sourceIds.size());
-    for (std::size_t i = 0; i < sourceIds.size(); ++i) {
-      if (seenIds.find(sourceIds[i]) == seenIds.end()) {
-        seenIds.insert(sourceIds[i]);
-        source.emplace_back(sourceIds[i], getRank(sourceIds[i], globalCount, commsize));
+    for (const auto sourceId : sourceIds) {
+      if (!seenIds.contains(sourceId)) {
+        seenIds.insert(sourceId);
+        source.emplace_back(sourceId, getRank(sourceId, globalCount, commsize));
       }
     }
   }
   {
     std::unordered_set<std::size_t> seenIds;
     seenIds.reserve(targetIds.size());
-    for (std::size_t i = 0; i < targetIds.size(); ++i) {
-      if (seenIds.find(targetIds[i]) == seenIds.end()) {
-        seenIds.insert(targetIds[i]);
-        target.emplace_back(targetIds[i], getRank(targetIds[i], globalCount, commsize));
+    for (const auto targetId : targetIds) {
+      if (!seenIds.contains(targetId)) {
+        seenIds.insert(targetId);
+        target.emplace_back(targetId, getRank(targetId, globalCount, commsize));
       }
     }
   }
@@ -249,8 +244,8 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
 
   // we need the same ordering, to transfer the IDs in the right order
   // TODO(David): may be removable
-  std::sort(intermediateSource.begin(), intermediateSource.end());
-  std::sort(intermediateTarget.begin(), intermediateTarget.end());
+  std::ranges::sort(intermediateSource);
+  std::ranges::sort(intermediateTarget);
 
   std::vector<std::pair<std::pair<std::size_t, int>, int>> sourceToTargetRankMap;
   std::vector<std::pair<std::pair<std::size_t, int>, int>> targetToSourceRankMap;
@@ -269,17 +264,17 @@ void Distributor::setup(const std::vector<std::size_t>& sourceIds,
     }
   }
 
-  auto sendResult = matchRanks(sourceToTargetRankMap,
-                               sourceIds,
-                               false,
-                               comm_,
-                               sizetype,
-                               pairtype,
-                               TagFromIntermediateSource);
+  const auto sendResult = matchRanks(sourceToTargetRankMap,
+                                     sourceIds,
+                                     false,
+                                     comm_,
+                                     sizetype,
+                                     pairtype,
+                                     TagFromIntermediateSource);
   sendOffsets_ = sendResult.first;
   sendReorder_ = sendResult.second;
 
-  auto recvResult = matchRanks(
+  const auto recvResult = matchRanks(
       targetToSourceRankMap, targetIds, true, comm_, sizetype, pairtype, TagFromIntermediateTarget);
   recvOffsets_ = recvResult.first;
   recvReorder_ = recvResult.second;
@@ -305,11 +300,7 @@ Distributor::DistributionInstance Distributor::distributeRaw(
     const std::optional<std::function<void(void*, const void*)>>& transform) {
   constexpr int Tag = 30;
 
-  int commsize = 0;
-  int commrank = 0;
-
-  MPI_Comm_size(comm_, &commsize);
-  MPI_Comm_rank(comm_, &commrank);
+  const int commsize = seissol::Mpi::sizeOf(comm_);
 
   int typesizeInt = 0;
   MPI_Type_size(datatype, &typesizeInt);
@@ -362,16 +353,18 @@ Distributor::DistributionInstance Distributor::distributeRaw(
                            targetChar,
                            sourceReordered,
                            targetReordered,
-                           typesize,
+                           // a copy named typesize makes NVHPC (24.9, 26.9) hand the OpenMP region
+                           // above that copy, uninitialized there, in place of typesize
+                           elementSize = typesize,
                            typesizeTarget,
-                           copyFn]() {
+                           copyFn] {
     // temporary hack to make requests non-const (as it will not matter)
     auto requests2 = requests;
     MPI_Waitall(requests2.size(), requests2.data(), MPI_STATUSES_IGNORE);
 
 #pragma omp parallel for schedule(static)
     for (std::size_t i = 0; i < recvReorder_.size(); ++i) {
-      copyFn(targetChar + i * typesizeTarget, targetReordered + recvReorder_[i] * typesize);
+      copyFn(targetChar + i * typesizeTarget, targetReordered + recvReorder_[i] * elementSize);
     }
 
     std::free(sourceReordered);

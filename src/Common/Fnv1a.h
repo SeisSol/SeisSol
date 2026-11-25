@@ -17,7 +17,7 @@ namespace seissol {
 constexpr auto fnv1a(const char* str, std::size_t n) -> std::uint64_t {
   constexpr std::uint64_t Basis = 0xcbf29ce484222325ULL;
   constexpr std::uint64_t Prime = 0x00000100000001b3ULL;
-  return n > 0 ? (fnv1a(str, n - 1) ^ str[n - 1]) * Prime : Basis;
+  return n > 0 ? (fnv1a(str, n - 1) ^ static_cast<unsigned char>(str[n - 1])) * Prime : Basis;
 }
 constexpr auto fnv1a(const std::string_view& str) -> std::uint64_t {
   return fnv1a(str.data(), str.size());

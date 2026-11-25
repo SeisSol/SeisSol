@@ -8,9 +8,13 @@
 #ifndef SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
 
+#include "Common/ConfigRegistry.h"
 #include "ParameterReader.h"
 
+#include <cstddef>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 namespace seissol::initializer::parameters {
 
@@ -38,19 +42,50 @@ struct ModelParameters {
   double freqRatio{1.0};
   double gravitationalAcceleration{};
   double tv{};
-  std::string boundaryFileName;
-  std::string materialFileName;
+  // one per simulation, empty where there is none
+  std::vector<std::string> boundaryFileNames;
+  // one per simulation; the simulations fused into a cell name the same one
+  std::vector<std::string> materialFileNames;
+  // one per simulation
   std::vector<std::string> plasticityFileNames;
   ITMParameters itmParameters;
   NumericalFlux flux{NumericalFlux::Godunov};
   NumericalFlux fluxNearFault{NumericalFlux::Godunov};
+  // the flux "mixed": the share of the Godunov flux (the rest is the centered flux) and the
+  // factor of the dissipation of the Rusanov flux, away from the fault and near it
   double fluxRPart{0};
   double fluxNearFaultRPart{0};
   double fluxGPart{0};
   double fluxNearFaultGPart{0};
+  // the configuration the cells of the run compute in, unless their mesh group has its own
+  ConfigId config{};
+  // the mesh groups whose cells compute in a configuration of their own
+  std::unordered_map<int, ConfigId> groupConfigs;
+  // the number of simulations of the run; the fused simulations of the cells hold them, and as
+  // many copies of the cells as needed
+  std::size_t simulationCount{1};
+
+  /// The configuration the cells of a mesh group compute in.
+  [[nodiscard]] ConfigId configOfGroup(int group) const;
+  /// Every configuration cells of the run may compute in: `config` first, then those of the mesh
+  /// groups in the order of their ids, each once.
+  [[nodiscard]] std::vector<ConfigId> configs() const;
 };
 
-ModelParameters readModelParameters(ParameterReader* baseReader);
+/// The configuration the cells of the run compute in: the one named by `configuration` in the
+/// section `equations`, or else the one the environment variable SEISSOL_CONFIGURATION names, or
+/// else the first one built into the executable (see `defaultConfig`).
+ConfigId readConfig(ParameterReader* baseReader);
+/// The mesh groups whose cells compute in a configuration other than `config`, by `configmap` in
+/// the section `equations`: e.g. "1,2:name;3:other" puts the groups 1 and 2 into the configuration
+/// `name`, and the group 3 into `other`.
+std::unordered_map<int, ConfigId> readGroupConfigs(ParameterReader* baseReader, ConfigId config);
+/// The number of simulations of the run, by `simcount` in the section `equations`; the number of
+/// fused simulations of `config` if not given.
+std::size_t readSimulationCount(ParameterReader* baseReader, ConfigId config);
+ModelParameters readModelParameters(ParameterReader* baseReader,
+                                    ConfigId config,
+                                    std::unordered_map<int, ConfigId> groupConfigs);
 ITMParameters readITMParameters(ParameterReader* baseReader);
 } // namespace seissol::initializer::parameters
 

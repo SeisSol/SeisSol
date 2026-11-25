@@ -18,7 +18,8 @@
 namespace seissol::parallel {
 
 HelperThread::HelperThread(std::function<bool()> function, const Pinning* pinning)
-    : function_(std::move(function)), pinning_(pinning), isFinished_(false), shouldReset_(false) {}
+    : function_(std::move(function)), isFinished_(false), shouldReset_(false),
+      freeMask_(pinning->getFreeCPUsMask()) {}
 
 [[nodiscard]] bool HelperThread::finished() const { return isFinished_.load(); }
 
@@ -38,15 +39,16 @@ void HelperThread::start() {
 
     // Start a new helper thread.
     // Note: Easier than keeping one alive, and not that expensive.
-    thread_ = std::thread([this]() {
+    thread_ = std::thread([this] {
 #ifdef ACL_DEVICE
-      device::DeviceInstance& device = device::DeviceInstance::getInstance();
-      device.api->setDevice(0);
+      // the current device is thread-local; the Device library remembers the one this rank is
+      // bound to
+      const device::DeviceInstance& device = device::DeviceInstance::instance();
+      device.api().setDevice(device.api().getDeviceId());
 #endif // ACL_DEVICE
-      // Pin this thread to the last core
-      // We compute the mask outside the thread because otherwise
-      // it confuses profilers and debuggers.
-      pinning_->pinToFreeCPUs();
+      // Pin this thread to the free CPUs. The mask comes from outside the thread: computing it is
+      // a collective on the node, and it would confuse profilers and debuggers.
+      Pinning::pinCurrentThread(freeMask_);
       while (!shouldReset_.load() && !isFinished_.load()) {
         isFinished_.store(std::invoke(function_));
       }

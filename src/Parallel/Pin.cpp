@@ -19,20 +19,22 @@
 #include <fstream>
 #include <mpi.h>
 #include <optional>
-#include <sched.h>
 #include <set>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <vector>
 
-#ifndef __APPLE__
+// the CPU masks (cf. async::as::CpuMask) are only available on Linux
+#ifdef __linux__
+#include <sched.h>
 #include <sys/sysinfo.h>
 #ifdef USE_NUMA_AWARE_PINNING
 #include "numa.h"
 #endif // USE_NUMA_AWARE_PINNING
-#endif // __APPLE__
+#endif // __linux__
 
 namespace seissol::parallel {
 
@@ -79,7 +81,7 @@ std::deque<bool> Pinning::parseOnlineCpuMask(std::string s, unsigned numberOfCon
 }
 
 CpuMask seissol::parallel::Pinning::computeOnlineCpuMask() {
-#ifndef __APPLE__
+#ifdef __linux__
   CPU_ZERO(&onlineMask_.set);
   std::deque<bool> mask;
 
@@ -114,9 +116,9 @@ Pinning::Pinning() {
   computeOnlineCpuMask();
 }
 
-void Pinning::checkEnvVariables() {
-#ifndef __APPLE__
-  const auto envVariable = utils::Env("SEISSOL_").getOptional<std::string>("FREE_CPUS_MASK");
+void Pinning::checkEnvVariables(utils::Env& env) {
+#ifdef __linux__
+  const auto envVariable = env.getOptional<std::string>("FREE_CPUS_MASK");
   if (envVariable.has_value()) {
     auto parsedResult = seissol::IntegerMaskParser::parse(envVariable.value());
     if (parsedResult) {
@@ -124,16 +126,16 @@ void Pinning::checkEnvVariables() {
 
       bool isMaskGood{true};
       const auto numLocalProcesses = Mpi::mpi.sharedMemMpiSize();
-      if (numLocalProcesses > static_cast<int>(parsedFreeCPUsMask_.size())) {
+      if (std::cmp_greater(numLocalProcesses, parsedFreeCPUsMask_.size())) {
         logInfo() << "There are more communication (and/or output-writing) threads"
                   << "to pin than locations defined in `SEISSOL_FREE_CPUS_MASK`";
 
         isMaskGood = false;
       } else {
-        const auto maxCpuId = get_nprocs();
-        for (auto localProcessId = 0; localProcessId < static_cast<int>(parsedFreeCPUsMask_.size());
+        const auto maxCpuId = get_nprocs() - 1;
+        for (auto localProcessId = 0; std::cmp_less(localProcessId, parsedFreeCPUsMask_.size());
              ++localProcessId) {
-          for (auto cpu : parsedFreeCPUsMask_[localProcessId]) {
+          for (const auto cpu : parsedFreeCPUsMask_[localProcessId]) {
             if (cpu > maxCpuId) {
               logInfo() << "Free cpu mask of the local process" << localProcessId
                         << "is out of bounds. CPU/core id" << cpu << "exceeds max. value"
@@ -157,11 +159,11 @@ void Pinning::checkEnvVariables() {
       logWarning() << "Failed to parse `SEISSOL_FREE_CPUS_MASK` env. variable";
     }
   }
-#endif // __APPLE__
+#endif // __linux__
 }
 
 CpuMask Pinning::getWorkerUnionMask() {
-#ifndef __APPLE__
+#ifdef __linux__
   cpu_set_t workerUnion;
   CPU_ZERO(&workerUnion);
 
@@ -184,11 +186,11 @@ CpuMask Pinning::getWorkerUnionMask() {
 
 #else
   return CpuMask{};
-#endif // __APPLE__
+#endif // __linux__
 }
 
 CpuMask Pinning::getFreeCPUsMask() const {
-#ifndef __APPLE__
+#ifdef __linux__
   const auto nodeOpenMpMask = getNodeMask();
 
   cpu_set_t freeMask{};
@@ -217,7 +219,7 @@ CpuMask Pinning::getFreeCPUsMask() const {
     const bool isFree = !CPU_ISSET(cpu, &nodeOpenMpMask.set);
     if (isOnline && isFree) {
       const int numaNode = numa_node_of_cpu(cpu);
-      const bool isValidNumaNode = numaDomainsOfThisProcess.count(numaNode) != 0;
+      const bool isValidNumaNode = numaDomainsOfThisProcess.contains(numaNode);
       if (isValidNumaNode) {
         CPU_SET(cpu, &freeMask);
       }
@@ -228,7 +230,7 @@ CpuMask Pinning::getFreeCPUsMask() const {
   // Note that pinning of the communication thread is then not Numa-aware if there's more than one
   // rank per node!
   for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
-    const bool isOnline = CPU_ISSET(cpu, &onlineMask.set);
+    const bool isOnline = CPU_ISSET(cpu, &onlineMask_.set);
     const bool isFree = !CPU_ISSET(cpu, &nodeOpenMpMask.set);
     if (isOnline && isFree) {
       CPU_SET(cpu, &freeMask);
@@ -239,36 +241,49 @@ CpuMask Pinning::getFreeCPUsMask() const {
   return CpuMask{freeMask};
 #else
   return {};
-#endif // __APPLE__
+#endif // __linux__
 }
 
 bool Pinning::freeCPUsMaskEmpty(const CpuMask& mask) {
-#ifndef __APPLE__
+#ifdef __linux__
   return CPU_COUNT(&(mask.set)) == 0;
 #else
   return false;
-#endif // __APPLE__
+#endif // __linux__
+}
+
+std::optional<int> Pinning::firstCpu(const CpuMask& mask) {
+#ifdef __linux__
+  // the ids in a mask range up to CPU_SETSIZE; CPU_COUNT is how many of them are set
+  for (int cpu = 0; cpu < CPU_SETSIZE; ++cpu) {
+    if (CPU_ISSET(cpu, &mask.set) != 0) {
+      return cpu;
+    }
+  }
+#endif // __linux__
+  return {};
 }
 
 CpuMask Pinning::getOnlineMask() const { return onlineMask_; }
 
 bool Pinning::areAllCpusOnline() {
-#ifndef __APPLE__
+#ifdef __linux__
   return get_nprocs_conf() == get_nprocs();
 #else
   return true;
 #endif
 }
 
-void Pinning::pinToFreeCPUs() const {
-  auto freeMask = getFreeCPUsMask();
-#ifndef __APPLE__
-  sched_setaffinity(0, sizeof(cpu_set_t), &(freeMask.set));
-#endif // __APPLE__
+void Pinning::pinToFreeCPUs() const { pinCurrentThread(getFreeCPUsMask()); }
+
+void Pinning::pinCurrentThread([[maybe_unused]] const CpuMask& mask) {
+#ifdef __linux__
+  sched_setaffinity(0, sizeof(cpu_set_t), &mask.set);
+#endif // __linux__
 }
 
 std::string Pinning::maskToStringShort(const CpuMask& mask) {
-#ifndef __APPLE__
+#ifdef __linux__
   const auto& set = mask.set;
   std::stringstream st;
   std::optional<int> start = std::optional<int>();
@@ -304,12 +319,12 @@ std::string Pinning::maskToStringShort(const CpuMask& mask) {
   return st.str();
 
 #else
-  return "Affinity is not supported on MacOS.";
-#endif // __APPLE__
+  return "Affinity is not supported on this platform.";
+#endif // __linux__
 }
 
 std::string Pinning::maskToString(const CpuMask& mask) {
-#ifndef __APPLE__
+#ifdef __linux__
   const auto& set = mask.set;
   std::stringstream st;
   for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
@@ -325,26 +340,22 @@ std::string Pinning::maskToString(const CpuMask& mask) {
   return st.str();
 
 #else
-  return "Affinity is not supported on MacOS.";
-#endif // __APPLE__
+  return "Affinity is not supported on this platform.";
+#endif // __linux__
 }
 
 CpuMask Pinning::getNodeMask() {
-#ifndef __APPLE__
+#ifdef __linux__
   const auto workerMask = getWorkerUnionMask().set;
 
-  // We have to use this due to the insanity of std::vector<bool>
-  auto workerMaskArray = std::vector<char>(get_nprocs_conf(), 0);
+  // We have to use this due to the insanity of std::vector<bool>; and unsigned char rather than
+  // char, as MPI defines the bitwise reductions for integer types only, of which char is none
+  auto workerMaskArray = std::vector<unsigned char>(get_nprocs_conf(), 0);
   for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
     workerMaskArray[cpu] = CPU_ISSET(cpu, &workerMask);
   }
 
-  MPI_Allreduce(MPI_IN_PLACE,
-                workerMaskArray.data(),
-                workerMaskArray.size(),
-                MPI_CHAR,
-                MPI_BOR,
-                Mpi::mpi.sharedMemComm());
+  Mpi::mpi.allreduceContainer(workerMaskArray, MPI_BOR, Mpi::mpi.sharedMemComm());
 
   cpu_set_t nodeMask;
   CPU_ZERO(&nodeMask);
@@ -358,7 +369,7 @@ CpuMask Pinning::getNodeMask() {
   return CpuMask{nodeMask};
 #else
   return {};
-#endif // __APPLE__
+#endif // __linux__
 }
 
 } // namespace seissol::parallel

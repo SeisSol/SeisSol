@@ -6,6 +6,7 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 function(determine_host_arch arch)
+    include(CheckCXXCompilerFlag)
     include(CheckSourceRuns)
     include(CMakePushCheckState)
 
@@ -13,9 +14,28 @@ function(determine_host_arch arch)
 
     cmake_push_check_state(RESET)
 
-    set(CMAKE_REQUIRED_FLAGS "-march=native -mcpu=native -mtune=native")
+    # The checks compile for the CPU of the host with those of the flags for it that the compiler
+    # takes: GCC takes none of them on RISC-V, no -mcpu on LoongArch, and none as a cross compiler.
+    # The flags of the build (e.g. -march=rv64gcv) apply as well.
+    set(native_flags)
+    foreach(flag -march=native -mcpu=native -mtune=native)
+        string(MAKE_C_IDENTIFIER "SEISSOL_COMPILER_TAKES${flag}" takes_flag)
+        check_cxx_compiler_flag(${flag} ${takes_flag})
+        if (${takes_flag})
+            list(APPEND native_flags ${flag})
+        endif()
+    endforeach()
+    list(JOIN native_flags " " CMAKE_REQUIRED_FLAGS)
 
-    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+    # Windows calls the processors AMD64 and ARM64, macOS arm64
+    string(TOLOWER "${CMAKE_SYSTEM_PROCESSOR}" processor)
+    if (processor STREQUAL "amd64")
+        set(processor "x86_64")
+    elseif (processor STREQUAL "arm64")
+        set(processor "aarch64")
+    endif()
+
+    if (processor STREQUAL "x86_64")
         check_source_runs(CXX
             "
             int main() {
@@ -61,7 +81,7 @@ function(determine_host_arch arch)
             set(myarch "snb")
         endif()
     endif()
-    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+    if (processor STREQUAL "aarch64")
         set(myarch "neon")
 
         check_source_runs(CXX
@@ -118,7 +138,7 @@ function(determine_host_arch arch)
             set(myarch "sve128")
         endif()
     endif()
-    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "riscv64")
+    if (processor STREQUAL "riscv64")
         check_source_runs(CXX
             "
             #ifdef __riscv_vector
@@ -139,7 +159,7 @@ function(determine_host_arch arch)
             #ifdef __riscv_vector
             #include <riscv_vector.h>
             int main() {
-                return (__riscv_vsetvlmax_e8m1() == 16) ? 0 : 1;
+                return (__riscv_vsetvlmax_e8m1() == 32) ? 0 : 1;
             }
             #else
             int main() {
@@ -154,7 +174,7 @@ function(determine_host_arch arch)
             #ifdef __riscv_vector
             #include <riscv_vector.h>
             int main() {
-                return (__riscv_vsetvlmax_e8m1() == 16) ? 0 : 1;
+                return (__riscv_vsetvlmax_e8m1() == 64) ? 0 : 1;
             }
             #else
             int main() {
@@ -173,7 +193,7 @@ function(determine_host_arch arch)
             set(myarch "rvv128")
         endif()
     endif()
-    if (CMAKE_SYSTEM_PROCESSOR STREQUAL "loongarch64")
+    if (processor STREQUAL "loongarch64")
         check_source_runs(CXX
             "
             int main() {

@@ -8,35 +8,46 @@
 #ifndef SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 #define SEISSOL_SRC_DYNAMICRUPTURE_OUTPUT_DATATYPES_H_
 
+#include "Common/ConfigDispatch.h"
+#include "Common/Iterator.h"
+#include "Common/Real.h"
 #include "GeneratedCode/tensor.h"
 #include "Geometry.h"
 #include "Initializer/Parameters/DRParameters.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
+#include "Memory/Tree/Backmap.h"
 #include "Parallel/DataCollector.h"
+#include "Parallel/Runtime/HostActor.h"
 #include "Parallel/Runtime/Stream.h"
 
 #include <Eigen/Dense>
 #include <array>
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <limits>
+#include <memory>
+#include <optional>
 #include <string>
 #include <tuple>
+#include <unordered_map>
 #include <vector>
 
 namespace seissol::dr::output {
+/// The values one output variable records, per component, cache level and receiver; in double, as
+/// the fault output writes them.
 template <std::size_t Dim>
 struct VarT {
   VarT() = default;
   [[nodiscard]] constexpr std::size_t dim() const { return Dim; }
 
-  real* operator[](std::size_t dim) {
+  double* operator[](std::size_t dim) {
     assert(dim < Dim && "access is out of the Dim. bounds");
     return data[dim].data();
   }
 
-  real& operator()(std::size_t dim, size_t level, size_t index) {
+  double& operator()(std::size_t dim, size_t level, size_t index) {
     assert(dim < Dim && "access is out of Dim. bounds");
     assert(level < maxCacheLevel && "access is out of cache bounds");
     assert(index < size && "access is out of size bounds");
@@ -44,17 +55,17 @@ struct VarT {
     return data[dim][index + level * size];
   }
 
-  real& operator()(size_t level, size_t index) {
+  double& operator()(size_t level, size_t index) {
     static_assert(Dim == 1, "access of the overload is allowed only for 1 dim variables");
     return this->operator()(0, level, index);
   }
 
-  const real* operator[](std::size_t dim) const {
+  const double* operator[](std::size_t dim) const {
     assert(dim < Dim && "access is out of the Dim. bounds");
     return data[dim].data();
   }
 
-  const real& operator()(std::size_t dim, size_t level, size_t index) const {
+  const double& operator()(std::size_t dim, size_t level, size_t index) const {
     assert(dim < Dim && "access is out of Dim. bounds");
     assert(level < maxCacheLevel && "access is out of cache bounds");
     assert(index < size && "access is out of size bounds");
@@ -62,7 +73,7 @@ struct VarT {
     return data[dim][index + level * size];
   }
 
-  const real& operator()(size_t level, size_t index) const {
+  const double& operator()(size_t level, size_t index) const {
     static_assert(Dim == 1, "access of the overload is allowed only for 1 dim variables");
     return this->operator()(0, level, index);
   }
@@ -92,7 +103,7 @@ struct VarT {
     }
   }
 
-  std::array<std::vector<real>, Dim> data;
+  std::array<std::vector<double>, Dim> data;
   bool isActive{false};
   size_t size{0};
   size_t maxCacheLevel{1};
@@ -102,29 +113,48 @@ using Var1D = VarT<1>;
 using Var2D = VarT<2>;
 using Var3D = VarT<3>;
 
-// Description is given in `enum VariableID`
+/// The variables of the fault output, in the order of the constants of VariableID.
 using DrVarsT =
     std::tuple<Var2D, Var3D, Var1D, Var2D, Var3D, Var2D, Var1D, Var1D, Var1D, Var1D, Var1D, Var2D>;
 
-enum DirectionID { Strike = 0, Dip = 1, Normal = 2 };
-enum TPID { Pressure = 0, Temperature = 1 };
-enum ParamID { FrictionCoefficient = 0, State = 1 };
-
-enum VariableID {
-  SlipRate = 0,
-  TransientTractions,
-  NormalVelocity,
-  FrictionAndState,
-  TotalTractions,
-  Slip,
-  RuptureVelocity,
-  AccumulatedSlip,
-  PeakSlipRate,
-  RuptureTime,
-  DynamicStressTime,
-  ThermalPressurizationVariables,
-  Size
+/// The components of the vector variables of the fault output.
+struct DirectionID {
+  static constexpr std::size_t Strike = 0;
+  static constexpr std::size_t Dip = 1;
+  static constexpr std::size_t Normal = 2;
 };
+
+/// The components of the thermal pressurization variable of the fault output.
+struct TPID {
+  static constexpr std::size_t Pressure = 0;
+  static constexpr std::size_t Temperature = 1;
+};
+
+/// The components of the friction and state variable of the fault output.
+struct ParamID {
+  static constexpr std::size_t FrictionCoefficient = 0;
+  static constexpr std::size_t State = 1;
+};
+
+/// The variables of the fault output, as indices into DrVarsT and VariableLabels.
+struct VariableID {
+  static constexpr std::size_t SlipRate = 0;
+  static constexpr std::size_t TransientTractions = 1;
+  static constexpr std::size_t NormalVelocity = 2;
+  static constexpr std::size_t FrictionAndState = 3;
+  static constexpr std::size_t TotalTractions = 4;
+  static constexpr std::size_t Slip = 5;
+  static constexpr std::size_t RuptureVelocity = 6;
+  static constexpr std::size_t AccumulatedSlip = 7;
+  static constexpr std::size_t PeakSlipRate = 8;
+  static constexpr std::size_t RuptureTime = 9;
+  static constexpr std::size_t DynamicStressTime = 10;
+  static constexpr std::size_t ThermalPressurizationVariables = 11;
+  static constexpr std::size_t Size = 12;
+};
+
+static_assert(std::tuple_size_v<DrVarsT> == VariableID::Size,
+              "DrVarsT holds one entry per variable of VariableID.");
 
 const inline std::vector<std::vector<std::string>> VariableLabels = {{"SRs", "SRd"},
                                                                      {"T_s", "T_d", "P_n"},
@@ -139,44 +169,174 @@ const inline std::vector<std::vector<std::string>> VariableLabels = {{"SRs", "SR
                                                                      {"DS"},
                                                                      {"P_f", "Tmp"}};
 
-using FaceToLtsMapType = std::vector<std::pair<DynamicRupture::Layer*, size_t>>;
-
 } // namespace seissol::dr::output
 
 namespace seissol::dr {
+/// The basis functions at an output point on both sides of the fault, for the configuration `Cfg`
+/// of its face.
+template <typename Cfg>
 struct PlusMinusBasisFunctions {
-  std::vector<real> plusSide;
-  std::vector<real> minusSide;
+  std::vector<Real<Cfg>> plusSide;
+  std::vector<Real<Cfg>> minusSide;
+};
+
+/// The transformations of a fault face of the configuration `Cfg` that the output applies.
+template <typename Cfg>
+struct FaceTransform {
+  std::array<Real<Cfg>, seissol::tensor::stressRotationMatrix<Cfg>::size()>
+      stressGlbToDipStrikeAligned{};
+  std::array<Real<Cfg>, seissol::tensor::stressRotationMatrix<Cfg>::size()>
+      stressFaceAlignedToGlb{};
+  std::array<Real<Cfg>, seissol::tensor::Tinv<Cfg>::size()> glbToFaceAlignedData{};
+  Eigen::Matrix<Real<Cfg>, 2, 2> jacobianT2d{Eigen::Matrix<Real<Cfg>, 2, 2>::Zero()};
+};
+
+/**
+  Data of a single fault face taking part in the output.
+
+  Everything stored here is a function of the fault face alone, so it is set up once per face and
+  evaluated once per face and time step, no matter how many output points the face carries.
+ */
+struct OutputFace {
+  std::size_t faultFaceIndex{};
+  // the simulation copy of the face
+  std::size_t copy{};
+  ::seissol::initializer::StoragePosition position;
+
+  std::size_t elementIndex{};
+  std::size_t localFaceSideId{};
+
+  FaultDirections faultDirections{};
+  /// in the configuration of the face
+  ConfigVariantOf<FaceTransform> transform;
+
+  // gather indices into ReceiverOutputData::deviceDataCollector
+  std::size_t deviceDataPlus{};
+  std::size_t deviceDataMinus{};
+};
+
+/**
+  Data of a single output location on a fault face; i.e. everything which depends on the position
+  within the face, but not on the simulation a receiver belongs to.
+ */
+struct OutputPoint {
+  std::size_t faceId{};
+  /// in the configuration of the face
+  ConfigVariantOf<PlusMinusBasisFunctions> basisFunctions;
+  std::size_t nearestGpIndex{};
+  std::size_t nearestInternalGpIndex{};
+};
+
+/**
+  The face -> point -> receiver hierarchy of the on-fault output, in CSR form.
+
+  A face owns a contiguous range of points, and a point owns a contiguous range of receivers. The
+  receivers are renumbered while the topology is built, which is what makes the ranges contiguous
+  and reduces the structure to two offset vectors -- no index arrays are needed.
+
+    points of face f:     [pointOffset[f],     pointOffset[f + 1])
+    receivers of point p: [receiverOffset[p],  receiverOffset[p + 1])
+ */
+struct OutputTopology {
+  std::vector<OutputFace> faces;
+  std::vector<OutputPoint> points;
+  std::vector<std::size_t> pointOffset{0};
+  std::vector<std::size_t> receiverOffset{0};
+
+  [[nodiscard]] std::size_t faceCount() const { return faces.size(); }
+  [[nodiscard]] std::size_t pointCount() const { return points.size(); }
+  [[nodiscard]] std::size_t receiverCount() const { return receiverOffset.back(); }
+
+  [[nodiscard]] auto pointsOf(std::size_t face) const {
+    return common::range(pointOffset[face], pointOffset[face + 1]);
+  }
+
+  [[nodiscard]] auto receiversOf(std::size_t point) const {
+    return common::range(receiverOffset[point], receiverOffset[point + 1]);
+  }
+
+  /**
+    The first receiver of a point; usable wherever a representative of the point is needed (e.g.
+    for its coordinates, which all its receivers share).
+   */
+  [[nodiscard]] std::size_t representative(std::size_t point) const {
+    return receiverOffset[point];
+  }
+
+  void addFace(const OutputFace& face) {
+    faces.push_back(face);
+    pointOffset.push_back(points.size());
+  }
+
+  void addPoint(const OutputPoint& point, std::size_t receiverCount) {
+    points.push_back(point);
+    receiverOffset.push_back(receiverOffset.back() + receiverCount);
+    pointOffset.back() = points.size();
+  }
 };
 
 struct ReceiverOutputData {
   output::DrVarsT vars;
-  std::vector<PlusMinusBasisFunctions> basisFunctions;
-  std::vector<ReceiverPoint> receiverPoints;
-  std::vector<std::array<real, seissol::tensor::stressRotationMatrix::size()>>
-      stressGlbToDipStrikeAligned;
-  std::vector<std::array<real, seissol::tensor::stressRotationMatrix::size()>>
-      stressFaceAlignedToGlb;
-  std::vector<std::array<real, seissol::tensor::T::size()>> faceAlignedToGlbData;
-  std::vector<std::array<real, seissol::tensor::Tinv::size()>> glbToFaceAlignedData;
-  std::vector<Eigen::Matrix<real, 2, 2>, Eigen::aligned_allocator<Eigen::Matrix<real, 2, 2>>>
-      jacobianT2d;
+  std::vector<Receiver> receivers;
+  OutputTopology topology;
+  /// the receivers in the order the builder generated them, by their index in `receivers`; the
+  /// elementwise output writes them in this order (cell-major, then point and simulation)
+  std::vector<std::size_t> outputOrder;
 
-  std::vector<FaultDirections> faultDirections;
   std::vector<double> cachedTime;
   size_t currentCacheLevel{0};
   size_t maxCacheLevel{50};
   bool isActive{false};
   std::optional<int64_t> clusterId;
 
-  std::unique_ptr<parallel::DataCollector<real>> deviceDataCollector;
-  std::vector<std::size_t> deviceDataPlus;
-  std::vector<std::size_t> deviceDataMinus;
+  /// the derivatives of the cells next to the faces; one element size, so all faces of one
+  /// configuration
+  std::unique_ptr<parallel::DataCollectorUntyped> deviceDataCollector;
   std::size_t cellCount{0};
 
-  std::unordered_map<std::size_t, std::unique_ptr<parallel::DataCollectorUntyped>> deviceVariables;
-  std::vector<std::size_t> deviceIndices;
+  /// the variables of the faces, all gathered by one kernel; null without any
+  std::unique_ptr<parallel::DataCollectorUntyped> deviceVariables;
+  /// the set of each variable (by its index in the storage) in deviceVariables
+  std::unordered_map<std::size_t, std::size_t> deviceVariableSets;
   std::optional<parallel::runtime::StreamRuntime> extraRuntime;
+
+  /// with the host actor (instead of the extra runtime): the samples, taken once the device has
+  /// gathered the data of a step into a buffer of its own: the start of the step (at run time), the
+  /// derivatives at dataOffset, the variables at variablesOffset
+  std::unique_ptr<parallel::runtime::HostActor::Queue> hostQueue;
+  std::size_t dataOffset{0};
+  std::size_t variablesOffset{0};
+  /// the buffer that the work of the host actor reads at the moment; null for the collectors
+  const void* gathered{nullptr};
+
+  /// block `index` of the gathered derivatives
+  [[nodiscard]] const void* gatheredData(std::size_t index) const {
+    if (gathered != nullptr) {
+      return deviceDataCollector->get(
+          0, index, static_cast<const std::uint8_t*>(gathered) + dataOffset);
+    }
+    return deviceDataCollector->get(index);
+  }
+
+  /// the gathered variable of set `set` of face `face`
+  [[nodiscard]] const void* gatheredVariable(std::size_t set, std::size_t face) const {
+    if (gathered != nullptr) {
+      return deviceVariables->get(
+          set, face, static_cast<const std::uint8_t*>(gathered) + variablesOffset);
+    }
+    return deviceVariables->get(set, face);
+  }
+
+  /// a variable of the friction state of all faces, one face after the other
+  struct FaceData {
+    std::vector<std::uint8_t> data;
+    std::size_t faceBytes{0};
+  };
+
+  /// The friction state of the faces at the start of the current time step, by variable (its index
+  /// in the storage); the samples within the step interpolate between it and the state at the end.
+  /// Empty before the first time step.
+  std::unordered_map<std::size_t, FaceData> stepStart;
 };
 } // namespace seissol::dr
 

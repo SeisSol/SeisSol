@@ -65,7 +65,7 @@ To run on one GPU (here with order 4, elastic), use:
     export OMP_PROC_BIND=spread
     export XDMFWRITER_ALIGNMENT=4096
     export XDMFWRITER_BLOCK_SIZE=4096
-    export ASYNC_BUFFER_ALIGNMENT=4096
+    export SEISSOL_ASYNC_BUFFER_ALIGNMENT=4096
     source /etc/profile.d/modules.sh
     export SEISSOL_ASAGI_MPI_MODE=OFF
     ulimit -Ss 2097152
@@ -87,7 +87,7 @@ On 2 ranks, use:
     export OMP_PROC_BIND=spread
     export XDMFWRITER_ALIGNMENT=4096
     export XDMFWRITER_BLOCK_SIZE=4096
-    export ASYNC_BUFFER_ALIGNMENT=4096
+    export SEISSOL_ASYNC_BUFFER_ALIGNMENT=4096
     source /etc/profile.d/modules.sh
     export SEISSOL_ASAGI_MPI_MODE=OFF
     ulimit -Ss 2097152

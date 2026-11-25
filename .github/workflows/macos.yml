@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+name: macos
+on:
+  - push
+
+# a push to a branch replaces the run of the push before it; on master, every push runs to its end
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref_name == 'master' && github.run_id || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: build-macos
+    runs-on: macos-15
+    steps:
+      # The Python of the runner image follows the newest release (3.15 since the image of
+      # 2026-10-28), for which not every package has wheels yet: pip then builds h5py from source,
+      # against the HDF5 with MPI of Homebrew. The code generators and the verification tests take
+      # this Python instead, with all their packages from pip.
+      - name: setup-python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      # for OMP cf. https://github.com/alecjacobson/openmp-on-macos/
+      # and also cf. https://gist.github.com/scivision/16c2ca1dc250f54d34f1a1a35596f4a0
+      - name: install-libraries
+        run: |
+          brew install libomp
+          brew install yaml-cpp
+          brew install open-mpi
+          brew install hdf5-mpi
+          brew install eigen
+
+      - name: install-python-packages
+        run: |
+          # numpy and scipy for the code generators, h5py for the verification tests, which write
+          # their meshes with it
+          python3 -m pip install numpy scipy h5py
+
+      - name: install-pspamm
+        run: |
+          python3 -m pip install git+https://github.com/SeisSol/PSpaMM.git
+
+      - id: checkout
+        name: checkout-seissol
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: checkout-easi
+        uses: actions/checkout@v6
+        with:
+          repository: SeisSol/easi
+          path: easi
+
+      - name: build-easi
+        run: |
+          sudo mkdir -p /opt/dependencies /opt/seissol
+          sudo chown "$(id -u):$(id -g)" /opt/dependencies /opt/seissol
+          scripts/ci/build-easi.sh easi /opt/dependencies
+
+      # (the steps of the job are in scripts/ci/jobs/macos.sh, which runs them locally as well)
+      - id: build
+        name: build-seissol
+        run: scripts/ci/jobs/macos.sh build
+
+      - name: seissol-test
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: scripts/ci/jobs/macos.sh test
+
+      # what a failed build or failed tests leave behind, for a look without logging in to GitHub
+      # (see scripts/ci/status.py)
+      - name: upload-logs
+        uses: actions/upload-artifact@v7
+        if: ${{ failure() }}
+        with:
+          name: macos-logs
+          path: |
+            build/junit.xml
+            build/Testing/Temporary/LastTest*.log
+            build/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: ignore
+          retention-days: 14

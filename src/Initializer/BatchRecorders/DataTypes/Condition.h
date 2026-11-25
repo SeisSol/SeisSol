@@ -20,9 +20,12 @@ constexpr bool isEncodedConstant() {
          std::is_same_v<FaceId, T> || std::is_same_v<FaceRelations, T> ||
          std::is_same_v<DrFaceRelations, T> || std::is_same_v<ComputationKind, T> ||
          std::is_same_v<ExchangeInfo, T> || std::is_same_v<inner_keys::Wp::Id, T> ||
-         std::is_same_v<inner_keys::Dr::Id, T> || std::is_same_v<inner_keys::Indices::Id, T> ||
-         std::is_same_v<inner_keys::Material::Id, T>;
+         std::is_same_v<inner_keys::Dr::Id, T> || std::is_same_v<inner_keys::Indices::Id, T>;
 }
+
+/// The enumerations of encoded constants, which the operators below combine.
+template <typename T>
+concept EncodedConstantC = isEncodedConstant<T>();
 
 template <class T, std::enable_if_t<isEncodedConstant<T>()>>
 class Condition {
@@ -61,9 +64,8 @@ class Condition {
  * NOTE: The function was designed to handle simple condition encodings
  * Refer to Condition Class if you need much more sophisticated behaviour
  */
-template <typename T>
-std::enable_if_t<seissol::recording::isEncodedConstant<T>(), size_t> operator||(const T& lhs,
-                                                                                const T& rhs) {
+template <seissol::recording::EncodedConstantC T>
+size_t operator||(const T& lhs, const T& rhs) {
   return (static_cast<size_t>(lhs) | static_cast<size_t>(rhs));
 }
 
@@ -72,9 +74,8 @@ std::enable_if_t<seissol::recording::isEncodedConstant<T>(), size_t> operator||(
  * NOTE: The function was designed to handle simple condition encodings
  * Refer to Condition Class if you need much more sophisticated behaviour
  */
-template <typename T>
-constexpr std::enable_if_t<seissol::recording::isEncodedConstant<T>(), size_t>
-    operator*(const T& condition) {
+template <seissol::recording::EncodedConstantC T>
+constexpr size_t operator*(const T& condition) {
   return static_cast<size_t>(condition);
 }
 
@@ -83,8 +84,8 @@ constexpr std::enable_if_t<seissol::recording::isEncodedConstant<T>(), size_t>
  * NOTE: The function was designed to handle simple condition encodings
  * Refer to Condition Class if you need much more sophisticated behaviour
  */
-template <typename T>
-std::enable_if_t<seissol::recording::isEncodedConstant<T>(), size_t> operator!(const T& condition) {
+template <seissol::recording::EncodedConstantC T>
+size_t operator!(const T& condition) {
   const size_t highBitsMask = ~((~static_cast<size_t>(0)) << static_cast<size_t>(T::Count));
   return highBitsMask & (~static_cast<size_t>(condition));
 }

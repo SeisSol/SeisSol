@@ -7,20 +7,22 @@
 
 #include "BaseDRInitializer.h"
 
+#include "Common/ConfigDispatch.h"
+#include "Common/Real.h"
+#include "Config.h"
 #include "DynamicRupture/Misc.h"
 #include "Equations/Datastructures.h"
-#include "GeneratedCode/init.h"
-#include "GeneratedCode/kernel.h"
+#include "GeneratedCode/general/init.h"
+#include "GeneratedCode/general/kernel.h"
 #include "Geometry/MeshDefinition.h"
 #include "Geometry/MeshReader.h"
+#include "Initializer/MemoryManager.h"
 #include "Initializer/ParameterDB.h"
-#include "Kernels/Precision.h"
 #include "Memory/Descriptor/DynamicRupture.h"
 #include "Memory/Tree/Layer.h"
 #include "Model/CommonDatastructures.h"
 #include "Numerical/Transformation.h"
 #include "SeisSol.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Dense>
 #include <array>
@@ -28,7 +30,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
-#include <tuple>
 #include <unordered_map>
 #include <utility>
 #include <utils/logger.h>
@@ -45,6 +46,7 @@ namespace {
 /**
  * Stores the initialStresses.
  */
+template <typename Cfg>
 struct StressTensor {
   explicit StressTensor(size_t size) {
     xx.resize(size);
@@ -55,7 +57,7 @@ struct StressTensor {
     xz.resize(size);
     p.resize(size);
   }
-  using VectorOfArraysT = std::vector<std::array<real, misc::NumPaddedPoints>>;
+  using VectorOfArraysT = std::vector<std::array<Real<Cfg>, misc::NumPaddedPoints<Cfg>>>;
   VectorOfArraysT xx;
   VectorOfArraysT yy;
   VectorOfArraysT zz;
@@ -72,8 +74,9 @@ struct StressTensor {
  * IN: stores traction in fault strike/dip coordinate system OUT: stores the the stress in
  * cartesian coordinates
  */
+template <typename Cfg>
 void rotateTractionToCartesianStress(DynamicRupture::Layer& layer,
-                                     StressTensor& stress,
+                                     StressTensor<Cfg>& stress,
                                      const geometry::MeshReader& mesh) {
   // create rotation kernel
   std::array<double, seissol::general::init::stressRotationMatrix::size()>
@@ -92,14 +95,14 @@ void rotateTractionToCartesianStress(DynamicRupture::Layer& layer,
 
     // if we read the traction in strike, dip and normal direction, we first transform it to stress
     // in cartesian coordinates
-    VrtxCoords strike{};
-    VrtxCoords dip{};
+    CoordinateT strike{};
+    CoordinateT dip{};
     misc::computeStrikeAndDipVectors(fault.normal, strike, dip);
     seissol::transformations::symmetricTensor2RotationMatrix(
         fault.normal, strike, dip, faultTractionToCartesianMatrixView, 0, 0);
 
     using namespace dr::misc::quantity_indices;
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
       const std::array<double, seissol::general::init::initialStress::size()> initialTraction{
           stress.xx[ltsFace][pointIndex],
           stress.yy[ltsFace][pointIndex],
@@ -134,11 +137,12 @@ void rotateTractionToCartesianStress(DynamicRupture::Layer& layer,
  * @param count stress count per cell (set to 1, unless initializing multi-nucleation)
  * @param stress reference to a StressTensor, stores the stress in cartesian coordinates
  */
+template <typename Cfg>
 void rotateStressToFaultCS(DynamicRupture::Layer& layer,
-                           real (*stressInFaultCS)[6][misc::NumPaddedPoints],
+                           Real<Cfg> (*stressInFaultCS)[6][misc::NumPaddedPoints<Cfg>],
                            std::size_t index,
                            std::size_t count,
-                           const StressTensor& stress,
+                           const StressTensor<Cfg>& stress,
                            const geometry::MeshReader& mesh) {
   // create rotation kernel
   std::array<double, seissol::general::init::stressRotationMatrix::size()>
@@ -149,7 +153,7 @@ void rotateStressToFaultCS(DynamicRupture::Layer& layer,
   cartesianToFaultCSRotationKernel.stressRotationMatrix = cartesianToFaultCSMatrixValues.data();
 
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-    constexpr auto NumStressComponents = model::MaterialT::TractionQuantities;
+    constexpr auto NumStressComponents = model::MaterialOf<Cfg>::TractionComponents;
     const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
     const auto meshFace = drFaceInformation[ltsFace].meshFace;
     const Fault& fault = mesh.getFault().at(meshFace);
@@ -158,7 +162,7 @@ void rotateStressToFaultCS(DynamicRupture::Layer& layer,
     seissol::transformations::inverseSymmetricTensor2RotationMatrix(
         fault.normal, fault.tangent1, fault.tangent2, cartesianToFaultCSMatrixView, 0, 0);
 
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
+    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
       const std::array<double, seissol::general::init::initialStress::size()> initialStress{
           stress.xx[ltsFace][pointIndex],
           stress.yy[ltsFace][pointIndex],
@@ -180,198 +184,339 @@ void rotateStressToFaultCS(DynamicRupture::Layer& layer,
 } // namespace
 
 void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
-  logInfo() << "Initializing Fault, using a quadrature rule with " << misc::NumBoundaryGaussPoints
-            << " points.";
+  logQuadratureRules(drStorage);
+  bool sourcesDescribed = false;
   for (auto& layer : drStorage.leaves(Ghost)) {
-    // parameters to be read from fault parameters yaml file
-    std::unordered_map<std::string, real*> parameterToStorageMap;
+    dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
+      using Cfg = decltype(cfg);
+      using real = Real<Cfg>;
+      // parameters to be read from fault parameters yaml file
+      std::unordered_map<std::string, void*> parameterToStorageMap;
 
-    // read initial stress and nucleation stress
-    auto addStressesToStorageMap =
-        [&parameterToStorageMap, &layer, this](StressTensor& initialStress, int readNucleation) {
-          // return pointer to first element
-          auto getRawData = [](StressTensor::VectorOfArraysT& vectorOfArrays) {
-            return vectorOfArrays.data()->data();
-          };
-          // fault can be either initialized by traction or by cartesian stress
-          // this method reads either the nucleation stress or the initial stress
-          auto [identifiers, parametrization] = this->stressIdentifiers(readNucleation);
-          const bool isFaultParameterizedByTraction = parametrization == Parametrization::Traction;
-          if (isFaultParameterizedByTraction) {
-            // only read traction in normal, strike and dip direction
-            parameterToStorageMap.insert({identifiers[0], getRawData(initialStress.xx)});
-            parameterToStorageMap.insert({identifiers[1], getRawData(initialStress.xy)});
-            parameterToStorageMap.insert({identifiers[2], getRawData(initialStress.xz)});
-            // set the rest to zero
-            for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-              for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-                initialStress.yy[ltsFace][pointIndex] = 0.0;
-                initialStress.zz[ltsFace][pointIndex] = 0.0;
-                initialStress.yz[ltsFace][pointIndex] = 0.0;
-              }
-            }
-          } else { // read all stress components from the parameter file
-            parameterToStorageMap.insert({identifiers[0], getRawData(initialStress.xx)});
-            parameterToStorageMap.insert({identifiers[1], getRawData(initialStress.yy)});
-            parameterToStorageMap.insert({identifiers[2], getRawData(initialStress.zz)});
-            parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.xy)});
-            parameterToStorageMap.insert({identifiers[4], getRawData(initialStress.yz)});
-            parameterToStorageMap.insert({identifiers[5], getRawData(initialStress.xz)});
-          }
-          if constexpr (model::MaterialT::Type == model::MaterialType::Poroelastic) {
-            if (isFaultParameterizedByTraction) {
-              parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.p)});
-            } else {
-              parameterToStorageMap.insert({identifiers[6], getRawData(initialStress.p)});
-            }
-          } else {
-            for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-              for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-                initialStress.p[ltsFace][pointIndex] = 0.0;
-              }
-            }
-          }
-
-          return isFaultParameterizedByTraction;
+      // read initial stress and nucleation stress
+      const auto addStressesToStorageMap = [&parameterToStorageMap, &layer, this](
+                                               StressTensor<Cfg>& initialStress,
+                                               int readNucleation) {
+        // return pointer to first element, which a layer without faces does not have
+        const auto getRawData = [](StressTensor<Cfg>::VectorOfArraysT& vectorOfArrays) {
+          return vectorOfArrays.empty() ? nullptr : vectorOfArrays.front().data();
         };
+        // fault can be either initialized by traction or by cartesian stress
+        // this method reads either the nucleation stress or the initial stress
+        auto [identifiers, parametrization] =
+            this->stressIdentifiers(readNucleation, model::MaterialOf<Cfg>::Type);
+        const bool isFaultParameterizedByTraction = parametrization == Parametrization::Traction;
+        if (isFaultParameterizedByTraction) {
+          // only read traction in normal, strike and dip direction
+          parameterToStorageMap.insert({identifiers[0], getRawData(initialStress.xx)});
+          parameterToStorageMap.insert({identifiers[1], getRawData(initialStress.xy)});
+          parameterToStorageMap.insert({identifiers[2], getRawData(initialStress.xz)});
+          // set the rest to zero
+          for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+            for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>;
+                 ++pointIndex) {
+              initialStress.yy[ltsFace][pointIndex] = 0.0;
+              initialStress.zz[ltsFace][pointIndex] = 0.0;
+              initialStress.yz[ltsFace][pointIndex] = 0.0;
+            }
+          }
+        } else { // read all stress components from the parameter file
+          parameterToStorageMap.insert({identifiers[0], getRawData(initialStress.xx)});
+          parameterToStorageMap.insert({identifiers[1], getRawData(initialStress.yy)});
+          parameterToStorageMap.insert({identifiers[2], getRawData(initialStress.zz)});
+          parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.xy)});
+          parameterToStorageMap.insert({identifiers[4], getRawData(initialStress.yz)});
+          parameterToStorageMap.insert({identifiers[5], getRawData(initialStress.xz)});
+        }
+        if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Poroelastic) {
+          if (isFaultParameterizedByTraction) {
+            parameterToStorageMap.insert({identifiers[3], getRawData(initialStress.p)});
+          } else {
+            parameterToStorageMap.insert({identifiers[6], getRawData(initialStress.p)});
+          }
+        } else {
+          for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+            for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>;
+                 ++pointIndex) {
+              initialStress.p[ltsFace][pointIndex] = 0.0;
+            }
+          }
+        }
 
-    StressTensor initialStress(layer.size());
-    const bool initialStressParameterizedByTraction = addStressesToStorageMap(initialStress, 0);
+        return isFaultParameterizedByTraction;
+      };
 
-    std::vector<bool> nucleationStressParameterizedByTraction(drParameters_->nucleationCount);
-    std::vector<StressTensor> nucleationStresses;
-    nucleationStresses.reserve(drParameters_->nucleationCount);
-    for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
-      nucleationStresses.emplace_back(layer.size());
-      nucleationStressParameterizedByTraction[i] =
-          addStressesToStorageMap(nucleationStresses[i], i + 1);
-    }
+      StressTensor<Cfg> initialStress(layer.size());
+      const bool initialStressParameterizedByTraction = addStressesToStorageMap(initialStress, 0);
 
-    // get additional parameters (for derived friction laws)
-    addAdditionalParameters(parameterToStorageMap, layer);
-
-    for (std::size_t i = 0; i < multisim::NumSimulations; ++i) {
-      seissol::initializer::FaultParameterDB faultParameterDB(i);
-      // read parameters from yaml file
-      for (const auto& parameterStoragePair : parameterToStorageMap) {
-        faultParameterDB.addParameter(parameterStoragePair.first, parameterStoragePair.second);
+      std::vector<bool> nucleationStressParameterizedByTraction(drParameters_->nucleationCount);
+      std::vector<StressTensor<Cfg>> nucleationStresses;
+      nucleationStresses.reserve(drParameters_->nucleationCount);
+      for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
+        nucleationStresses.emplace_back(layer.size());
+        nucleationStressParameterizedByTraction[i] =
+            addStressesToStorageMap(nucleationStresses[i], i + 1);
       }
-      const auto faceIDs = getFaceIDsInIterator(layer);
-      queryModel(faultParameterDB, faceIDs, i);
-    }
 
-    // rotate initial stress to fault coordinate system
-    if (initialStressParameterizedByTraction) {
-      rotateTractionToCartesianStress(layer, initialStress, seissolInstance_.meshReader());
-    }
-
-    auto* initialStressInFaultCS = layer.var<DynamicRupture::InitialStressInFaultCS>();
-    rotateStressToFaultCS(
-        layer, initialStressInFaultCS, 0, 1, initialStress, seissolInstance_.meshReader());
-    // rotate nucleation stress to fault coordinate system
-    for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
-      if (nucleationStressParameterizedByTraction[i]) {
-        rotateTractionToCartesianStress(
-            layer, nucleationStresses[i], seissolInstance_.meshReader());
-      }
-      auto* nucleationStressInFaultCS = layer.var<DynamicRupture::NucleationStressInFaultCS>();
-      rotateStressToFaultCS(layer,
-                            nucleationStressInFaultCS,
-                            i,
-                            drParameters_->nucleationCount,
-                            nucleationStresses[i],
-                            seissolInstance_.meshReader());
-    }
-
-    auto* initialPressure = layer.var<DynamicRupture::InitialPressure>();
-    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-        initialPressure[ltsFace][pointIndex] = initialStress.p[ltsFace][pointIndex];
-        for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
-          auto* nucleationPressure = layer.var<DynamicRupture::NucleationPressure>();
-          nucleationPressure[ltsFace * drParameters_->nucleationCount + i][pointIndex] =
-              nucleationStresses[i].p[ltsFace][pointIndex];
+      // a nucleation may carry its onset and its rise time per point; where it does not, the
+      // parameter file's is the one of all of its points. A face holds them for all of its stress
+      // sources together, but the fault file is read face by face; hence, what it gives goes
+      // through arrays of its own first, as the stresses do.
+      const auto sourceCount = stressSourceCount(*drParameters_);
+      const auto initialSource = drParameters_->nucleationCount;
+      auto* stressSourceOnset = layer.var<DynamicRupture::StressSourceOnset>(Cfg());
+      auto* stressSourceRiseTime = layer.var<DynamicRupture::StressSourceRiseTime>(Cfg());
+      using PointArrays = StressTensor<Cfg>::VectorOfArraysT;
+      std::vector<PointArrays> onsetsFromFault(drParameters_->nucleationCount);
+      std::vector<PointArrays> riseTimesFromFault(drParameters_->nucleationCount);
+      std::vector<bool> onsetFromFault(drParameters_->nucleationCount);
+      std::vector<bool> riseTimeFromFault(drParameters_->nucleationCount);
+      for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
+        const auto onset = onsetIdentifier(i + 1);
+        onsetFromFault[i] = this->faultProvides(onset);
+        if (onsetFromFault[i]) {
+          onsetsFromFault[i].resize(layer.size());
+          parameterToStorageMap.insert({onset, reinterpret_cast<real*>(onsetsFromFault[i].data())});
+        }
+        const auto riseTime = riseTimeIdentifier(i + 1);
+        riseTimeFromFault[i] = this->faultProvides(riseTime);
+        if (riseTimeFromFault[i]) {
+          riseTimesFromFault[i].resize(layer.size());
+          parameterToStorageMap.insert(
+              {riseTime, reinterpret_cast<real*>(riseTimesFromFault[i].data())});
         }
       }
+
+      // get additional parameters (for derived friction laws)
+      addAdditionalParameters(parameterToStorageMap, layer);
+
+      queryParameters<Cfg>(layer, parameterToStorageMap);
+
+      // rotate initial stress to fault coordinate system
+      if (initialStressParameterizedByTraction) {
+        rotateTractionToCartesianStress(layer, initialStress, seissolInstance_.meshReader());
+      }
+
+      // the initial state is the last stress source of the face, the one without a rise time
+      auto* stressInFaultCS = layer.var<DynamicRupture::StressSourceInFaultCS>(Cfg());
+      rotateStressToFaultCS(layer,
+                            stressInFaultCS,
+                            initialSource,
+                            sourceCount,
+                            initialStress,
+                            seissolInstance_.meshReader());
+      // rotate nucleation stress to fault coordinate system
+      for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
+        if (nucleationStressParameterizedByTraction[i]) {
+          rotateTractionToCartesianStress(
+              layer, nucleationStresses[i], seissolInstance_.meshReader());
+        }
+        rotateStressToFaultCS(layer,
+                              stressInFaultCS,
+                              i,
+                              sourceCount,
+                              nucleationStresses[i],
+                              seissolInstance_.meshReader());
+      }
+
+      std::vector<bool> riseTimeNegative(drParameters_->nucleationCount);
+      for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+        for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
+          for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>;
+               ++pointIndex) {
+            stressSourceOnset[ltsFace * sourceCount + i][pointIndex] =
+                onsetFromFault[i] ? onsetsFromFault[i][ltsFace][pointIndex]
+                                  : static_cast<real>(drParameters_->s0[i]);
+            stressSourceRiseTime[ltsFace * sourceCount + i][pointIndex] =
+                riseTimeFromFault[i] ? riseTimesFromFault[i][ltsFace][pointIndex]
+                                     : static_cast<real>(drParameters_->t0[i]);
+            riseTimeNegative[i] = riseTimeNegative[i] ||
+                                  stressSourceRiseTime[ltsFace * sourceCount + i][pointIndex] < 0;
+          }
+        }
+        // the initial state is in effect from the start, without a rise time
+        for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
+          stressSourceOnset[ltsFace * sourceCount + initialSource][pointIndex] = 0;
+          stressSourceRiseTime[ltsFace * sourceCount + initialSource][pointIndex] = 0;
+        }
+      }
+
+      for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
+        if (sourcesDescribed) {
+          break;
+        }
+        logInfo() << "Nucleation" << (i + 1) << "is parameterized by"
+                  << (nucleationStressParameterizedByTraction[i] ? "traction," : "stress,")
+                  << "takes its onset"
+                  << (onsetFromFault[i] ? "from " + onsetIdentifier(i + 1)
+                                        : "to be " + std::to_string(drParameters_->s0[i]) + " s")
+                  << "and its rise time"
+                  << (riseTimeFromFault[i] ? "from " + riseTimeIdentifier(i + 1)
+                                           : "to be " + std::to_string(drParameters_->t0[i]) + " s")
+                  << ".";
+        if (riseTimeNegative[i]) {
+          logWarning() << "Nucleation" << (i + 1)
+                       << "has a negative rise time; where it does, it is applied in full at its"
+                       << "onset.";
+        }
+      }
+      if (!sourcesDescribed) {
+        logInfo() << "The initial state is parameterized by"
+                  << (initialStressParameterizedByTraction ? "traction" : "stress")
+                  << "and is in effect from the start.";
+        sourcesDescribed = true;
+      }
+
+      auto* pressure = layer.var<DynamicRupture::StressSourcePressure>(Cfg());
+      for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+        for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
+          pressure[ltsFace * sourceCount + initialSource][pointIndex] =
+              initialStress.p[ltsFace][pointIndex];
+          for (std::uint32_t i = 0; i < drParameters_->nucleationCount; ++i) {
+            pressure[ltsFace * sourceCount + i][pointIndex] =
+                nucleationStresses[i].p[ltsFace][pointIndex];
+          }
+        }
+      }
+
+      initializeOtherVariables(layer);
+    });
+  }
+}
+
+void BaseDRInitializer::logQuadratureRules(DynamicRupture::Storage& drStorage) {
+  // one line for every configuration that fault faces compute in
+  forEachConfig([&](auto cfg) {
+    using Cfg = decltype(cfg);
+    for (const auto& layer : drStorage.leaves(Ghost)) {
+      if (layer.getIdentifier().config == configIdOf<Cfg>()) {
+        logInfo() << "Initializing Fault, using a quadrature rule with "
+                  << misc::NumBoundaryGaussPoints<Cfg> << " points.";
+        break;
+      }
+    }
+  });
+}
+
+template <typename Cfg>
+void BaseDRInitializer::queryParameters(
+    DynamicRupture::Layer& layer,
+    const std::unordered_map<std::string, void*>& parameterToStorageMap) {
+  using real = Real<Cfg>;
+  const auto* drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
+  const auto copyCount = seissolInstance_.memoryManager().drBackmap().copyCount();
+
+  for (std::size_t copy = 0; copy < copyCount; ++copy) {
+    // the faces of the copy, by their mesh ids and by their positions in the layer
+    std::vector<std::size_t> faceIDs;
+    std::vector<std::size_t> faces;
+    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+      if (drFaceInformation[ltsFace].copy == copy) {
+        faceIDs.push_back(drFaceInformation[ltsFace].meshFace);
+        faces.push_back(ltsFace);
+      }
     }
 
-    initializeOtherVariables(layer);
+    for (std::size_t i = 0; i < Cfg::NumSimulations; ++i) {
+      seissol::initializer::FaultParameterDB<real> faultParameterDB(i, Cfg::NumSimulations);
+      // read parameters from yaml file
+      for (const auto& parameterStoragePair : parameterToStorageMap) {
+        faultParameterDB.addParameter(parameterStoragePair.first,
+                                      static_cast<real*>(parameterStoragePair.second));
+      }
+      if (copyCount > 1) {
+        // the faces of the other copies lie in between
+        faultParameterDB.setFaces(faces, misc::NumPaddedPointsSingleSim<Cfg>);
+      }
+      queryModel<Cfg>(faultParameterDB, faceIDs, copy * Cfg::NumSimulations + i);
+    }
   }
 }
 
-std::vector<std::size_t> BaseDRInitializer::getFaceIDsInIterator(DynamicRupture::Layer& layer) {
-  const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
-  std::vector<std::size_t> faceIDs;
-  faceIDs.reserve(layer.size());
-  // collect all face IDs within this lts leaf
-  for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-    faceIDs.push_back(drFaceInformation[ltsFace].meshFace);
-  }
-  return faceIDs;
-}
-
-void BaseDRInitializer::queryModel(seissol::initializer::FaultParameterDB& faultParameterDB,
-                                   const std::vector<std::size_t>& faceIDs,
-                                   std::size_t simid) {
+template <typename Cfg>
+void BaseDRInitializer::queryModel(
+    seissol::initializer::FaultParameterDB<Real<Cfg>>& faultParameterDB,
+    const std::vector<std::size_t>& faceIDs,
+    std::size_t simid) {
+  // the fused simulations which only fill up the last copy of the faces repeat the first
+  // simulations
+  simid %= drParameters_->faultFileNames.size();
   // create a query and evaluate the model
   if (!drParameters_->faultFileNames[simid].has_value()) {
     simid = 0;
   }
   {
-    const seissol::initializer::FaultGPGenerator queryGen(seissolInstance_.meshReader(), faceIDs);
+    const seissol::initializer::FaultGPGenerator<Cfg> queryGen(seissolInstance_.meshReader(),
+                                                               faceIDs);
     faultParameterDB.evaluateModel(drParameters_->faultFileNames[simid].value(), queryGen);
   }
 }
 
 void BaseDRInitializer::addAdditionalParameters(
-    std::unordered_map<std::string, real*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
+    std::unordered_map<std::string, void*>& parameterToStorageMap, DynamicRupture::Layer& layer) {
   // do nothing for base friction law
 }
 
 void BaseDRInitializer::initializeOtherVariables(DynamicRupture::Layer& layer) {
-  // initialize rupture front flag
-  bool (*ruptureTimePending)[misc::NumPaddedPoints] =
-      layer.var<DynamicRupture::RuptureTimePending>();
-  for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-      ruptureTimePending[ltsFace][pointIndex] = true;
+  dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
+    using Cfg = decltype(cfg);
+    using real = Real<Cfg>;
+    // initialize rupture front flag
+    bool (*ruptureTimePending)[misc::NumPaddedPoints<Cfg>] =
+        layer.var<DynamicRupture::RuptureTimePending>(Cfg());
+    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
+        ruptureTimePending[ltsFace][pointIndex] = true;
+      }
     }
-  }
 
-  // initialize all other variables to zero
-  real(*peakSlipRate)[misc::NumPaddedPoints] = layer.var<DynamicRupture::PeakSlipRate>();
-  real(*ruptureTime)[misc::NumPaddedPoints] = layer.var<DynamicRupture::RuptureTime>();
-  real(*dynStressTime)[misc::NumPaddedPoints] = layer.var<DynamicRupture::DynStressTime>();
-  real(*accumulatedSlipMagnitude)[misc::NumPaddedPoints] =
-      layer.var<DynamicRupture::AccumulatedSlipMagnitude>();
-  real(*slip1)[misc::NumPaddedPoints] = layer.var<DynamicRupture::Slip1>();
-  real(*slip2)[misc::NumPaddedPoints] = layer.var<DynamicRupture::Slip2>();
-  real(*slipRateMagnitude)[misc::NumPaddedPoints] = layer.var<DynamicRupture::SlipRateMagnitude>();
-  real(*traction1)[misc::NumPaddedPoints] = layer.var<DynamicRupture::Traction1>();
-  real(*traction2)[misc::NumPaddedPoints] = layer.var<DynamicRupture::Traction2>();
+    // initialize all other variables to zero
+    real(*peakSlipRate)[misc::NumPaddedPoints<Cfg>] =
+        layer.var<DynamicRupture::PeakSlipRate>(Cfg());
+    real(*ruptureTime)[misc::NumPaddedPoints<Cfg>] = layer.var<DynamicRupture::RuptureTime>(Cfg());
+    real(*dynStressTime)[misc::NumPaddedPoints<Cfg>] =
+        layer.var<DynamicRupture::DynStressTime>(Cfg());
+    real(*accumulatedSlipMagnitude)[misc::NumPaddedPoints<Cfg>] =
+        layer.var<DynamicRupture::AccumulatedSlipMagnitude>(Cfg());
+    real(*slip1)[misc::NumPaddedPoints<Cfg>] = layer.var<DynamicRupture::Slip1>(Cfg());
+    real(*slip2)[misc::NumPaddedPoints<Cfg>] = layer.var<DynamicRupture::Slip2>(Cfg());
+    real(*slipRateMagnitude)[misc::NumPaddedPoints<Cfg>] =
+        layer.var<DynamicRupture::SlipRateMagnitude>(Cfg());
+    real(*traction1)[misc::NumPaddedPoints<Cfg>] = layer.var<DynamicRupture::Traction1>(Cfg());
+    real(*traction2)[misc::NumPaddedPoints<Cfg>] = layer.var<DynamicRupture::Traction2>(Cfg());
 
-  for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; ++pointIndex) {
-      peakSlipRate[ltsFace][pointIndex] = 0;
-      ruptureTime[ltsFace][pointIndex] = 0;
-      dynStressTime[ltsFace][pointIndex] = 0;
-      accumulatedSlipMagnitude[ltsFace][pointIndex] = 0;
-      slip1[ltsFace][pointIndex] = 0;
-      slip2[ltsFace][pointIndex] = 0;
-      slipRateMagnitude[ltsFace][pointIndex] = 0;
-      traction1[ltsFace][pointIndex] = 0;
-      traction2[ltsFace][pointIndex] = 0;
+    for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
+      for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; ++pointIndex) {
+        peakSlipRate[ltsFace][pointIndex] = 0;
+        ruptureTime[ltsFace][pointIndex] = 0;
+        dynStressTime[ltsFace][pointIndex] = 0;
+        accumulatedSlipMagnitude[ltsFace][pointIndex] = 0;
+        slip1[ltsFace][pointIndex] = 0;
+        slip2[ltsFace][pointIndex] = 0;
+        slipRateMagnitude[ltsFace][pointIndex] = 0;
+        traction1[ltsFace][pointIndex] = 0;
+        traction2[ltsFace][pointIndex] = 0;
+      }
     }
-  }
+  });
 }
 
 bool BaseDRInitializer::faultProvides(const std::string& parameter) {
-  // TODO: Use C++20 contains
-  return faultParameterNames_.count(parameter) > 0;
+  return faultParameterNames_.contains(parameter);
+}
+
+std::string BaseDRInitializer::onsetIdentifier(int readNucleation) {
+  const std::string index = readNucleation > 1 ? std::to_string(readNucleation) : "";
+  return "nuc" + index + "_onset";
+}
+
+std::string BaseDRInitializer::riseTimeIdentifier(int readNucleation) {
+  const std::string index = readNucleation > 1 ? std::to_string(readNucleation) : "";
+  return "nuc" + index + "_rise_time";
 }
 
 std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
-    BaseDRInitializer::stressIdentifiers(int readNucleation) {
+    BaseDRInitializer::stressIdentifiers(int readNucleation, model::MaterialType material) {
   std::vector<std::string> tractionNames;
   std::vector<std::string> cartesianNames;
   std::vector<std::string> commonNames;
@@ -398,7 +543,7 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
     tractionNames = {tnName, tsName, tdName};
     cartesianNames = {"s_xx", "s_yy", "s_zz", "s_xy", "s_yz", "s_xz"};
   }
-  if (model::MaterialT::Type == model::MaterialType::Poroelastic) {
+  if (material == model::MaterialType::Poroelastic) {
     if (readNucleation > 0) {
       commonNames.emplace_back(insertIndex("nuc", "p"));
     } else {
@@ -435,12 +580,13 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
   } else if (allTractionParametersSupplied && !anyCartesianParametersSupplied) {
     return {tractionNames, Parametrization::Traction};
   } else {
-    logError() << "Please specify a correct parametrization of the "
-               << (readNucleation > 0
-                       ? "nucleation stress " + std::to_string(readNucleation + 1) + "."
-                       : "initial stress.")
-               << "You have either not specified all parameters or an uncommom mixture of "
-                  "parameters. Give either all of "
+    // readNucleation numbers the nucleations as the documentation does: 1 for nuc_*, 2 for nuc2_*
+    const std::string stress = readNucleation > 0
+                                   ? "nucleation stress " + std::to_string(readNucleation) + "."
+                                   : std::string("initial stress.");
+    logError() << "Please specify a correct parametrization of the" << stress.c_str()
+               << "You have either not specified all parameters or an uncommon mixture of "
+                  "parameters. Give either all of"
                << cartesianNames << "or all of" << tractionNames << ", but not a mixture of them.";
     return {};
   }
@@ -458,5 +604,19 @@ std::string BaseDRInitializer::faultNameAlternatives(const std::vector<std::stri
   }
   return parameter[0];
 }
+
+// the argument is a type, which the check takes for an expression in template arguments
+// NOLINTBEGIN(bugprone-macro-parentheses)
+#define SEISSOL_INSTANTIATE(Cfg)                                                                   \
+  template void BaseDRInitializer::queryParameters<Cfg>(                                           \
+      DynamicRupture::Layer & layer,                                                               \
+      const std::unordered_map<std::string, void*>& parameterToStorageMap);                        \
+  template void BaseDRInitializer::queryModel<Cfg>(                                                \
+      seissol::initializer::FaultParameterDB<Real<Cfg>> & faultParameterDB,                        \
+      const std::vector<std::size_t>& faceIDs,                                                     \
+      std::size_t simid);
+// NOLINTEND(bugprone-macro-parentheses)
+SEISSOL_FOR_EACH_CONFIG(SEISSOL_INSTANTIATE)
+#undef SEISSOL_INSTANTIATE
 
 } // namespace seissol::dr::initializer

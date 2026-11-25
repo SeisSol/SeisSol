@@ -1,0 +1,71 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# Transversely isotropic media with tilted axes, for the fault1d cases. Group
+# 1 is c11 = 9.72e10, c33 = 7.5e10, c44 = 2.4e10, c66 = 3.6e10 and
+# c13 = 2.6e10 about an axis 40 degrees from z, at an azimuth of 60 degrees
+# from x: along x, its two shear waves differ in speed by 16 %, and every wave
+# couples the normal and the shear traction on the fault. Group 2, the side
+# x > 0 of fault1d-bimaterial, is the softer c11 = 6.48e10, c33 = 5.0e10,
+# c44 = 1.6e10, c66 = 2.4e10 and c13 = 1.7e10 about an axis 65 degrees from z,
+# at an azimuth of -35 degrees. Both are rounded to four digits after the
+# rotation. The fastest wave stays below 6000 m/s, so that the time step of
+# the elastic cases holds.
+!Any
+components:
+  - !GroupFilter
+    groups: 1
+    components: !ConstantMap
+      map:
+        rho:    2700.0
+        c11:    9.267e10
+        c12:    2.631e10
+        c13:    2.722e10
+        c14:    1.407e09
+        c15:    -5.096e09
+        c16:    -3.703e09
+        c22:    8.515e10
+        c23:    3.032e10
+        c24:    -6.695e09
+        c25:    2.043e09
+        c26:    -2.809e09
+        c33:    7.83e10
+        c34:    -3.837e09
+        c35:    -2.216e09
+        c36:    2.684e09
+        c44:    2.964e10
+        c45:    3.938e08
+        c46:    -1.108e09
+        c55:    2.919e10
+        c56:    -4.051e09
+        c66:    3.182e10
+  - !GroupFilter
+    groups: 2
+    components: !ConstantMap
+      map:
+        rho:    2700.0
+        c11:    5.249e10
+        c12:    1.947e10
+        c13:    1.86e10
+        c14:    -2.078e09
+        c15:    -2.052e09
+        c16:    2.524e09
+        c22:    5.749e10
+        c23:    1.77e10
+        c24:    2.474e09
+        c25:    1.487e09
+        c26:    4.346e09
+        c33:    5.969e10
+        c34:    2.812e09
+        c35:    -4.016e09
+        c36:    -1.235e09
+        c44:    2.122e10
+        c45:    1.929e09
+        c46:    -1.086e09
+        c55:    1.982e10
+        c56:    -2.767e08
+        c66:    1.993e10

@@ -24,9 +24,9 @@ class Hdf5Reader {
   void openFile(const std::string& name);
   void openGroup(const std::string& name);
   template <typename T>
-  std::vector<T>
-      readAttribute(const std::string& name,
-                    std::shared_ptr<datatype::Datatype> type = datatype::inferDatatype<T>()) {
+  std::vector<T> readAttribute(
+      const std::string& name,
+      const std::shared_ptr<datatype::Datatype>& type = datatype::inferDatatype<T>()) {
     const auto count = attributeCount(name);
     std::vector<T> output(count);
     readAttributeRaw(output.data(), name, type);
@@ -40,6 +40,8 @@ class Hdf5Reader {
     readAttributeRaw(&attr, name, type);
     return attr;
   }
+  //! @brief Whether the open group or file carries the attribute @p name.
+  bool hasAttribute(const std::string& name);
   std::size_t attributeCount(const std::string& name);
   void readAttributeRaw(void* data,
                         const std::string& name,
@@ -49,11 +51,19 @@ class Hdf5Reader {
       const std::string& name,
       const std::shared_ptr<datatype::Datatype>& targetType = datatype::inferDatatype<T>()) {
     const auto count = dataCount(name);
-    std::vector<T> output(count);
+    // dataCount counts rows, i.e. entries along the distributed first dimension; a row of a
+    // multi-dimensional dataset holds more than one value
+    std::vector<T> output(count * dataRowSize(name));
     readDataRaw(output.data(), name, count, targetType);
     return output;
   }
+  //! @brief Number of rows of a dataset that belong to this rank.
   std::size_t dataCount(const std::string& name);
+  //! @brief Number of values per row, i.e. the product of all but the first dimension.
+  std::size_t dataRowSize(const std::string& name);
+  //! @brief The extents of one value of a dataset, outermost first, if its values are arrays;
+  //! empty otherwise.
+  std::vector<std::size_t> dataValueShape(const std::string& name);
   void readDataRaw(void* data,
                    const std::string& name,
                    std::size_t count,

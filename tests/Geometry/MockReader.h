@@ -20,7 +20,7 @@ class MockReader : public seissol::geometry::MeshReader {
   explicit MockReader(const std::array<Eigen::Vector3d, 4>& vertices) {
     vertices_.resize(4);
     for (std::size_t i = 0; i < Cell::NumVertices; ++i) {
-      std::copy(vertices[i].data(), vertices[i].data() + 3, vertices_.at(i).coords);
+      std::copy_n(vertices[i].data(), 3, vertices_.at(i).coords.begin());
       vertices_.at(i).elements = {1};
     }
 

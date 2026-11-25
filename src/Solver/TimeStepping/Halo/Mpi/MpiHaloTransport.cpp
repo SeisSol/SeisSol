@@ -1,0 +1,181 @@
+// SPDX-FileCopyrightText: 2026 SeisSol Group
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+//
+// SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+#include "MpiHaloTransport.h"
+
+#include "Monitoring/Trace.h"
+#include "Parallel/MPI.h"
+#include "Solver/TimeStepping/Halo/HaloCommunication.h"
+
+#include <cstddef>
+#include <list>
+#include <mpi.h>
+#include <sstream>
+#include <string>
+#include <vector>
+
+namespace seissol::solver {
+
+void traceRegion(const RegionTrace& trace, std::size_t region) {
+  if (trace.begin < 0 || !monitoring::Trace::recording()) {
+    return;
+  }
+  const auto& cluster = (*trace.clusters)[region];
+  static const auto SendName = monitoring::Trace::name("send");
+  static const auto ReceiveName = monitoring::Trace::name("receive");
+  const auto track = monitoring::Trace::track(
+      &cluster,
+      std::string(trace.send ? "mpi send to rank " : "mpi receive from rank ") +
+          std::to_string(cluster.rank) + " tag " + std::to_string(cluster.tag));
+  monitoring::Trace::span(
+      trace.send ? SendName : ReceiveName, track, trace.begin, monitoring::Trace::now());
+}
+
+double regionTraceBegin() { return monitoring::Trace::recording() ? monitoring::Trace::now() : -1; }
+
+bool testRequests(std::vector<MPI_Request>& requests,
+                  std::list<std::size_t>& regions,
+                  const RegionTrace* trace) {
+  if (regions.empty()) {
+    return true;
+  }
+  // one call for the requests of all regions: MPI_Testsome skips those of the regions completed
+  // before (inactive or null), and runs the progress engine of MPI once, where an MPI_Test per
+  // region ran it once per region
+  thread_local std::vector<int> completed;
+  completed.resize(requests.size());
+  int completedCount = 0;
+  MPI_Testsome(static_cast<int>(requests.size()),
+               requests.data(),
+               &completedCount,
+               completed.data(),
+               MPI_STATUSES_IGNORE);
+  if (completedCount == MPI_UNDEFINED) {
+    // no request is active any more, so no region can still be pending
+    regions.clear();
+    return true;
+  }
+  for (int i = 0; i < completedCount; ++i) {
+    const auto region = static_cast<std::size_t>(completed[i]);
+    if (trace != nullptr) {
+      traceRegion(*trace, region);
+    }
+    regions.remove(region);
+  }
+  return regions.empty();
+}
+
+std::string describePending(const RemoteClusterPair& regions,
+                            const std::list<std::size_t>& sends,
+                            const std::list<std::size_t>& receives) {
+  std::ostringstream text;
+  const auto list = [&](const char* what,
+                        const std::vector<RemoteCluster>& clusters,
+                        const std::list<std::size_t>& pending) {
+    text << pending.size() << " " << what << " in flight";
+    for (const auto region : pending) {
+      const auto& cluster = clusters[region];
+      text << " (rank " << cluster.rank << ", tag " << cluster.tag << ", " << cluster.size
+           << " values)";
+    }
+  };
+  list("sends", regions.copy, sends);
+  text << "; ";
+  list("receives", regions.ghost, receives);
+  return text.str();
+}
+
+std::string MpiHaloTransport::describe() const {
+  return describePending(regions_, sendQueue_, receiveQueue_);
+}
+
+MpiHaloTransport::MpiHaloTransport(const RemoteClusterPair& regions, bool persistent)
+    : regions_(regions), persistent_(persistent), sendRequests_(regions.copy.size()),
+      recvRequests_(regions.ghost.size()) {
+  if (persistent_) {
+    for (std::size_t region = 0; region < regions_.copy.size(); ++region) {
+      MPI_Send_init(regions_.copy[region].data,
+                    static_cast<int>(regions_.copy[region].size),
+                    Mpi::precisionToMpiType(regions_.copy[region].datatype),
+                    regions_.copy[region].rank,
+                    regions_.copy[region].tag,
+                    seissol::Mpi::mpi.comm(),
+                    sendRequests_.data() + region);
+    }
+    for (std::size_t region = 0; region < regions_.ghost.size(); ++region) {
+      MPI_Recv_init(regions_.ghost[region].data,
+                    static_cast<int>(regions_.ghost[region].size),
+                    Mpi::precisionToMpiType(regions_.ghost[region].datatype),
+                    regions_.ghost[region].rank,
+                    regions_.ghost[region].tag,
+                    seissol::Mpi::mpi.comm(),
+                    recvRequests_.data() + region);
+    }
+  }
+}
+
+void MpiHaloTransport::startSend() {
+  sendBegin_ = regionTraceBegin();
+  // (some MPIs take the null array of no requests for an invalid one; e.g. Open MPI 5)
+  if (persistent_ && !sendRequests_.empty()) {
+    MPI_Startall(static_cast<int>(sendRequests_.size()), sendRequests_.data());
+  }
+  for (std::size_t region = 0; region < regions_.copy.size(); ++region) {
+    if (!persistent_) {
+      MPI_Isend(regions_.copy[region].data,
+                static_cast<int>(regions_.copy[region].size),
+                Mpi::precisionToMpiType(regions_.copy[region].datatype),
+                regions_.copy[region].rank,
+                regions_.copy[region].tag,
+                seissol::Mpi::mpi.comm(),
+                sendRequests_.data() + region);
+    }
+    sendQueue_.push_back(region);
+  }
+}
+
+bool MpiHaloTransport::testSend() {
+  const RegionTrace trace{.clusters = &regions_.copy, .send = true, .begin = sendBegin_};
+  return testRequests(sendRequests_, sendQueue_, &trace);
+}
+
+void MpiHaloTransport::startReceive() {
+  receiveBegin_ = regionTraceBegin();
+  if (persistent_ && !recvRequests_.empty()) {
+    MPI_Startall(static_cast<int>(recvRequests_.size()), recvRequests_.data());
+  }
+  for (std::size_t region = 0; region < regions_.ghost.size(); ++region) {
+    if (!persistent_) {
+      MPI_Irecv(regions_.ghost[region].data,
+                static_cast<int>(regions_.ghost[region].size),
+                Mpi::precisionToMpiType(regions_.ghost[region].datatype),
+                regions_.ghost[region].rank,
+                regions_.ghost[region].tag,
+                seissol::Mpi::mpi.comm(),
+                recvRequests_.data() + region);
+    }
+    receiveQueue_.push_back(region);
+  }
+}
+
+bool MpiHaloTransport::testReceive() {
+  const RegionTrace trace{.clusters = &regions_.ghost, .send = false, .begin = receiveBegin_};
+  return testRequests(recvRequests_, receiveQueue_, &trace);
+}
+
+void MpiHaloTransport::finalize() {
+  if (persistent_) {
+    for (auto& request : sendRequests_) {
+      MPI_Request_free(&request);
+    }
+    for (auto& request : recvRequests_) {
+      MPI_Request_free(&request);
+    }
+  }
+}
+
+} // namespace seissol::solver

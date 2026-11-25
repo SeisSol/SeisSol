@@ -15,15 +15,15 @@
 #include "Memory/Descriptor/LTS.h"
 #include "Memory/Tree/LTSTree.h"
 #include "Modules/Module.h"
-#include "Solver/TimeStepping/AbstractGhostTimeCluster.h"
-#include "Solver/TimeStepping/AbstractTimeCluster.h"
-#include "Solver/TimeStepping/TimeCluster.h"
+#include "Solver/TimeStepping/Actor/AbstractTimeCluster.h"
+#include "Solver/TimeStepping/Compute/CellCluster.h"
+#include "Solver/TimeStepping/Halo/GhostCluster.h"
 
 #include <vector>
 
 namespace seissol {
 class SeisSol;
-namespace ITM {
+namespace physics {
 
 bool isAnisotropicReflectionTypeSupported(
     seissol::initializer::parameters::ReflectionType reflectionType);
@@ -43,11 +43,18 @@ class InstantaneousTimeMirrorManager : public Module {
   LTS::Storage* ltsStorage_{nullptr};
   const initializer::ClusterLayout* clusterLayout_{nullptr};
 
-  std::vector<seissol::time_stepping::AbstractTimeCluster*> clusters_;
+  std::vector<seissol::solver::AbstractTimeCluster*> clusters_;
 
   public:
-  explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance)
-      : seissolInstance_(seissolInstance) {};
+  explicit InstantaneousTimeMirrorManager(seissol::SeisSol& seissolInstance);
+  ~InstantaneousTimeMirrorManager() override;
+
+  // delete all other constructors due to it being a module.
+
+  InstantaneousTimeMirrorManager(const InstantaneousTimeMirrorManager&) = delete;
+  auto operator=(const InstantaneousTimeMirrorManager&) = delete;
+  InstantaneousTimeMirrorManager(InstantaneousTimeMirrorManager&&) = delete;
+  auto operator=(InstantaneousTimeMirrorManager&&) = delete;
 
   void init(double velocityScalingFactor,
             double triggerTime,
@@ -55,7 +62,7 @@ class InstantaneousTimeMirrorManager : public Module {
             LTS::Storage& ltsStorage,
             const initializer::ClusterLayout* clusterLayout);
 
-  void setClusterVector(const std::vector<seissol::time_stepping::AbstractTimeCluster*>& clusters);
+  void setClusterVector(const std::vector<seissol::solver::AbstractTimeCluster*>& clusters);
 
   void syncPoint(double currentTime) override;
 
@@ -63,12 +70,6 @@ class InstantaneousTimeMirrorManager : public Module {
   void scaleClusterTimes(double scalingFactor);
   void updateVelocities();
   void updateTimeSteps();
-
-  template <typename MaterialType>
-  void updateVelocitiesForMaterialType();
-
-  template <typename MaterialType>
-  void updateTimeStepsForMaterialType();
 };
 
 void initializeTimeMirrorManagers(double scalingFactor,
@@ -77,9 +78,9 @@ void initializeTimeMirrorManagers(double scalingFactor,
                                   LTS::Storage& ltsStorage,
                                   InstantaneousTimeMirrorManager& increaseManager,
                                   InstantaneousTimeMirrorManager& decreaseManager,
-                                  seissol::SeisSol& seissolInstance,
+                                  const seissol::SeisSol& seissolInstance,
                                   const initializer::ClusterLayout* clusterLayout);
-} // namespace ITM
+} // namespace physics
 } // namespace seissol
 
 #endif // SEISSOL_SRC_PHYSICS_INSTANTANEOUSTIMEMIRRORMANAGER_H_

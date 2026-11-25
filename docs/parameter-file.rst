@@ -25,12 +25,154 @@ following:
    size. The elements are separated by spaces (``1 2 3 4``)
 -  **String**
 -  **Path** A path references a file or a directory and is given as a
-   string in the parameter file with additional restrictions. A path might be absolute or relative to the starting directory of the execution. If the path is used for an output file, the user has to make sure that the directory exists. (E.g. If the path is set to
-   "output/wavefield", then the directory "output" must exist.)
+   string in the parameter file with additional restrictions. A path might be absolute or relative to the starting directory of the execution.
 -  **Path prefix** Path prefixes are similar to paths. However, SeisSol
    will automatically append a filename extension or other suffixes
    (e.g. "-fault").
 
+The outputs share one prefix: the directory ``outdir`` and the name ``outname``
+in the ``Output`` section, e.g. ``outdir = 'runs/a/output'`` and
+``outname = 'data'`` for files such as "runs/a/output/data-receiver-....dat".
+``OutputFile`` gives both at once instead, as one path prefix
+("runs/a/output/data"); with ``outdir`` and ``outname``, it is ignored. SeisSol
+creates the output directory, with its parents, if it does not exist yet.
+
+With ``outsimdir = 1``, each run writes into a directory of its own within
+``outdir``, named after ``outname`` and the ID of the run (see
+:ref:`env_vars`), e.g. "runs/a/output/data-123e4567-e89b-42d3-a456-426614174000".
+Runs of a job array that share a parameter file then keep their outputs apart,
+also when they start at the same time; ``SEISSOL_RUN_ID`` lets a job script
+know the directory beforehand.
+
+
+.. _parameter-overrides:
+
+Overriding parameters on the command line
+-----------------------------------------
+
+``--set section.field=value`` gives a parameter on the command line in place of the
+value in the parameter file; it can be given several times, and a later one wins
+over an earlier one. Section and field are written as in the parameter file, in any
+case, and the value is read as if it stood there, quotes and Fortran exponents
+included:
+
+.. code-block:: bash
+
+    ./SeisSol_YOUR_CONFIGURATION parameters.par \
+        --set output.outdir=runs/strong-16 \
+        --set abortcriteria.endtime=2.5d0 \
+        --set output.wavefieldoutput=0
+
+That way, a series of runs can share one parameter file. A section the file does not
+have is added. An override of a field SeisSol does not read is an error, unlike a
+field in the file that SeisSol does not know, which only gives a warning: a
+misspelt override would otherwise silently leave the run unchanged.
+
+.. _parameter-check:
+
+Checking a run before starting it
+---------------------------------
+
+``--check`` reads the parameter file and the overrides as a run does, but instead of
+running, it checks what a run finds out only later, when it may have waited in a queue
+for hours:
+
+* that the files the parameters name exist, those that the run opens (the receiver
+  file, e.g., only if the receiver output is on);
+* that the YAML files among them parse, and that the easi models among them parse as
+  easi models, that the files they include or read (``!Include``, ``!ASAGI``,
+  ``!SCECFile``) exist, and that the material file supplies the parameters of the
+  materials of the configurations of the run, as a whole (for each cell, see
+  ``--check-depth=model`` below); a model that reads a file with ASAGI it does not parse,
+  since ASAGI needs MPI;
+* that the mesh opens, and how many cells and vertices it has;
+* that the output directory can be written, or created;
+* that the checkpoint given with ``-c`` exists.
+
+Then it reads the whole mesh once, cell by cell, and checks what the run would check
+only after reading and partitioning it:
+
+* that the receivers lie in cells of the mesh, the point sources as well, and that the
+  on-fault receivers lie on the fault, i.e. across a fault face along its normal; it
+  takes the points with the same tests as the run. For a point that lies in no cell, it
+  tells whether the point lies above the free surface, and by how much, or outside of
+  the mesh. It warns of an on-fault receiver that the run moves onto the fault from
+  farther away than the fault face is large;
+* that the face map (``facemapfile``, or the default one) knows the boundary condition
+  tags of all faces, and that the build supports the boundary conditions that the cells
+  of each configuration have;
+* that the cells are oriented as the run requires, which a cell without volume, or a
+  scaling of the mesh that mirrors it, is not;
+* that both cells of every fault face have it as a fault face, which a fault face on the
+  boundary of the mesh cannot.
+
+It warns, too, if dynamic rupture is on but the mesh has no fault faces, if the
+reference point of the fault tells neither side of a fault face to be the plus side (as
+it does where it lies in the plane of the face), if the free-surface output is on but
+the mesh has no faces of the free surface, and if the configuration map names a group
+that no cell of the mesh has.
+
+It runs on one process, without MPI and without devices, with the threads of OpenMP,
+e.g. on a login node with the executable built for the compute nodes:
+
+.. code-block:: bash
+
+    ./SeisSol_YOUR_CONFIGURATION --check=check.json parameters.par \
+        --set output.outdir=runs/strong-16
+
+Reading the whole mesh holds its vertices in memory, 24 bytes each, and a chunk of its
+cells; for a mesh of 10 million cells, it took 2 s on two cores. ``--check-depth=files``
+leaves it out, ``--check-depth=mesh`` is the default; ``--check-depth`` alone implies
+``--check``.
+
+``--check-depth=model`` evaluates the material model for every cell as well, as the run
+does for the time steps of the cells: an error of easi, e.g. a parameter that a part of
+the model does not supply, stops the check as it would stop the run, and the check
+reports the cells without a positive and finite wave speed and the range of the time
+steps of the cells, with the number of steps the smallest one takes up to the end time.
+It evaluates the model on one thread, as each rank of a run does; for the mesh of 10
+million cells, it took 16 s. A model that reads files with ASAGI it does not evaluate.
+
+The login node has to be able to start the executable. One built with CUDA starts
+without the NVIDIA driver as well; where an executable does not start, ``ldd`` names the
+libraries the node lacks, e.g. those that a GPU-aware MPI library needs. An executable
+built for the instructions of the CPUs of the compute nodes may stop on a login node
+with other CPUs.
+
+An error in the parameters stops the check as it would stop the run; what the check
+itself finds, it collects: as problems, which keep the run from starting or from going
+as intended, and as warnings. The exit code is 0 if the run can start, 1 otherwise.
+``--check=<file>`` writes a report as JSON, also when an error or a crash stops the
+check: its ``status`` is ``passed`` or ``failed``, or ``terminated`` if a request to
+stop reached it (then ``terminatedBy`` gives the signal); ``problems`` and ``warnings``
+list what the check found; ``stoppedAt`` names the step an error or a crash stopped
+(``parameters``, ``files``, ``yaml``, ``easi``, ``mesh``, ``checkpoint``, ``output``,
+``points`` or ``meshScan``), and ``error`` gives its ``message`` and its ``time``, for
+an error its ``source`` in the code (``file``, ``line``, ``function``), for a crash the
+``signal`` (see :ref:`run-summary`); ``depth`` is the depth of the check; ``mesh`` has
+the ``cells`` and ``vertices`` of a PUML mesh, and with the whole mesh read, ``scan``:
+its bounding box (``min``, ``max``), the faces by their boundary condition tag
+(``tags``) and face type (``faceTypes``), the cells by their group (``groups``), the
+number of fault faces (``faultFaces``), of those that one cell only has
+(``oneSidedFaultFaces``) and without a plus side (``faultFacesWithoutPlusSide``), the
+radii of the inspheres of the smallest and the largest cell (``smallestInsphere`` of the
+cell ``smallestCell`` of the file, and ``largestInsphere``), and how long reading it
+took (``seconds``) with how much memory (``bytes``); ``points`` has the ``receivers``,
+``faultReceivers`` and ``sources``, each with the ``file``, the ``count`` of points, how
+many were ``found``, and the ``missing`` ones (their ``index``, counted from zero as the
+run counts them, the ``point``, the height of the free surface above or below it,
+``surface``, and a ``hint``), and for the on-fault receivers the ones ``moved`` farther
+than their face is large; ``easi`` lists the easi models, each with its ``file``, the
+``parameter`` that names it, whether it reads files with ASAGI (``asagi``), whether the
+check ``parsed`` it, and the parameters it ``supplied``; with ``--check-depth=model``,
+``model`` gives whether the material model was ``evaluated``, for how many ``cells``,
+the ``invalidCells`` without a wave speed, and the smallest and the largest time step of
+a cell (``minTimestep`` of the cell ``minTimestepCell``, ``maxTimestep``) with the
+``steps`` up to the end time; ``files`` lists the files the parameters name, whether
+they exist and whether the run opens them; ``output`` gives the output directory,
+whether it is ``writable``, and which outputs are ``enabled``; the report has the
+``build``, the ``invocation``, the ``configurations``, the ``endTime`` and the
+``unknownFields`` of the parameter file as well.
 
 Commented parameter file
 ------------------------
