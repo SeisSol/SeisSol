@@ -14,7 +14,6 @@
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Constants.h"
-#include "Core/Kernels/Touch.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/GlobalData.h"
 #include "Core/Memory/MemoryAllocator.h"
@@ -28,6 +27,7 @@
 #include "Features/Plasticity/Solver/Storage.h"
 #include "GeneratedCode/tensor.h"
 #include "Proxy/Constants.h"
+#include "Proxy/Touch.h"
 #include "WavePropagation/Solver/Solver.h"
 #include "WavePropagation/Solver/SolverSelector.h"
 

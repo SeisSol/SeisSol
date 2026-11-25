@@ -25,7 +25,6 @@ core-includes-later-core Core/Parallel/Runtime/Stream.h Core/Memory/Tree/Layer.h
 core-includes-wavepropagation Config.h.in WavePropagation/Physics/MaterialType.h
 core-includes-wavepropagation Core/Common/ConfigValue.cpp WavePropagation/Physics/MaterialType.h
 core-includes-wavepropagation Core/Common/ConfigValue.h WavePropagation/Physics/MaterialType.h
-core-includes-wavepropagation Core/Kernels/Touch.cpp WavePropagation/Solver/SolverSelector.h
 core-includes-wavepropagation Core/Memory/Descriptor/LTS.h WavePropagation/Physics/Datastructures.h
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Physics/Datastructures.h
 core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/Data.h

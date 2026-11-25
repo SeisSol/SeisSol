@@ -6,8 +6,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_CORE_KERNELS_TOUCH_H_
-#define SEISSOL_SRC_CORE_KERNELS_TOUCH_H_
+#ifndef SEISSOL_SRC_PROXY_TOUCH_H_
+#define SEISSOL_SRC_PROXY_TOUCH_H_
 
 #include "Core/Common/Real.h"
 
@@ -23,4 +23,4 @@ void fillWithStuff(RealT* buffer, unsigned nValues, bool onDevice);
 
 } // namespace seissol::kernels
 
-#endif // SEISSOL_SRC_CORE_KERNELS_TOUCH_H_
+#endif // SEISSOL_SRC_PROXY_TOUCH_H_

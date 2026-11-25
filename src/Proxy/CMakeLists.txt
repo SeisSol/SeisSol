@@ -13,6 +13,7 @@ add_library(seissol-proxy OBJECT
     KernelDevice.cpp
     Runner.cpp
     Tools.cpp
+    Touch.cpp
 )
 
 target_link_libraries(seissol-proxy PUBLIC seissol-common-properties)

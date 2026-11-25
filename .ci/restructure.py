@@ -91,7 +91,7 @@ LAYOUT = [
     ("Kernels/Common.h", "Core/Kernels/Common.h"),
     ("Kernels/Kernel.h", "Core/Kernels/Kernel.h"),
     ("Kernels/MemoryOps.h", "Core/Kernels/MemoryOps.h"),
-    ("Kernels/Touch.", "Core/Kernels/Touch."),
+    ("Kernels/Touch.", "Proxy/Touch."),
     *[
         (f"Kernels/DeviceAux/{name}.h", f"Core/Kernels/DeviceAux/{name}.h")
         for name in ("ClockAux", "GatherAux", "HostCopyAux")
