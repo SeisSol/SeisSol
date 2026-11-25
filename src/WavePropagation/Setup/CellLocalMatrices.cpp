@@ -28,8 +28,8 @@
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h" // IWYU pragma: keep
 #include "WavePropagation/Physics/FaceCoupling.h"
-#include "WavePropagation/Setup/BoundaryHelper.h"
 #include "WavePropagation/Setup/BoundarySetup.h"
+#include "WavePropagation/Solver/BoundaryHelper.h"
 #include "WavePropagation/Solver/ConfigBoundary.h"
 #include "WavePropagation/Solver/Setup.h" // IWYU pragma: keep
 #include "WavePropagation/WavePropagationParameters.h"

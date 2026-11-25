@@ -44,4 +44,3 @@ physics-includes-solver Features/InitialConditions/Physics/Scenario/Scenarios.cp
 physics-includes-solver WavePropagation/Physics/Common.h WavePropagation/Solver/SolverSelector.h
 physics-includes-solver WavePropagation/Physics/poroelastic/Datastructures.cpp WavePropagation/Solver/Setup.h
 solver-includes-setup Features/InitialConditions/Output/AnalysisWriter.cpp Features/InitialConditions/Setup/InitialFieldProjection.h
-solver-includes-setup WavePropagation/Output/FreeSurfaceIntegrator.cpp WavePropagation/Setup/BoundaryHelper.h

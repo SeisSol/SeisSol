@@ -178,7 +178,7 @@ LAYOUT = [
     ),
     ("Initializer/Model/CellLocalMatrices.", f"{WP}/Setup/CellLocalMatrices."),
     ("Initializer/Model/BoundaryMappings.", f"{WP}/Setup/BoundaryMappings."),
-    ("Initializer/BoundaryHelper.h", f"{WP}/Setup/BoundaryHelper.h"),
+    ("Initializer/BoundaryHelper.h", f"{WP}/Solver/BoundaryHelper.h"),
     ("Initializer/BoundarySetup.h", f"{WP}/Setup/BoundarySetup.h"),
     ("Kernels/Receiver.", f"{WP}/Output/Receiver."),
     ("ResultWriter/ReceiverWriter.", f"{WP}/Output/ReceiverWriter."),

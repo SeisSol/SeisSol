@@ -4,10 +4,12 @@
 // SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
-#ifndef SEISSOL_SRC_WAVEPROPAGATION_SETUP_BOUNDARYHELPER_H_
-#define SEISSOL_SRC_WAVEPROPAGATION_SETUP_BOUNDARYHELPER_H_
+#ifndef SEISSOL_SRC_WAVEPROPAGATION_SOLVER_BOUNDARYHELPER_H_
+#define SEISSOL_SRC_WAVEPROPAGATION_SOLVER_BOUNDARYHELPER_H_
 
-#include "Core/Memory/Typedefs.h"
+#include "Core/Common/BasicTypedefs.h"
+#include "Core/Memory/CellLocalInformation.h"
+#include "WavePropagation/Physics/CommonDatastructures.h"
 
 #include <cstddef>
 #include <limits>
@@ -45,4 +47,4 @@ constexpr bool requiresDisplacement(CellLocalInformation cellLocalInformation,
 }
 
 } // namespace seissol
-#endif // SEISSOL_SRC_WAVEPROPAGATION_SETUP_BOUNDARYHELPER_H_
+#endif // SEISSOL_SRC_WAVEPROPAGATION_SOLVER_BOUNDARYHELPER_H_

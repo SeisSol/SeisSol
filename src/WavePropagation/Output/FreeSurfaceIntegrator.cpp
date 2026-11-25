@@ -16,7 +16,7 @@
 #include "Core/Memory/Descriptor/Surface.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
-#include "WavePropagation/Setup/BoundaryHelper.h"
+#include "WavePropagation/Solver/BoundaryHelper.h"
 
 #include <array>
 #include <cassert>
