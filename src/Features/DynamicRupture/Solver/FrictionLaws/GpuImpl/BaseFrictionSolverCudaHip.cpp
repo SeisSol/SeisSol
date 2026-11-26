@@ -49,6 +49,9 @@ template <typename Cfg>
 constexpr std::size_t PaddedMultiple =
     safeblockMultiple(seissol::dr::misc::NumPaddedPoints<Cfg>, BlockTargetsize);
 
+// the most threads a block of CUDA and HIP may have
+constexpr std::size_t MaxBlockSize = 1024;
+
 // __grid_constant__ needs sm_70 or higher
 #if defined(__CUDACC__) && defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 700
 #define SEISSOL_GRID_CONSTANT __grid_constant__
@@ -91,6 +94,12 @@ void BaseFrictionSolver<Cfg, T>::evaluateKernel(seissol::parallel::runtime::Stre
 #ifdef __HIP__
   using StreamT = hipStream_t;
 #endif
+  // A block holds whole faces, all points of all fused simulations, as the points of a face meet in
+  // the shared memory of its block (resample). With many points (high order, many fused
+  // simulations), a face would need more threads than a block can have.
+  static_assert(PaddedMultiple<Cfg> * misc::NumPaddedPoints<Cfg> <= MaxBlockSize,
+                "The points of a fault face, of all fused simulations, need more threads than a "
+                "block can have; use fewer fused simulations or a lower order.");
   auto stream = reinterpret_cast<StreamT>(runtime.stream());
   dim3 block(Cfg::NumSimulations, misc::NumPaddedPointsSingleSim<Cfg>, PaddedMultiple<Cfg>);
   dim3 grid((this->currLayerSize_ + PaddedMultiple<Cfg> - 1) / PaddedMultiple<Cfg>);

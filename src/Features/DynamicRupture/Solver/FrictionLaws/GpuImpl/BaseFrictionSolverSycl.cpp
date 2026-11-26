@@ -23,6 +23,7 @@
 #include "ThermalPressurization/NoTP.h"
 #include "ThermalPressurization/ThermalPressurization.h"
 
+#include <cstddef>
 #include <sycl/sycl.hpp>
 
 namespace seissol::dr::friction_law::gpu {
@@ -33,6 +34,14 @@ void BaseFrictionSolver<Cfg, T>::evaluateKernel(seissol::parallel::runtime::Stre
                                                 const double* timeWeights,
                                                 const FrictionSolver::FrictionTime& frictionTime) {
   auto& queue = *reinterpret_cast<sycl::queue*>(runtime.stream());
+
+  // A work-group holds a whole face, all points of all fused simulations, as the points of a face
+  // meet in its local memory (resample). GPUs allow at most 1024 work-items in a group (some
+  // fewer, which the launch then reports).
+  constexpr std::size_t MaxWorkGroupSize = 1024;
+  static_assert(misc::NumPaddedPoints<Cfg> <= MaxWorkGroupSize,
+                "The points of a fault face, of all fused simulations, need more work-items than a "
+                "work-group can have; use fewer fused simulations or a lower order.");
 
   FrictionLawArgs<Cfg> args{};
   args.data = this->data_;
