@@ -29,6 +29,7 @@
 #include <cstddef>
 #include <limits>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -174,9 +175,8 @@ void assignNearestGaussianPoint(Receiver& geoPoint, const geometry::CellTransfor
     const bool nearer = distance < shortestDistance - tolerance;
     const bool asNear = !nearer && distance <= shortestDistance + tolerance;
     if (nearestPoint < 0 || nearer ||
-        (asNear &&
-         std::lexicographical_compare(
-             position.begin(), position.end(), nearestPosition.begin(), nearestPosition.end()))) {
+        (asNear && std::tie(position(0), position(1), position(2)) <
+                       std::tie(nearestPosition(0), nearestPosition(1), nearestPosition(2)))) {
       nearestPoint = static_cast<int>(index);
       shortestDistance = std::min(distance, shortestDistance);
       nearestPosition = position;
