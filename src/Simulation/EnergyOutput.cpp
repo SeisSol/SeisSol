@@ -20,7 +20,6 @@
 #include "Core/IO/Writer/File/RunFiles.h"
 #include "Core/Memory/CellLocalInformation.h"
 #include "Core/Memory/Descriptor/LTS.h"
-#include "Core/Memory/Descriptor/Surface.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Modules/Modules.h"
@@ -37,6 +36,7 @@
 #include "Simulation/MemoryManager.h"
 #include "Simulation/Parameters/OutputParameters.h"
 #include "Simulation/SeisSol.h"
+#include "WavePropagation/Output/SurfaceStorage.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h"
 #include "WavePropagation/Physics/Energy.h" // IWYU pragma: keep

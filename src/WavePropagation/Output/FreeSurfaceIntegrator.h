@@ -12,8 +12,8 @@
 #include "Core/Geometry/MeshReader.h"
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/LTS.h"
-#include "Core/Memory/Descriptor/Surface.h"
 #include "Core/Memory/Tree/Layer.h"
+#include "WavePropagation/Output/SurfaceStorage.h"
 
 #include <memory>
 

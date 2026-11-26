@@ -16,6 +16,7 @@
 #include "Core/Memory/Typedefs.h"
 #include "Core/Monitoring/Metric.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "WavePropagation/Solver/CellData.h"
 #include "WavePropagation/Solver/Interface.h"
 
 namespace seissol::kernels {

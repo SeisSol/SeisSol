@@ -7,10 +7,10 @@
 #ifndef SEISSOL_SRC_SIMULATION_INITPROCEDURE_INTERNAL_BOUNDARY_H_
 #define SEISSOL_SRC_SIMULATION_INITPROCEDURE_INTERNAL_BOUNDARY_H_
 
-#include "Core/Memory/Descriptor/Boundary.h"
 #include "Core/Memory/Descriptor/LTS.h"
-#include "Core/Memory/Descriptor/Surface.h"
 #include "WavePropagation/Output/FreeSurfaceIntegrator.h"
+#include "WavePropagation/Output/SurfaceStorage.h"
+#include "WavePropagation/Solver/BoundaryStorage.h"
 
 namespace seissol::initializer::internal {
 

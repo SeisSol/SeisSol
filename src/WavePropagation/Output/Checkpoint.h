@@ -11,7 +11,7 @@
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Core/Memory/Descriptor/LTS.h"
-#include "Core/Memory/Descriptor/Surface.h"
+#include "WavePropagation/Output/SurfaceStorage.h"
 
 namespace seissol::solver {
 

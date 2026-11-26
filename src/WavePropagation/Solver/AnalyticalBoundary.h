@@ -18,6 +18,7 @@
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
 #include "WavePropagation/Physics/InitialField.h"
+#include "WavePropagation/Solver/CellData.h"
 #include "WavePropagation/Solver/Storage.h"
 
 #include <array>

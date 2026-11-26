@@ -12,9 +12,9 @@
 #include "Core/IO/Instance/Checkpoint/CheckpointManager.h"
 #include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/LTS.h"
-#include "Core/Memory/Descriptor/Surface.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "GeneratedCode/tensor.h"
+#include "WavePropagation/Output/SurfaceStorage.h"
 #include "WavePropagation/Solver/Storage.h"
 
 namespace seissol::solver {

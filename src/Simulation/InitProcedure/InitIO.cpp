@@ -23,7 +23,6 @@
 #include "Core/IO/Writer/Writer.h"
 #include "Core/IO/WriterParameters.h"
 #include "Core/Memory/Descriptor/LTS.h"
-#include "Core/Memory/Descriptor/Surface.h"
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Monitoring/MiniSeisSolWriter.h"
@@ -42,6 +41,7 @@
 #include "WavePropagation/Output/FreeSurfaceIntegrator.h"
 #include "WavePropagation/Output/Receiver.h"
 #include "WavePropagation/Output/ReceiverParameters.h"
+#include "WavePropagation/Output/SurfaceStorage.h"
 #include "WavePropagation/Physics/Datastructures.h"
 #include "WavePropagation/Solver/Storage.h"
 

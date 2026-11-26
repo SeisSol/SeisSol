@@ -28,6 +28,7 @@
 #include "GeneratedCode/tensor.h"
 #include "Proxy/Constants.h"
 #include "Proxy/Touch.h"
+#include "WavePropagation/Solver/CellData.h"
 #include "WavePropagation/Solver/Solver.h"
 #include "WavePropagation/Solver/SolverSelector.h"
 #include "WavePropagation/Solver/Storage.h"

@@ -6,17 +6,17 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 // SPDX-FileContributor: Carsten Uphoff
 
-#ifndef SEISSOL_SRC_CORE_MEMORY_DESCRIPTOR_SURFACE_H_
-#define SEISSOL_SRC_CORE_MEMORY_DESCRIPTOR_SURFACE_H_
+#ifndef SEISSOL_SRC_WAVEPROPAGATION_OUTPUT_SURFACESTORAGE_H_
+#define SEISSOL_SRC_WAVEPROPAGATION_OUTPUT_SURFACESTORAGE_H_
 
 #include "Alignment.h"
 #include "Config.h"
 #include "Core/Common/Real.h"
-#include "Core/Memory/Descriptor/Boundary.h"
 #include "Core/Memory/Tree/LTSTree.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Memory/Typedefs.h"
 #include "GeneratedCode/tensor.h"
+#include "WavePropagation/Solver/BoundaryStorage.h"
 namespace seissol {
 
 struct SurfaceLTS {
@@ -51,4 +51,4 @@ struct SurfaceLTS {
 
 } // namespace seissol
 
-#endif // SEISSOL_SRC_CORE_MEMORY_DESCRIPTOR_SURFACE_H_
+#endif // SEISSOL_SRC_WAVEPROPAGATION_OUTPUT_SURFACESTORAGE_H_

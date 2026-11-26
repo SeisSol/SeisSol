@@ -9,13 +9,13 @@
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/Iterator.h"
-#include "Core/Memory/Descriptor/Boundary.h"
 #include "Core/Memory/Descriptor/LTS.h"
-#include "Core/Memory/Descriptor/Surface.h"
 #include "Core/Memory/Tree/Layer.h"
-#include "Core/Memory/Typedefs.h"
 #include "WavePropagation/Output/FreeSurfaceIntegrator.h"
+#include "WavePropagation/Output/SurfaceStorage.h"
 #include "WavePropagation/Setup/BoundarySetup.h"
+#include "WavePropagation/Solver/BoundaryStorage.h"
+#include "WavePropagation/Solver/CellData.h"
 #include "WavePropagation/Solver/Storage.h"
 
 #include <cstddef>

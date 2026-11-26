@@ -20,6 +20,7 @@
 #include "Features/DynamicRupture/Output/PickpointSampling.h"
 #include "Features/DynamicRupture/Solver/Storage.h"
 #include "GeneratedCode/tensor.h"
+#include "WavePropagation/Physics/CommonDatastructures.h"
 
 #include <cstddef>
 #include <cstdint>

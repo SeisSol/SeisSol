@@ -12,6 +12,7 @@
 
 #include "Core/Common/Real.h"
 #include "GeneratedCode/kernel.h"
+#include "WavePropagation/Solver/CellData.h"
 #include "WavePropagation/Solver/Neighbor.h"
 
 namespace seissol::kernels::solver::linearckanelastic {

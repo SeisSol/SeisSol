@@ -18,9 +18,9 @@
 #include "Core/Memory/SimulationSettings.h"
 #include "Core/Memory/Tree/LTSTree.h"
 #include "Core/Memory/Tree/Layer.h"
-#include "Core/Memory/Typedefs.h"
 #include "GeneratedCode/tensor.h"
 #include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Solver/CellData.h"
 
 #include <array>
 #include <cstdint>

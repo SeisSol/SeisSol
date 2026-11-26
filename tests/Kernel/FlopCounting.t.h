@@ -15,6 +15,7 @@
 #include "Core/Memory/Typedefs.h"
 #include "TestConfigs.h"
 #include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Solver/CellData.h"
 #include "WavePropagation/Solver/Solver.h"
 
 #include <array>

@@ -8,9 +8,6 @@
 # The include rule breaks that .ci/layering.py tolerates (rule, includer, included;
 # paths in the target layout). Only ever shrinks: run .ci/layering.py --update after
 # removing rule breaks.
-core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Physics/Datastructures.h
-core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/Data.h
-core-includes-wavepropagation Core/Memory/Typedefs.h WavePropagation/Solver/SolverSelector.h
 physics-includes-solver Features/InitialConditions/Physics/Scenario/Scenarios.cpp WavePropagation/Solver/Setup.h
 physics-includes-solver WavePropagation/Physics/Common.h WavePropagation/Solver/SolverSelector.h
 physics-includes-solver WavePropagation/Physics/poroelastic/Datastructures.cpp WavePropagation/Solver/Setup.h

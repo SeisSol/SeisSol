@@ -21,6 +21,7 @@
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Typedefs.h"
 #include "GeneratedCode/tensor.h"
+#include "WavePropagation/Physics/CommonDatastructures.h"
 
 namespace seissol {
 

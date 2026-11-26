@@ -5,14 +5,14 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_CORE_MEMORY_DESCRIPTOR_BOUNDARY_H_
-#define SEISSOL_SRC_CORE_MEMORY_DESCRIPTOR_BOUNDARY_H_
+#ifndef SEISSOL_SRC_WAVEPROPAGATION_SOLVER_BOUNDARYSTORAGE_H_
+#define SEISSOL_SRC_WAVEPROPAGATION_SOLVER_BOUNDARYSTORAGE_H_
 
 #include "Alignment.h"
 #include "Core/Memory/Tree/LTSTree.h"
 #include "Core/Memory/Tree/Layer.h"
-#include "Core/Memory/Typedefs.h"
 #include "Core/Parallel/Helper.h"
+#include "WavePropagation/Solver/CellData.h"
 
 namespace seissol {
 
@@ -46,4 +46,4 @@ struct Boundary {
 
 } // namespace seissol
 
-#endif // SEISSOL_SRC_CORE_MEMORY_DESCRIPTOR_BOUNDARY_H_
+#endif // SEISSOL_SRC_WAVEPROPAGATION_SOLVER_BOUNDARYSTORAGE_H_

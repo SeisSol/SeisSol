@@ -40,6 +40,7 @@
 #include "Core/Common/Offset.h"
 #include "Core/Memory/Batch/ConditionalKey.h"
 #include "Core/Memory/Batch/EncodedConstants.h"
+#include "WavePropagation/Solver/CellData.h"
 
 #include <cstddef>
 #endif

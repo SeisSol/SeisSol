@@ -10,6 +10,7 @@
 
 #include "Core/Common/Constants.h"
 #include "Core/Common/Executor.h"
+#include "Core/Common/MaterialType.h"
 #include "Core/Common/MultipleSimulations.h"
 #include "Core/Common/Real.h"
 #include "Core/Memory/Typedefs.h"
@@ -17,6 +18,7 @@
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Typedefs.h"
 #include "GeneratedCode/tensor.h"
+#include "WavePropagation/Physics/Datastructures.h"
 
 #include <algorithm>
 #include <cmath>

@@ -15,6 +15,7 @@
 #include "Core/Common/Real.h"
 #include "Core/Monitoring/Metric.h"
 #include "GeneratedCode/kernel.h"
+#include "WavePropagation/Solver/CellData.h"
 #include "WavePropagation/Solver/Neighbor.h"
 #ifdef ACL_DEVICE
 #include <Device/device.h>

@@ -37,6 +37,7 @@
 #include "Core/Memory/Batch/EncodedConstants.h"
 #include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Core/Parallel/Trace.h"
+#include "WavePropagation/Solver/CellData.h"
 #endif
 
 #ifndef ACL_DEVICE
