@@ -10,8 +10,6 @@
 #include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/Real.h"
-#include "Core/Common/Typedefs.h"
-#include "Core/Kernels/Common.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/LtsSetup.h"
 #include "Core/Memory/Tree/Layer.h"
@@ -115,12 +113,7 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
   layer.setEntrySize<LTS::NodalAvgDisplacements>(nodalDisplacementsCounter *
                                                  NodalDisplacementsSize * sizeof(real));
 
-  if constexpr (Cfg::Solver == SolverType::LinearCKAnelastic) {
-    layer.setEntrySize<LTS::IDofsAneScratch>(layer.size() * kernels::size<tensor::Iane<Cfg>>() *
-                                             sizeof(real));
-    layer.setEntrySize<LTS::DofsExtScratch>(layer.size() * kernels::size<tensor::Qext<Cfg>>() *
-                                            sizeof(real));
-  }
+  LTS::setSolverScratchpadSizes<Cfg>(layer);
 
   layer.setEntrySize<LTS::AnalyticScratch>(analyticCounter * tensor::INodal<Cfg>::size() *
                                            sizeof(real));
@@ -130,11 +123,6 @@ void deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::Layer& layer) {
     layer.setEntrySize<LTSPlasticity::FlagScratch>(numPlasticCells * sizeof(unsigned));
     layer.setEntrySize<LTSPlasticity::QStressNodalScratch>(
         numPlasticCells * tensor::QStressNodal<Cfg>::Size * sizeof(real));
-  }
-
-  if constexpr (Cfg::Solver == SolverType::STP) {
-    layer.setEntrySize<LTS::ZinvExtra>(layer.size() * kernels::familySize<tensor::Zinv<Cfg>>() *
-                                       sizeof(real));
   }
 }
 

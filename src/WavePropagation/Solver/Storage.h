@@ -10,10 +10,9 @@
 #define SEISSOL_SRC_WAVEPROPAGATION_SOLVER_STORAGE_H_
 
 #include "Alignment.h"
-#include "Core/Common/ConfigDispatch.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/Real.h"
-#include "Core/Common/TensorTraits.h"
+#include "Core/Common/Typedefs.h"
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/SimulationSettings.h"
 #include "Core/Memory/Tree/LTSTree.h"
@@ -21,6 +20,8 @@
 #include "GeneratedCode/tensor.h"
 #include "WavePropagation/Physics/Datastructures.h"
 #include "WavePropagation/Solver/CellData.h"
+#include "WavePropagation/Solver/LinearCKAnelastic/Storage.h" // IWYU pragma: export
+#include "WavePropagation/Solver/STP/Storage.h"               // IWYU pragma: export
 
 #include <array>
 #include <cstdint>
@@ -28,7 +29,8 @@
 /**
  * The variables of the cells of the wave propagation in the storage of the cells (see LTS): their
  * unknowns, their buffers and derivatives, the data of their integration, their materials, and the
- * mappings of their faces.
+ * mappings of their faces. The solvers add what they keep beyond that (see
+ * Solver/<solver>/Storage.h).
  */
 namespace seissol::LTS {
 
@@ -36,9 +38,6 @@ namespace seissol::LTS {
 // the configuration of their layer.
 template <typename Cfg>
 using DofsArray = Real<Cfg>[tensor::Q<Cfg>::size()];
-// empty if the configuration has no Qane
-template <typename Cfg>
-using DofsAneArray = Real<Cfg>[zeroGuard(kernels::size<tensor::Qane<Cfg>>())];
 template <typename Cfg>
 using RealPtr = Real<Cfg>*;
 template <typename Cfg>
@@ -54,7 +53,6 @@ using EnergyDataOf = model::MaterialOf<Cfg>::template EnergyData<Cfg>;
 
 struct Dofs : public initializer::VariantVariable<DofsArray> {};
 struct DofsHalo : public initializer::VariantVariable<DofsArray> {};
-struct DofsAne : public initializer::VariantVariable<DofsAneArray> {};
 struct StepIntegrals : public initializer::VariantVariable<RealPtr> {};
 struct AccumulatedIntegrals : public initializer::VariantVariable<RealPtr> {};
 struct Derivatives : public initializer::VariantVariable<RealPtr> {};
@@ -90,10 +88,6 @@ struct IntegratedDofsScratch : public initializer::VariantScratchpad<Real> {};
 struct DerivativesScratch : public initializer::VariantScratchpad<Real> {};
 struct NodalAvgDisplacements : public initializer::VariantScratchpad<Real> {};
 struct AnalyticScratch : public initializer::VariantScratchpad<Real> {};
-struct IDofsAneScratch : public initializer::VariantScratchpad<Real> {};
-struct DofsExtScratch : public initializer::VariantScratchpad<Real> {};
-
-struct ZinvExtra : public initializer::VariantScratchpad<Real> {};
 
 // the time integrals of the neighbors of other configurations, in their configuration, in the
 // canonical form, and converted (see kernels::ConfigBoundary); in bytes, as they mix reals
@@ -117,16 +111,9 @@ inline void addWavePropagation(Storage& storage, const SimulationSettings& setti
                         PagesizeHeap,
                         allocationModeWP(AllocationPreset::Dofs));
 
-  // the anelastic unknowns, if any configuration has some
-  bool anelastic = false;
-  forEachConfig([&](auto cfg) { anelastic |= kernels::size<tensor::Qane<decltype(cfg)>>() > 0; });
-  if (anelastic) {
-    storage.add<DofsAne>(LayerMask(Ghost), PagesizeHeap, allocationModeWP(AllocationPreset::Dofs));
-  } else {
-    storage.add<DofsAne>(LayerMask(Ghost) | LayerMask(Copy) | LayerMask(Interior),
-                         PagesizeHeap,
-                         allocationModeWP(AllocationPreset::Dofs));
-  }
+  // what the solvers keep for themselves
+  kernels::solver::linearckanelastic::addStorage(storage);
+  kernels::solver::stp::addStorage(storage);
 
   storage.add<StepIntegrals>(
       LayerMask(), Alignment, allocationModeWP(AllocationPreset::TimedofsConstant), true);
@@ -171,15 +158,22 @@ inline void addWavePropagation(Storage& storage, const SimulationSettings& setti
   if constexpr (isDeviceOn()) {
     const auto mode = AllocationMode::DeviceOnly;
 
-    storage.add<IDofsAneScratch>(LayerMask(), Alignment, mode);
-    storage.add<DofsExtScratch>(LayerMask(), Alignment, mode);
     storage.add<IntegratedDofsScratch>(LayerMask(), Alignment, mode);
     storage.add<DerivativesScratch>(LayerMask(), Alignment, mode);
     storage.add<NodalAvgDisplacements>(LayerMask(), Alignment, mode);
     storage.add<AnalyticScratch>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
-
-    storage.add<ZinvExtra>(LayerMask(), Alignment, AllocationMode::HostDevicePinned);
     storage.add<ConfigBoundaryScratch>(LayerMask(), Alignment, mode);
+  }
+}
+
+/// Sets the sizes of the scratchpads that the solver of the configuration `Cfg` keeps for itself,
+/// in the layer `layer` of its cells.
+template <typename Cfg>
+void setSolverScratchpadSizes(Layer& layer) {
+  if constexpr (Cfg::Solver == SolverType::LinearCKAnelastic) {
+    kernels::solver::linearckanelastic::setScratchpadSizes<Cfg>(layer);
+  } else if constexpr (Cfg::Solver == SolverType::STP) {
+    kernels::solver::stp::setScratchpadSizes<Cfg>(layer);
   }
 }
 
