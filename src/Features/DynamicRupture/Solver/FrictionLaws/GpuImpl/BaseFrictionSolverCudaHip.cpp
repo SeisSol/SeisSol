@@ -17,10 +17,8 @@
 #include "ImposedSlipRates.h"
 #include "LinearSlipWeakening.h"
 #include "NoFault.h"
-#include "RateAndState.h"
 #include "SevereVelocityWeakeningLaw.h"
 #include "SlipLaw.h"
-#include "SlowVelocityWeakeningLaw.h"
 #include "SourceTimeFunction.h"
 #include "ThermalPressurization/NoTP.h"
 #include "ThermalPressurization/ThermalPressurization.h"
@@ -124,46 +122,16 @@ void BaseFrictionSolver<Cfg, T>::evaluateKernel(seissol::parallel::runtime::Stre
   template class BaseFrictionSolver<Cfg, LinearSlipWeakeningLaw<Cfg, NoSpecialization<Cfg>>>;      \
   template class BaseFrictionSolver<Cfg, LinearSlipWeakeningLaw<Cfg, BiMaterialFault<Cfg>>>;       \
   template class BaseFrictionSolver<Cfg, LinearSlipWeakeningLaw<Cfg, TPApprox<Cfg>>>;              \
-  template class BaseFrictionSolver<                                                               \
-      Cfg,                                                                                         \
-      RateAndStateBase<Cfg,                                                                        \
-                       SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, NoTP<Cfg>>, NoTP<Cfg>>,         \
-                       NoTP<Cfg>>>;                                                                \
-  template class BaseFrictionSolver<                                                               \
-      Cfg,                                                                                         \
-      RateAndStateBase<Cfg,                                                                        \
-                       SlowVelocityWeakeningLaw<Cfg, SlipLaw<Cfg, NoTP<Cfg>>, NoTP<Cfg>>,          \
-                       NoTP<Cfg>>>;                                                                \
-  template class BaseFrictionSolver<                                                               \
-      Cfg,                                                                                         \
-      RateAndStateBase<Cfg, FastVelocityWeakeningLaw<Cfg, NoTP<Cfg>>, NoTP<Cfg>>>;                 \
-  template class BaseFrictionSolver<                                                               \
-      Cfg,                                                                                         \
-      RateAndStateBase<Cfg, SevereVelocityWeakeningLaw<Cfg, NoTP<Cfg>>, NoTP<Cfg>>>;               \
-  template class BaseFrictionSolver<                                                               \
-      Cfg,                                                                                         \
-      RateAndStateBase<Cfg,                                                                        \
-                       SlowVelocityWeakeningLaw<Cfg,                                               \
-                                                AgingLaw<Cfg, ThermalPressurization<Cfg>>,         \
-                                                ThermalPressurization<Cfg>>,                       \
-                       ThermalPressurization<Cfg>>>;                                               \
-  template class BaseFrictionSolver<                                                               \
-      Cfg,                                                                                         \
-      RateAndStateBase<Cfg,                                                                        \
-                       SlowVelocityWeakeningLaw<Cfg,                                               \
-                                                SlipLaw<Cfg, ThermalPressurization<Cfg>>,          \
-                                                ThermalPressurization<Cfg>>,                       \
-                       ThermalPressurization<Cfg>>>;                                               \
-  template class BaseFrictionSolver<                                                               \
-      Cfg,                                                                                         \
-      RateAndStateBase<Cfg,                                                                        \
-                       FastVelocityWeakeningLaw<Cfg, ThermalPressurization<Cfg>>,                  \
-                       ThermalPressurization<Cfg>>>;                                               \
-  template class BaseFrictionSolver<                                                               \
-      Cfg,                                                                                         \
-      RateAndStateBase<Cfg,                                                                        \
-                       SevereVelocityWeakeningLaw<Cfg, ThermalPressurization<Cfg>>,                \
-                       ThermalPressurization<Cfg>>>;                                               \
+  template class BaseFrictionSolver<Cfg, AgingLaw<Cfg, NoTP<Cfg>>>;                                \
+  template class BaseFrictionSolver<Cfg, SlipLaw<Cfg, NoTP<Cfg>>>;                                 \
+  template class BaseFrictionSolver<Cfg, FastVelocityWeakeningLaw<Cfg, NoTP<Cfg>>>;                \
+  template class BaseFrictionSolver<Cfg, SevereVelocityWeakeningLaw<Cfg, NoTP<Cfg>>>;              \
+  template class BaseFrictionSolver<Cfg, AgingLaw<Cfg, ThermalPressurization<Cfg>>>;               \
+  template class BaseFrictionSolver<Cfg, SlipLaw<Cfg, ThermalPressurization<Cfg>>>;                \
+  template class BaseFrictionSolver<Cfg,                                                           \
+                                    FastVelocityWeakeningLaw<Cfg, ThermalPressurization<Cfg>>>;    \
+  template class BaseFrictionSolver<Cfg,                                                           \
+                                    SevereVelocityWeakeningLaw<Cfg, ThermalPressurization<Cfg>>>;  \
   template class BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, YoffeSTF<Cfg>>>;                    \
   template class BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, GaussianSTF<Cfg>>>;                 \
   template class BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, DeltaSTF<Cfg>>>;

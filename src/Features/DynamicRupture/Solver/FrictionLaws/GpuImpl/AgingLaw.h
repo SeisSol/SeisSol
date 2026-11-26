@@ -9,50 +9,27 @@
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_GPUIMPL_AGINGLAW_H_
 
 #include "Core/Common/Real.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "Features/DynamicRupture/Misc.h"
-#include "Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/SlowVelocityWeakeningLaw.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/AgingLaw.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/FrictionLawData.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 namespace seissol::dr::friction_law::gpu {
 
-template <typename Cfg, class TPMethod>
-class AgingLaw : public SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod> {
+/// The aging law (see friction_law::AgingLaw) on the device.
+template <typename Cfg, typename TPMethod>
+class AgingLaw final : public BaseFrictionSolver<Cfg, AgingLaw<Cfg, TPMethod>>,
+                       public friction_law::AgingLaw<Cfg, TPMethod> {
   public:
-  using real = Real<Cfg>;
-
   explicit AgingLaw(const FrictionLawParameters<Real<Cfg>>& drParameters)
-      : SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod>(drParameters) {}
+      : BaseFrictionSolver<Cfg, AgingLaw<Cfg, TPMethod>>(drParameters) {}
 
-  using SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, TPMethod>::copyStorageToLocal;
-
-  /// generic over the scalar the slip rate arrives in, so that the inversion can differentiate
-  /// the state variable by the very slip rate it is solving for
-  template <typename S>
-  SEISSOL_DEVICE static S stateVariableAt(FrictionLawContext<Cfg>& __restrict ctx,
-                                          S localSlipRate,
-                                          real timeIncrement) {
-    using std::exp;
-    const real localSl0 = ctx.data->sl0[ctx.ltsFace][ctx.pointIndex];
-    const S preexp1 = -localSlipRate * S(timeIncrement / localSl0);
-    // (L / V) (1 - exp(-V t / L)) is t times the mean of the relaxation over the step, which keeps
-    // L / V and its derivative -L / V^2 out of the expression
-    const S weight = rs::relaxationWeight(-preexp1);
-
-    const real stateVarReference = ctx.initialVariables.stateVarReference;
-    // the relaxation towards L / V with a single exponential, psi0 + (L / V - psi0) (1 - exp(p)),
-    // which keeps L / V as its fixed point (see FastVelocityWeakeningLaw::updateStateVariable);
-    // with 1 - exp(p) = -p weight, it reads psi0 + weight (t + psi0 p) and leaves L / V out as
-    // well. With exp once the step relaxes more than half the way, since mu takes the logarithm
-    // of the state and the form with expm1 alone may then round it to zero.
-    if (valueOf(-preexp1 * weight) < static_cast<real>(0.5)) {
-      return S(stateVarReference) + weight * (S(timeIncrement) + S(stateVarReference) * preexp1);
-    }
-    return S(stateVarReference) * exp(preexp1) + S(timeIncrement) * weight;
-  }
-
-  SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& __restrict ctx,
-                                                 real timeIncrement) {
-    ctx.stateVariableBuffer[ctx.pointIndex] =
-        stateVariableAt<real>(ctx, ctx.initialVariables.localSlipRate, timeIncrement);
+  static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
+                                             DynamicRupture::Layer& layerData) {
+    friction_law::AgingLaw<Cfg, TPMethod>::copySpecificStorageDataToLocal(
+        data, layerData, seissol::initializer::AllocationPlace::Device);
   }
 };
 

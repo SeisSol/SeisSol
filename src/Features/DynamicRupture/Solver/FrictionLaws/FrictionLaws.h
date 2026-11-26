@@ -12,15 +12,12 @@
 
 // collect all friction laws here
 #include "CpuImpl/AgingLaw.h"
-#include "CpuImpl/BaseFrictionLaw.h"
 #include "CpuImpl/FastVelocityWeakeningLaw.h"
 #include "CpuImpl/ImposedSlipRates.h"
 #include "CpuImpl/LinearSlipWeakening.h"
 #include "CpuImpl/NoFault.h"
-#include "CpuImpl/RateAndState.h"
 #include "CpuImpl/SevereVelocityWeakeningLaw.h"
 #include "CpuImpl/SlipLaw.h"
-#include "CpuImpl/SlowVelocityWeakeningLaw.h"
 #include "CpuImpl/SourceTimeFunction.h"
 #include "CpuImpl/ThermalPressurization/NoTP.h"
 #include "CpuImpl/ThermalPressurization/ThermalPressurization.h"

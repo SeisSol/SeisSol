@@ -8,51 +8,14 @@
 #ifndef SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_CPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 
-#include "Core/Common/Real.h"
-#include "Features/DynamicRupture/DRParameters.h"
-#include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/ThermalPressurization/NoTP.h"
 
 namespace seissol::dr::friction_law::cpu {
+
+/// the absence of thermal pressurization of the rate-and-state laws, the same on the host and the
+/// device
 template <typename Cfg>
-class NoTP {
-  public:
-  using real = Real<Cfg>;
-
-  /// without pressurization, a step has no coefficients
-  struct StepCoefficients {};
-
-  explicit NoTP(const FrictionLawParameters<Real<Cfg>>& drParameters) {};
-
-  void copyStorageToLocal(DynamicRupture::Layer& layerData) {}
-
-  void prepareFluidPressure(real deltaT, std::size_t ltsFace, StepCoefficients& step) const {}
-
-  void applyShearHeating(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
-                         const real (*mu)[misc::NumPaddedPoints<Cfg>],
-                         const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
-                         std::size_t ltsFace,
-                         const StepCoefficients& step) {}
-
-  void finalizeFluidPressure(const std::array<real, misc::NumPaddedPoints<Cfg>>& normalStress,
-                             const real (*mu)[misc::NumPaddedPoints<Cfg>],
-                             const std::array<real, misc::NumPaddedPoints<Cfg>>& slipRateMagnitude,
-                             real deltaT,
-                             std::size_t ltsFace,
-                             const StepCoefficients& step) {}
-
-  [[nodiscard]] static real getFluidPressure(std::size_t /*unused*/, std::uint32_t /*unused*/) {
-    return 0;
-  };
-
-  [[nodiscard]] static real fluidPressureOffset(const StepCoefficients& /*unused*/,
-                                                std::uint32_t /*unused*/) {
-    return 0;
-  }
-  [[nodiscard]] static real fluidPressureSlope(const StepCoefficients& /*unused*/,
-                                               std::uint32_t /*unused*/) {
-    return 0;
-  }
-};
+using NoTP = friction_law::NoTP<Cfg>;
 
 } // namespace seissol::dr::friction_law::cpu
 

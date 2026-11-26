@@ -78,57 +78,13 @@ class FrictionSolverImpl : public FrictionSolver {
   explicit FrictionSolverImpl(const FrictionLawParameters<Real<Cfg>>& userDRParameters)
       : drParameters_(userDRParameters) {}
 
-  /**
-   * copies all common parameters from the DynamicRupture LTS to the local attributes
-   */
-  void copyStorageToLocal(DynamicRupture::Layer& layerData);
-
   virtual void allocateAuxiliaryMemory(GlobalData<Cfg>* globalData) {
     spaceWeights_ = globalData->*init::quadweights<Cfg>::PoolMember;
   }
 
   protected:
-  /**
-   * Adjust initial stress by adding nucleation stress * nucleation function
-   * For reference, see: https://strike.scec.org/cvws/download/SCEC_validation_slip_law.pdf.
-   */
-  real deltaT_[misc::TimeSteps<Cfg>] = {};
-
   FrictionLawParameters<Real<Cfg>> drParameters_;
-  ImpedancesAndEta<Cfg>* __restrict impAndEta_{};
-  ImpedanceMatrices<Cfg>* __restrict impedanceMatrices_{};
-  real fullUpdateTime_{};
-  // CS = coordinate system
-  real (*__restrict stressSourceInFaultCS_)[6][misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict cohesion_)[misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict mu_)[misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict accumulatedSlipMagnitude_)[misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict slip1_)[misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict slip2_)[misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict slipRateMagnitude_)[misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict slipRate1_)[misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict slipRate2_)[misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict ruptureTime_)[misc::NumPaddedPoints<Cfg>]{};
-  bool (*__restrict ruptureTimePending_)[misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict peakSlipRate_)[misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict traction1_)[misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict traction2_)[misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict imposedStatePlus_)[tensor::QInterpolated<Cfg>::size()]{};
-  real (*__restrict imposedStateMinus_)[tensor::QInterpolated<Cfg>::size()]{};
   const real* __restrict spaceWeights_{};
-  DREnergyOutput<Cfg>* __restrict energyData_{};
-  DRGodunovData<Cfg>* __restrict godunovData_{};
-  real (*__restrict stressSourcePressure_)[misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict stressSourceOnset_)[misc::NumPaddedPoints<Cfg>]{};
-  real (*__restrict stressSourceRiseTime_)[misc::NumPaddedPoints<Cfg>]{};
-
-  // be careful only for some FLs initialized:
-  real (*__restrict dynStressTime_)[misc::NumPaddedPoints<Cfg>]{};
-  bool (*__restrict dynStressTimePending_)[misc::NumPaddedPoints<Cfg>]{};
-
-  real (*__restrict qInterpolatedPlus_)[misc::TimeSteps<Cfg>][tensor::QInterpolated<Cfg>::size()]{};
-  real (*__restrict qInterpolatedMinus_)[misc::TimeSteps<Cfg>]
-                                        [tensor::QInterpolated<Cfg>::size()]{};
 };
 
 /// Creates a friction solver for the configuration with the given id.

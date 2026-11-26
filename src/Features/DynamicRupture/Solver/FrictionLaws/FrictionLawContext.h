@@ -20,6 +20,7 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -39,13 +40,17 @@
  */
 namespace seissol::dr::friction_law {
 
-/// What the range keeps of a quantity at its points: on the host, one value per point of the face;
-/// on the device, the value of the point of the thread. Indexed with the index of the point in the
-/// face.
+/// What the range keeps of a quantity of the type T at its points: on the host, one value per point
+/// of the face; on the device, the value of the point of the thread. Indexed with the index of the
+/// point in the face.
+template <typename T, typename Cfg, common::RangeType Type>
+using PointArray = std::conditional_t<Type == common::RangeType::CPU,
+                                      std::array<T, misc::NumPaddedPoints<Cfg>>,
+                                      ThreadPointValue<T>>;
+
+/// What the range keeps of a real quantity at its points (see PointArray).
 template <typename Cfg, common::RangeType Type>
-using PointValues = std::conditional_t<Type == common::RangeType::CPU,
-                                       std::array<Real<Cfg>, misc::NumPaddedPoints<Cfg>>,
-                                       ThreadPointValue<Real<Cfg>>>;
+using PointValues = PointArray<Real<Cfg>, Cfg, Type>;
 
 /// The alignment of the values of the points of a range: that of the vectors on the host, where
 /// the points of a face are processed together, that of a single value on the device.
@@ -78,52 +83,12 @@ struct FrictionLawArgs {
   const double* __restrict clock{nullptr};
 };
 
-template <typename Cfg>
-struct InitialVariables {
-  using real = Real<Cfg>;
-
-  real absoluteShearTraction{};
-  real localSlipRate{};
-  real normalStress{};
-  /// the same, before the slip rate dependent part and the clamp; the Newton solve needs it to
-  /// evaluate sigma(V) itself
-  real normalStressStick{};
-  real stateVarReference{};
-  real etaNormal{};
-  /// unit slip direction; equals the normalized trial traction unless the impedance is anisotropic
-  real slipDirection1{};
-  real slipDirection2{};
-};
-
-/// the affine law a step of the thermal pressurization reduces to; see prepareFluidPressure
-template <typename Cfg>
-struct FluidPressureCoefficients {
-  using real = Real<Cfg>;
-
-  real temperatureOffset{};
-  real temperatureSlope{};
-  real pressureOffset{};
-  real pressureSlope{};
-};
-
-/// What the rate-and-state laws and the thermal pressurization keep of a point during a time step;
-/// only on the device so far, the only place where they run on the code of both
-/// (FrictionLawDriver).
-template <typename Cfg, common::RangeType Type>
-struct LawPointState {};
-
-template <typename Cfg>
-struct LawPointState<Cfg, common::RangeType::GPU> {
-  InitialVariables<Cfg> initialVariables{};
-  FluidPressureCoefficients<Cfg> fluidPressure{};
-};
-
 /**
  * A friction law at the points of the range of a face: the face, the first point of the range,
  * what the law reads (data, args), and what it keeps of the points during a time step.
  */
 template <typename Cfg, common::RangeType Type>
-struct FrictionLawContext : public LawPointState<Cfg, Type> {
+struct FrictionLawContext {
   using real = Real<Cfg>;
   static constexpr Executor Exec = common::RangeExecutor<Type>::Exec;
 
@@ -162,20 +127,26 @@ SEISSOL_HOSTDEVICE constexpr std::uint32_t firstPoint(const FrictionLawContext<C
 
 /**
  * Runs `body(pointIndex)` for the points of the range of `ctx`, with the index of a point in its
- * face: on the host for all points of the face, as one vectorized loop (the points are independent
- * of each other); on the device for the point of the thread. The index addresses both the storage
- * of the face (ctx.data->...[ctx.ltsFace][pointIndex]) and what the range keeps of its points
- * (PointValues, ctx.faultStresses, ...).
+ * face: on the host for all points of the face, as one loop that is vectorized unless `Vectorized`
+ * is false (the points are independent of each other); on the device for the point of the thread.
+ * The index addresses both the storage of the face (ctx.data->...[ctx.ltsFace][pointIndex]) and
+ * what the range keeps of its points (PointValues, ctx.faultStresses, ...).
  */
-template <typename Cfg, common::RangeType Type, typename BodyT>
+template <bool Vectorized = true, typename Cfg, common::RangeType Type, typename BodyT>
 SEISSOL_HOSTDEVICE inline void forEachPoint(const FrictionLawContext<Cfg, Type>& ctx,
                                             const BodyT& body) {
   using Range = common::NumPoints<Cfg, Type>::Range;
+  if constexpr (Vectorized) {
 #ifndef ACL_DEVICE
 #pragma omp simd
 #endif
-  for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-    body(firstPoint(ctx) + index);
+    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
+      body(firstPoint(ctx) + index);
+    }
+  } else {
+    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
+      body(firstPoint(ctx) + index);
+    }
   }
 }
 
@@ -187,10 +158,7 @@ SEISSOL_HOSTDEVICE inline void forEachPoint(const FrictionLawContext<Cfg, Type>&
 template <typename Cfg, common::RangeType Type, typename BodyT>
 SEISSOL_HOSTDEVICE inline void forEachPointScalar(const FrictionLawContext<Cfg, Type>& ctx,
                                                   const BodyT& body) {
-  using Range = common::NumPoints<Cfg, Type>::Range;
-  for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-    body(firstPoint(ctx) + index);
-  }
+  forEachPoint<false>(ctx, body);
 }
 
 #ifdef __CUDACC__
@@ -255,6 +223,21 @@ inline bool deviceWarpAll(FrictionLawContext<Cfg, common::RangeType::GPU>& __res
 }
 #endif
 
+/**
+ * Whether `flags` holds at all points of the range of `ctx`: on the host at all points of the face;
+ * on the device at the points of the warp of the thread, whose threads thus go on or stop together.
+ */
+template <typename Cfg, common::RangeType Type>
+SEISSOL_HOSTDEVICE inline bool allPoints(FrictionLawContext<Cfg, Type>& ctx,
+                                         const PointArray<std::int32_t, Cfg, Type>& flags) {
+  if constexpr (Type == common::RangeType::CPU) {
+    return std::all_of(flags.begin(), flags.end(), [](std::int32_t flag) { return flag != 0; });
+  } else {
+    deviceWarpBarrier(ctx);
+    return deviceWarpAll(ctx, flags[ctx.pointIndex] != 0);
+  }
+}
+
 /// The value `toResample` of the point of the thread, resampled together with the values of the
 /// other points of its face (see resample); on the device.
 template <typename Cfg>
@@ -290,7 +273,7 @@ SEISSOL_DEVICE inline Real<Cfg>
 /// host.
 template <typename Cfg>
 inline void resampleOnHost(const Real<Cfg>* resampleMatrix,
-                           const Real<Cfg> (&values)[misc::NumPaddedPoints<Cfg>],
+                           const Real<Cfg>* values,
                            std::array<Real<Cfg>, misc::NumPaddedPoints<Cfg>>& resampled) {
   dynamicRupture::kernel::resampleParameter<Cfg> resampleKrnl;
   resampleKrnl.resample = resampleMatrix;
@@ -311,6 +294,18 @@ SEISSOL_HOSTDEVICE inline void resample(FrictionLawContext<Cfg, Type>& ctx,
                                         PointValues<Cfg, Type>& resampled) {
   if constexpr (Type == common::RangeType::CPU) {
     resampleOnHost<Cfg>(ctx.args->resampleMatrix, values, resampled);
+  } else {
+    resampled[ctx.pointIndex] = resampleVariable(ctx, values[ctx.pointIndex]);
+  }
+}
+
+/// resample for the values of the points of the range (see PointValues)
+template <typename Cfg, common::RangeType Type>
+SEISSOL_HOSTDEVICE inline void resample(FrictionLawContext<Cfg, Type>& ctx,
+                                        const PointValues<Cfg, Type>& values,
+                                        PointValues<Cfg, Type>& resampled) {
+  if constexpr (Type == common::RangeType::CPU) {
+    resampleOnHost<Cfg>(ctx.args->resampleMatrix, values.data(), resampled);
   } else {
     resampled[ctx.pointIndex] = resampleVariable(ctx, values[ctx.pointIndex]);
   }

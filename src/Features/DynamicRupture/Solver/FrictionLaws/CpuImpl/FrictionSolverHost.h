@@ -16,6 +16,7 @@
 #include "Core/Parallel/Trace.h"
 #include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Physics/TPCommon.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionLawContext.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionLawData.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionLawDriver.h"
@@ -41,7 +42,9 @@ class FrictionSolverHost : public FrictionSolverImpl<Cfg> {
   private:
   // only the CRTP subclass `Derived` constructs this base
   explicit FrictionSolverHost(const FrictionLawParameters<Real<Cfg>>& drParameters)
-      : FrictionSolverImpl<Cfg>(drParameters) {}
+      : FrictionSolverImpl<Cfg>(drParameters), tpGridPoints_(drParameters.tpGridPoints),
+        tpInverseFourierCoefficients_(drParameters.tpGridPoints),
+        tpHeatSource_(drParameters.tpGridPoints) {}
   friend Derived;
 
   public:
@@ -74,6 +77,9 @@ class FrictionSolverHost : public FrictionSolverImpl<Cfg> {
       args.data = &data_;
       args.spaceWeights = this->spaceWeights_;
       args.resampleMatrix = resampleMatrix_;
+      args.tpGridPoints = tpGridPoints_.data().data();
+      args.tpInverseFourierCoefficients = tpInverseFourierCoefficients_.data().data();
+      args.heatSource = tpHeatSource_.data().data();
       std::copy_n(timeWeights, misc::TimeSteps<Cfg>, args.timeWeights);
       std::copy_n(frictionTime.deltaT.data(), misc::TimeSteps<Cfg>, args.deltaT);
       args.fullUpdateTime = fullUpdateTime;
@@ -99,6 +105,10 @@ class FrictionSolverHost : public FrictionSolverImpl<Cfg> {
   std::size_t layerSize_{};
   const real* resampleMatrix_{nullptr};
   FrictionLawData<Cfg> data_{};
+  /// the wavenumber grid of the thermal pressurization and the coefficients on it
+  tp::GridPoints<real> tpGridPoints_;
+  tp::InverseFourierCoefficients<real> tpInverseFourierCoefficients_;
+  tp::GaussianHeatSource<real> tpHeatSource_;
 };
 
 } // namespace seissol::dr::friction_law::cpu

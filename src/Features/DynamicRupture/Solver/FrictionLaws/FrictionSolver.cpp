@@ -8,9 +8,7 @@
 #include "FrictionSolver.h"
 
 #include "Config.h"
-#include "Core/Memory/Tree/Layer.h"
 #include "Features/DynamicRupture/Misc.h"
-#include "Features/DynamicRupture/Solver/Storage.h"
 
 #include <cstddef>
 #include <utils/logger.h>
@@ -36,37 +34,6 @@ FrictionSolver::FrictionTime FrictionSolver::computeDeltaT(const std::vector<dou
   deltaT.back() += timePoints[0];
 
   return {deltaT};
-}
-
-template <typename Cfg>
-void FrictionSolverImpl<Cfg>::copyStorageToLocal(DynamicRupture::Layer& layerData) {
-  const seissol::initializer::AllocationPlace place = allocationPlace();
-  impAndEta_ = layerData.var<DynamicRupture::ImpAndEta>(Cfg(), place);
-  impedanceMatrices_ = layerData.var<DynamicRupture::ImpedanceMatrices>(Cfg(), place);
-  stressSourceInFaultCS_ = layerData.var<DynamicRupture::StressSourceInFaultCS>(Cfg(), place);
-  mu_ = layerData.var<DynamicRupture::Mu>(Cfg(), place);
-  accumulatedSlipMagnitude_ = layerData.var<DynamicRupture::AccumulatedSlipMagnitude>(Cfg(), place);
-  slip1_ = layerData.var<DynamicRupture::Slip1>(Cfg(), place);
-  slip2_ = layerData.var<DynamicRupture::Slip2>(Cfg(), place);
-  slipRateMagnitude_ = layerData.var<DynamicRupture::SlipRateMagnitude>(Cfg(), place);
-  slipRate1_ = layerData.var<DynamicRupture::SlipRate1>(Cfg(), place);
-  slipRate2_ = layerData.var<DynamicRupture::SlipRate2>(Cfg(), place);
-  ruptureTime_ = layerData.var<DynamicRupture::RuptureTime>(Cfg(), place);
-  ruptureTimePending_ = layerData.var<DynamicRupture::RuptureTimePending>(Cfg(), place);
-  peakSlipRate_ = layerData.var<DynamicRupture::PeakSlipRate>(Cfg(), place);
-  traction1_ = layerData.var<DynamicRupture::Traction1>(Cfg(), place);
-  traction2_ = layerData.var<DynamicRupture::Traction2>(Cfg(), place);
-  imposedStatePlus_ = layerData.var<DynamicRupture::ImposedStatePlus>(Cfg(), place);
-  imposedStateMinus_ = layerData.var<DynamicRupture::ImposedStateMinus>(Cfg(), place);
-  energyData_ = layerData.var<DynamicRupture::DREnergyOutputVar>(Cfg(), place);
-  godunovData_ = layerData.var<DynamicRupture::GodunovData>(Cfg(), place);
-  dynStressTime_ = layerData.var<DynamicRupture::DynStressTime>(Cfg(), place);
-  dynStressTimePending_ = layerData.var<DynamicRupture::DynStressTimePending>(Cfg(), place);
-  qInterpolatedPlus_ = layerData.var<DynamicRupture::QInterpolatedPlus>(Cfg(), place);
-  qInterpolatedMinus_ = layerData.var<DynamicRupture::QInterpolatedMinus>(Cfg(), place);
-  stressSourcePressure_ = layerData.var<DynamicRupture::StressSourcePressure>(Cfg(), place);
-  stressSourceOnset_ = layerData.var<DynamicRupture::StressSourceOnset>(Cfg(), place);
-  stressSourceRiseTime_ = layerData.var<DynamicRupture::StressSourceRiseTime>(Cfg(), place);
 }
 
 #define SEISSOL_INSTANTIATE(Cfg)                                                                   \

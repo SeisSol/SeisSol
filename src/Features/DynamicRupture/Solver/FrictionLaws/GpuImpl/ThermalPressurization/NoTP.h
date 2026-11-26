@@ -8,37 +8,14 @@
 #ifndef SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_GPUIMPL_THERMALPRESSURIZATION_NOTP_H_
 
-#include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
-#include "Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
-#include "Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/ThermalPressurization/NoTP.h"
 
 namespace seissol::dr::friction_law::gpu {
+
+/// the absence of thermal pressurization of the rate-and-state laws, the same on the host and the
+/// device
 template <typename Cfg>
-class NoTP {
-  public:
-  using real = Real<Cfg>;
-
-  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {}
-
-  SEISSOL_DEVICE static void prepareFluidPressure(FrictionLawContext<Cfg>& __restrict ctx,
-                                                  uint32_t timeIndex) {}
-
-  SEISSOL_DEVICE static void applyShearHeating(FrictionLawContext<Cfg>& __restrict ctx) {}
-
-  SEISSOL_DEVICE static void finalizeFluidPressure(FrictionLawContext<Cfg>& __restrict ctx,
-                                                   uint32_t timeIndex) {}
-
-  SEISSOL_DEVICE static real getFluidPressure(FrictionLawContext<Cfg>& /*unused*/) {
-    return static_cast<real>(0.0);
-  };
-
-  SEISSOL_DEVICE static real fluidPressureOffset(FrictionLawContext<Cfg>& /*unused*/) {
-    return static_cast<real>(0.0);
-  }
-  SEISSOL_DEVICE static real fluidPressureSlope(FrictionLawContext<Cfg>& /*unused*/) {
-    return static_cast<real>(0.0);
-  }
-};
+using NoTP = friction_law::NoTP<Cfg>;
 
 } // namespace seissol::dr::friction_law::gpu
 
