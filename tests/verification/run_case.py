@@ -383,6 +383,23 @@ def read_receiver(path):
     return names, rows
 
 
+def quantity_of(label):
+    """The quantity that a column of read_receiver holds: its label without the
+    simulation it belongs to (``v1[3]`` holds v1)."""
+    return label.split("[", 1)[0]
+
+
+def columns_of(names, quantity):
+    """The columns of read_receiver that hold `quantity`: one, or one per fused
+    simulation (``v1[0]``, ``v1[1]``, ...)."""
+    columns = [
+        column for column, label in enumerate(names) if quantity_of(label) == quantity
+    ]
+    if not columns:
+        raise SystemExit(f"the receivers do not record {quantity}")
+    return columns
+
+
 def _join_simulations(names, rows):
     """Join the rows a fused run writes per simulation into one per sample."""
     column = names.index("SimulationIndex")
@@ -706,7 +723,7 @@ def compare_receivers(
                 f"{name}: {len(rows_left)} samples against {len(rows_right)}"
             )
             continue
-        signs = [-1.0 if label in negate else 1.0 for label in names]
+        signs = [-1.0 if quantity_of(label) in negate else 1.0 for label in names]
         largest = [
             max((abs(row[column]) for row in rows_left), default=0.0)
             for column in range(len(names))
@@ -3596,19 +3613,21 @@ def _command_plastic(args):
                     f"the initial stress does not yield: tau {tau:.6g}, tau_c {limit:.6g}"
                 )
             for i, j, component in pairs:
-                recorded = rows[:, names.index(f"s_{component}")]
-                worst["stress"] = _larger(
-                    worst["stress"],
-                    float(np.max(np.abs(recorded - expected[:, i, j]))) / scale,
-                )
+                for column in columns_of(names, f"s_{component}"):
+                    recorded = rows[:, column]
+                    worst["stress"] = _larger(
+                        worst["stress"],
+                        float(np.max(np.abs(recorded - expected[:, i, j]))) / scale,
+                    )
             for component in ("v1", "v2", "v3"):
                 # a uniform state stays at rest; the velocity is held against the one
                 # that a shear wave would carry of the stress the relaxation releases
-                recorded = rows[:, names.index(component)]
-                worst["velocity"] = _larger(
-                    worst["velocity"],
-                    float(np.max(np.abs(recorded))) * impedance / scale,
-                )
+                for column in columns_of(names, component):
+                    recorded = rows[:, column]
+                    worst["velocity"] = _larger(
+                        worst["velocity"],
+                        float(np.max(np.abs(recorded))) * impedance / scale,
+                    )
         if energies is not None:
             # the relaxation releases tau - tau_c along the deviator, and turns it into the
             # plastic strain (tau - tau_c) s / (2 mu tau) at the end, of which a share
@@ -3679,10 +3698,11 @@ def _command_plastic(args):
                     ("stress", scales[0]) if quantity < 6 else ("velocity", scales[1])
                 )
                 expected = (split[indices, quantity] * phase).real
-                recorded = rows[:, names.index(column)]
-                worst[kind] = _larger(
-                    worst[kind], float(np.max(np.abs(recorded - expected))) / scale
-                )
+                for index in columns_of(names, column):
+                    recorded = rows[:, index]
+                    worst[kind] = _larger(
+                        worst[kind], float(np.max(np.abs(recorded - expected))) / scale
+                    )
                 unsplit = max(
                     unsplit,
                     float(
