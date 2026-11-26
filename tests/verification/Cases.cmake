@@ -1207,11 +1207,12 @@ seissol_add_rupture(NAME rupture-rs-fvw-tp-mirror FL 103 FAULT fault-rs-fvw-tp.y
 # The rounding grows with the rupture, the more so with rate and state and thermal
 # pressurization: to 8e-13 and 1.4e-10 of the largest value of a column in double precision, and
 # to 2.2e-4 and 4.9e-2 in single, there in the components along the dip, which a rupture along the
-# strike leaves small. So the single precision holds a component or a sign turned the wrong way,
-# the double precision the identity; each tolerance leaves room for the rounding of other
-# compilers and processors.
+# strike leaves small (and to 1.4e-3 for the linear slip weakening in single precision with GCC 13
+# on hsw). So the single precision holds a component or a sign turned the wrong way, the double
+# precision the identity; each tolerance leaves room for the rounding of other compilers and
+# processors.
 set(SEISSOL_RUPTURE_ROUNDING_lsw 1e-10)
-set(SEISSOL_RUPTURE_ROUNDING_SINGLE_lsw 1e-3)
+set(SEISSOL_RUPTURE_ROUNDING_SINGLE_lsw 1e-2)
 set(SEISSOL_RUPTURE_ROUNDING_rs-fvw-tp 1e-8)
 set(SEISSOL_RUPTURE_ROUNDING_SINGLE_rs-fvw-tp 0.2)
 foreach (law lsw rs-fvw-tp)
