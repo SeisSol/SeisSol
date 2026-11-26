@@ -9,8 +9,8 @@
 # NOTE: This script was taken from PointCloudLibrary/pcl and adapted for SeisSol
 
 # sample command line usage: $0 clang-format(version >= 6.0) $SEISSOL_SOURCE_DIR
-# $ cd $SEISSOL_SOURCE_DIR; sh ./.ci/format.sh `which clang-format` ./
-# $ cd $SEISSOL_SOURCE_DIR/.ci; sh format.sh `which clang-format` ../
+# $ cd $SEISSOL_SOURCE_DIR; sh ./scripts/ci/format.sh `which clang-format` ./
+# $ cd $SEISSOL_SOURCE_DIR/scripts/ci; sh format.sh `which clang-format` ../../
 
 format() {
     # add all directories with source files here
@@ -41,7 +41,7 @@ format() {
     fi
 
     # check for self
-    if [ ! -f "${SEISSOL_SOURCE_DIR}/.ci/format.sh" ]; then
+    if [ ! -f "${SEISSOL_SOURCE_DIR}/scripts/ci/format.sh" ]; then
         echo "Please ensure that SEISSOL_SOURCE_DIR is passed as the second argument"
         exit 176
     fi

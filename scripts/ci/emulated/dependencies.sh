@@ -9,14 +9,14 @@
 # Builds the libraries that SeisSol needs (Open MPI, zlib, HDF5, yaml-cpp) for the target of a GNU
 # cross compiler, into a prefix:
 #
-#   .ci/emulated/dependencies.sh <triplet> <prefix>
+#   scripts/ci/emulated/dependencies.sh <triplet> <prefix>
 #
 # with CC and CXX the compilers, if they are not <triplet>-gcc and <triplet>-g++. The sources are
 # those of the archive of Ubuntu, the same for every target; Ubuntu keeps the packages of most other
 # architectures in an archive of its own, and has none for LoongArch.
 #
 # Their build systems run the test programs they compile: the target has to run on QEMU,
-# registered with binfmt_misc, and with the environment of .ci/emulated/environment.sh.
+# registered with binfmt_misc, and with the environment of scripts/ci/emulated/environment.sh.
 
 set -euo pipefail
 

@@ -37,21 +37,34 @@ void traceRegion(const RegionTrace& trace, std::size_t region) {
 
 double regionTraceBegin() { return monitoring::Trace::recording() ? monitoring::Trace::now() : -1; }
 
-bool testRequests(MPI_Request* requests,
+bool testRequests(std::vector<MPI_Request>& requests,
                   std::list<std::size_t>& regions,
                   const RegionTrace* trace) {
-  for (auto region = regions.begin(); region != regions.end();) {
-    MPI_Request* request = &requests[*region];
-    int testSuccess = 0;
-    MPI_Test(request, &testSuccess, MPI_STATUS_IGNORE);
-    if (testSuccess != 0) {
-      if (trace != nullptr) {
-        traceRegion(*trace, *region);
-      }
-      region = regions.erase(region);
-    } else {
-      ++region;
+  if (regions.empty()) {
+    return true;
+  }
+  // one call for the requests of all regions: MPI_Testsome skips those of the regions completed
+  // before (inactive or null), and runs the progress engine of MPI once, where an MPI_Test per
+  // region ran it once per region
+  thread_local std::vector<int> completed;
+  completed.resize(requests.size());
+  int completedCount = 0;
+  MPI_Testsome(static_cast<int>(requests.size()),
+               requests.data(),
+               &completedCount,
+               completed.data(),
+               MPI_STATUSES_IGNORE);
+  if (completedCount == MPI_UNDEFINED) {
+    // no request is active any more, so no region can still be pending
+    regions.clear();
+    return true;
+  }
+  for (int i = 0; i < completedCount; ++i) {
+    const auto region = static_cast<std::size_t>(completed[i]);
+    if (trace != nullptr) {
+      traceRegion(*trace, region);
     }
+    regions.remove(region);
   }
   return regions.empty();
 }
@@ -127,7 +140,7 @@ void MpiHaloTransport::startSend() {
 
 bool MpiHaloTransport::testSend() {
   const RegionTrace trace{.clusters = &regions_.copy, .send = true, .begin = sendBegin_};
-  return testRequests(sendRequests_.data(), sendQueue_, &trace);
+  return testRequests(sendRequests_, sendQueue_, &trace);
 }
 
 void MpiHaloTransport::startReceive() {
@@ -151,7 +164,7 @@ void MpiHaloTransport::startReceive() {
 
 bool MpiHaloTransport::testReceive() {
   const RegionTrace trace{.clusters = &regions_.ghost, .send = false, .begin = receiveBegin_};
-  return testRequests(recvRequests_.data(), receiveQueue_, &trace);
+  return testRequests(recvRequests_, receiveQueue_, &trace);
 }
 
 void MpiHaloTransport::finalize() {

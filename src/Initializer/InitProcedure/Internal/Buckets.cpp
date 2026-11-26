@@ -238,7 +238,8 @@ std::vector<solver::RemoteCluster> allocateTransferInfo(
     assert(counter == layer.size());
   }
 
-  layer.setEntrySize<LTS::Buffers>(manager.size());
+  LTS::withBuffersOf(layer,
+                     [&](auto bucket) { layer.setEntrySize<decltype(bucket)>(manager.size()); });
 
   return remoteClusters;
 }
@@ -278,8 +279,12 @@ void setupBucketsOfCell(LTS::Layer& layer,
 
 template <typename Cfg>
 void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
-  auto* buffers = layer.var<LTS::Buffers>(Cfg());
-  auto* buffersDevice = layer.var<LTS::Buffers>(Cfg(), AllocationPlace::Device);
+  Real<Cfg>* buffers = nullptr;
+  Real<Cfg>* buffersDevice = nullptr;
+  LTS::withBuffersOf(layer, [&](auto bucket) {
+    buffers = layer.var<decltype(bucket)>(Cfg());
+    buffersDevice = layer.var<decltype(bucket)>(Cfg(), AllocationPlace::Device);
+  });
 
 #pragma omp parallel for schedule(static)
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
@@ -289,7 +294,9 @@ void setupBuckets(LTS::Layer& layer, std::vector<solver::RemoteCluster>& comm) {
 #ifndef NDEBUG
   // every pointer we handed out has to have been resolved against the bucket base by now
   const auto bucketBase = reinterpret_cast<std::uintptr_t>(buffers);
-  const auto bucketSize = layer.getEntrySize<LTS::Buffers>();
+  std::size_t bucketSize = 0;
+  LTS::withBuffersOf(layer,
+                     [&](auto bucket) { bucketSize = layer.getEntrySize<decltype(bucket)>(); });
   for (std::size_t cell = 0; cell < layer.size(); ++cell) {
     for (std::size_t type = 0; type < BufferCount; ++type) {
       callForBuffer<Cfg>(static_cast<BufferType>(type), [&](auto typeHelper) {

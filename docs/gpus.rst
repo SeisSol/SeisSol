@@ -127,6 +127,8 @@ as well (see :ref:`gpu-time-stepping`).
 Running clusters on the host (``SEISSOL_DEVICE_HOST_SWITCH``) needs ``SEISSOL_USM=1``.
 
 ``SEISSOL_USM_MPI`` specifies the allocation mode for the buffers that are also used for MPI transfer; off by default as well.
+These are the time integrals and derivatives of the cells at the boundary of the partition and of their copies from the
+neighboring processes; those of the other cells follow ``SEISSOL_USM``.
 E.g. some MPI implementations, even if GPU-aware, will treat unified/managed memory buffers are CPU buffers
 otherwise.
 

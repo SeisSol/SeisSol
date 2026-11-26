@@ -690,7 +690,9 @@ void CellCluster<Cfg>::predict() {
     const auto other = executor_ == Executor::Device
                            ? seissol::initializer::AllocationPlace::Host
                            : seissol::initializer::AllocationPlace::Device;
-    clusterData_->varSynchronizeTo<LTS::Buffers>(other, streamRuntime_.stream());
+    LTS::withBuffersOf(*clusterData_, [&](auto bucket) {
+      clusterData_->varSynchronizeTo<decltype(bucket)>(other, streamRuntime_.stream());
+    });
   }
 
   if (!concurrent()) {

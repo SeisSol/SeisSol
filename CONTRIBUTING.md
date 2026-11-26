@@ -170,7 +170,7 @@ When submitting code, follow
   Then run (in the main folder):
 
   ```bash
-  .ci/tidy.sh ./ build/ -fix
+  scripts/ci/tidy.sh ./ build/ -fix
   ```
 
 #### Python
