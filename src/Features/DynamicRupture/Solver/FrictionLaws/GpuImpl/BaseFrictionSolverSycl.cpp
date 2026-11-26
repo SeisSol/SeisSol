@@ -76,15 +76,9 @@ void BaseFrictionSolver<Cfg, T>::evaluateKernel(seissol::parallel::runtime::Stre
 // NOLINTBEGIN(bugprone-macro-parentheses)
 #define SEISSOL_INSTANTIATE(Cfg)                                                                   \
   template class BaseFrictionSolver<Cfg, NoFault<Cfg>>;                                            \
-  template class BaseFrictionSolver<                                                               \
-      Cfg,                                                                                         \
-      LinearSlipWeakeningBase<Cfg, LinearSlipWeakeningLaw<Cfg, NoSpecialization<Cfg>>>>;           \
-  template class BaseFrictionSolver<                                                               \
-      Cfg,                                                                                         \
-      LinearSlipWeakeningBase<Cfg, LinearSlipWeakeningLaw<Cfg, BiMaterialFault<Cfg>>>>;            \
-  template class BaseFrictionSolver<                                                               \
-      Cfg,                                                                                         \
-      LinearSlipWeakeningBase<Cfg, LinearSlipWeakeningLaw<Cfg, TPApprox<Cfg>>>>;                   \
+  template class BaseFrictionSolver<Cfg, LinearSlipWeakeningLaw<Cfg, NoSpecialization<Cfg>>>;      \
+  template class BaseFrictionSolver<Cfg, LinearSlipWeakeningLaw<Cfg, BiMaterialFault<Cfg>>>;       \
+  template class BaseFrictionSolver<Cfg, LinearSlipWeakeningLaw<Cfg, TPApprox<Cfg>>>;              \
   template class BaseFrictionSolver<                                                               \
       Cfg,                                                                                         \
       RateAndStateBase<Cfg,                                                                        \
