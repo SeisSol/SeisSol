@@ -16,6 +16,7 @@
 #include "Core/Common/Real.h"
 #include "Core/Kernels/GlobalDataStore.h"
 #include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Monitoring/DeviceTimeline.h"
 #include "Core/Monitoring/LoopStatistics.h"
@@ -96,6 +97,7 @@ class WaveCluster : public CellCluster {
   void deviceCorrection(const StepParams& params) override;
   bool planPrediction(const StepParams& params) override;
   void planCorrection(const StepParams& params) override;
+  void synchronizeShared(initializer::AllocationPlace place) override;
 
   private:
   /**

@@ -149,6 +149,12 @@ bool WaveCluster<Cfg>::planPrediction(const StepParams& params) {
 }
 
 template <typename Cfg>
+void WaveCluster<Cfg>::synchronizeShared(initializer::AllocationPlace place) {
+  // the neighbors read the time integrated unknowns or the derivatives in the buffers
+  clusterData_->varSynchronizeTo<LTS::Buffers>(place, streamRuntime_.stream());
+}
+
+template <typename Cfg>
 void WaveCluster<Cfg>::planCorrection(const StepParams& /*params*/) {
   incrementPerformanceMetrics(ComputePart::Neighbor);
   incrementPerformanceMetrics(ComputePart::DRNeighbor);

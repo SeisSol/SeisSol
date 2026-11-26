@@ -13,6 +13,7 @@
 
 #include "Core/Common/Executor.h"
 #include "Core/Memory/Descriptor/LTS.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "Core/Monitoring/DeviceTimeline.h"
 #include "Core/Monitoring/LoopStatistics.h"
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
@@ -91,6 +92,11 @@ class CellCluster : public ComputeCluster {
   virtual bool planPrediction(const StepParams& params) = 0;
   /// Plans the correction of the step `params` on the host, also for the device.
   virtual void planCorrection(const StepParams& params) = 0;
+
+  /// Synchronizes what the neighbors of the cells read after a prediction (e.g. the buffers of the
+  /// wave propagation) to `place`, on the stream of the cluster; for neighbors that compute on the
+  /// other executor.
+  virtual void synchronizeShared(initializer::AllocationPlace place) = 0;
 
   StepWork prepare(ActorAction action) override;
   void handleNeighborPrediction(const NeighborCluster& /*neighborCluster*/) override {}

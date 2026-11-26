@@ -149,7 +149,7 @@ void CellCluster::predict() {
     const auto other = executor_ == Executor::Device
                            ? seissol::initializer::AllocationPlace::Host
                            : seissol::initializer::AllocationPlace::Device;
-    clusterData_->varSynchronizeTo<LTS::Buffers>(other, streamRuntime_.stream());
+    synchronizeShared(other);
   }
 
   if (!concurrent()) {
