@@ -61,7 +61,7 @@ class SevereVelocityWeakeningLaw
 
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& __restrict ctx,
                                                  double timeIncrement) {
-    ctx.stateVariableBuffer = static_cast<real>(
+    ctx.stateVariableBuffer[ctx.pointIndex] = static_cast<real>(
         stateVariableAt<double>(ctx, ctx.initialVariables.localSlipRate, timeIncrement));
   }
 
@@ -134,7 +134,7 @@ class SevereVelocityWeakeningLaw
 
   // no resampling
   SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext<Cfg>& __restrict ctx) {
-    ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] = ctx.stateVariableBuffer;
+    ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex] = ctx.stateVariableBuffer[ctx.pointIndex];
   }
 };
 } // namespace seissol::dr::friction_law::gpu

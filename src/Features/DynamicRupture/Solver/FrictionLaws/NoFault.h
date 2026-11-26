@@ -45,19 +45,14 @@ class NoFault {
   template <common::RangeType Type>
   SEISSOL_HOSTDEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg, Type>& ctx,
                                                        uint32_t /*timeIndex*/) {
-    using Range = common::NumPoints<Cfg, Type>::Range;
     const auto ltsFace = ctx.ltsFace;
 
-#ifndef ACL_DEVICE
-#pragma omp simd
-#endif
-    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      const auto pointIndex = firstPoint(ctx) + index;
-      point(ctx.tractionResults.traction1, index) = point(ctx.faultStresses.traction1, index);
-      point(ctx.tractionResults.traction2, index) = point(ctx.faultStresses.traction2, index);
-      ctx.data->traction1[ltsFace][pointIndex] = point(ctx.tractionResults.traction1, index);
-      ctx.data->traction2[ltsFace][pointIndex] = point(ctx.tractionResults.traction2, index);
-    }
+    forEachPoint(ctx, [&](std::uint32_t pointIndex) {
+      ctx.tractionResults.traction1[pointIndex] = ctx.faultStresses.traction1[pointIndex];
+      ctx.tractionResults.traction2[pointIndex] = ctx.faultStresses.traction2[pointIndex];
+      ctx.data->traction1[ltsFace][pointIndex] = ctx.tractionResults.traction1[pointIndex];
+      ctx.data->traction2[ltsFace][pointIndex] = ctx.tractionResults.traction2[pointIndex];
+    });
   }
 
   //! no dynamic stress time

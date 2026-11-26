@@ -53,7 +53,6 @@ class ImposedSlipRates {
   template <common::RangeType Type>
   SEISSOL_HOSTDEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg, Type>& ctx,
                                                        uint32_t timeIndex) {
-    using Range = common::NumPoints<Cfg, Type>::Range;
     const real timeIncrement = ctx.args->deltaT[timeIndex];
     real currentTime = ctx.fullUpdateTime;
     for (uint32_t i = 0; i <= timeIndex; i++) {
@@ -63,10 +62,9 @@ class ImposedSlipRates {
     const auto& impAndEta = ctx.data->impAndEta[ltsFace];
     const auto& impedanceMatrices = ctx.data->impedanceMatrices[ltsFace];
 
-    // (no omp simd: the source time functions branch by the time and call transcendental
-    // functions; vectorized, every point would evaluate all of their branches)
-    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      const auto pointIndex = firstPoint(ctx) + index;
+    // not vectorized: the source time functions branch by the time and call transcendental
+    // functions; vectorized, every point would evaluate all of their branches
+    forEachPointScalar(ctx, [&](std::uint32_t pointIndex) {
       const real stfEvaluated = STF::evaluate(ctx, currentTime, timeIncrement, pointIndex);
 
       const auto evalCardinal1 =
@@ -82,8 +80,8 @@ class ImposedSlipRates {
       const auto tUN =
           common::matmulEtaNormal<Cfg>(impAndEta, impedanceMatrices, evalCardinal1, evalCardinal2);
 
-      const auto traction1 = point(ctx.faultStresses.traction1, index) - tU1;
-      const auto traction2 = point(ctx.faultStresses.traction2, index) - tU2;
+      const auto traction1 = ctx.faultStresses.traction1[pointIndex] - tU1;
+      const auto traction2 = ctx.faultStresses.traction2[pointIndex] - tU2;
 
       ctx.data->traction1[ltsFace][pointIndex] = traction1;
       ctx.data->traction2[ltsFace][pointIndex] = traction2;
@@ -103,11 +101,11 @@ class ImposedSlipRates {
       ctx.data->accumulatedSlipMagnitude[ltsFace][pointIndex] +=
           ctx.data->slipRateMagnitude[ltsFace][pointIndex] * timeIncrement;
 
-      point(ctx.tractionResults.normalStress, index) =
-          point(ctx.faultStresses.normalStress, index) - tUN;
-      point(ctx.tractionResults.traction1, index) = traction1;
-      point(ctx.tractionResults.traction2, index) = traction2;
-    }
+      ctx.tractionResults.normalStress[pointIndex] =
+          ctx.faultStresses.normalStress[pointIndex] - tUN;
+      ctx.tractionResults.traction1[pointIndex] = traction1;
+      ctx.tractionResults.traction2[pointIndex] = traction2;
+    });
   }
 
   //! no dynamic stress time

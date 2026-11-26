@@ -286,8 +286,8 @@ TEST_CASE_TEMPLATE_DEFINE("Friction Solver Common" * doctest::test_suite("dynami
                                                                                p);
         friction_law::common::initializeTractionResults<Cfg, GpuRange>(
             deviceFaultStresses, deviceTractionResults, p);
-        deviceTractionResults.traction1 = t1(o, p);
-        deviceTractionResults.traction2 = t2(o, p);
+        deviceTractionResults.traction1[p] = t1(o, p);
+        deviceTractionResults.traction2[p] = t2(o, p);
         friction_law::common::postcomputeImposedStateFromNewStress<Cfg, GpuRange>(
             deviceImposedState,
             deviceFaultStresses,

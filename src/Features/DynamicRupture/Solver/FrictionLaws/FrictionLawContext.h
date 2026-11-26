@@ -31,20 +31,21 @@
 
 /**
  * What a friction law works on while it evaluates the faces of a layer, once for the host and the
- * device. The code of a law handles the points of a face in a range (see common::NumPoints): on the
- * host all points of the face at once, on the device the one point of a thread. What it keeps of
- * the points meanwhile is accordingly an array over the points of the face on the host and a single
- * value on the device (PointValues, FaultStresses<Cfg, Executor>); point() reads either at an index
- * of the range.
+ * device. The code of a law handles the points of a face in a range (forEachPoint): on the host all
+ * points of the face at once, on the device the one point of a thread. What it keeps of the points
+ * meanwhile is accordingly an array over the points of the face on the host and the value of the
+ * point of the thread on the device (PointValues, FaultStresses<Cfg, Executor>); either is indexed
+ * with the index of the point in the face, as the storage of the face is.
  */
 namespace seissol::dr::friction_law {
 
-/// What a point of the range keeps of a quantity: on the host, one value per point of the face; on
-/// the device, the value of the point of the thread.
+/// What the range keeps of a quantity at its points: on the host, one value per point of the face;
+/// on the device, the value of the point of the thread. Indexed with the index of the point in the
+/// face.
 template <typename Cfg, common::RangeType Type>
 using PointValues = std::conditional_t<Type == common::RangeType::CPU,
                                        std::array<Real<Cfg>, misc::NumPaddedPoints<Cfg>>,
-                                       Real<Cfg>>;
+                                       ThreadPointValue<Real<Cfg>>>;
 
 /// The alignment of the values of the points of a range: that of the vectors on the host, where
 /// the points of a face are processed together, that of a single value on the device.
@@ -55,33 +56,6 @@ constexpr std::size_t pointAlignment() {
   } else {
     return alignof(Real<Cfg>);
   }
-}
-
-/// The value of the point `index` of the range in `values`: the one of the point of the thread on
-/// the device, where a single value is kept per point.
-template <typename T>
-SEISSOL_HOSTDEVICE constexpr T& point(T& value, std::uint32_t /*index*/) {
-  return value;
-}
-
-template <typename T, std::size_t N>
-SEISSOL_HOSTDEVICE constexpr T& point(std::array<T, N>& values, std::uint32_t index) {
-  return values[index];
-}
-
-template <typename T, std::size_t N>
-SEISSOL_HOSTDEVICE constexpr const T& point(const std::array<T, N>& values, std::uint32_t index) {
-  return values[index];
-}
-
-template <typename T, std::size_t N>
-SEISSOL_HOSTDEVICE constexpr T& point(T (&values)[N], std::uint32_t index) {
-  return values[index];
-}
-
-template <typename T, std::size_t N>
-SEISSOL_HOSTDEVICE constexpr const T& point(const T (&values)[N], std::uint32_t index) {
-  return values[index];
 }
 
 /// What a friction law reads of a time step, besides the faces of the layer.
@@ -183,6 +157,39 @@ SEISSOL_HOSTDEVICE constexpr std::uint32_t firstPoint(const FrictionLawContext<C
     return 0;
   } else {
     return ctx.pointIndex;
+  }
+}
+
+/**
+ * Runs `body(pointIndex)` for the points of the range of `ctx`, with the index of a point in its
+ * face: on the host for all points of the face, as one vectorized loop (the points are independent
+ * of each other); on the device for the point of the thread. The index addresses both the storage
+ * of the face (ctx.data->...[ctx.ltsFace][pointIndex]) and what the range keeps of its points
+ * (PointValues, ctx.faultStresses, ...).
+ */
+template <typename Cfg, common::RangeType Type, typename BodyT>
+SEISSOL_HOSTDEVICE inline void forEachPoint(const FrictionLawContext<Cfg, Type>& ctx,
+                                            const BodyT& body) {
+  using Range = common::NumPoints<Cfg, Type>::Range;
+#ifndef ACL_DEVICE
+#pragma omp simd
+#endif
+  for (auto index = Range::Start; index < Range::End; index += Range::Step) {
+    body(firstPoint(ctx) + index);
+  }
+}
+
+/**
+ * forEachPoint without vectorizing the loop over the points on the host: for code that branches by
+ * the point and calls transcendental functions, all of whose branches every point would evaluate in
+ * a vector (e.g. the source time functions of ImposedSlipRates).
+ */
+template <typename Cfg, common::RangeType Type, typename BodyT>
+SEISSOL_HOSTDEVICE inline void forEachPointScalar(const FrictionLawContext<Cfg, Type>& ctx,
+                                                  const BodyT& body) {
+  using Range = common::NumPoints<Cfg, Type>::Range;
+  for (auto index = Range::Start; index < Range::End; index += Range::Step) {
+    body(firstPoint(ctx) + index);
   }
 }
 
@@ -305,7 +312,7 @@ SEISSOL_HOSTDEVICE inline void resample(FrictionLawContext<Cfg, Type>& ctx,
   if constexpr (Type == common::RangeType::CPU) {
     resampleOnHost<Cfg>(ctx.args->resampleMatrix, values, resampled);
   } else {
-    resampled = resampleVariable(ctx, values[ctx.pointIndex]);
+    resampled[ctx.pointIndex] = resampleVariable(ctx, values[ctx.pointIndex]);
   }
 }
 

@@ -13,6 +13,7 @@
 #include "Core/Parallel/Runtime/Stream.h"
 #include "FastVelocityWeakeningLaw.h"
 #include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/FrictionLawContext.h"
 #include "ImposedSlipRates.h"
 #include "LinearSlipWeakening.h"
 #include "NoFault.h"

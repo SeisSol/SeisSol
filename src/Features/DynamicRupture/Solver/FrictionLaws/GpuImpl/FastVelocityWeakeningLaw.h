@@ -86,7 +86,7 @@ class FastVelocityWeakeningLaw
 
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& __restrict ctx,
                                                  real timeIncrement) {
-    ctx.stateVariableBuffer =
+    ctx.stateVariableBuffer[ctx.pointIndex] =
         stateVariableAt<real>(ctx, ctx.initialVariables.localSlipRate, timeIncrement);
   }
 
@@ -138,7 +138,7 @@ class FastVelocityWeakeningLaw
 
   SEISSOL_DEVICE static void resampleStateVar(FrictionLawContext<Cfg>& __restrict ctx) {
     const auto localStateVariable = ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex];
-    const auto toResample = ctx.stateVariableBuffer - localStateVariable;
+    const auto toResample = ctx.stateVariableBuffer[ctx.pointIndex] - localStateVariable;
 
     const auto resampledDeltaStateVar = resampleVariable(ctx, toResample);
 

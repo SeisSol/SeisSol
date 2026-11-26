@@ -80,23 +80,17 @@ class LinearSlipWeakening {
   template <common::RangeType Type>
   SEISSOL_HOSTDEVICE static void calcStrengthHook(FrictionLawContext<Cfg, Type>& ctx,
                                                   uint32_t timeIndex) {
-    using Range = common::NumPoints<Cfg, Type>::Range;
     const auto deltaT{ctx.args->deltaT[timeIndex]};
     const auto vStar{ctx.data->drParameters.vStar};
     const auto prakashLength{ctx.data->drParameters.prakashLength};
     const auto ltsFace = ctx.ltsFace;
 
-#ifndef ACL_DEVICE
-#pragma omp simd
-#endif
-    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      const auto pointIndex = firstPoint(ctx) + index;
-      auto& strength = point(ctx.strengthBuffer, index);
+    forEachPoint(ctx, [&](std::uint32_t pointIndex) {
+      auto& strength = ctx.strengthBuffer[pointIndex];
 
-      const real totalNormalStress = point(ctx.initialStress.normalStress, index) +
-                                     point(ctx.faultStresses.normalStress, index) +
-                                     point(ctx.initialStress.fluidPressure, index) +
-                                     point(ctx.faultStresses.fluidPressure, index);
+      const real totalNormalStress =
+          ctx.initialStress.normalStress[pointIndex] + ctx.faultStresses.normalStress[pointIndex] +
+          ctx.initialStress.fluidPressure[pointIndex] + ctx.faultStresses.fluidPressure[pointIndex];
 
       strength =
           -ctx.data->cohesion[ltsFace][pointIndex] -
@@ -114,12 +108,12 @@ class LinearSlipWeakening {
         // d(strength) / d(-sigma_eff). Zero while the normal stress is clamped -- note that the
         // clamp is evaluated at the uncorrected normal stress, which is second order in the
         // coupling and only matters right at the opening threshold.
-        point(ctx.strengthSlopeBuffer, index) =
+        ctx.strengthSlopeBuffer[pointIndex] =
             (totalNormalStress < 0 ? ctx.data->mu[ltsFace][pointIndex] : static_cast<real>(0.0)) *
             SpecializationT::strengthHookSlope(
                 ctx.data->slipRateMagnitude[ltsFace][pointIndex], deltaT, vStar, prakashLength);
       }
-    }
+    });
   }
 
   /**
@@ -129,24 +123,19 @@ class LinearSlipWeakening {
   template <common::RangeType Type>
   SEISSOL_HOSTDEVICE static void calcSlipRateAndTraction(FrictionLawContext<Cfg, Type>& ctx,
                                                          uint32_t timeIndex) {
-    using Range = common::NumPoints<Cfg, Type>::Range;
     const auto deltaT{ctx.args->deltaT[timeIndex]};
     const auto ltsFace = ctx.ltsFace;
     const auto& impAndEta = ctx.data->impAndEta[ltsFace];
     const auto& impedanceMatrices = ctx.data->impedanceMatrices[ltsFace];
 
-#ifndef ACL_DEVICE
-#pragma omp simd
-#endif
-    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      const auto pointIndex = firstPoint(ctx) + index;
-      const real strength = point(ctx.strengthBuffer, index);
+    forEachPoint(ctx, [&](std::uint32_t pointIndex) {
+      const real strength = ctx.strengthBuffer[pointIndex];
 
       // calculate absolute value of stress in Y and Z direction
       const real totalTraction1 =
-          point(ctx.initialStress.traction1, index) + point(ctx.faultStresses.traction1, index);
+          ctx.initialStress.traction1[pointIndex] + ctx.faultStresses.traction1[pointIndex];
       const real totalTraction2 =
-          point(ctx.initialStress.traction2, index) + point(ctx.faultStresses.traction2, index);
+          ctx.initialStress.traction2[pointIndex] + ctx.faultStresses.traction2[pointIndex];
       const real absoluteTraction = misc::magnitude(totalTraction1, totalTraction2);
 
       const auto [eta, invEta] = common::projectEta<Cfg>(
@@ -170,7 +159,7 @@ class LinearSlipWeakening {
                                    totalTraction2,
                                    absoluteTraction,
                                    strength,
-                                   point(ctx.strengthSlopeBuffer, index),
+                                   ctx.strengthSlopeBuffer[pointIndex],
                                    solution);
         slipRateMagnitude = solution.slipRate;
         etaEff = solution.etaEff;
@@ -204,17 +193,17 @@ class LinearSlipWeakening {
       // the normal stress written here is the *dynamic* normal traction, i.e. in the same space as
       // faultStresses/qInterpolated -- unlike the effective normal stress used for the strength,
       // it carries neither the initial stress nor the min(., 0) clamp.
-      point(ctx.tractionResults.normalStress, index) =
-          point(ctx.faultStresses.normalStress, index) - tUN;
-      point(ctx.tractionResults.traction1, index) = point(ctx.faultStresses.traction1, index) - tU1;
-      point(ctx.tractionResults.traction2, index) = point(ctx.faultStresses.traction2, index) - tU2;
-      ctx.data->traction1[ltsFace][pointIndex] = point(ctx.tractionResults.traction1, index);
-      ctx.data->traction2[ltsFace][pointIndex] = point(ctx.tractionResults.traction2, index);
+      ctx.tractionResults.normalStress[pointIndex] =
+          ctx.faultStresses.normalStress[pointIndex] - tUN;
+      ctx.tractionResults.traction1[pointIndex] = ctx.faultStresses.traction1[pointIndex] - tU1;
+      ctx.tractionResults.traction2[pointIndex] = ctx.faultStresses.traction2[pointIndex] - tU2;
+      ctx.data->traction1[ltsFace][pointIndex] = ctx.tractionResults.traction1[pointIndex];
+      ctx.data->traction2[ltsFace][pointIndex] = ctx.tractionResults.traction2[pointIndex];
 
       // update directional slip
       ctx.data->slip1[ltsFace][pointIndex] += ctx.data->slipRate1[ltsFace][pointIndex] * deltaT;
       ctx.data->slip2[ltsFace][pointIndex] += ctx.data->slipRate2[ltsFace][pointIndex] * deltaT;
-    }
+    });
   }
 
   /**
@@ -224,7 +213,6 @@ class LinearSlipWeakening {
   template <common::RangeType Type>
   SEISSOL_HOSTDEVICE static void calcStateVariableHook(FrictionLawContext<Cfg, Type>& ctx,
                                                        uint32_t timeIndex) {
-    using Range = common::NumPoints<Cfg, Type>::Range;
     const auto deltaT{ctx.args->deltaT[timeIndex]};
     const auto riseTime{ctx.data->drParameters.forcedRuptureRiseTime};
     const auto tpProxyExponent{ctx.data->drParameters.tpProxyExponent};
@@ -238,15 +226,11 @@ class LinearSlipWeakening {
       time += ctx.args->deltaT[i];
     }
 
-#ifndef ACL_DEVICE
-#pragma omp simd
-#endif
-    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      const auto pointIndex = firstPoint(ctx) + index;
-      auto& stateVariable = point(ctx.stateVariableBuffer, index);
+    forEachPoint(ctx, [&](std::uint32_t pointIndex) {
+      auto& stateVariable = ctx.stateVariableBuffer[pointIndex];
 
       // integrate slip rate to get slip = state variable
-      const auto update = point(resampledSlipRate, index) * deltaT;
+      const auto update = resampledSlipRate[pointIndex] * deltaT;
       ctx.data->accumulatedSlipMagnitude[ltsFace][pointIndex] += update;
 
       // Actually slip is already the stateVariable for this FL, but to simplify the next equations
@@ -268,7 +252,7 @@ class LinearSlipWeakening {
                          static_cast<real>(1.0));
       }
       stateVariable = std::max(stateVariable, f2);
-    }
+    });
   }
 
   /**
@@ -277,16 +261,11 @@ class LinearSlipWeakening {
    */
   template <common::RangeType Type>
   SEISSOL_HOSTDEVICE static void frictionFunctionHook(FrictionLawContext<Cfg, Type>& ctx) {
-    using Range = common::NumPoints<Cfg, Type>::Range;
     const auto healingThreshold{ctx.data->drParameters.healingThreshold};
     const auto ltsFace = ctx.ltsFace;
 
-#ifndef ACL_DEVICE
-#pragma omp simd
-#endif
-    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      const auto pointIndex = firstPoint(ctx) + index;
-      auto& stateVariable = point(ctx.stateVariableBuffer, index);
+    forEachPoint(ctx, [&](std::uint32_t pointIndex) {
+      auto& stateVariable = ctx.stateVariableBuffer[pointIndex];
       ctx.data->mu[ltsFace][pointIndex] =
           ctx.data->muS[ltsFace][pointIndex] -
           (ctx.data->muS[ltsFace][pointIndex] - ctx.data->muD[ltsFace][pointIndex]) * stateVariable;
@@ -296,18 +275,17 @@ class LinearSlipWeakening {
         ctx.data->mu[ltsFace][pointIndex] = ctx.data->muS[ltsFace][pointIndex];
         stateVariable = 0.0;
       }
-    }
+    });
   }
 
   //! the slip, whose reaching d_c is the dynamic stress time
   template <common::RangeType Type>
   SEISSOL_HOSTDEVICE static PointValues<Cfg, Type>
       dynamicStressQuantity(FrictionLawContext<Cfg, Type>& ctx) {
-    using Range = common::NumPoints<Cfg, Type>::Range;
     PointValues<Cfg, Type> slip{};
-    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      point(slip, index) = ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][firstPoint(ctx) + index];
-    }
+    forEachPoint(ctx, [&](std::uint32_t pointIndex) {
+      slip[pointIndex] = ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][pointIndex];
+    });
     return slip;
   }
 
@@ -320,22 +298,17 @@ class LinearSlipWeakening {
   SEISSOL_HOSTDEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg, Type>& ctx,
                                                          const PointValues<Cfg, Type>& previousSlip,
                                                          const common::SubStepTimes<Cfg>& times) {
-    using Range = common::NumPoints<Cfg, Type>::Range;
     const auto ltsFace = ctx.ltsFace;
 
-#ifndef ACL_DEVICE
-#pragma omp simd
-#endif
-    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      const auto pointIndex = firstPoint(ctx) + index;
+    forEachPoint(ctx, [&](std::uint32_t pointIndex) {
       const real slip = std::fabs(ctx.data->accumulatedSlipMagnitude[ltsFace][pointIndex]);
       const real dC = ctx.data->dC[ltsFace][pointIndex];
       if (ctx.data->dynStressTimePending[ltsFace][pointIndex] && slip >= dC) {
         ctx.data->dynStressTime[ltsFace][pointIndex] = common::crossingTime<Cfg>(
-            std::fabs(point(previousSlip, index)), slip, dC, times.start, times.end);
+            std::fabs(previousSlip[pointIndex]), slip, dC, times.start, times.end);
         ctx.data->dynStressTimePending[ltsFace][pointIndex] = false;
       }
-    }
+    });
   }
 };
 
@@ -423,10 +396,9 @@ class BiMaterialFault {
       resampleSlipRate(FrictionLawContext<Cfg, Type>& ctx,
                        const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints<Cfg>],
                        PointValues<Cfg, Type>& resampledSlipRate) {
-    using Range = common::NumPoints<Cfg, Type>::Range;
-    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      point(resampledSlipRate, index) = slipRateMagnitude[firstPoint(ctx) + index];
-    }
+    forEachPoint(ctx, [&](std::uint32_t pointIndex) {
+      resampledSlipRate[pointIndex] = slipRateMagnitude[pointIndex];
+    });
   }
 
   SEISSOL_HOSTDEVICE static real
@@ -492,10 +464,9 @@ class TPApprox {
       resampleSlipRate(FrictionLawContext<Cfg, Type>& ctx,
                        const real (&slipRateMagnitude)[dr::misc::NumPaddedPoints<Cfg>],
                        PointValues<Cfg, Type>& resampledSlipRate) {
-    using Range = common::NumPoints<Cfg, Type>::Range;
-    for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-      point(resampledSlipRate, index) = slipRateMagnitude[firstPoint(ctx) + index];
-    }
+    forEachPoint(ctx, [&](std::uint32_t pointIndex) {
+      resampledSlipRate[pointIndex] = slipRateMagnitude[pointIndex];
+    });
   }
 
   SEISSOL_HOSTDEVICE static real

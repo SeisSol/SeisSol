@@ -51,7 +51,7 @@ class AgingLaw : public SlowVelocityWeakeningLaw<Cfg, AgingLaw<Cfg, TPMethod>, T
 
   SEISSOL_DEVICE static void updateStateVariable(FrictionLawContext<Cfg>& __restrict ctx,
                                                  real timeIncrement) {
-    ctx.stateVariableBuffer =
+    ctx.stateVariableBuffer[ctx.pointIndex] =
         stateVariableAt<real>(ctx, ctx.initialVariables.localSlipRate, timeIncrement);
   }
 };

@@ -77,27 +77,6 @@ struct RangeExecutor<RangeType::GPU> {
   static constexpr Executor Exec = Executor::Device;
 };
 
-template <typename Cfg, Executor Executor>
-struct VariableIndexing;
-
-template <typename Cfg>
-struct VariableIndexing<Cfg, Executor::Host> {
-  static constexpr Real<Cfg>& index(Real<Cfg> (&data)[misc::NumPaddedPoints<Cfg>], int i) {
-    return data[i];
-  }
-
-  static constexpr Real<Cfg> index(const Real<Cfg> (&data)[misc::NumPaddedPoints<Cfg>], int i) {
-    return data[i];
-  }
-};
-
-template <typename Cfg>
-struct VariableIndexing<Cfg, Executor::Device> {
-  static constexpr Real<Cfg>& index(Real<Cfg>& data, int /*i*/) { return data; }
-
-  static constexpr Real<Cfg> index(const Real<Cfg>& data, int /*i*/) { return data; }
-};
-
 /**
  * Calculate traction and normal stress at the interface of a face.
  * Using equations (A2) from Pelties et al. 2014
@@ -154,15 +133,15 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
 #endif
     for (auto index = Range::Start; index < Range::End; index += Range::Step) {
       const auto i{startLoopIndex + index};
-      VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, i) =
+      faultStresses.normalStress[i] =
           etaP * (qIMinus[o][U][i] - qIPlus[o][U][i] + qIPlus[o][N][i] * invZp +
                   qIMinus[o][N][i] * invZpNeig);
 
-      VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(faultStresses.traction1, i) =
+      faultStresses.traction1[i] =
           etaS * (qIMinus[o][V][i] - qIPlus[o][V][i] + qIPlus[o][T1][i] * invZs +
                   qIMinus[o][T1][i] * invZsNeig);
 
-      VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(faultStresses.traction2, i) =
+      faultStresses.traction2[i] =
           etaS * (qIMinus[o][W][i] - qIPlus[o][W][i] + qIPlus[o][T2][i] * invZs +
                   qIMinus[o][T2][i] * invZsNeig);
     }
@@ -225,13 +204,11 @@ SEISSOL_HOSTDEVICE inline void precomputeStressFromQInterpolated(
         }
       }
 
-      VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, i) =
-          res[0] * etaPDamp;
-      VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(faultStresses.traction1, i) = res[1];
-      VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(faultStresses.traction2, i) = res[2];
+      faultStresses.normalStress[i] = res[0] * etaPDamp;
+      faultStresses.traction1[i] = res[1];
+      faultStresses.traction2[i] = res[2];
       if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Poroelastic) {
-        VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(faultStresses.fluidPressure, i) =
-            res[3];
+        faultStresses.fluidPressure[i] = res[3];
       }
     }
   }
@@ -261,8 +238,7 @@ SEISSOL_HOSTDEVICE inline void initializeTractionResults(
 #endif
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     const auto i{startIndex + index};
-    VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(tractionResults.normalStress, i) =
-        VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(faultStresses.normalStress, i);
+    tractionResults.normalStress[i] = faultStresses.normalStress[i];
   }
 }
 
@@ -297,8 +273,6 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
 
   const auto o = step;
 
-  using Acc = VariableIndexing<Cfg, RangeExecutor<Type>::Exec>;
-
   using QInterpolatedShapeT =
       const Real<Cfg>(*__restrict)[misc::NumQuantities<Cfg>][misc::NumPaddedPoints<Cfg>];
   const auto* __restrict qIPlus = reinterpret_cast<QInterpolatedShapeT>(qInterpolatedPlus);
@@ -320,29 +294,26 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
          index += NumPointsRange::Step) {
       const auto i{startIndex + index};
 
-      const auto normalStress = Acc::index(tractionResults.normalStress, i);
-      const auto traction1 = Acc::index(tractionResults.traction1, i);
-      const auto traction2 = Acc::index(tractionResults.traction2, i);
+      const auto normalStress = tractionResults.normalStress[i];
+      const auto traction1 = tractionResults.traction1[i];
+      const auto traction2 = tractionResults.traction2[i];
 
-      Acc::index(state.minus[N], i) += weight * normalStress;
-      Acc::index(state.minus[T1], i) += weight * traction1;
-      Acc::index(state.minus[T2], i) += weight * traction2;
-      Acc::index(state.minus[U], i) +=
+      state.minus[N][i] += weight * normalStress;
+      state.minus[T1][i] += weight * traction1;
+      state.minus[T2][i] += weight * traction2;
+      state.minus[U][i] +=
           weight * (qIMinus[o][U][i] - invZpNeig * (normalStress - qIMinus[o][N][i]));
-      Acc::index(state.minus[V], i) +=
+      state.minus[V][i] +=
           weight * (qIMinus[o][V][i] - invZsNeig * (traction1 - qIMinus[o][T1][i]));
-      Acc::index(state.minus[W], i) +=
+      state.minus[W][i] +=
           weight * (qIMinus[o][W][i] - invZsNeig * (traction2 - qIMinus[o][T2][i]));
 
-      Acc::index(state.plus[N], i) += weight * normalStress;
-      Acc::index(state.plus[T1], i) += weight * traction1;
-      Acc::index(state.plus[T2], i) += weight * traction2;
-      Acc::index(state.plus[U], i) +=
-          weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
-      Acc::index(state.plus[V], i) +=
-          weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
-      Acc::index(state.plus[W], i) +=
-          weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
+      state.plus[N][i] += weight * normalStress;
+      state.plus[T1][i] += weight * traction1;
+      state.plus[T2][i] += weight * traction2;
+      state.plus[U][i] += weight * (qIPlus[o][U][i] + invZp * (normalStress - qIPlus[o][N][i]));
+      state.plus[V][i] += weight * (qIPlus[o][V][i] + invZs * (traction1 - qIPlus[o][T1][i]));
+      state.plus[W][i] += weight * (qIPlus[o][W][i] + invZs * (traction2 - qIPlus[o][T2][i]));
     }
   } else {
     // poroelastic kernel (for CPU+GPU)
@@ -359,19 +330,19 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
          index += NumPointsRange::Step) {
       auto i{startIndex + index};
 
-      const auto normalStress = Acc::index(tractionResults.normalStress, i);
-      const auto traction1 = Acc::index(tractionResults.traction1, i);
-      const auto traction2 = Acc::index(tractionResults.traction2, i);
-      const auto fluidPressure = Acc::index(faultStresses.fluidPressure, i);
+      const auto normalStress = tractionResults.normalStress[i];
+      const auto traction1 = tractionResults.traction1[i];
+      const auto traction2 = tractionResults.traction2[i];
+      const auto fluidPressure = faultStresses.fluidPressure[i];
 
       const auto handleSide =
           [&](auto& imposedState, const auto& qI, const auto& mZ, Real<Cfg> sign) {
             constexpr std::uint32_t Count =
                 model::MaterialOf<Cfg>::Type == model::MaterialType::Poroelastic ? 4 : 3;
 
-            Acc::index(imposedState[N], i) += weight * normalStress;
-            Acc::index(imposedState[T1], i) += weight * traction1;
-            Acc::index(imposedState[T2], i) += weight * traction2;
+            imposedState[N][i] += weight * normalStress;
+            imposedState[T1][i] += weight * traction1;
+            imposedState[T2][i] += weight * traction2;
 
             Real<Cfg> diff[Count]{};
             diff[0] = (normalStress - qI[o][N][i]) * sign;
@@ -379,7 +350,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
             diff[2] = (traction2 - qI[o][T2][i]) * sign;
 
             if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Poroelastic) {
-              Acc::index(imposedState[FP], i) += weight * fluidPressure;
+              imposedState[FP][i] += weight * fluidPressure;
               diff[3] = (fluidPressure - qI[o][FP][i]) * sign;
             }
 
@@ -389,7 +360,7 @@ SEISSOL_HOSTDEVICE inline void postcomputeImposedStateFromNewStress(
               for (std::uint32_t k = 0; k < Count; ++k) {
                 acc += mZ[Count * k + linear] * diff[k];
               }
-              Acc::index(imposedState[qindex], i) += weight * (qI[o][qindex][i] + acc);
+              imposedState[qindex][i] += weight * (qI[o][qindex][i] + acc);
             };
 
             handleEntry(0, U);
@@ -431,10 +402,8 @@ SEISSOL_HOSTDEVICE inline void
     const auto i{startIndex + index};
 #pragma unroll
     for (std::uint32_t q = 0; q < dr::misc::NumQuantities<Cfg>; ++q) {
-      imposedStateM[q][i] =
-          VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(state.minus[q], i);
-      imposedStateP[q][i] =
-          VariableIndexing<Cfg, RangeExecutor<Type>::Exec>::index(state.plus[q], i);
+      imposedStateM[q][i] = state.minus[q][i];
+      imposedStateP[q][i] = state.plus[q][i];
     }
   }
 }
@@ -464,7 +433,6 @@ SEISSOL_HOSTDEVICE inline void computeInitialStress(
     std::uint32_t sourceCount,
     Real<Cfg> fullUpdateTime,
     uint32_t startIndex = 0) {
-  constexpr auto Exec = RangeExecutor<Type>::Exec;
   using Range = NumPoints<Cfg, Type>::Range;
 
   // the components of the stress tensor which take part in the fault-normal Riemann problem
@@ -477,11 +445,10 @@ SEISSOL_HOSTDEVICE inline void computeInitialStress(
 #endif
   for (auto index = Range::Start; index < Range::End; index += Range::Step) {
     const auto i{startIndex + index};
-    VariableIndexing<Cfg, Exec>::index(initialStress.normalStress, i) = static_cast<Real<Cfg>>(0.0);
-    VariableIndexing<Cfg, Exec>::index(initialStress.traction1, i) = static_cast<Real<Cfg>>(0.0);
-    VariableIndexing<Cfg, Exec>::index(initialStress.traction2, i) = static_cast<Real<Cfg>>(0.0);
-    VariableIndexing<Cfg, Exec>::index(initialStress.fluidPressure, i) =
-        static_cast<Real<Cfg>>(0.0);
+    initialStress.normalStress[i] = static_cast<Real<Cfg>>(0.0);
+    initialStress.traction1[i] = static_cast<Real<Cfg>>(0.0);
+    initialStress.traction2[i] = static_cast<Real<Cfg>>(0.0);
+    initialStress.fluidPressure[i] = static_cast<Real<Cfg>>(0.0);
   }
 
   for (std::uint32_t source = 0; source < sourceCount; ++source) {
@@ -492,14 +459,10 @@ SEISSOL_HOSTDEVICE inline void computeInitialStress(
       const auto i{startIndex + index};
       const auto fraction = stressSourceFraction<Real<Cfg>>(
           fullUpdateTime, stressSourceRiseTime[source][i], stressSourceOnset[source][i]);
-      VariableIndexing<Cfg, Exec>::index(initialStress.normalStress, i) +=
-          stressSourceInFaultCS[source][NormalIndex][i] * fraction;
-      VariableIndexing<Cfg, Exec>::index(initialStress.traction1, i) +=
-          stressSourceInFaultCS[source][Traction1Index][i] * fraction;
-      VariableIndexing<Cfg, Exec>::index(initialStress.traction2, i) +=
-          stressSourceInFaultCS[source][Traction2Index][i] * fraction;
-      VariableIndexing<Cfg, Exec>::index(initialStress.fluidPressure, i) +=
-          stressSourcePressure[source][i] * fraction;
+      initialStress.normalStress[i] += stressSourceInFaultCS[source][NormalIndex][i] * fraction;
+      initialStress.traction1[i] += stressSourceInFaultCS[source][Traction1Index][i] * fraction;
+      initialStress.traction2[i] += stressSourceInFaultCS[source][Traction2Index][i] * fraction;
+      initialStress.fluidPressure[i] += stressSourcePressure[source][i] * fraction;
     }
   }
 }

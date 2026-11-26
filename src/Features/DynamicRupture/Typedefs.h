@@ -11,6 +11,7 @@
 #include "Alignment.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/Executor.h"
+#include "Core/Common/Marker.h"
 #include "Core/Common/Real.h"
 #include "Core/IO/Datatype/Datatype.h"
 #include "Core/IO/Datatype/Inference.h"
@@ -67,6 +68,22 @@ struct ImpedanceMatrices {
    * lambda / (lambda + 2 mu) = 1 - 2 (cs/cp)^2, which the output computes from the wave speeds.
    */
   alignas(Alignment) Real<Cfg> lateralStress[3 * tensor::Zminus<Cfg>::Shape[0]] = {};
+};
+
+/**
+ * What a thread of the device keeps of a quantity at the point it handles: the single value of that
+ * point. It is read and written with the index of the point, like the values of all points of a
+ * face on the host (e.g. FaultStresses<Cfg, Executor::Host>), so that the code of both indexes
+ * them alike; it needs not the index, which is the one of the point of the thread.
+ */
+template <typename T>
+struct ThreadPointValue {
+  T value{};
+
+  SEISSOL_HOSTDEVICE constexpr T& operator[](std::size_t /*pointIndex*/) { return value; }
+  SEISSOL_HOSTDEVICE constexpr const T& operator[](std::size_t /*pointIndex*/) const {
+    return value;
+  }
 };
 
 template <typename Cfg, Executor Executor>
@@ -133,10 +150,10 @@ template <typename Cfg>
 struct FaultStresses<Cfg, Executor::Device> {
   using real = Real<Cfg>;
 
-  real normalStress{};
-  real traction1{};
-  real traction2{};
-  real fluidPressure{};
+  ThreadPointValue<real> normalStress{};
+  ThreadPointValue<real> traction1{};
+  ThreadPointValue<real> traction2{};
+  ThreadPointValue<real> fluidPressure{};
 };
 
 /**
@@ -149,9 +166,9 @@ template <typename Cfg>
 struct TractionResults<Cfg, Executor::Device> {
   using real = Real<Cfg>;
 
-  real normalStress{};
-  real traction1{};
-  real traction2{};
+  ThreadPointValue<real> normalStress{};
+  ThreadPointValue<real> traction1{};
+  ThreadPointValue<real> traction2{};
 };
 
 /**
@@ -161,8 +178,8 @@ template <typename Cfg>
 struct ImposedState<Cfg, Executor::Device> {
   using real = Real<Cfg>;
 
-  real plus[misc::NumQuantities<Cfg>]{};
-  real minus[misc::NumQuantities<Cfg>]{};
+  ThreadPointValue<real> plus[misc::NumQuantities<Cfg>]{};
+  ThreadPointValue<real> minus[misc::NumQuantities<Cfg>]{};
 };
 
 } // namespace seissol::dr

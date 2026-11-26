@@ -35,8 +35,6 @@ struct FrictionLawDriver {
   template <common::RangeType Type>
   SEISSOL_HOSTDEVICE static void evaluate(FrictionLawContext<Cfg, Type>& __restrict ctx) {
     if constexpr (model::MaterialOf<Cfg>::SupportsDR) {
-      using Range = common::NumPoints<Cfg, Type>::Range;
-
       const auto etaPDamp = ctx.data->drParameters.etaDampEnd > ctx.fullUpdateTime
                                 ? ctx.data->drParameters.etaDamp
                                 : static_cast<real>(1.0);
@@ -62,10 +60,9 @@ struct FrictionLawDriver {
         // the values before the update, for the times of the events that it crosses the threshold
         // of (see common::crossingTime)
         alignas(pointAlignment<Cfg, Type>()) PointValues<Cfg, Type> previousSlipRate{};
-        for (auto index = Range::Start; index < Range::End; index += Range::Step) {
-          point(previousSlipRate, index) =
-              ctx.data->slipRateMagnitude[ctx.ltsFace][firstPoint(ctx) + index];
-        }
+        forEachPoint(ctx, [&](std::uint32_t pointIndex) {
+          previousSlipRate[pointIndex] = ctx.data->slipRateMagnitude[ctx.ltsFace][pointIndex];
+        });
         alignas(pointAlignment<Cfg, Type>()) const PointValues<Cfg, Type>
             previousDynamicStressQuantity = LawT::dynamicStressQuantity(ctx);
 
@@ -98,7 +95,7 @@ struct FrictionLawDriver {
         // time-dependent outputs
         common::saveRuptureFrontOutput<Cfg, Type>(ctx.data->ruptureTimePending[ctx.ltsFace],
                                                   ctx.data->ruptureTime[ctx.ltsFace],
-                                                  &point(previousSlipRate, 0),
+                                                  &previousSlipRate[firstPoint(ctx)],
                                                   ctx.data->slipRateMagnitude[ctx.ltsFace],
                                                   rateTimes.previousPoint,
                                                   rateTimes.point,

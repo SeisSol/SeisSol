@@ -72,7 +72,7 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
 
   SEISSOL_DEVICE static void preHook(FrictionLawContext<Cfg>& __restrict ctx) {
     // copy state variable from last time step
-    ctx.stateVariableBuffer = ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex];
+    ctx.stateVariableBuffer[ctx.pointIndex] = ctx.data->stateVariable[ctx.ltsFace][ctx.pointIndex];
   }
 
   SEISSOL_DEVICE static void postHook(FrictionLawContext<Cfg>& __restrict ctx) {
@@ -84,11 +84,13 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
    * variable. Also sets slipRateMagnitude member to reference value.
    */
   SEISSOL_DEVICE static void calcInitialVariables(FrictionLawContext<Cfg>& __restrict ctx) {
-    ctx.initialVariables.stateVarReference = ctx.stateVariableBuffer;
+    ctx.initialVariables.stateVarReference = ctx.stateVariableBuffer[ctx.pointIndex];
 
-    const real totalTraction1 = ctx.initialStress.traction1 + ctx.faultStresses.traction1;
+    const real totalTraction1 =
+        ctx.initialStress.traction1[ctx.pointIndex] + ctx.faultStresses.traction1[ctx.pointIndex];
 
-    const real totalTraction2 = ctx.initialStress.traction2 + ctx.faultStresses.traction2;
+    const real totalTraction2 =
+        ctx.initialStress.traction2[ctx.pointIndex] + ctx.faultStresses.traction2[ctx.pointIndex];
 
     ctx.initialVariables.absoluteShearTraction = misc::magnitude(totalTraction1, totalTraction2);
 
@@ -131,9 +133,11 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
    */
   SEISSOL_DEVICE static real
       updateDirectionAndProjections(FrictionLawContext<Cfg>& __restrict ctx) {
-    const real totalTraction1 = ctx.initialStress.traction1 + ctx.faultStresses.traction1;
+    const real totalTraction1 =
+        ctx.initialStress.traction1[ctx.pointIndex] + ctx.faultStresses.traction1[ctx.pointIndex];
 
-    const real totalTraction2 = ctx.initialStress.traction2 + ctx.faultStresses.traction2;
+    const real totalTraction2 =
+        ctx.initialStress.traction2[ctx.pointIndex] + ctx.faultStresses.traction2[ctx.pointIndex];
 
     if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
       const auto [etaProj, unusedInv] =
@@ -203,7 +207,7 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
       const real invEta = updateDirectionAndProjections(ctx);
       updateNormalStress(ctx);
 
-      const auto localStateVariable = ctx.stateVariableBuffer;
+      const auto localStateVariable = ctx.stateVariableBuffer[ctx.pointIndex];
       const auto normalStressStick = ctx.initialVariables.normalStressStick;
       const auto absoluteShearStress = ctx.initialVariables.absoluteShearTraction;
       const auto localSlipRateMagnitude = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
@@ -257,7 +261,7 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
 
     Derived::updateStateVariable(ctx, deltaTime);
 
-    const auto localStateVariable = ctx.stateVariableBuffer;
+    const auto localStateVariable = ctx.stateVariableBuffer[ctx.pointIndex];
     const auto slipRateMagnitude = ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex];
 
     // the only mu calculation left, outside of the fixed-point loop
@@ -273,8 +277,8 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
 
     const real strength = -mu * ctx.initialVariables.normalStress;
 
-    const auto savedTraction1 = ctx.faultStresses.traction1;
-    const auto savedTraction2 = ctx.faultStresses.traction2;
+    const auto savedTraction1 = ctx.faultStresses.traction1[ctx.pointIndex];
+    const auto savedTraction2 = ctx.faultStresses.traction2[ctx.pointIndex];
 
     // Compute slip
     ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] +=
@@ -321,10 +325,11 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
     // space as faultStresses/qInterpolated -- not the effective normal stress used for the friction
     // strength above (which additionally carries the initial stress, the initial pressure, thermal
     // pressurization and the min(., 0) clamp).
-    ctx.tractionResults.normalStress =
-        ctx.faultStresses.normalStress - slipRateMagnitude * ctx.initialVariables.etaNormal;
-    ctx.tractionResults.traction1 = traction1;
-    ctx.tractionResults.traction2 = traction2;
+    ctx.tractionResults.normalStress[ctx.pointIndex] =
+        ctx.faultStresses.normalStress[ctx.pointIndex] -
+        slipRateMagnitude * ctx.initialVariables.etaNormal;
+    ctx.tractionResults.traction1[ctx.pointIndex] = traction1;
+    ctx.tractionResults.traction2[ctx.pointIndex] = traction2;
 
     // update slip rate
     ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] = slipRate1;
@@ -332,8 +337,11 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
   }
 
   //! the friction coefficient, whose falling to the weakened one is the dynamic stress time
-  SEISSOL_DEVICE static real dynamicStressQuantity(FrictionLawContext<Cfg>& __restrict ctx) {
-    return ctx.data->mu[ctx.ltsFace][ctx.pointIndex];
+  SEISSOL_DEVICE static PointValues<Cfg, common::RangeType::GPU>
+      dynamicStressQuantity(FrictionLawContext<Cfg>& __restrict ctx) {
+    PointValues<Cfg, common::RangeType::GPU> mu{};
+    mu[ctx.pointIndex] = ctx.data->mu[ctx.ltsFace][ctx.pointIndex];
+    return mu;
   }
 
   /*
@@ -341,9 +349,10 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
    * arrived, interpolated between the time points of the previous and the current evaluation (see
    * common::crossingTime), and not before the rupture time
    */
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& __restrict ctx,
-                                                     real previousMu,
-                                                     const common::SubStepTimes<Cfg>& times) {
+  SEISSOL_DEVICE static void
+      saveDynamicStressOutput(FrictionLawContext<Cfg>& __restrict ctx,
+                              const PointValues<Cfg, common::RangeType::GPU>& previousMu,
+                              const common::SubStepTimes<Cfg>& times) {
     const auto muW{ctx.data->muW[ctx.ltsFace][ctx.pointIndex]};
     const auto rsF0{ctx.data->f0[ctx.ltsFace][ctx.pointIndex]};
     const real threshold = muW + static_cast<real>(0.05) * (rsF0 - muW);
@@ -354,7 +363,8 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
         ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] && mu <= threshold) {
       ctx.data->dynStressTime[ctx.ltsFace][ctx.pointIndex] = std::max(
           localRuptureTime,
-          common::crossingTime<Cfg>(previousMu, mu, threshold, times.previousPoint, times.point));
+          common::crossingTime<Cfg>(
+              previousMu[ctx.pointIndex], mu, threshold, times.previousPoint, times.point));
       ctx.data->dynStressTimePending[ctx.ltsFace][ctx.pointIndex] = false;
     }
   }
@@ -573,9 +583,10 @@ class RateAndStateBase : public BaseFrictionSolver<Cfg, RateAndStateBase<Cfg, De
   SEISSOL_DEVICE static void updateNormalStress(FrictionLawContext<Cfg>& __restrict ctx) {
     // the stick keeps what does not follow this step's shear heating; the pressurization enters
     // where sigma is formed, so that the solve can resolve it instead of lagging it
-    ctx.initialVariables.normalStressStick =
-        ctx.faultStresses.normalStress + ctx.initialStress.normalStress +
-        ctx.faultStresses.fluidPressure + ctx.initialStress.fluidPressure;
+    ctx.initialVariables.normalStressStick = ctx.faultStresses.normalStress[ctx.pointIndex] +
+                                             ctx.initialStress.normalStress[ctx.pointIndex] +
+                                             ctx.faultStresses.fluidPressure[ctx.pointIndex] +
+                                             ctx.initialStress.fluidPressure[ctx.pointIndex];
     ctx.initialVariables.normalStress =
         std::min(static_cast<real>(0.0),
                  ctx.initialVariables.normalStressStick - TPMethod::getFluidPressure(ctx) -
