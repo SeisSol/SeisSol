@@ -25,7 +25,6 @@ add_library(seissol-dynamicrupture OBJECT
     Solver/DynamicRuptureClusterFactory.cpp
     Solver/DynamicRuptureFeature.cpp
     Solver/DynamicRuptureRecorder.cpp
-    Solver/FrictionLaws/CpuImpl/SourceTimeFunction.cpp
     Solver/FrictionLaws/CpuImpl/ThermalPressurization/ThermalPressurization.cpp
     Solver/FrictionLaws/FrictionSolver.cpp
 )

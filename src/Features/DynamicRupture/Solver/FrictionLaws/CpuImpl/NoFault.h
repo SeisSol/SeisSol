@@ -8,49 +8,22 @@
 #ifndef SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_CPUIMPL_NOFAULT_H_
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_CPUIMPL_NOFAULT_H_
 
-#include "BaseFrictionLaw.h"
 #include "Core/Common/Real.h"
 #include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/CpuImpl/FrictionSolverHost.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/NoFault.h"
 
 namespace seissol::dr::friction_law::cpu {
-/**
- * No friction computation input stress equals output
- */
+
+/// No friction (see friction_law::NoFault) on the host.
 template <typename Cfg>
-class NoFault : public BaseFrictionLaw<Cfg, NoFault<Cfg>> {
+class NoFault final : public FrictionSolverHost<Cfg, NoFault<Cfg>>,
+                      public friction_law::NoFault<Cfg> {
   public:
-  using real = Real<Cfg>;
-
-  // the slip rate of a sub-step is the one the friction solve finds at its time point
-  static constexpr bool SlipRateAtIntervalEnds = false;
-
   explicit NoFault(const FrictionLawParameters<Real<Cfg>>& drParameters)
-      : BaseFrictionLaw<Cfg, NoFault<Cfg>>(drParameters) {}
-
-  static void
-      updateFrictionAndSlip(const FaultStresses<Cfg, Executor::Host>& faultStresses,
-                            const FaultStresses<Cfg, Executor::Host>& /*initialStress*/,
-                            TractionResults<Cfg, Executor::Host>& tractionResults,
-                            std::array<real, misc::NumPaddedPoints<Cfg>>& /*stateVariableBuffer*/,
-                            std::array<real, misc::NumPaddedPoints<Cfg>>& /*strengthBuffer*/,
-                            std::size_t /*ltsFace*/,
-                            uint32_t /*timeIndex*/) {
-    for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints<Cfg>; pointIndex++) {
-      tractionResults.traction1[pointIndex] = faultStresses.traction1[pointIndex];
-      tractionResults.traction2[pointIndex] = faultStresses.traction2[pointIndex];
-    }
-  }
-
-  void preHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
-               std::size_t ltsFace) {}
-  void postHook(std::array<real, misc::NumPaddedPoints<Cfg>>& stateVariableBuffer,
-                std::size_t ltsFace) {}
-  //! no dynamic stress time
-  [[nodiscard]] const real* dynamicStressQuantity(std::size_t /*ltsFace*/) const { return nullptr; }
-  void saveDynamicStressOutput(std::size_t /*ltsFace*/,
-                               const real* /*previousQuantity*/,
-                               const common::SubStepTimes<Cfg>& /*times*/) {}
+      : FrictionSolverHost<Cfg, NoFault<Cfg>>(drParameters) {}
 };
+
 } // namespace seissol::dr::friction_law::cpu
 
 #endif // SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_CPUIMPL_NOFAULT_H_

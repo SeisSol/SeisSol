@@ -8,98 +8,29 @@
 #ifndef SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_GPUIMPL_IMPOSEDSLIPRATES_H_
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_GPUIMPL_IMPOSEDSLIPRATES_H_
 
-#include "BaseFrictionSolver.h"
 #include "Core/Common/Real.h"
+#include "Core/Memory/Tree/Layer.h"
 #include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/FrictionLawData.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/ImposedSlipRates.h"
+#include "Features/DynamicRupture/Solver/Storage.h"
 
 namespace seissol::dr::friction_law::gpu {
-/**
- * Slip rates are set fixed values
- */
+
+/// The imposed slip rates (see friction_law::ImposedSlipRates) on the device.
 template <typename Cfg, typename STF>
-class ImposedSlipRates : public BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, STF>> {
+class ImposedSlipRates final : public BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, STF>>,
+                               public friction_law::ImposedSlipRates<Cfg, STF> {
   public:
-  using real = Real<Cfg>;
-
-  // the slip rate of a sub-step is the one prescribed at the end of its interval
-  static constexpr bool SlipRateAtIntervalEnds = true;
-
   explicit ImposedSlipRates(const FrictionLawParameters<Real<Cfg>>& drParameters)
-      : BaseFrictionSolver<Cfg, ImposedSlipRates>(drParameters) {}
+      : BaseFrictionSolver<Cfg, ImposedSlipRates<Cfg, STF>>(drParameters) {}
 
   static void copySpecificStorageDataToLocal(FrictionLawData<Cfg>* data,
                                              DynamicRupture::Layer& layerData) {
-    const auto place = seissol::initializer::AllocationPlace::Device;
-    data->imposedSlipDirection1 =
-        layerData.var<LTSImposedSlipRates::ImposedSlipDirection1>(Cfg(), place);
-    data->imposedSlipDirection2 =
-        layerData.var<LTSImposedSlipRates::ImposedSlipDirection2>(Cfg(), place);
-    STF::copyStorageToLocal(data, layerData);
+    friction_law::ImposedSlipRates<Cfg, STF>::copySpecificStorageDataToLocal(
+        data, layerData, seissol::initializer::AllocationPlace::Device);
   }
-
-  SEISSOL_DEVICE static void updateFrictionAndSlip(FrictionLawContext<Cfg>& __restrict ctx,
-                                                   uint32_t timeIndex) {
-    const real timeIncrement = ctx.args->deltaT[timeIndex];
-    real currentTime = ctx.fullUpdateTime;
-    for (uint32_t i = 0; i <= timeIndex; i++) {
-      currentTime += ctx.args->deltaT[i];
-    }
-
-    const auto stfEvaluated = STF::evaluateSTF(ctx, currentTime, timeIncrement);
-
-    const auto evalCardinal1 =
-        ctx.data->imposedSlipDirection1[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
-    const auto evalCardinal2 =
-        ctx.data->imposedSlipDirection2[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
-
-    const auto [tU1, tU2] = common::matmulEta<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
-                                                   ctx.data->impedanceMatrices[ctx.ltsFace],
-                                                   evalCardinal1,
-                                                   evalCardinal2);
-
-    // the prescribed slip rate also changes the fault-normal traction if the impedance couples the
-    // normal and the tangential directions (anisotropy); zero otherwise
-    const auto tUN = common::matmulEtaNormal<Cfg>(ctx.data->impAndEta[ctx.ltsFace],
-                                                  ctx.data->impedanceMatrices[ctx.ltsFace],
-                                                  evalCardinal1,
-                                                  evalCardinal2);
-
-    const auto traction1 = ctx.faultStresses.traction1 - tU1;
-    const auto traction2 = ctx.faultStresses.traction2 - tU2;
-
-    ctx.data->traction1[ctx.ltsFace][ctx.pointIndex] = traction1;
-    ctx.data->traction2[ctx.ltsFace][ctx.pointIndex] = traction2;
-
-    ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] =
-        ctx.data->imposedSlipDirection1[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
-    ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] =
-        ctx.data->imposedSlipDirection2[ctx.ltsFace][ctx.pointIndex] * stfEvaluated;
-    ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] =
-        misc::magnitude(ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex],
-                        ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex]);
-
-    // Update slip
-    ctx.data->slip1[ctx.ltsFace][ctx.pointIndex] +=
-        ctx.data->slipRate1[ctx.ltsFace][ctx.pointIndex] * timeIncrement;
-    ctx.data->slip2[ctx.ltsFace][ctx.pointIndex] +=
-        ctx.data->slipRate2[ctx.ltsFace][ctx.pointIndex] * timeIncrement;
-    ctx.data->accumulatedSlipMagnitude[ctx.ltsFace][ctx.pointIndex] +=
-        ctx.data->slipRateMagnitude[ctx.ltsFace][ctx.pointIndex] * timeIncrement;
-
-    ctx.tractionResults.normalStress = ctx.faultStresses.normalStress - tUN;
-    ctx.tractionResults.traction1 = traction1;
-    ctx.tractionResults.traction2 = traction2;
-  }
-
-  //! no dynamic stress time
-  SEISSOL_DEVICE static real dynamicStressQuantity(FrictionLawContext<Cfg>& __restrict /*ctx*/) {
-    return 0;
-  }
-  SEISSOL_DEVICE static void saveDynamicStressOutput(FrictionLawContext<Cfg>& __restrict ctx,
-                                                     real previousQuantity,
-                                                     const common::SubStepTimes<Cfg>& times) {}
-  SEISSOL_DEVICE static void preHook(FrictionLawContext<Cfg>& __restrict ctx) {}
-  SEISSOL_DEVICE static void postHook(FrictionLawContext<Cfg>& __restrict ctx) {}
 };
 
 } // namespace seissol::dr::friction_law::gpu

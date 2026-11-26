@@ -8,61 +8,17 @@
 #ifndef SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_CPUIMPL_SOURCETIMEFUNCTION_H_
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_CPUIMPL_SOURCETIMEFUNCTION_H_
 
-#include "Core/Common/Real.h"
-#include "Core/Numerical/DeltaPulse.h"
-#include "Core/Numerical/GaussianNucleationFunction.h"
-#include "Core/Numerical/RegularizedYoffe.h"
-#include "Features/DynamicRupture/Misc.h"
-#include "Features/DynamicRupture/Solver/Storage.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/SourceTimeFunction.h"
 
 namespace seissol::dr::friction_law::cpu {
+
+// the source time functions are the same for the host and the device
 template <typename Cfg>
-class YoffeSTF {
-  public:
-  using real = Real<Cfg>;
-
-  private:
-  real (*__restrict onsetTime_)[misc::NumPaddedPoints<Cfg>];
-  real (*__restrict tauS_)[misc::NumPaddedPoints<Cfg>];
-  real (*__restrict tauR_)[misc::NumPaddedPoints<Cfg>];
-
-  public:
-  void copyStorageToLocal(DynamicRupture::Layer& layerData);
-
-  real evaluate(real currentTime,
-                [[maybe_unused]] real timeIncrement,
-                size_t ltsFace,
-                uint32_t pointIndex);
-};
-
+using YoffeSTF = friction_law::YoffeSTF<Cfg>;
 template <typename Cfg>
-class GaussianSTF {
-  public:
-  using real = Real<Cfg>;
-
-  private:
-  real (*__restrict onsetTime_)[misc::NumPaddedPoints<Cfg>];
-  real (*__restrict riseTime_)[misc::NumPaddedPoints<Cfg>];
-
-  public:
-  void copyStorageToLocal(DynamicRupture::Layer& layerData);
-
-  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, uint32_t pointIndex);
-};
-
+using GaussianSTF = friction_law::GaussianSTF<Cfg>;
 template <typename Cfg>
-class DeltaSTF {
-  public:
-  using real = Real<Cfg>;
-
-  private:
-  real (*__restrict onsetTime_)[misc::NumPaddedPoints<Cfg>];
-
-  public:
-  void copyStorageToLocal(DynamicRupture::Layer& layerData);
-
-  real evaluate(real currentTime, real timeIncrement, size_t ltsFace, uint32_t pointIndex);
-};
+using DeltaSTF = friction_law::DeltaSTF<Cfg>;
 
 } // namespace seissol::dr::friction_law::cpu
 

@@ -8,78 +8,17 @@
 #ifndef SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_GPUIMPL_SOURCETIMEFUNCTION_H_
 #define SEISSOL_SRC_FEATURES_DYNAMICRUPTURE_SOLVER_FRICTIONLAWS_GPUIMPL_SOURCETIMEFUNCTION_H_
 
-#include "BaseFrictionSolver.h"
-#include "Core/Common/Real.h"
-#include "Core/Memory/Tree/Layer.h"
-#include "Core/Numerical/DeltaPulse.h"
-#include "Core/Numerical/GaussianNucleationFunction.h"
-#include "Core/Numerical/RegularizedYoffe.h"
-#include "Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/BaseFrictionSolver.h"
-#include "Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/FrictionSolverInterface.h"
-#include "Features/DynamicRupture/Solver/Storage.h"
-#include "FrictionSolverInterface.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/SourceTimeFunction.h"
 
 namespace seissol::dr::friction_law::gpu {
 
+// the source time functions are the same for the host and the device
 template <typename Cfg>
-class YoffeSTF {
-  public:
-  using real = Real<Cfg>;
-
-  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
-    const auto place = seissol::initializer::AllocationPlace::Device;
-    data->onsetTime = layerData.var<LTSImposedSlipRatesYoffe::OnsetTime>(Cfg(), place);
-    data->tauS = layerData.var<LTSImposedSlipRatesYoffe::TauS>(Cfg(), place);
-    data->tauR = layerData.var<LTSImposedSlipRatesYoffe::TauR>(Cfg(), place);
-  }
-
-  SEISSOL_DEVICE static real evaluateSTF(FrictionLawContext<Cfg>& __restrict ctx,
-                                         real currentTime,
-                                         [[maybe_unused]] real timeIncrement) {
-    return regularized_yoffe::regularizedYoffe(currentTime -
-                                                   ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
-                                               ctx.data->tauS[ctx.ltsFace][ctx.pointIndex],
-                                               ctx.data->tauR[ctx.ltsFace][ctx.pointIndex]);
-  }
-};
-
+using YoffeSTF = friction_law::YoffeSTF<Cfg>;
 template <typename Cfg>
-class GaussianSTF {
-  public:
-  using real = Real<Cfg>;
-
-  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
-    const auto place = seissol::initializer::AllocationPlace::Device;
-    data->onsetTime = layerData.var<LTSImposedSlipRatesGaussian::OnsetTime>(Cfg(), place);
-    data->riseTime = layerData.var<LTSImposedSlipRatesGaussian::RiseTime>(Cfg(), place);
-  }
-
-  SEISSOL_DEVICE static real
-      evaluateSTF(FrictionLawContext<Cfg>& __restrict ctx, real currentTime, real timeIncrement) {
-    const real smoothStepIncrement = gaussian_nucleation_function::smoothStepIncrement(
-        currentTime - ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
-        timeIncrement,
-        ctx.data->riseTime[ctx.ltsFace][ctx.pointIndex]);
-    return smoothStepIncrement / timeIncrement;
-  }
-};
-
+using GaussianSTF = friction_law::GaussianSTF<Cfg>;
 template <typename Cfg>
-class DeltaSTF {
-  public:
-  using real = Real<Cfg>;
-
-  static void copyStorageToLocal(FrictionLawData<Cfg>* data, DynamicRupture::Layer& layerData) {
-    const auto place = seissol::initializer::AllocationPlace::Device;
-    data->onsetTime = layerData.var<LTSImposedSlipRatesDelta::OnsetTime>(Cfg(), place);
-  }
-
-  SEISSOL_DEVICE static real
-      evaluateSTF(FrictionLawContext<Cfg>& __restrict ctx, real currentTime, real timeIncrement) {
-    return delta_pulse::deltaPulse(currentTime - ctx.data->onsetTime[ctx.ltsFace][ctx.pointIndex],
-                                   timeIncrement);
-  }
-};
+using DeltaSTF = friction_law::DeltaSTF<Cfg>;
 
 } // namespace seissol::dr::friction_law::gpu
 
