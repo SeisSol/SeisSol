@@ -29,6 +29,7 @@
 #include "WavePropagation/Solver/Interface.h"
 #include "WavePropagation/Solver/Solver.h"
 #include "WavePropagation/Solver/SolverSelector.h"
+#include "WavePropagation/Solver/Storage.h"
 #include "WavePropagation/Solver/TimeCommon.h"
 
 #include <array>

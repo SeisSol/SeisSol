@@ -43,6 +43,7 @@
 #include "WavePropagation/Physics/Datastructures.h" // IWYU pragma: keep
 #include "WavePropagation/Solver/Setup.h"           // IWYU pragma: keep
 #include "WavePropagation/Solver/Solver.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <Eigen/Core>
 #include <algorithm>

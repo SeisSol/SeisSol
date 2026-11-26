@@ -51,6 +51,7 @@
 #include "WavePropagation/Setup/CellLocalMatrices.h"
 #include "WavePropagation/Setup/DirichletCondition.h"
 #include "WavePropagation/Setup/MaterialParameterDB.h"
+#include "WavePropagation/Solver/Storage.h"
 #include "WavePropagation/WavePropagationParameters.h"
 
 #include <array>

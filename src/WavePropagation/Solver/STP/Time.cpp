@@ -22,6 +22,7 @@
 #include "WavePropagation/Physics/Datastructures.h"
 #include "WavePropagation/Solver/Interface.h"
 #include "WavePropagation/Solver/STP/Setup.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <Eigen/Dense>
 #include <cassert>

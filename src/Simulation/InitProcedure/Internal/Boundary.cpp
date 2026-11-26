@@ -16,6 +16,7 @@
 #include "Core/Memory/Typedefs.h"
 #include "WavePropagation/Output/FreeSurfaceIntegrator.h"
 #include "WavePropagation/Setup/BoundarySetup.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <cstddef>
 

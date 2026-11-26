@@ -34,6 +34,7 @@
 #include "GeneratedCode/tensor.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/InitialField.h" // IWYU pragma: keep
+#include "WavePropagation/Solver/Storage.h"
 
 #include <algorithm>
 #include <array>

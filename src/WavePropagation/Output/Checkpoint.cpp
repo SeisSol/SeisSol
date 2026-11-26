@@ -15,6 +15,7 @@
 #include "Core/Memory/Descriptor/Surface.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "GeneratedCode/tensor.h"
+#include "WavePropagation/Solver/Storage.h"
 
 namespace seissol::solver {
 

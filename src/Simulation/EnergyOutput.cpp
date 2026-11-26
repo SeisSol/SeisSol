@@ -42,6 +42,7 @@
 #include "WavePropagation/Physics/Energy.h" // IWYU pragma: keep
 #include "WavePropagation/Physics/EnergyBase.h"
 #include "WavePropagation/Physics/anisotropic/Impedance.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <Eigen/Dense>
 #include <algorithm>

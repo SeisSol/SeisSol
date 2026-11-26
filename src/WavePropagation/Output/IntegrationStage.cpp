@@ -13,6 +13,7 @@
 #include "Core/Parallel/Runtime/Stream.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
 #include "GeneratedCode/tensor.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <cstddef>
 

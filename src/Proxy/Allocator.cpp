@@ -30,6 +30,7 @@
 #include "Proxy/Touch.h"
 #include "WavePropagation/Solver/Solver.h"
 #include "WavePropagation/Solver/SolverSelector.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <cstddef>
 #include <cstdlib>
@@ -185,7 +186,8 @@ void ProxyDataImpl<Cfg>::initDataStructures(bool enableDR) {
   // init RNG
   const auto nullSettings =
       SimulationSettings(false, false, Cfg::NumSimulations, Cfg::NumSimulations);
-  LTS::addTo(ltsStorage, nullSettings);
+  LTS::addTo(ltsStorage);
+  LTS::addWavePropagation(ltsStorage, nullSettings);
   LTSPlasticity::addTo(ltsStorage, nullSettings.plasticity);
   ltsStorage.setLayerCount(map);
   ltsStorage.fixate();

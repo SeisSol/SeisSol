@@ -43,6 +43,7 @@
 #include "WavePropagation/Output/Receiver.h"
 #include "WavePropagation/Output/ReceiverParameters.h"
 #include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <algorithm>
 #include <array>

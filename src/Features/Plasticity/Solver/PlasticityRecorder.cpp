@@ -14,6 +14,7 @@
 #include "Core/Memory/Tree/Layer.h"
 #include "Features/Plasticity/Solver/Storage.h"
 #include "GeneratedCode/tensor.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <cstddef>
 #include <vector>

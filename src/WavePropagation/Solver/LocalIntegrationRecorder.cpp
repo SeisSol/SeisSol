@@ -24,6 +24,7 @@
 #include "GeneratedCode/tensor.h"
 #include "WavePropagation/Physics/Datastructures.h"
 #include "WavePropagation/Solver/SolverSelector.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <array>
 #include <cassert>

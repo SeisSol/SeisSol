@@ -38,6 +38,7 @@
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Output/IntegrationFeature.h"
 #include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Solver/Storage.h"
 #include "WavePropagation/Solver/WaveClusterFactory.h"
 
 #include <algorithm>
@@ -241,7 +242,8 @@ void setupMemory(seissol::SeisSol& seissolInstance) {
 
   auto& ltsStorage = memoryManager.ltsStorage();
   auto& backmap = memoryManager.backmap();
-  LTS::addTo(ltsStorage, settings);
+  LTS::addTo(ltsStorage);
+  LTS::addWavePropagation(ltsStorage, settings);
   for (auto& feature : features) {
     feature->addStorage(ltsStorage);
   }

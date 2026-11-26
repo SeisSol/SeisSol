@@ -18,6 +18,7 @@
 #include "Features/TimeMirror/ITMParameters.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Setup/CellLocalMatrices.h"
+#include "WavePropagation/Solver/Storage.h"
 #include "WavePropagation/WavePropagationParameters.h"
 
 #include <cstddef>

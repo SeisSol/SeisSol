@@ -17,6 +17,7 @@
 #include "Core/Memory/Tree/Layer.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Solver/BoundaryHelper.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <array>
 #include <cassert>

@@ -23,6 +23,7 @@
 #include "GeneratedCode/tensor.h"
 #include "WavePropagation/Solver/AnalyticalBoundary.h"
 #include "WavePropagation/Solver/Interface.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <array>
 #include <cassert>

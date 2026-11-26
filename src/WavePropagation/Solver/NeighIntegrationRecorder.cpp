@@ -25,6 +25,7 @@
 #include "WavePropagation/Physics/Common.h"
 #include "WavePropagation/Solver/ConfigBoundary.h"
 #include "WavePropagation/Solver/SolverSelector.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <algorithm>
 #include <array>

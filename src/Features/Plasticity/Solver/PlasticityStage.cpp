@@ -19,6 +19,7 @@
 #include "Core/TimeStepping/Actor/StepParams.h"
 #include "Features/Plasticity/Solver/Plasticity.h"
 #include "Features/Plasticity/Solver/Storage.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <cstddef>
 

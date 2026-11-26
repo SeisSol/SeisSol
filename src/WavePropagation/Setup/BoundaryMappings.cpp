@@ -28,6 +28,7 @@
 #include "WavePropagation/Setup/BoundarySetup.h"
 #include "WavePropagation/Setup/DirichletCondition.h"
 #include "WavePropagation/Solver/Setup.h" // IWYU pragma: keep
+#include "WavePropagation/Solver/Storage.h"
 
 #include <Eigen/Core>
 #include <algorithm>

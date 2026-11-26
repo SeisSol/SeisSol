@@ -39,6 +39,7 @@
 #include "GeneratedCode/tensor.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <Eigen/Core>
 #include <algorithm>

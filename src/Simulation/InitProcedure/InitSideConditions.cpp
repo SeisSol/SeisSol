@@ -22,6 +22,7 @@
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/InitialField.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <cstddef>
 #include <memory>

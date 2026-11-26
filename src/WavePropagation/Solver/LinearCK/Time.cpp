@@ -27,6 +27,7 @@
 #include "GeneratedCode/tensor.h"
 #include "WavePropagation/Solver/Interface.h"
 #include "WavePropagation/Solver/LinearCK/Solver.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <algorithm>
 #include <cassert>

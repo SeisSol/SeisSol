@@ -12,6 +12,7 @@
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Parallel/MPI.h"
 #include "Core/TimeStepping/Layout/Halo.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <cstdint>
 #include <mpi.h>

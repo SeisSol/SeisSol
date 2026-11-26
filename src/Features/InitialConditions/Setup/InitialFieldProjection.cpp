@@ -28,6 +28,7 @@
 #include "GeneratedCode/tensor.h"
 #include "WavePropagation/Physics/Datastructures.h"
 #include "WavePropagation/Physics/InitialField.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <array>
 #include <cstddef>

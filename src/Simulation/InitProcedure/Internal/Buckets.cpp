@@ -21,6 +21,7 @@
 #include "Core/TimeStepping/Layout/Halo.h"
 #include "WavePropagation/Solver/ConfigBoundary.h"
 #include "WavePropagation/Solver/SolverSelector.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <array>
 #include <cassert>

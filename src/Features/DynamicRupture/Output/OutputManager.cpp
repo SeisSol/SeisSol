@@ -34,6 +34,7 @@
 #include "Features/DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Features/DynamicRupture/Solver/Storage.h"
 #include "WavePropagation/Output/DofSync.h"
+#include "WavePropagation/Solver/Storage.h"
 
 #include <algorithm>
 #include <cassert>
