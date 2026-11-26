@@ -104,14 +104,18 @@ FieldList perSimulation(const Input& input, const Args&... args) {
 FieldList planarWaves(const Input& input) {
   const Eigen::Vector3d& kVec = input.initialization.kVec;
   if (kVec.isZero(0.0)) {
-    return perSimulation<Planarwave>(input, input.materialData, input.config);
+    return perSimulation<Planarwave>(
+        input, input.materialData, input.config, input.planeWaveOperator);
   }
   FieldList fields;
   const auto numSimulations = input.simulationCount;
   const auto [first, last] = simulationRange(input);
   for (std::size_t sim = first; sim < last; ++sim) {
-    fields.emplace_back(std::make_unique<Planarwave>(
-        input.materialData, input.config, simulationPhase(sim, numSimulations), kVec));
+    fields.emplace_back(std::make_unique<Planarwave>(input.materialData,
+                                                     input.config,
+                                                     input.planeWaveOperator,
+                                                     simulationPhase(sim, numSimulations),
+                                                     kVec));
   }
   return fields;
 }
@@ -156,7 +160,8 @@ constexpr std::array<Entry, 12> Registry = {{
      .timeDependent = true,
      .build =
          [](const Input& input) {
-           return perSimulation<SuperimposedPlanarwave>(input, input.materialData, input.config);
+           return perSimulation<SuperimposedPlanarwave>(
+               input, input.materialData, input.config, input.planeWaveOperator);
          }},
     {.type = InitializationType::Travelling,
      .name = "travelling wave",
@@ -165,8 +170,10 @@ constexpr std::array<Entry, 12> Registry = {{
      .timeDependent = true,
      .build =
          [](const Input& input) {
-           return single<TravellingWave>(
-               input.materialData, input.config, travellingWaveParameters(input));
+           return single<TravellingWave>(input.materialData,
+                                         input.config,
+                                         input.planeWaveOperator,
+                                         travellingWaveParameters(input));
          }},
     {.type = InitializationType::AcousticTravellingWithITM,
      .name = "acoustic travelling wave with ITM",

@@ -22,6 +22,7 @@
 #include "Simulation/SeisSol.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/InitialField.h"
+#include "WavePropagation/Solver/PlaneWaveOperator.h"
 #include "WavePropagation/Solver/Storage.h"
 
 #include <cstddef>
@@ -72,6 +73,7 @@ std::vector<std::unique_ptr<physics::InitialField>>
                                .gravitationalAcceleration =
                                    parameters.wavePropagation.gravitationalAcceleration,
                                .config = config,
+                               .planeWaveOperator = solver::planeWaveOperator,
                                .simulation = simulation});
 }
 

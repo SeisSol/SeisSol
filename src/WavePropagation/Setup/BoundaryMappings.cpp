@@ -23,11 +23,10 @@
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
-#include "WavePropagation/Physics/Common.h"
 #include "WavePropagation/Physics/Datastructures.h" // IWYU pragma: keep
 #include "WavePropagation/Setup/BoundarySetup.h"
 #include "WavePropagation/Setup/DirichletCondition.h"
-#include "WavePropagation/Solver/Setup.h" // IWYU pragma: keep
+#include "WavePropagation/Solver/MaterialOperators.h"
 #include "WavePropagation/Solver/Storage.h"
 
 #include <Eigen/Core>

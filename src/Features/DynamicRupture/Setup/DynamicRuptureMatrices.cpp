@@ -32,7 +32,7 @@
 #include "WavePropagation/Physics/Datastructures.h" // IWYU pragma: keep
 #include "WavePropagation/Physics/Impedance.h"      // IWYU pragma: keep
 #include "WavePropagation/Physics/ImpedanceBase.h"
-#include "WavePropagation/Solver/Setup.h" // IWYU pragma: keep
+#include "WavePropagation/Solver/MaterialOperators.h"
 #include "WavePropagation/Solver/Storage.h"
 
 #include <Eigen/Core>

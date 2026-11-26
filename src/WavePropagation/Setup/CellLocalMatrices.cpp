@@ -31,7 +31,7 @@
 #include "WavePropagation/Setup/BoundarySetup.h"
 #include "WavePropagation/Solver/BoundaryHelper.h"
 #include "WavePropagation/Solver/ConfigBoundary.h"
-#include "WavePropagation/Solver/Setup.h" // IWYU pragma: keep
+#include "WavePropagation/Solver/MaterialOperators.h"
 #include "WavePropagation/Solver/Storage.h"
 #include "WavePropagation/WavePropagationParameters.h"
 

@@ -8,8 +8,12 @@
 #ifndef SEISSOL_SRC_FEATURES_INITIALCONDITIONS_PHYSICS_SCENARIO_PARAMETERS_H_
 #define SEISSOL_SRC_FEATURES_INITIALCONDITIONS_PHYSICS_SCENARIO_PARAMETERS_H_
 
+#include "Core/Common/ConfigRegistry.h"
+#include "WavePropagation/Physics/CommonDatastructures.h"
+
 #include <Eigen/Dense>
 #include <complex>
+#include <functional>
 #include <vector>
 
 namespace seissol {
@@ -29,6 +33,17 @@ struct AcousticTravellingWaveParametersITM {
   double itmDuration{};
   double itmVelocityScalingFactor{};
 };
+
+namespace physics {
+
+/// The plane wave operator of the material `material` of the configuration `config` for the wave
+/// vector `k`, as the solver of the configuration lays the quantities out: a square matrix over
+/// the quantities of the material, column by column. The plane waves take it from who sets them
+/// up, since it depends on the solver (cf. solver::planeWaveOperator).
+using PlaneWaveOperator = std::function<std::vector<std::complex<double>>(
+    ConfigId config, const model::Material& material, const Eigen::Vector3d& k)>;
+
+} // namespace physics
 
 } // namespace seissol
 

@@ -15,9 +15,9 @@
 #include "Core/Numerical/Eigenvalues.h"
 #include "Features/InitialConditions/InitializationParameters.h"
 #include "Features/InitialConditions/Physics/Scenario/Parameters.h"
-#include "WavePropagation/Physics/Common.h"
 #include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Physics/InitialField.h"
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
@@ -36,11 +36,6 @@
 #include <utils/logger.h>
 #include <vector>
 #include <yateto.h>
-
-// FIXME: the following line is absolutely necessary for the plain-wave operator to work correctly
-// (template specializations for the equations).
-#include "WavePropagation/Physics/InitialField.h"
-#include "WavePropagation/Solver/Setup.h" // IWYU pragma: keep
 
 namespace {
 /// Writes the stress of a fluid at `point`: `value` on the normal stresses, no shear stress. A
@@ -155,17 +150,19 @@ void canonicalizeEigenvectors(const std::vector<std::complex<double>>& operatorM
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          ConfigId config,
+                                         const PlaneWaveOperator& planeWaveOperator,
                                          double phase,
                                          Eigen::Vector3d kVec,
                                          std::vector<int> varField,
                                          std::vector<std::complex<double>> ampField)
     : varField_(std::move(varField)), ampField_(std::move(ampField)), phase_(phase),
       kVec_(std::move(kVec)) {
-  init(materialData, config);
+  init(materialData, config, planeWaveOperator);
 }
 
 seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
                                          ConfigId config,
+                                         const PlaneWaveOperator& planeWaveOperator,
                                          double phase,
                                          Eigen::Vector3d kVec)
     : phase_(phase), kVec_(std::move(kVec)) {
@@ -204,24 +201,27 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
       ampField_ = {1.0, 1.0};
     }
   }
-  init(materialData, config);
+  init(materialData, config, planeWaveOperator);
 }
 
-void seissol::physics::Planarwave::init(const CellMaterialData& materialData, ConfigId config) {
+void seissol::physics::Planarwave::init(const CellMaterialData& materialData,
+                                        ConfigId config,
+                                        const PlaneWaveOperator& planeWaveOperator) {
   assert(varField_.size() == ampField_.size());
 
-  std::vector<std::complex<double>> operatorMatrix;
+  const auto operatorMatrix = planeWaveOperator(config, *materialData.local, kVec_);
   dispatchConfig(config, [&](auto cfg) {
     using Cfg = decltype(cfg);
-    using MaterialT = model::MaterialOf<Cfg>;
-    constexpr auto NumQuantities = MaterialT::NumQuantities;
+    constexpr auto NumQuantities = model::MaterialOf<Cfg>::NumQuantities;
 
-    std::array<std::complex<double>, NumQuantities * NumQuantities> planeWaveOperator{};
-    seissol::model::getPlaneWaveOperator<Cfg>(
-        *dynamic_cast<MaterialT*>(materialData.local), kVec_.data(), planeWaveOperator.data());
-    operatorMatrix.assign(planeWaveOperator.begin(), planeWaveOperator.end());
+    std::array<std::complex<double>, NumQuantities * NumQuantities> matrix{};
+    if (operatorMatrix.size() != matrix.size()) {
+      logError() << "The plane wave operator has" << operatorMatrix.size() << "entries instead of"
+                 << matrix.size() << ".";
+    }
+    std::copy(operatorMatrix.begin(), operatorMatrix.end(), matrix.begin());
     seissol::eigenvalues::Eigenpair<std::complex<double>, NumQuantities> eigendecomposition;
-    seissol::eigenvalues::computeEigenvalues(planeWaveOperator, eigendecomposition);
+    seissol::eigenvalues::computeEigenvalues(matrix, eigendecomposition);
     numQuantities_ = NumQuantities;
     lambdaA_.assign(eigendecomposition.values.begin(), eigendecomposition.values.end());
     eigenvectors_.assign(eigendecomposition.vectors.begin(), eigendecomposition.vectors.end());
@@ -257,11 +257,14 @@ void seissol::physics::Planarwave::evaluateIn(
 }
 
 seissol::physics::SuperimposedPlanarwave::SuperimposedPlanarwave(
-    const CellMaterialData& materialData, ConfigId config, double phase)
+    const CellMaterialData& materialData,
+    ConfigId config,
+    const PlaneWaveOperator& planeWaveOperator,
+    double phase)
     : kVec_({{{M_PI, 0.0, 0.0}, {0.0, M_PI, 0.0}, {0.0, 0.0, M_PI}}}),
-      pw_({Planarwave(materialData, config, phase, kVec_.at(0)),
-           Planarwave(materialData, config, phase, kVec_.at(1)),
-           Planarwave(materialData, config, phase, kVec_.at(2))}) {}
+      pw_({Planarwave(materialData, config, planeWaveOperator, phase, kVec_.at(0)),
+           Planarwave(materialData, config, planeWaveOperator, phase, kVec_.at(1)),
+           Planarwave(materialData, config, planeWaveOperator, phase, kVec_.at(2))}) {}
 
 template <typename RealT>
 void seissol::physics::SuperimposedPlanarwave::evaluateIn(
@@ -295,12 +298,14 @@ void seissol::physics::SuperimposedPlanarwave::evaluateIn(
 seissol::physics::TravellingWave::TravellingWave(
     const CellMaterialData& materialData,
     ConfigId config,
+    const PlaneWaveOperator& planeWaveOperator,
     const TravellingWaveParameters& travellingWaveParameters)
     // Set phase to 0.5*M_PI, so we have a zero at the origin
     // The wave travels in direction of kVec
     // 2*pi / magnitude(kVec) is the wave length of the wave
     : InitialFieldOf<TravellingWave, Planarwave>(materialData,
                                                  config,
+                                                 planeWaveOperator,
                                                  0.5 * M_PI,
                                                  travellingWaveParameters.kVec,
                                                  travellingWaveParameters.varField,

@@ -7,7 +7,7 @@
 
 #include "Datastructures.h"
 
-#include "WavePropagation/Solver/Setup.h" // IWYU pragma: keep
+#include "WavePropagation/Physics/poroelastic/Setup.h" // IWYU pragma: keep
 
 #include <array>
 #include <complex>

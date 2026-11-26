@@ -18,6 +18,7 @@
 #include "WavePropagation/Physics/poroelastic/Datastructures.h"
 #include "WavePropagation/Physics/poroelastic/Helper.h"
 #include "WavePropagation/Physics/poroelastic/Setup.h"
+#include "WavePropagation/Solver/MaterialOperators.h"
 #include "WavePropagation/Solver/STP/Setup.h"
 
 #include <array>

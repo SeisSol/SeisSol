@@ -21,6 +21,7 @@
 #include "TestConfigs.h"
 #include "TestHelper.h"
 #include "WavePropagation/Physics/Datastructures.h"
+#include "WavePropagation/Solver/PlaneWaveOperator.h"
 
 #include <Eigen/Core>
 #include <algorithm>
@@ -278,7 +279,8 @@ TEST_CASE_TEMPLATE_DEFINE("SuperimposedPlanarwave is the sum of its three planar
 
   std::vector<real> actual(PointCount * NumQuantities);
   auto actualDofs = dofsView<Cfg>(actual, PointCount);
-  const physics::SuperimposedPlanarwave superimposed(materialData, configIdOf<Cfg>(), Phase);
+  const physics::SuperimposedPlanarwave superimposed(
+      materialData, configIdOf<Cfg>(), solver::planeWaveOperator, Phase);
   superimposed.evaluate(Time, points.data(), PointCount, materialData, actualDofs);
 
   std::vector<real> expected(PointCount * NumQuantities, 0);
@@ -289,7 +291,8 @@ TEST_CASE_TEMPLATE_DEFINE("SuperimposedPlanarwave is the sum of its three planar
                                              Eigen::Vector3d(0.0, M_PI, 0.0),
                                              Eigen::Vector3d(0.0, 0.0, M_PI)};
   for (const auto& kVec : kVecs) {
-    const physics::Planarwave planarwave(materialData, configIdOf<Cfg>(), Phase, kVec);
+    const physics::Planarwave planarwave(
+        materialData, configIdOf<Cfg>(), solver::planeWaveOperator, Phase, kVec);
     planarwave.evaluate(Time, points.data(), PointCount, materialData, singleDofs);
     for (std::size_t j = 0; j < NumQuantities; ++j) {
       for (std::size_t i = 0; i < PointCount; ++i) {

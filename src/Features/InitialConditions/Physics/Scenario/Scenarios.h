@@ -43,15 +43,18 @@ class PressureInjection : public InitialFieldOf<PressureInjection> {
 // A planar wave travelling in direction kVec
 class Planarwave : public InitialFieldOf<Planarwave> {
   public:
-  // Choose phase in [0, 2*pi]; the wave is set up for the material of the configuration `config`
+  // Choose phase in [0, 2*pi]; the wave is set up for the material of the configuration `config`,
+  // from the plane wave operator `planeWaveOperator` gives
   Planarwave(const CellMaterialData& materialData,
              ConfigId config,
+             const PlaneWaveOperator& planeWaveOperator,
              double phase,
              Eigen::Vector3d kVec,
              std::vector<int> varField,
              std::vector<std::complex<double>> ampField);
   Planarwave(const CellMaterialData& materialData,
              ConfigId config,
+             const PlaneWaveOperator& planeWaveOperator,
              double phase = 0.0,
              Eigen::Vector3d kVec = {M_PI, M_PI, M_PI});
 
@@ -74,14 +77,19 @@ class Planarwave : public InitialFieldOf<Planarwave> {
   std::vector<std::complex<double>> eigenvectors_;
 
   private:
-  void init(const CellMaterialData& materialData, ConfigId config);
+  void init(const CellMaterialData& materialData,
+            ConfigId config,
+            const PlaneWaveOperator& planeWaveOperator);
 };
 
 // superimpose three planar waves travelling into different directions
 class SuperimposedPlanarwave : public InitialFieldOf<SuperimposedPlanarwave> {
   public:
   //! Choose phase in [0, 2*pi]
-  SuperimposedPlanarwave(const CellMaterialData& materialData, ConfigId config, double phase = 0.0);
+  SuperimposedPlanarwave(const CellMaterialData& materialData,
+                         ConfigId config,
+                         const PlaneWaveOperator& planeWaveOperator,
+                         double phase = 0.0);
 
   template <typename RealT>
   void evaluateIn(double time,
@@ -100,6 +108,7 @@ class TravellingWave : public InitialFieldOf<TravellingWave, Planarwave> {
   public:
   TravellingWave(const CellMaterialData& materialData,
                  ConfigId config,
+                 const PlaneWaveOperator& planeWaveOperator,
                  const TravellingWaveParameters& travellingWaveParameters);
 
   template <typename RealT>

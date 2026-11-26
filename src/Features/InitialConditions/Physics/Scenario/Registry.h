@@ -48,6 +48,8 @@ struct Input {
   double gravitationalAcceleration{};
   // the configuration the scenario is set up for: its material and its fused simulations
   ConfigId config{};
+  // the plane wave operator of the materials as the solvers lay them out, for the plane waves
+  PlaneWaveOperator planeWaveOperator;
   // the simulation of the run to set the scenario up for alone, e.g. with a material of its own;
   // all of them if not given
   std::optional<std::size_t> simulation;

@@ -24,6 +24,7 @@ add_library(seissol-wavepropagation OBJECT
     Solver/ConfigBoundary.cpp
     Solver/LocalIntegrationRecorder.cpp
     Solver/NeighIntegrationRecorder.cpp
+    Solver/PlaneWaveOperator.cpp
     Solver/TimeCommon.cpp
     Solver/WaveCluster.cpp
     Solver/WaveClusterFactory.cpp

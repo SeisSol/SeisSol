@@ -14,6 +14,7 @@
 #include "WavePropagation/Physics/Common.h"
 #include "WavePropagation/Physics/Datastructures.h"
 #include "WavePropagation/Physics/Quantities.h"
+#include "WavePropagation/Solver/MaterialOperators.h"
 #include "WavePropagation/Solver/SolverSelector.h"
 
 #include <array>
