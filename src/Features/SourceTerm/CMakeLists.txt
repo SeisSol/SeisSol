@@ -18,4 +18,6 @@ if (NETCDF)
 endif()
 
 target_link_libraries(seissol-sourceterm PUBLIC seissol-common-properties)
+# a feature uses the wave propagation, and the core below it
+target_link_libraries(seissol-sourceterm PUBLIC seissol-wavepropagation)
 target_link_libraries(seissol-lib PUBLIC seissol-sourceterm)

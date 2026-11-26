@@ -7,10 +7,10 @@
 
 #include <doctest.h>
 
-#include "Core/Common/ConfigLayout.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/IO/WriterParameters.h"
 #include "Features/DynamicRupture/Output/FaultOutputParameters.h"
+#include "Simulation/ConfigLayout.h"
 #include "Simulation/Parameters/OutputParameters.h"
 #include "Simulation/Parameters/ParameterReader.h"
 #include "WavePropagation/Output/ReceiverParameters.h"

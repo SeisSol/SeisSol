@@ -228,6 +228,7 @@ LAYOUT = [
     ("Core/Memory/Descriptor/DynamicRupture.h", f"{DR}/Solver/Storage.h"),
     ("Core/Memory/Descriptor/Boundary.h", f"{WP}/Solver/BoundaryStorage.h"),
     ("Core/Memory/Descriptor/Surface.h", f"{WP}/Output/SurfaceStorage.h"),
+    ("Core/Common/ConfigLayout.h", f"{SIM}/ConfigLayout.h"),
     # point sources
     ("SourceTerm/", f"{ST}/Setup/"),
     ("SourceTerm/Typedefs.h", f"{ST}/Typedefs.h"),

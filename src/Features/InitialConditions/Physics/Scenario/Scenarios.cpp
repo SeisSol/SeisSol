@@ -8,7 +8,6 @@
 #include "Features/InitialConditions/Physics/Scenario/Scenarios.h"
 
 #include "Core/Common/ConfigDispatch.h"
-#include "Core/Common/ConfigLayout.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/ConfigValue.h"
 #include "Core/Common/MaterialType.h"
@@ -38,6 +37,14 @@
 #include <yateto.h>
 
 namespace {
+/// The index of the first of the three velocities among the quantities of the material of the
+/// configuration `config`.
+std::size_t velocityOffsetOf(seissol::ConfigId config) {
+  return seissol::dispatchConfig(config, [](auto cfg) -> std::size_t {
+    return seissol::model::MaterialOf<decltype(cfg)>::VelocityOffset;
+  });
+}
+
 /// Writes the stress of a fluid at `point`: `value` on the normal stresses, no shear stress. A
 /// material with a single isotropic stress (the acoustic ones) carries it as that one.
 template <typename RealT>
@@ -333,7 +340,7 @@ seissol::physics::AcousticTravellingWaveITM::AcousticTravellingWaveITM(
       n_(acousticTravellingWaveParametersItm.itmVelocityScalingFactor),
       stressTensor_(configValue(config).materialType != model::MaterialType::Acoustic &&
                     configValue(config).materialType != model::MaterialType::Viscoacoustic),
-      velocityOffset_(configLayout(config).velocityOffset) {
+      velocityOffset_(velocityOffsetOf(config)) {
   logInfo() << "Starting Test for Acoustic Travelling Wave with ITM";
 
   logInfo() << "rho0 = " << rho0_;
@@ -658,7 +665,7 @@ void seissol::physics::SnellsLaw::evaluateIn(
 seissol::physics::Ocean::Ocean(int mode, double gravitationalAcceleration, ConfigId config)
     : mode_(mode), gravitationalAcceleration_(gravitationalAcceleration),
       elastic_(configValue(config).materialType == model::MaterialType::Elastic),
-      velocityOffset_(configLayout(config).velocityOffset) {
+      velocityOffset_(velocityOffsetOf(config)) {
   if (mode < 0 || mode > 3) {
     throw std::runtime_error("Wave mode " + std::to_string(mode) + " is not supported.");
   }

@@ -87,6 +87,14 @@ target_include_directories(seissol-test-base INTERFACE ${CMAKE_CURRENT_SOURCE_DI
 target_include_directories(seissol-test-base INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
 target_compile_definitions(seissol-test-base INTERFACE YATETO_TESTING_NO_FLOP_COUNTER)
 
+# The core links on its own: an executable of all its objects (and those of the generated code),
+# which may leave no symbol undefined, shows that none of them uses the wave propagation, the
+# features or the composition; .ci/layering.py checks the includes.
+get_property(SEISSOL_CORE_TARGETS GLOBAL PROPERTY SEISSOL_CORE_TARGETS)
+add_executable(seissol-core-link CoreLink.cpp)
+target_link_libraries(seissol-core-link PRIVATE
+    ${SEISSOL_CORE_TARGETS} seissol-kernel-lib seissol-common-properties)
+
 # =============================================================================
 # Helper function: add a per-module test executable
 # =============================================================================

@@ -10,4 +10,6 @@ add_library(seissol-timemirror OBJECT
 )
 
 target_link_libraries(seissol-timemirror PUBLIC seissol-common-properties)
+# a feature uses the wave propagation, and the core below it
+target_link_libraries(seissol-timemirror PUBLIC seissol-wavepropagation)
 target_link_libraries(seissol-lib PUBLIC seissol-timemirror)

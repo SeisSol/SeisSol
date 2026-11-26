@@ -7,7 +7,6 @@
 
 #include "Config.h"
 #include "Core/Common/ConfigDispatch.h"
-#include "Core/Common/ConfigLayout.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/MultipleSimulations.h"
 #include "Core/Common/Typedefs.h"
@@ -15,6 +14,7 @@
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
 #include "GeneratedCode/variant.h"
+#include "Simulation/ConfigLayout.h"
 #include "WavePropagation/Physics/Datastructures.h"
 #include "WavePropagation/Solver/Concepts.h"
 #include "WavePropagation/Solver/Solver.h" // IWYU pragma: keep
@@ -119,6 +119,6 @@ const std::vector<ConfigLayout>& builtConfigLayouts() {
   return Layouts;
 }
 
-DRQuadRuleType builtDRQuadRule() { return DRQuadRule; }
+const ConfigLayout& configLayout(ConfigId id) { return builtConfigLayouts().at(id); }
 
 } // namespace seissol

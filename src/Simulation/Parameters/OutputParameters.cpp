@@ -7,12 +7,12 @@
 
 #include "OutputParameters.h"
 
-#include "Core/Common/ConfigLayout.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/InputAux.h"
 #include "Core/IO/WriterParameters.h"
 #include "Features/DynamicRupture/Output/FaultOutputParameters.h"
 #include "Features/Plasticity/Physics/PlasticityQuantities.h"
+#include "Simulation/ConfigLayout.h"
 #include "Simulation/Parameters/ParameterReader.h"
 #include "WavePropagation/Output/ReceiverParameters.h"
 

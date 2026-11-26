@@ -7,10 +7,10 @@
 
 #include "InitializationParameters.h"
 
-#include "Core/Common/ConfigLayout.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/InputAux.h"
 #include "Features/InitialConditions/InitializationParameters.h"
+#include "Simulation/ConfigLayout.h"
 #include "Simulation/Parameters/ModelParameters.h"
 #include "Simulation/Parameters/ParameterReader.h"
 

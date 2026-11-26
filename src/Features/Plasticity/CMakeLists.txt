@@ -14,4 +14,6 @@ add_library(seissol-plasticity OBJECT
 )
 
 target_link_libraries(seissol-plasticity PUBLIC seissol-common-properties)
+# a feature uses the wave propagation, and the core below it
+target_link_libraries(seissol-plasticity PUBLIC seissol-wavepropagation)
 target_link_libraries(seissol-lib PUBLIC seissol-plasticity)

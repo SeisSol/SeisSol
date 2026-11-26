@@ -7,8 +7,9 @@
 
 #include "ConfigRegistry.h"
 
-#include "Core/Common/ConfigLayout.h"
+#include "Config.h"
 #include "Core/Common/ConfigValue.h"
+#include "Core/Common/Typedefs.h"
 
 #include <cstddef>
 #include <optional>
@@ -18,19 +19,39 @@
 #include <utils/env.h>
 #include <utils/logger.h>
 #include <utils/stringutils.h>
+#include <vector>
 
 namespace seissol {
 
-std::size_t builtConfigCount() { return builtConfigLayouts().size(); }
+namespace {
 
-const ConfigLayout& configLayout(ConfigId id) { return builtConfigLayouts().at(id); }
+/// A configuration built into the executable, as Config.h lists them: in the order of their ids.
+struct BuiltConfig {
+  ConfigValue config;
+  SolverType solver{};
+};
 
-const ConfigValue& configValue(ConfigId id) { return configLayout(id).config; }
+const std::vector<BuiltConfig>& builtConfigs() {
+#define SEISSOL_BUILT_CONFIG(Cfg) BuiltConfig{Cfg::Value, Cfg::Solver},
+  static const std::vector<BuiltConfig> Configs{SEISSOL_FOR_EACH_CONFIG(SEISSOL_BUILT_CONFIG)};
+#undef SEISSOL_BUILT_CONFIG
+  return Configs;
+}
+
+} // namespace
+
+DRQuadRuleType builtDRQuadRule() { return DRQuadRule; }
+
+std::size_t builtConfigCount() { return builtConfigs().size(); }
+
+const ConfigValue& configValue(ConfigId id) { return builtConfigs().at(id).config; }
+
+SolverType configSolver(ConfigId id) { return builtConfigs().at(id).solver; }
 
 std::optional<ConfigId> findConfig(const ConfigValue& value) {
-  const auto& layouts = builtConfigLayouts();
-  for (std::size_t id = 0; id < layouts.size(); ++id) {
-    if (layouts[id].config == value) {
+  const auto& configs = builtConfigs();
+  for (std::size_t id = 0; id < configs.size(); ++id) {
+    if (configs[id].config == value) {
       return static_cast<ConfigId>(id);
     }
   }
@@ -75,13 +96,13 @@ ConfigId defaultConfig() { return environmentConfig().value_or(0); }
 std::string describeBuiltConfigs() {
   std::ostringstream stream;
   for (std::size_t id = 0; id < builtConfigCount(); ++id) {
-    const auto& layout = configLayout(static_cast<ConfigId>(id));
-    stream << configName(layout.config) << "\n";
-    std::istringstream fields(describeConfig(layout.config));
+    const auto& built = builtConfigs()[id];
+    stream << configName(built.config) << "\n";
+    std::istringstream fields(describeConfig(built.config));
     for (std::string field; std::getline(fields, field);) {
       stream << "  " << field << "\n";
     }
-    stream << "  Solver: " << solverTypeName(layout.solver) << "\n";
+    stream << "  Solver: " << solverTypeName(built.solver) << "\n";
   }
   stream << "Dynamic rupture quadrature rule (all configurations): "
          << drQuadRuleName(builtDRQuadRule()) << "\n";

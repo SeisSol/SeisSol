@@ -30,7 +30,7 @@ namespace seissol {
  * What the choices imply for the generated tensors (their sizes, the number of points on a face,
  * ...) is not part of the value: that depends on the target as well. Neither are the choices an
  * executable makes for all of its configurations alike, the solver of a material and the quadrature
- * rule of the dynamic rupture faces (see `ConfigLayout` and `builtDRQuadRule`).
+ * rule of the dynamic rupture faces (see `configSolver` and `builtDRQuadRule`).
  *
  * A value-initialized `ConfigValue` names no configuration.
  */

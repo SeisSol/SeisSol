@@ -13,6 +13,7 @@
 #include "Features/DynamicRupture/Misc.h"
 #include "GeneratedCode/runtime.h"
 #include "GeneratedCode/tensor.h"
+#include "Simulation/ConfigLayout.h"
 #include "TestHelper.h"
 #include "WavePropagation/Physics/Datastructures.h"
 
@@ -56,6 +57,7 @@ TEST_CASE("Built configurations" * doctest::test_suite("common")) {
       const auto order = Cfg::ConvergenceOrder;
       CHECK(layout.config == Cfg::Value);
       CHECK(layout.solver == Cfg::Solver);
+      CHECK(configSolver(configIdOf<Cfg>()) == Cfg::Solver);
       CHECK(layout.numQuantities == model::MaterialOf<Cfg>::NumQuantities);
       CHECK(layout.velocityOffset == model::MaterialOf<Cfg>::VelocityOffset);
       CHECK(layout.numBasisFunctions == order * (order + 1) * (order + 2) / 6);

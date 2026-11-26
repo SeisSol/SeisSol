@@ -8,7 +8,6 @@
 #ifndef SEISSOL_SRC_CORE_COMMON_CONFIGREGISTRY_H_
 #define SEISSOL_SRC_CORE_COMMON_CONFIGREGISTRY_H_
 
-#include "Core/Common/ConfigLayout.h"
 #include "Core/Common/ConfigValue.h"
 #include "Core/Common/Typedefs.h"
 
@@ -33,18 +32,8 @@ namespace seissol {
 using ConfigId = std::uint32_t;
 
 /**
- * @brief The layouts of all configurations built into the executable, indexed by their id.
- *
- * Provided by the code that is generated for the configurations; everything else goes through
- * the functions below.
- */
-const std::vector<ConfigLayout>& builtConfigLayouts();
-
-/**
  * @brief The quadrature rule of the dynamic rupture faces, the same for all configurations of the
  * executable.
- *
- * Provided by the code that is generated for the configurations, as `builtConfigLayouts`.
  */
 DRQuadRuleType builtDRQuadRule();
 
@@ -52,7 +41,9 @@ DRQuadRuleType builtDRQuadRule();
 std::size_t builtConfigCount();
 
 /// The layout of a built configuration.
-const ConfigLayout& configLayout(ConfigId id);
+/// The solver that advances the cells of a built configuration, as the build chooses it for its
+/// material.
+SolverType configSolver(ConfigId id);
 
 /// The value of a built configuration.
 const ConfigValue& configValue(ConfigId id);

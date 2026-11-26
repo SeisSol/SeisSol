@@ -31,4 +31,7 @@ add_library(seissol-wavepropagation OBJECT
 )
 
 target_link_libraries(seissol-wavepropagation PUBLIC seissol-common-properties)
+# the wave propagation uses the core
+get_property(SEISSOL_CORE_TARGETS GLOBAL PROPERTY SEISSOL_CORE_TARGETS)
+target_link_libraries(seissol-wavepropagation PUBLIC ${SEISSOL_CORE_TARGETS})
 target_link_libraries(seissol-lib PUBLIC seissol-wavepropagation)

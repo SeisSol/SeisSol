@@ -5,13 +5,15 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_CORE_COMMON_CONFIGLAYOUT_H_
-#define SEISSOL_SRC_CORE_COMMON_CONFIGLAYOUT_H_
+#ifndef SEISSOL_SRC_SIMULATION_CONFIGLAYOUT_H_
+#define SEISSOL_SRC_SIMULATION_CONFIGLAYOUT_H_
 
+#include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/ConfigValue.h"
 #include "Core/Common/Typedefs.h"
 
 #include <cstddef>
+#include <vector>
 
 namespace seissol {
 
@@ -52,6 +54,12 @@ struct ConfigLayout {
   std::size_t drNumTimePoints{};
 };
 
+/// The layouts of all configurations built into the executable, indexed by their id.
+const std::vector<ConfigLayout>& builtConfigLayouts();
+
+/// The layout of a built configuration.
+const ConfigLayout& configLayout(ConfigId id);
+
 } // namespace seissol
 
-#endif // SEISSOL_SRC_CORE_COMMON_CONFIGLAYOUT_H_
+#endif // SEISSOL_SRC_SIMULATION_CONFIGLAYOUT_H_
