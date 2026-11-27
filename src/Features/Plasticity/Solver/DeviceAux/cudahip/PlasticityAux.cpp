@@ -9,12 +9,12 @@
 
 #include "Config.h"
 #include "Core/Common/MultipleSimulations.h"
+#include "Features/Plasticity/Physics/DruckerPrager.h"
 #include "Features/Plasticity/Physics/Plasticity.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "WavePropagation/Physics/Datastructures.h"
 
-#include <cmath>
 #include <cstddef>
 
 #ifdef __HIP__
@@ -59,80 +59,50 @@ __global__ void
 
   real* __restrict qStressNodal = nodalStressTensors[blockIdx.x];
   const seissol::model::PlasticityData<Cfg>& cellPlasticity = plasticity[cellIndices[blockIdx.x]];
-  real localStresses[NumStressComponents<Cfg>];
 
+  // the yield criterion at the node of this thread (see model::plasticity::yieldOfNode)
   constexpr auto ElementTensorsColumn = multisim::linearDim<Cfg, init::QStressNodal<Cfg>>();
+  real localStresses[model::plasticity::StressComponents];
 #pragma unroll
-  for (int i = 0; i < NumStressComponents<Cfg>; ++i) {
+  for (int i = 0; i < model::plasticity::StressComponents; ++i) {
     localStresses[i] = qStressNodal[linearidx<Cfg>() + ElementTensorsColumn * i];
   }
+  const auto node = model::plasticity::yieldOfNode(
+      localStresses,
+      cellPlasticity.cohesionTimesCosAngularFriction[linearidx<Cfg>()],
+      cellPlasticity.sinAngularFriction[linearidx<Cfg>()],
+      oneMinusIntegratingFactor);
 
-  // 1. Compute the mean stress for each node
-  const real meanStress =
-      (localStresses[0] + localStresses[1] + localStresses[2]) / static_cast<real>(3);
-
-// 2. Compute deviatoric stress tensor
-#pragma unroll
-  for (int i = 0; i < 3; ++i) {
-    localStresses[i] -= meanStress;
-  }
-
-  // 3. Compute the second invariant for each node
-  real tau = static_cast<real>(0.5) *
-             (localStresses[0] * localStresses[0] + localStresses[1] * localStresses[1] +
-              localStresses[2] * localStresses[2]);
-  tau += (localStresses[3] * localStresses[3] + localStresses[4] * localStresses[4] +
-          localStresses[5] * localStresses[5]);
-  tau = std::sqrt(tau);
-
-  // 4. Compute the plasticity criteria
-  const real cohesionTimesCosAngularFriction =
-      cellPlasticity.cohesionTimesCosAngularFriction[linearidx<Cfg>()];
-  const real sinAngularFriction = cellPlasticity.sinAngularFriction[linearidx<Cfg>()];
-  const real taulim = std::max(static_cast<real>(0.0),
-                               cohesionTimesCosAngularFriction - meanStress * sinAngularFriction);
-
+  // the cell is adjusted where one of its nodes yields
   __shared__ bool isAdjusted;
   if (linearidx<Cfg>() == 0) {
     isAdjusted = false;
   }
   __syncthreads();
-
-  // 5. Compute the yield factor
-  real yieldfactor{};
-  if (tau > taulim) {
+  if (node.yields) {
     isAdjusted = true;
-    yieldfactor = ((taulim / tau) - static_cast<real>(1.0)) * oneMinusIntegratingFactor;
   }
-
-  // 6. Adjust deviatoric stress tensor if a node within a node exceeds the elasticity region
   __syncthreads();
+
+  // the relaxation of the node (see model::plasticity::relaxNode); the nodal stresses hold the
+  // update of the stress afterwards
   if (isAdjusted) {
     real* __restrict eta = pstrainPtr[blockIdx.x] + tensor::QStressNodal<Cfg>::size();
     real* __restrict localPstrain = pstrainPtr[blockIdx.x];
 
-    // 0.5 dstrain_{ij} dstrain_{ij}, in which a shear component stands for the two entries ij
-    // and ji of the tensor
-    real pstrainSq = 0;
+    real stressUpdate[model::plasticity::StressComponents];
+    real pstrainUpdate[model::plasticity::StressComponents];
+    const real etaGrowth =
+        model::plasticity::relaxNode(node, cellPlasticity.mufactor, stressUpdate, pstrainUpdate);
 
 #pragma unroll
-    for (int i = 0; i < NumStressComponents<Cfg>; ++i) {
+    for (int i = 0; i < model::plasticity::StressComponents; ++i) {
       const int q = linearidx<Cfg>() + ElementTensorsColumn * i;
-
-      const auto updatedStressNodal = localStresses[i] * yieldfactor;
-
-      // the relaxation turns the stress it releases into plastic strain (see
-      // Plasticity::computePlasticity)
-      const real nodePstrainUpdate = -cellPlasticity.mufactor * updatedStressNodal;
-
-      localPstrain[q] += nodePstrainUpdate;
-      qStressNodal[q] = updatedStressNodal;
-
-      pstrainSq += (i < 3 ? static_cast<real>(0.5) : static_cast<real>(1.0)) * nodePstrainUpdate *
-                   nodePstrainUpdate;
+      localPstrain[q] += pstrainUpdate[i];
+      qStressNodal[q] = stressUpdate[i];
     }
 
-    eta[linearidx<Cfg>()] += std::sqrt(pstrainSq);
+    eta[linearidx<Cfg>()] += etaGrowth;
   }
   if (linearidx<Cfg>() == 0) {
     isAdjustableVector[blockIdx.x] = isAdjusted;

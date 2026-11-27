@@ -12,6 +12,7 @@
 #include "Core/Common/MultipleSimulations.h"
 #include "Core/Common/Real.h"
 #include "Core/Memory/Typedefs.h"
+#include "Features/Plasticity/Physics/DruckerPrager.h"
 #include "Features/Plasticity/Physics/Plasticity.h"
 #include "Features/Plasticity/Solver/Plasticity.h"
 #include "GeneratedCode/init.h"
@@ -295,6 +296,64 @@ TEST_CASE_TEMPLATE("Plasticity computePlasticity leaves the cells of a fluid unc
   CHECK(cell.run([](std::size_t /*node*/) { return true; }) == 0);
   CHECK(cell.dofsUnchanged());
   CHECK(cell.plasticStrainUnchanged());
+}
+
+TEST_CASE_TEMPLATE("The Drucker-Prager correction of a node" * doctest::test_suite("kernel"),
+                   RealT,
+                   float,
+                   double) {
+  using namespace seissol::model::plasticity;
+  // a shear stress of 2 on a mean stress of -1: the deviator is the shear alone, and tau = 2
+  const RealT stress[StressComponents] = {-1, -1, -1, 2, 0, 0};
+  RealT stressUpdate[StressComponents]{};
+  RealT pstrainUpdate[StressComponents]{};
+
+  SUBCASE("A node inside the yield surface does not yield, and its relaxation changes nothing") {
+    const auto node = yieldOfNode<RealT>(stress, 3, 0, 1);
+    CHECK_FALSE(node.yields);
+    CHECK(node.factor == 0);
+    CHECK(node.deviator[3] == 2);
+    CHECK(relaxNode<RealT>(node, 0.25, stressUpdate, pstrainUpdate) == 0);
+    for (int i = 0; i < StressComponents; ++i) {
+      CHECK(stressUpdate[i] == 0);
+      CHECK(pstrainUpdate[i] == 0);
+    }
+  }
+
+  SUBCASE("The friction raises the yield stress with the pressure") {
+    // tau_c = c cos(phi) - m sin(phi) = 1.5 + 0.5 = 2 = tau: on the surface, not beyond it
+    CHECK_FALSE(yieldOfNode<RealT>(stress, 1.5, 0.5, 1).yields);
+    CHECK(yieldOfNode<RealT>(stress, 1.4, 0.5, 1).yields);
+  }
+
+  SUBCASE("An instant relaxation takes the stress onto the yield surface and turns the released "
+          "stress into plastic strain") {
+    // tau_c = 1, tau = 2: yield = tau_c / tau - 1 = -1/2
+    const auto node = yieldOfNode<RealT>(stress, 1, 0, 1);
+    CHECK(node.yields);
+    CHECK(node.factor == doctest::Approx(-0.5));
+    // 1 / (2 mu) for mu = 2
+    const auto eta = relaxNode<RealT>(node, 0.25, stressUpdate, pstrainUpdate);
+    RealT relaxed[StressComponents];
+    for (int i = 0; i < StressComponents; ++i) {
+      relaxed[i] = stress[i] + stressUpdate[i];
+    }
+    // the shear halves, the pressure stays
+    CHECK(relaxed[3] == doctest::Approx(1));
+    CHECK(relaxed[0] + relaxed[1] + relaxed[2] == doctest::Approx(-3));
+    const auto after = yieldOfNode<RealT>(relaxed, 1, 0, 1);
+    CHECK(after.deviator[3] == doctest::Approx(1));
+    // the stress released, 1, over 2 mu
+    CHECK(pstrainUpdate[3] == doctest::Approx(0.25));
+    CHECK(eta == doctest::Approx(0.25));
+  }
+
+  SUBCASE("A relaxation over a part of the relaxation time moves the stress part of the way") {
+    const auto node = yieldOfNode<RealT>(stress, 1, 0, 0.5);
+    CHECK(node.factor == doctest::Approx(-0.25));
+    relaxNode<RealT>(node, 0.25, stressUpdate, pstrainUpdate);
+    CHECK(stress[3] + stressUpdate[3] == doctest::Approx(1.5));
+  }
 }
 
 } // namespace seissol::unit_test

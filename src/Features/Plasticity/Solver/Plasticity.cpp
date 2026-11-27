@@ -17,6 +17,7 @@
 #include "Core/Memory/Typedefs.h"
 #include "Core/Monitoring/Metric.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "Features/Plasticity/Physics/DruckerPrager.h"
 #include "Features/Plasticity/Physics/Plasticity.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
@@ -25,8 +26,8 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <utility>
 
 #ifdef ACL_DEVICE
@@ -38,10 +39,6 @@ using namespace device;
 
 #ifndef ACL_DEVICE
 #include <utils/logger.h>
-#endif
-
-#ifndef NDEBUG
-#include <cstdint>
 #endif
 
 namespace seissol::kernels {
@@ -61,16 +58,18 @@ std::size_t
 
   alignas(Alignment) real qStressNodal[tensor::QStressNodal<Cfg>::size()]{};
 
-  alignas(Alignment) real meanStress[tensor::meanStress<Cfg>::size()]{};
-  alignas(Alignment) real secondInvariant[tensor::secondInvariant<Cfg>::size()]{};
-  alignas(Alignment) real tau[tensor::secondInvariant<Cfg>::size()]{};
-  alignas(Alignment) real taulim[tensor::meanStress<Cfg>::size()]{};
-  alignas(Alignment) real yieldFactor[tensor::yieldFactor<Cfg>::size()]{};
+  // the nodes of all simulations of the cell; the stress components of a node lie this far apart
+  constexpr std::size_t NumNodes = init::QStressNodal<Cfg>::Stop[multisim::BasisDim<Cfg>] -
+                                   init::QStressNodal<Cfg>::Start[multisim::BasisDim<Cfg>];
+  constexpr auto NumTotalPoints = NumNodes * Cfg::NumSimulations;
+  static_assert(tensor::yieldFactor<Cfg>::size() == NumTotalPoints &&
+                    tensor::meanStress<Cfg>::size() == NumTotalPoints,
+                "the yield factor and the mean stress have one value per node");
+  static_assert(tensor::QStressNodal<Cfg>::size() ==
+                    NumTotalPoints * model::plasticity::StressComponents,
+                "the nodal stresses hold the six stress components of every node");
 
-  static_assert(tensor::secondInvariant<Cfg>::size() == tensor::meanStress<Cfg>::size(),
-                "Second invariant tensor and mean stress tensor must be of the same size().");
-  static_assert(tensor::yieldFactor<Cfg>::size() <= tensor::meanStress<Cfg>::size(),
-                "Yield factor tensor must be smaller than mean stress tensor.");
+  alignas(Alignment) real yieldFactor[NumTotalPoints]{};
 
   /* Convert modal to nodal and add sigma0.
    * Stores s_{ij} := sigma_{ij} + sigma0_{ij} for every node.
@@ -85,134 +84,54 @@ std::size_t
   m2nKrnl.initialLoading = plasticityData->initialLoading;
   m2nKrnl.execute();
 
-  // Computes m = s_{ii} / 3.0 for every node
-  kernel::plComputeMean<Cfg> cmKrnl;
-  cmKrnl.bindGlobals(*global);
-  cmKrnl.meanStress = meanStress;
-  cmKrnl.QStressNodal = qStressNodal;
-  cmKrnl.execute();
-
-  /* Compute s_{ij} := s_{ij} - m delta_{ij},
-   * where delta_{ij} = 1 if i == j else 0.
-   * Thus, s_{ij} contains the deviatoric stresses. */
-  kernel::plSubtractMean<Cfg> smKrnl;
-  smKrnl.bindGlobals(*global);
-  smKrnl.meanStress = meanStress;
-  smKrnl.QStressNodal = qStressNodal;
-  smKrnl.execute();
-
-  // Compute I_2 = 0.5 s_{ij} s_ji for every node
-  kernel::plComputeSecondInvariant<Cfg> siKrnl;
-  siKrnl.bindGlobals(*global);
-  siKrnl.secondInvariant = secondInvariant;
-  siKrnl.QStressNodal = qStressNodal;
-  siKrnl.execute();
-
-// tau := sqrt(I_2) for every node
-#pragma omp simd
-  for (std::size_t ip = 0; ip < tensor::secondInvariant<Cfg>::size(); ++ip) {
-    tau[ip] = std::sqrt(secondInvariant[ip]);
-  }
-
-// Compute tau_c for every node
-#pragma omp simd
-  for (std::size_t ip = 0; ip < tensor::meanStress<Cfg>::size(); ++ip) {
-    taulim[ip] = std::max(static_cast<real>(0.0),
-                          plasticityData->cohesionTimesCosAngularFriction[ip] -
-                              meanStress[ip] * plasticityData->sinAngularFriction[ip]);
-  }
-
-  int32_t adjust = 0;
+  // the yield criterion at every node (see model::plasticity::yieldOfNode); the nodal stresses
+  // keep their deviatoric part for the relaxation
+  std::int32_t adjust = 0;
 
 #pragma omp simd reduction(max : adjust)
-  for (std::size_t ip = 0; ip < tensor::yieldFactor<Cfg>::size(); ++ip) {
-    // Compute yield := (t_c / tau - 1) r for every node,
-    // where r = 1 - exp(-timeStepWidth / tV)
-    const auto doesYield = tau[ip] > taulim[ip];
+  for (std::size_t ip = 0; ip < NumTotalPoints; ++ip) {
+    real stress[model::plasticity::StressComponents];
+    for (int x = 0; x < model::plasticity::StressComponents; ++x) {
+      stress[x] = qStressNodal[ip + NumTotalPoints * x];
+    }
+    const auto node =
+        model::plasticity::yieldOfNode(stress,
+                                       plasticityData->cohesionTimesCosAngularFriction[ip],
+                                       plasticityData->sinAngularFriction[ip],
+                                       oneMinusIntegratingFactor);
+    for (int x = 0; x < model::plasticity::StressComponents; ++x) {
+      qStressNodal[ip + NumTotalPoints * x] = node.deviator[x];
+    }
+    yieldFactor[ip] = node.factor;
     // Combine with the previous value: under the reduction, each SIMD lane keeps only its own
     // last value, so a plain assignment would discard all but the last chunk of nodes.
-    adjust = std::max(adjust, static_cast<int32_t>(doesYield ? 1 : 0));
-    const auto ifYield =
-        (taulim[ip] / tau[ip] - static_cast<real>(1.0)) * oneMinusIntegratingFactor;
-    yieldFactor[ip] = doesYield ? ifYield : 0;
+    adjust = std::max(adjust, static_cast<std::int32_t>(node.yields ? 1 : 0));
   }
 
   if (adjust != 0) {
-    // calculate plastic strain
-    constexpr std::size_t NumNodes = init::QStressNodal<Cfg>::Stop[multisim::BasisDim<Cfg>] -
-                                     init::QStressNodal<Cfg>::Start[multisim::BasisDim<Cfg>];
-
     real* __restrict qEtaNodal = &pstrain[tensor::QStressNodal<Cfg>::size()];
 
-    /**
-     * Compute sigma_{ij} := sigma_{ij} + yield s_{ij} for every node
-     * and store as modal basis.
-     *
-     * Remark: According to Wollherr et al., the update formula (13) should be
-     *
-     * sigmaNew_{ij} := f^* s_{ij} + m delta_{ij} - sigma0_{ij}
-     *
-     * where f^* = r tau_c / tau + (1 - r) = 1 + yield. Adding 0 to (13) gives
-     *
-     * sigmaNew_{ij} := f^* s_{ij} + m delta_{ij} - sigma0_{ij}
-     *                  + sigma_{ij} + sigma0_{ij} - sigma_{ij} - sigma0_{ij}
-     *                = f^* s_{ij} + sigma_{ij} - s_{ij}
-     *                = sigma_{ij} + (f^* - 1) s_{ij}
-     *                = sigma_{ij} + yield s_{ij}
-     */
-
-    constexpr auto NumTotalPoints = NumNodes * Cfg::NumSimulations;
-
+    // the relaxation of every node (see model::plasticity::relaxNode); the nodal stresses hold
+    // the update of the stress, yield s_{ij}, afterwards, which is zero where a node does not
+    // yield
 #pragma omp simd
     for (std::size_t qp = 0; qp < NumTotalPoints; ++qp) {
-
-      // 0.5 dstrain_{ij} dstrain_{ij}, in which a shear component stands for the two entries ij
-      // and ji of the tensor
-      real pstrainSqAcc = 0;
-
-#pragma unroll
-      for (std::size_t x = 0; x < 6; ++x) {
-        const auto q = qp + NumTotalPoints * x;
-        /**
-         * Equation (10) from Wollherr et al.:
-         *
-         * d/dt strain_{ij} = (sigma_{ij} + sigma0_{ij} - P_{ij}(sigma)) / (2mu tV)
-         *
-         * where (11)
-         *
-         * P_{ij}(sigma) = { tau_c/tau s_{ij} + m delta_{ij}         if     tau >= taulim
-         *                 { sigma_{ij} + sigma0_{ij}                else
-         *
-         * The relaxation changes the stress at a fixed total strain, so that it turns the stress
-         * it releases into plastic strain,
-         *
-         * d/dt sigma_{ij} = -2mu d/dt strain_{ij},
-         *
-         * and over the step, in which the stress follows the exact solution of the relaxation,
-         * the plastic strain grows by
-         *
-         * dstrain_{ij} = (sigma_{ij} - sigmaNew_{ij}) / (2mu) = -yield s_{ij} / (2mu)
-         *
-         * whatever the time step is relative to tV, and for tV = 0 as well. If tau < taulim,
-         * then sigma_{ij} - sigmaNew_{ij} = 0.
-         */
-        const auto qStressNodalUpdate = qStressNodal[q] * yieldFactor[qp];
-        const auto pstrainUpdate = -plasticityData->mufactor * qStressNodalUpdate;
-
-        pstrain[q] += pstrainUpdate;
-
-        // now contains the update for qStressNodal (cf. below)
-        qStressNodal[q] = qStressNodalUpdate;
-
-        pstrainSqAcc += (x < 3 ? static_cast<real>(0.5) : static_cast<real>(1.0)) * pstrainUpdate *
-                        pstrainUpdate;
+      model::plasticity::NodeYield<real> node{};
+      for (int x = 0; x < model::plasticity::StressComponents; ++x) {
+        node.deviator[x] = qStressNodal[qp + NumTotalPoints * x];
       }
+      node.factor = yieldFactor[qp];
 
-      // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
-      // The relaxation scales the deviatoric stress of a node without turning it, so that the
-      // plastic strain of the step keeps one direction, and eta grows by
-      // sqrt(0.5 dstrain_{ij} dstrain_{ij}) exactly.
-      qEtaNodal[qp] += std::sqrt(pstrainSqAcc);
+      real stressUpdate[model::plasticity::StressComponents];
+      real pstrainUpdate[model::plasticity::StressComponents];
+      qEtaNodal[qp] +=
+          model::plasticity::relaxNode(node, plasticityData->mufactor, stressUpdate, pstrainUpdate);
+
+      for (int x = 0; x < model::plasticity::StressComponents; ++x) {
+        const auto q = qp + NumTotalPoints * x;
+        pstrain[q] += pstrainUpdate[x];
+        qStressNodal[q] = stressUpdate[x];
+      }
     }
 
     // added to the DOFs once, for the reason given in Local::computeIntegral

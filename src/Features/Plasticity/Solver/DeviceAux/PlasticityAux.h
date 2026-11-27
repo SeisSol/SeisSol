@@ -16,10 +16,9 @@
 #include <stddef.h>
 
 namespace seissol::kernels::device::aux::plasticity {
-/// The stress components of the material of the configuration `Cfg`, which plasticity adjusts.
-template <typename Cfg>
-constexpr int NumStressComponents = model::MaterialOf<Cfg>::TractionComponents;
-
+/// The plastic correction of the nodes of the cells of a batch, one node per thread (see
+/// model::plasticity::yieldOfNode and relaxNode): the nodal stresses hold their update afterwards,
+/// isAdjustableVector marks the cells in which a node yields, and yieldCounter counts them.
 template <typename Cfg>
 void plasticityNonlinear(Real<Cfg>** __restrict nodalStressTensors,
                          Real<Cfg>** __restrict pstrainPtr,
