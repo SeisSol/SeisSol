@@ -552,6 +552,13 @@ void OutputManager::writePickpointOutput(double time, double dt) {
 }
 
 void OutputManager::flushPickpointDataToFile() {
+  // the samples of the on-fault receivers are taken on streams of their own, and have to be
+  // complete before the host reads them
+  for (auto& [layerId, outputData] : ppOutputData_) {
+    if (outputData->extraRuntime.has_value()) {
+      outputData->extraRuntime->wait();
+    }
+  }
   for (auto& [layerId, outputData] : ppOutputData_) {
     for (const auto& ppfile : ppFiles_.at(layerId)) {
       std::stringstream data;
