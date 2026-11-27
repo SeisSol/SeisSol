@@ -131,3 +131,13 @@ the partitioning unchanged this affected a few faces at the rank boundaries,
 with a different one most of them. The faces are now identified by the global
 cell id, and a restart reproduces the displacement exactly. Checkpoints written
 before cannot restore it correctly.
+
+Plastic strain in checkpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(since 2.0.0, `#1658 <https://github.com/SeisSol/SeisSol/pull/1658>`_)
+
+With plasticity, the checkpoint record ``pstrain`` held the plasticity parameters of the cells
+instead of their plastic strain, so a restarted run continued with the plastic strain and
+:math:`\eta` reset to zero. The record now holds the plastic strain.
+Checkpoints of simulations with plasticity written before this change cannot be restored.
