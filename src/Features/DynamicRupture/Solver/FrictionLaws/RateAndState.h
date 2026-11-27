@@ -248,17 +248,22 @@ class RateAndState {
    * The exact condition is tau0 = (S I + V eta_ss) n with |n| = 1, see common::updateSlipDirection.
    * The strength belonging to the current slip rate is recovered as S = n^T tau0 - V * eta_proj,
    * so no additional friction law evaluation is needed here. Riding along with the existing outer
-   * fixed-point loop makes the sweep essentially free.
+   * fixed-point loop makes the sweep essentially free. It skips the points that `frozen` marks,
+   * whose fixed point has converged (see updateStateVariableIterative).
    */
   template <common::RangeType Type>
-  SEISSOL_HOSTDEVICE static void
-      updateDirectionAndProjections([[maybe_unused]] FrictionLawContext<Cfg, Type>& ctx,
-                                    [[maybe_unused]] RateAndStateStep<Cfg, Type>& step) {
+  SEISSOL_HOSTDEVICE static void updateDirectionAndProjections(
+      [[maybe_unused]] FrictionLawContext<Cfg, Type>& ctx,
+      [[maybe_unused]] RateAndStateStep<Cfg, Type>& step,
+      [[maybe_unused]] const PointArray<std::int32_t, Cfg, Type>* frozen = nullptr) {
     if constexpr (model::MaterialOf<Cfg>::Type == model::MaterialType::Anisotropic) {
       const auto ltsFace = ctx.ltsFace;
       const auto& impAndEta = ctx.data->impAndEta[ltsFace];
       const auto& impedanceMatrices = ctx.data->impedanceMatrices[ltsFace];
       forEachPoint(ctx, [&](std::uint32_t pointIndex) {
+        if (frozen != nullptr && (*frozen)[pointIndex] != 0) {
+          return;
+        }
         const real totalTraction1 =
             ctx.initialStress.traction1[pointIndex] + ctx.faultStresses.traction1[pointIndex];
         const real totalTraction2 =
@@ -304,7 +309,9 @@ class RateAndState {
     const auto ltsFace = ctx.ltsFace;
     const real timeIncrement = ctx.args->deltaT[timeIndex];
     alignas(pointAlignment<Cfg, Type>()) PointValues<Cfg, Type> testSlipRate{};
-    // int not bool: keeps ICX SIMD happy
+    // whether the fixed point of a point has converged. A converged point stays where it is while
+    // the other points of its face (host) or warp (device) iterate on, so that its result does not
+    // depend on the points it is evaluated with. int not bool: keeps ICX SIMD happy
     PointArray<std::int32_t, Cfg, Type> convergedOuter{};
 
     // use:
@@ -330,6 +337,9 @@ class RateAndState {
     for (std::uint32_t j = 0; j < ctx.data->drParameters.rsNumberStateVariableUpdates; j++) {
       if constexpr (!LawT::FoldsStateVariable) {
         forEachPoint(ctx, [&](std::uint32_t pointIndex) {
+          if (convergedOuter[pointIndex] != 0) {
+            return;
+          }
           // fault strength using friction coefficient and fluid pressure from previous
           // timestep/iteration update state variable using sliprate from the previous time step
           ctx.stateVariableBuffer[pointIndex] = static_cast<real>(LawT::stateVariableAt(
@@ -340,15 +350,21 @@ class RateAndState {
               static_cast<LawT::StateScalar>(step.localSlipRate[pointIndex])));
         });
       }
-      TPMethod::applyShearHeating(ctx, step.normalStress, step.localSlipRate, tpStep);
+      // the pressure and the normal stress of a converged point stay as well: with the thermal
+      // pressurization, they would go on following each other
+      TPMethod::applyShearHeating(
+          ctx, step.normalStress, step.localSlipRate, tpStep, &convergedOuter);
 
-      updateDirectionAndProjections(ctx, step);
-      updateNormalStress(ctx, step);
+      updateDirectionAndProjections(ctx, step, &convergedOuter);
+      updateNormalStress(ctx, step, &convergedOuter);
 
       // solve for new slip rate
-      invertSlipRateIterative(ctx, step, tpStep, timeIncrement, testSlipRate);
+      invertSlipRateIterative(ctx, step, tpStep, timeIncrement, testSlipRate, convergedOuter);
 
       forEachPoint(ctx, [&](std::uint32_t pointIndex) {
+        if (convergedOuter[pointIndex] != 0) {
+          return;
+        }
         // update local slip rate, now using V=(Vnew+Vold)/2
         // For the next SV update, use the mean slip rate between the initial guess and the one
         // found (Kaneko 2008, step 6)
@@ -506,7 +522,8 @@ class RateAndState {
                               const RateAndStateStep<Cfg, Type>& step,
                               const TPMethod::template StepCoefficients<Type>& tpStep,
                               real timeIncrement,
-                              PointValues<Cfg, Type>& slipRateTest) {
+                              PointValues<Cfg, Type>& slipRateTest,
+                              const PointArray<std::int32_t, Cfg, Type>& frozen) {
     const auto ltsFace = ctx.ltsFace;
 
     alignas(pointAlignment<Cfg, Type>()) PointValues<Cfg, Type> muF{};
@@ -561,7 +578,8 @@ class RateAndState {
               ? hi
               : std::min(std::max(ctx.data->slipRateMagnitude[ltsFace][pointIndex], lo), hi);
       dxOld[pointIndex] = hi - lo;
-      converged[pointIndex] = openAtLimit ? 1 : 0;
+      // a point whose outer fixed point has converged is not solved again
+      converged[pointIndex] = (openAtLimit || frozen[pointIndex] != 0) ? 1 : 0;
     });
 
     for (std::uint32_t i = 0; i < ctx.data->drParameters.rsMaxNumberSlipRateUpdates; i++) {
@@ -690,6 +708,9 @@ class RateAndState {
     // in case of non-convergence, flag the offending lanes -- but now
     // keyed on the x-criterion, consistent with the termination test above
     forEachPoint<rs_detail::VectorizeStrict>(ctx, [&](std::uint32_t pointIndex) {
+      if (frozen[pointIndex] != 0) {
+        return;
+      }
       if constexpr (LawT::FoldsStateVariable) {
         ctx.data->mu[ltsFace][pointIndex] = LawT::updateMuFolded(ctx,
                                                                  pointIndex,
@@ -724,14 +745,20 @@ class RateAndState {
    *
    * The slip rate is taken from slipRateMagnitude, i.e. from the previous outer fixed-point
    * iteration (or, on entry, from the previous time step). normalStressStick keeps the part that
-   * does not depend on it, so that the Newton solve can follow sigma(V) itself.
+   * does not depend on it, so that the Newton solve can follow sigma(V) itself. The points that
+   * `frozen` marks keep theirs (see updateStateVariableIterative).
    */
   template <common::RangeType Type>
-  SEISSOL_HOSTDEVICE static void updateNormalStress(FrictionLawContext<Cfg, Type>& ctx,
-                                                    RateAndStateStep<Cfg, Type>& step) {
+  SEISSOL_HOSTDEVICE static void
+      updateNormalStress(FrictionLawContext<Cfg, Type>& ctx,
+                         RateAndStateStep<Cfg, Type>& step,
+                         const PointArray<std::int32_t, Cfg, Type>* frozen = nullptr) {
     const auto ltsFace = ctx.ltsFace;
     // Todo(SW): consider poroelastic materials together with thermal pressurization
     forEachPoint(ctx, [&](std::uint32_t pointIndex) {
+      if (frozen != nullptr && (*frozen)[pointIndex] != 0) {
+        return;
+      }
       // the stick keeps what does not follow this step's shear heating; the pressurization
       // enters where sigma is formed, so that the solve can resolve it instead of lagging it
       step.normalStressStick[pointIndex] =

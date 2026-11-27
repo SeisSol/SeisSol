@@ -185,14 +185,20 @@ class ThermalPressurization {
     return step.pressureSlope[pointIndex];
   }
 
-  /// Evaluate the affine law of the preceding pass at the shear heating of the given state.
+  /// Evaluate the affine law of the preceding pass at the shear heating of the given state, but at
+  /// the points that `frozen` marks.
   template <common::RangeType Type>
-  SEISSOL_HOSTDEVICE static void applyShearHeating(FrictionLawContext<Cfg, Type>& ctx,
-                                                   const PointValues<Cfg, Type>& normalStress,
-                                                   const PointValues<Cfg, Type>& slipRateMagnitude,
-                                                   const StepCoefficients<Type>& step) {
+  SEISSOL_HOSTDEVICE static void
+      applyShearHeating(FrictionLawContext<Cfg, Type>& ctx,
+                        const PointValues<Cfg, Type>& normalStress,
+                        const PointValues<Cfg, Type>& slipRateMagnitude,
+                        const StepCoefficients<Type>& step,
+                        const PointArray<std::int32_t, Cfg, Type>* frozen = nullptr) {
     const auto ltsFace = ctx.ltsFace;
     forEachPoint(ctx, [&](std::uint32_t pointIndex) {
+      if (frozen != nullptr && (*frozen)[pointIndex] != 0) {
+        return;
+      }
       const real tauV = shearHeating(ctx.data->mu[ltsFace][pointIndex],
                                      normalStress[pointIndex],
                                      slipRateMagnitude[pointIndex]);

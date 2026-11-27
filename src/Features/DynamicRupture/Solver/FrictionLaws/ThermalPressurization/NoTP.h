@@ -61,7 +61,8 @@ class NoTP {
       applyShearHeating(FrictionLawContext<Cfg, Type>& /*ctx*/,
                         const PointValues<Cfg, Type>& /*normalStress*/,
                         const PointValues<Cfg, Type>& /*slipRateMagnitude*/,
-                        const StepCoefficients<Type>& /*step*/) {}
+                        const StepCoefficients<Type>& /*step*/,
+                        const PointArray<std::int32_t, Cfg, Type>* /*frozen*/ = nullptr) {}
 
   template <common::RangeType Type>
   SEISSOL_HOSTDEVICE static void
