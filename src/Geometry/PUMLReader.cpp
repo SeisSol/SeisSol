@@ -16,6 +16,7 @@
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
 #include "Monitoring/Instrumentation.h"
+#include "Parallel/MPI.h"
 #include "PartitioningLib.h"
 
 #include <PUML/Downward.h>
@@ -160,6 +161,32 @@ const std::array<std::array<std::int32_t, 4>, 4> FaceVertexToOrientation = {
 // the first vertex on the face (i.e. FirstFaceVertex[i] == j, where j is the lowest index in
 // FaceVertexToOrientation[i] to not be -1)
 const std::array<std::int32_t, 4> FirstFaceVertex = {0, 0, 0, 1};
+/**
+ * Whether a dataset holds signed integers (1), unsigned ones (0), or anything else, integers wider
+ * than 64 bits included (-1), as the first rank finds; all ranks learn it.
+ */
+int integerSignOf(const std::string& file, const char* dataset) {
+  int sign = -1;
+  if (seissol::Mpi::mpi.rank() == 0) {
+    const hid_t h5file = H5Fopen(file.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+    if (h5file >= 0) {
+      const hid_t h5dataset = H5Dopen2(h5file, dataset, H5P_DEFAULT);
+      if (h5dataset >= 0) {
+        const hid_t fileType = H5Dget_type(h5dataset);
+        if (H5Tget_class(fileType) == H5T_INTEGER &&
+            H5Tget_size(fileType) <= sizeof(std::uint64_t)) {
+          sign = H5Tget_sign(fileType) == H5T_SGN_2 ? 1 : 0;
+        }
+        H5Tclose(fileType);
+        H5Dclose(h5dataset);
+      }
+      H5Fclose(h5file);
+    }
+  }
+  seissol::Mpi::mpi.broadcast(&sign, 0);
+  return sign;
+}
+
 } // namespace
 
 PUMLReader::PUMLReader(const std::string& meshFile,
@@ -236,13 +263,30 @@ void PUMLReader::read(PumlMesh& meshTopology,
   }
   meshTopology.addData<int>((file + ":/group").c_str(), PUML::CELL, {});
 
-  if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32) {
-    meshTopology.addData<uint32_t>((file + ":/boundary").c_str(), PUML::CELL, {});
-  } else if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I64) {
-    meshTopology.addData<uint64_t>((file + ":/boundary").c_str(), PUML::CELL, {});
-  } else if (boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32x4) {
-    meshTopology.addData<int>((file + ":/boundary").c_str(), PUML::CELL, {4});
+  // The boundary condition tags are read as 64-bit integers, which hold every format. HDF5 converts
+  // each value to the type it is read as, clipped to the range of that type, and PUMGen files the
+  // tags as signed integers: in I32 and I64, a tag of 128 resp. 32768 or more on the last face of a
+  // cell makes the value of the cell negative, which an unsigned type would read as 0 -- all four
+  // tags of the cell lost. As a 64-bit integer of the signedness of the file, a value comes out
+  // sign- or zero-extended, with the bits it has in the file (see decodeBoundary).
+  if (boundaryFormat != seissol::initializer::parameters::BoundaryFormat::I32 &&
+      boundaryFormat != seissol::initializer::parameters::BoundaryFormat::I64 &&
+      boundaryFormat != seissol::initializer::parameters::BoundaryFormat::I32x4) {
+    logError() << "Unknown boundary format:" << static_cast<int>(boundaryFormat);
   }
+  const auto boundarySign = integerSignOf(file, "/boundary");
+  if (boundarySign < 0) {
+    logError() << "The boundary condition tags in" << file
+               << "(/boundary) are no integers of 64 bits or less.";
+  }
+  meshTopology.addData<std::uint64_t>(
+      (file + ":/boundary").c_str(),
+      PUML::CELL,
+      boundaryFormat == seissol::initializer::parameters::BoundaryFormat::I32x4
+          ? std::vector<std::size_t>{Cell::NumFaces}
+          : std::vector<std::size_t>{},
+      PUML::MPITypeInfer<std::uint64_t>::type(),
+      boundarySign > 0 ? H5T_NATIVE_INT64 : H5T_NATIVE_UINT64);
 
   const size_t localCells = meshTopology.numOriginalCells();
   size_t localStart = 0;
