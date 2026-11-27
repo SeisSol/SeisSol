@@ -12,7 +12,7 @@ on:
 env:
   # The release branch pins its containers by digest (they are the tags
   # davschneller-gpu-image of 2025-01-28, which master may update)
-  precomputed-hash: 0f623b3e263726bc547997ca29790936396847df
+  precomputed-hash: f59f622f1da50a76d0f5925d09fd941168714dc1
 
 jobs:
   seissol-build-test:
@@ -170,7 +170,7 @@ jobs:
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [seissol-build-test]
-    if: ${{ github.repository == 'SeisSol/SeisSol' && github.ref_name == 'master' }}
+    if: ${{ github.repository == 'SeisSol/SeisSol' && (github.ref_name == 'master' || startsWith(github.ref_name, 'release/')) }}
     env:
       EXENAME: |
         ${{
@@ -338,14 +338,7 @@ jobs:
             fault: false # incomplete, hence disabled
             volume: false
             surface: false
-          - name: loh1-ic
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: false
-            volume: true
-            surface: false
+          # loh1-ic needs easi 1.5.0 (time-dependent initial conditions); the image has easi 1.4.0
           - name: acoustic
             equation: acoustic
             multisim: 1
