@@ -14,7 +14,13 @@
 #ifdef __INTEL_LLVM_COMPILER
 #if __INTEL_LLVM_COMPILER >= 20250000
 #define SEISSOL_INTEL_SIMD_EXCEPTION
-#if __INTEL_LLVM_COMPILER < 20260000
+// icpx 2026.0 still crashes in its vectorizer (vplan-vec) in single precision, on the strength
+// and slip rate loop of calcSlipRateAndTraction and on the loops of invertSlipRateIterative; they
+// stay scalar for it in either precision. So do the loops over the state variable: in single
+// precision, the SSE variant of the fast velocity weakening law's updateStateVariable that they
+// call takes half of the lanes of `this` from a register the call never set, and segfaults.
+// Re-check with newer releases.
+#if __INTEL_LLVM_COMPILER < 20260100
 #define SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #endif
 #endif
@@ -169,7 +175,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
       std::size_t ltsFace) {
     std::array<real, misc::NumPaddedPoints> testSlipRate{0};
     for (uint32_t j = 0; j < settings_.numberStateVariableUpdates; j++) {
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
+#endif
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // fault strength using friction coefficient and fluid pressure from previous
         // timestep/iteration update state variable using sliprate from the previous time step
@@ -214,7 +222,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
                                uint32_t timeIndex,
                                std::size_t ltsFace) {
 
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
+#endif
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // SV from mean slip rate in tmp
       localStateVariable[pointIndex] =
@@ -227,7 +237,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
     const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
 
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
+#endif
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // update LocMu for next strength determination, only needed for last update
       this->mu_[ltsFace][pointIndex] = static_cast<Derived*>(this)->updateMu(
