@@ -11,12 +11,14 @@
 #include "Features/DynamicRupture/DRParameters.h"
 #include "Features/DynamicRupture/Misc.h"
 #include "Features/DynamicRupture/Output/Output.h"
+#include "Features/DynamicRupture/Output/ReceiverBasedOutput.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionLaws.h"
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
 #include "Features/DynamicRupture/Solver/Storage.h"
 #include "Initializer/Initializers.h"
 
 #include <memory>
+#include <utility>
 #include <utils/logger.h>
 
 namespace friction_law_cpu = seissol::dr::friction_law::cpu;
@@ -40,303 +42,214 @@ struct Bound {
   using Type = LawT<Cfg, TailT<Cfg>>;
 };
 
-class NoFaultFactory : public AbstractFactory {
+/**
+ * The parts of a friction law: the storage `StorageT` of its faces, its initializer
+ * `InitializerT`, its friction solvers `LawT` on the host and `LawDeviceT` on the device (both
+ * templates of the configuration), and its output `OutputT`.
+ */
+template <typename StorageT,
+          typename InitializerT,
+          template <typename> typename LawT,
+          template <typename> typename LawDeviceT,
+          typename OutputT>
+class LawFactory : public AbstractFactory {
   public:
   using AbstractFactory::AbstractFactory;
-  DynamicRuptureTuple produce() override {
-    return {.storage = std::make_unique<seissol::DynamicRupture>(drParameters_.get()),
-            .initializer = std::make_unique<seissol::dr::initializer::NoFaultInitializer>(
-                drParameters_, faultMesh_, models_),
-            .frictionLaw =
-                friction_law::makeFrictionSolverFactory<friction_law_cpu::NoFault>(*drParameters_),
+
+  FrictionLawSolver solver() override {
+    return {.storage = std::make_unique<StorageT>(drParameters_.get()),
+            .frictionLaw = friction_law::makeFrictionSolverFactory<LawT>(*drParameters_),
             .frictionLawDevice =
-                friction_law::makeFrictionSolverFactory<friction_law_gpu::NoFault>(*drParameters_),
-            .output = std::make_unique<seissol::dr::output::NoFault>()};
+                friction_law::makeFrictionSolverFactory<LawDeviceT>(*drParameters_)};
   }
+
+  std::unique_ptr<initializer::BaseDRInitializer> initializer() override {
+    return makeInitializer<InitializerT>();
+  }
+
+  std::unique_ptr<output::ReceiverOutput> output() override { return std::make_unique<OutputT>(); }
 };
 
-class LinearSlipWeakeningFactory : public AbstractFactory {
-  public:
-  using AbstractFactory::AbstractFactory;
-  DynamicRuptureTuple produce() override {
-    return {.storage = std::make_unique<seissol::LTSLinearSlipWeakening>(drParameters_.get()),
-            .initializer =
-                std::make_unique<seissol::dr::initializer::LinearSlipWeakeningInitializer>(
-                    drParameters_, faultMesh_, models_),
-            .frictionLaw = friction_law::makeFrictionSolverFactory<
-                Bound<friction_law_cpu::LinearSlipWeakeningLaw,
-                      friction_law_cpu::NoSpecialization>::Type>(*drParameters_),
-            .frictionLawDevice = friction_law::makeFrictionSolverFactory<
-                Bound<friction_law_gpu::LinearSlipWeakeningLaw,
-                      friction_law_gpu::NoSpecialization>::Type>(*drParameters_),
-            .output = std::make_unique<seissol::dr::output::LinearSlipWeakening>()};
+using NoFaultFactory = LawFactory<seissol::DynamicRupture,
+                                  initializer::NoFaultInitializer,
+                                  friction_law_cpu::NoFault,
+                                  friction_law_gpu::NoFault,
+                                  output::NoFault>;
+
+using LinearSlipWeakeningFactory = LawFactory<
+    seissol::LTSLinearSlipWeakening,
+    initializer::LinearSlipWeakeningInitializer,
+    Bound<friction_law_cpu::LinearSlipWeakeningLaw, friction_law_cpu::NoSpecialization>::Type,
+    Bound<friction_law_gpu::LinearSlipWeakeningLaw, friction_law_gpu::NoSpecialization>::Type,
+    output::LinearSlipWeakening>;
+
+using LinearSlipWeakeningBimaterialFactory = LawFactory<
+    seissol::LTSLinearSlipWeakeningBimaterial,
+    initializer::LinearSlipWeakeningBimaterialInitializer,
+    Bound<friction_law_cpu::LinearSlipWeakeningLaw, friction_law_cpu::BiMaterialFault>::Type,
+    Bound<friction_law_gpu::LinearSlipWeakeningLaw, friction_law_gpu::BiMaterialFault>::Type,
+    output::LinearSlipWeakeningBimaterial>;
+
+using LinearSlipWeakeningTPApproxFactory =
+    LawFactory<seissol::LTSLinearSlipWeakening,
+               initializer::LinearSlipWeakeningInitializer,
+               Bound<friction_law_cpu::LinearSlipWeakeningLaw, friction_law_cpu::TPApprox>::Type,
+               Bound<friction_law_gpu::LinearSlipWeakeningLaw, friction_law_gpu::TPApprox>::Type,
+               output::LinearSlipWeakening>;
+
+using RateAndStateAgingFactory =
+    LawFactory<seissol::LTSRateAndState,
+               initializer::RateAndStateInitializer,
+               Bound<friction_law_cpu::AgingLaw, friction_law_cpu::NoTP>::Type,
+               Bound<friction_law_gpu::AgingLaw, friction_law_gpu::NoTP>::Type,
+               output::RateAndState>;
+
+using RateAndStateAgingTPFactory =
+    LawFactory<seissol::LTSRateAndStateThermalPressurization,
+               initializer::RateAndStateThermalPressurizationInitializer,
+               Bound<friction_law_cpu::AgingLaw, friction_law_cpu::ThermalPressurization>::Type,
+               Bound<friction_law_gpu::AgingLaw, friction_law_gpu::ThermalPressurization>::Type,
+               output::RateAndStateThermalPressurization>;
+
+using RateAndStateSlipFactory =
+    LawFactory<seissol::LTSRateAndState,
+               initializer::RateAndStateInitializer,
+               Bound<friction_law_cpu::SlipLaw, friction_law_cpu::NoTP>::Type,
+               Bound<friction_law_gpu::SlipLaw, friction_law_gpu::NoTP>::Type,
+               output::RateAndState>;
+
+using RateAndStateSlipTPFactory =
+    LawFactory<seissol::LTSRateAndStateThermalPressurization,
+               initializer::RateAndStateThermalPressurizationInitializer,
+               Bound<friction_law_cpu::SlipLaw, friction_law_cpu::ThermalPressurization>::Type,
+               Bound<friction_law_gpu::SlipLaw, friction_law_gpu::ThermalPressurization>::Type,
+               output::RateAndStateThermalPressurization>;
+
+using RateAndStateFastVelocityWeakeningFactory =
+    LawFactory<seissol::LTSRateAndStateFastVelocityWeakening,
+               initializer::RateAndStateFastVelocityInitializer,
+               Bound<friction_law_cpu::FastVelocityWeakeningLaw, friction_law_cpu::NoTP>::Type,
+               Bound<friction_law_gpu::FastVelocityWeakeningLaw, friction_law_gpu::NoTP>::Type,
+               output::RateAndState>;
+
+using RateAndStateFastVelocityWeakeningTPFactory =
+    LawFactory<seissol::LTSRateAndStateThermalPressurizationFastVelocityWeakening,
+               initializer::RateAndStateFastVelocityThermalPressurizationInitializer,
+               Bound<friction_law_cpu::FastVelocityWeakeningLaw,
+                     friction_law_cpu::ThermalPressurization>::Type,
+               Bound<friction_law_gpu::FastVelocityWeakeningLaw,
+                     friction_law_gpu::ThermalPressurization>::Type,
+               output::RateAndStateThermalPressurization>;
+
+using RateAndStateSevereVelocityWeakeningFactory =
+    LawFactory<seissol::LTSRateAndState,
+               initializer::RateAndStateSevereVelocityInitializer,
+               Bound<friction_law_cpu::SevereVelocityWeakeningLaw, friction_law_cpu::NoTP>::Type,
+               Bound<friction_law_gpu::SevereVelocityWeakeningLaw, friction_law_gpu::NoTP>::Type,
+               output::RateAndState>;
+
+using RateAndStateSevereVelocityWeakeningTPFactory =
+    LawFactory<seissol::LTSRateAndStateThermalPressurization,
+               initializer::RateAndStateSevereVelocityThermalPressurizationInitializer,
+               Bound<friction_law_cpu::SevereVelocityWeakeningLaw,
+                     friction_law_cpu::ThermalPressurization>::Type,
+               Bound<friction_law_gpu::SevereVelocityWeakeningLaw,
+                     friction_law_gpu::ThermalPressurization>::Type,
+               output::RateAndStateThermalPressurization>;
+
+using ImposedSlipRatesYoffeFactory =
+    LawFactory<seissol::LTSImposedSlipRatesYoffe,
+               initializer::ImposedSlipRatesYoffeInitializer,
+               Bound<friction_law_cpu::ImposedSlipRates, friction_law_cpu::YoffeSTF>::Type,
+               Bound<friction_law_gpu::ImposedSlipRates, friction_law_gpu::YoffeSTF>::Type,
+               output::ImposedSlipRates>;
+
+using ImposedSlipRatesGaussianFactory =
+    LawFactory<seissol::LTSImposedSlipRatesGaussian,
+               initializer::ImposedSlipRatesGaussianInitializer,
+               Bound<friction_law_cpu::ImposedSlipRates, friction_law_cpu::GaussianSTF>::Type,
+               Bound<friction_law_gpu::ImposedSlipRates, friction_law_gpu::GaussianSTF>::Type,
+               output::ImposedSlipRates>;
+
+using ImposedSlipRatesDeltaFactory =
+    LawFactory<seissol::LTSImposedSlipRatesDelta,
+               initializer::ImposedSlipRatesDeltaInitializer,
+               Bound<friction_law_cpu::ImposedSlipRates, friction_law_cpu::DeltaSTF>::Type,
+               Bound<friction_law_gpu::ImposedSlipRates, friction_law_gpu::DeltaSTF>::Type,
+               output::ImposedSlipRates>;
+
+/// The factory `WithoutTP`, or `WithTP` if the parameters turn on thermal pressurization.
+template <typename WithoutTP, typename WithTP, typename... Args>
+std::unique_ptr<AbstractFactory> makeTPFactory(
+    const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
+    const Args&... args) {
+  if (drParameters->isThermalPressureOn) {
+    return std::make_unique<WithTP>(drParameters, args...);
   }
-};
+  return std::make_unique<WithoutTP>(drParameters, args...);
+}
 
-class RateAndStateAgingFactory : public AbstractFactory {
-  public:
-  using AbstractFactory::AbstractFactory;
-  DynamicRuptureTuple produce() override {
-    if (drParameters_->isThermalPressureOn) {
-      return {.storage = std::make_unique<seissol::LTSRateAndStateThermalPressurization>(
-                  drParameters_.get()),
-              .initializer = std::make_unique<
-                  seissol::dr::initializer::RateAndStateThermalPressurizationInitializer>(
-                  drParameters_, faultMesh_, models_),
-              .frictionLaw = friction_law::makeFrictionSolverFactory<
-                  Bound<friction_law_cpu::AgingLaw, friction_law_cpu::ThermalPressurization>::Type>(
-                  *drParameters_),
-              .frictionLawDevice = friction_law::makeFrictionSolverFactory<
-                  Bound<friction_law_gpu::AgingLaw, friction_law_gpu::ThermalPressurization>::Type>(
-                  *drParameters_),
-              .output = std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>()};
-    } else {
-      return {.storage = std::make_unique<seissol::LTSRateAndState>(drParameters_.get()),
-              .initializer = std::make_unique<seissol::dr::initializer::RateAndStateInitializer>(
-                  drParameters_, faultMesh_, models_),
-              .frictionLaw = friction_law::makeFrictionSolverFactory<
-                  Bound<friction_law_cpu::AgingLaw, friction_law_cpu::NoTP>::Type>(*drParameters_),
-              .frictionLawDevice = friction_law::makeFrictionSolverFactory<
-                  Bound<friction_law_gpu::AgingLaw, friction_law_gpu::NoTP>::Type>(*drParameters_),
-              .output = std::make_unique<seissol::dr::output::RateAndState>()};
-    }
-  }
-};
-
-class RateAndStateSlipFactory : public AbstractFactory {
-  public:
-  using AbstractFactory::AbstractFactory;
-  DynamicRuptureTuple produce() override {
-    if (drParameters_->isThermalPressureOn) {
-      return {.storage = std::make_unique<seissol::LTSRateAndStateThermalPressurization>(
-                  drParameters_.get()),
-              .initializer = std::make_unique<
-                  seissol::dr::initializer::RateAndStateThermalPressurizationInitializer>(
-                  drParameters_, faultMesh_, models_),
-              .frictionLaw = friction_law::makeFrictionSolverFactory<
-                  Bound<friction_law_cpu::SlipLaw, friction_law_cpu::ThermalPressurization>::Type>(
-                  *drParameters_),
-              .frictionLawDevice = friction_law::makeFrictionSolverFactory<
-                  Bound<friction_law_gpu::SlipLaw, friction_law_gpu::ThermalPressurization>::Type>(
-                  *drParameters_),
-              .output = std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>()};
-    } else {
-      return {.storage = std::make_unique<seissol::LTSRateAndState>(drParameters_.get()),
-              .initializer = std::make_unique<seissol::dr::initializer::RateAndStateInitializer>(
-                  drParameters_, faultMesh_, models_),
-              .frictionLaw = friction_law::makeFrictionSolverFactory<
-                  Bound<friction_law_cpu::SlipLaw, friction_law_cpu::NoTP>::Type>(*drParameters_),
-              .frictionLawDevice = friction_law::makeFrictionSolverFactory<
-                  Bound<friction_law_gpu::SlipLaw, friction_law_gpu::NoTP>::Type>(*drParameters_),
-              .output = std::make_unique<seissol::dr::output::RateAndState>()};
-    }
-  }
-};
-
-class LinearSlipWeakeningBimaterialFactory : public AbstractFactory {
-  public:
-  using AbstractFactory::AbstractFactory;
-  DynamicRuptureTuple produce() override {
-    using FrictionLawType =
-        Bound<friction_law_cpu::LinearSlipWeakeningLaw, friction_law_cpu::BiMaterialFault>;
-    using FrictionLawTypeGpu =
-        Bound<friction_law_gpu::LinearSlipWeakeningLaw, friction_law_gpu::BiMaterialFault>;
-
-    return {
-        .storage = std::make_unique<seissol::LTSLinearSlipWeakeningBimaterial>(drParameters_.get()),
-        .initializer =
-            std::make_unique<seissol::dr::initializer::LinearSlipWeakeningBimaterialInitializer>(
-                drParameters_, faultMesh_, models_),
-        .frictionLaw =
-            friction_law::makeFrictionSolverFactory<FrictionLawType::Type>(*drParameters_),
-        .frictionLawDevice =
-            friction_law::makeFrictionSolverFactory<FrictionLawTypeGpu::Type>(*drParameters_),
-        .output = std::make_unique<seissol::dr::output::LinearSlipWeakeningBimaterial>()};
-  }
-};
-
-class LinearSlipWeakeningTPApproxFactory : public AbstractFactory {
-  public:
-  using AbstractFactory::AbstractFactory;
-  DynamicRuptureTuple produce() override {
-    using FrictionLawType =
-        Bound<friction_law_cpu::LinearSlipWeakeningLaw, friction_law_cpu::TPApprox>;
-    using FrictionLawTypeGpu =
-        Bound<friction_law_gpu::LinearSlipWeakeningLaw, friction_law_gpu::TPApprox>;
-
-    return {.storage = std::make_unique<seissol::LTSLinearSlipWeakening>(drParameters_.get()),
-            .initializer =
-                std::make_unique<seissol::dr::initializer::LinearSlipWeakeningInitializer>(
-                    drParameters_, faultMesh_, models_),
-            .frictionLaw =
-                friction_law::makeFrictionSolverFactory<FrictionLawType::Type>(*drParameters_),
-            .frictionLawDevice =
-                friction_law::makeFrictionSolverFactory<FrictionLawTypeGpu::Type>(*drParameters_),
-            .output = std::make_unique<seissol::dr::output::LinearSlipWeakening>()};
-  }
-};
-
-class ImposedSlipRatesYoffeFactory : public AbstractFactory {
-  public:
-  using AbstractFactory::AbstractFactory;
-  DynamicRuptureTuple produce() override {
-    return {.storage = std::make_unique<seissol::LTSImposedSlipRatesYoffe>(drParameters_.get()),
-            .initializer =
-                std::make_unique<seissol::dr::initializer::ImposedSlipRatesYoffeInitializer>(
-                    drParameters_, faultMesh_, models_),
-            .frictionLaw = friction_law::makeFrictionSolverFactory<
-                Bound<friction_law_cpu::ImposedSlipRates, friction_law_cpu::YoffeSTF>::Type>(
-                *drParameters_),
-            .frictionLawDevice = friction_law::makeFrictionSolverFactory<
-                Bound<friction_law_gpu::ImposedSlipRates, friction_law_gpu::YoffeSTF>::Type>(
-                *drParameters_),
-            .output = std::make_unique<seissol::dr::output::ImposedSlipRates>()};
-  }
-};
-
-class ImposedSlipRatesGaussianFactory : public AbstractFactory {
-  public:
-  using AbstractFactory::AbstractFactory;
-  DynamicRuptureTuple produce() override {
-    return {.storage = std::make_unique<seissol::LTSImposedSlipRatesGaussian>(drParameters_.get()),
-            .initializer =
-                std::make_unique<seissol::dr::initializer::ImposedSlipRatesGaussianInitializer>(
-                    drParameters_, faultMesh_, models_),
-            .frictionLaw = friction_law::makeFrictionSolverFactory<
-                Bound<friction_law_cpu::ImposedSlipRates, friction_law_cpu::GaussianSTF>::Type>(
-                *drParameters_),
-            .frictionLawDevice = friction_law::makeFrictionSolverFactory<
-                Bound<friction_law_gpu::ImposedSlipRates, friction_law_gpu::GaussianSTF>::Type>(
-                *drParameters_),
-            .output = std::make_unique<seissol::dr::output::ImposedSlipRates>()};
-  }
-};
-
-class ImposedSlipRatesDeltaFactory : public AbstractFactory {
-  public:
-  using AbstractFactory::AbstractFactory;
-  DynamicRuptureTuple produce() override {
-    return {.storage = std::make_unique<seissol::LTSImposedSlipRatesDelta>(drParameters_.get()),
-            .initializer =
-                std::make_unique<seissol::dr::initializer::ImposedSlipRatesDeltaInitializer>(
-                    drParameters_, faultMesh_, models_),
-            .frictionLaw = friction_law::makeFrictionSolverFactory<
-                Bound<friction_law_cpu::ImposedSlipRates, friction_law_cpu::DeltaSTF>::Type>(
-                *drParameters_),
-            .frictionLawDevice = friction_law::makeFrictionSolverFactory<
-                Bound<friction_law_gpu::ImposedSlipRates, friction_law_gpu::DeltaSTF>::Type>(
-                *drParameters_),
-            .output = std::make_unique<seissol::dr::output::ImposedSlipRates>()};
-  }
-};
-
-class RateAndStateFastVelocityWeakeningFactory : public AbstractFactory {
-  public:
-  using AbstractFactory::AbstractFactory;
-  DynamicRuptureTuple produce() override {
-    if (drParameters_->isThermalPressureOn) {
-      return {
-          .storage =
-              std::make_unique<seissol::LTSRateAndStateThermalPressurizationFastVelocityWeakening>(
-                  drParameters_.get()),
-          .initializer = std::make_unique<
-              seissol::dr::initializer::RateAndStateFastVelocityThermalPressurizationInitializer>(
-              drParameters_, faultMesh_, models_),
-          .frictionLaw = friction_law::makeFrictionSolverFactory<
-              Bound<friction_law_cpu::FastVelocityWeakeningLaw,
-                    friction_law_cpu::ThermalPressurization>::Type>(*drParameters_),
-          .frictionLawDevice = friction_law::makeFrictionSolverFactory<
-              Bound<friction_law_gpu::FastVelocityWeakeningLaw,
-                    friction_law_gpu::ThermalPressurization>::Type>(*drParameters_),
-          .output = std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>()};
-    } else {
-      return {.storage = std::make_unique<seissol::LTSRateAndStateFastVelocityWeakening>(
-                  drParameters_.get()),
-              .initializer =
-                  std::make_unique<seissol::dr::initializer::RateAndStateFastVelocityInitializer>(
-                      drParameters_, faultMesh_, models_),
-              .frictionLaw = friction_law::makeFrictionSolverFactory<
-                  Bound<friction_law_cpu::FastVelocityWeakeningLaw, friction_law_cpu::NoTP>::Type>(
-                  *drParameters_),
-              .frictionLawDevice = friction_law::makeFrictionSolverFactory<
-                  Bound<friction_law_gpu::FastVelocityWeakeningLaw, friction_law_gpu::NoTP>::Type>(
-                  *drParameters_),
-              .output = std::make_unique<seissol::dr::output::RateAndState>()};
-    }
-  }
-};
-
-class RateAndStateSevereVelocityWeakeningFactory : public AbstractFactory {
-  public:
-  using AbstractFactory::AbstractFactory;
-  DynamicRuptureTuple produce() override {
-    if (drParameters_->isThermalPressureOn) {
-      return {
-          .storage =
-              std::make_unique<seissol::LTSRateAndStateThermalPressurization>(drParameters_.get()),
-          .initializer = std::make_unique<
-              seissol::dr::initializer::RateAndStateSevereVelocityThermalPressurizationInitializer>(
-              drParameters_, faultMesh_, models_),
-          .frictionLaw = friction_law::makeFrictionSolverFactory<
-              Bound<friction_law_cpu::SevereVelocityWeakeningLaw,
-                    friction_law_cpu::ThermalPressurization>::Type>(*drParameters_),
-          .frictionLawDevice = friction_law::makeFrictionSolverFactory<
-              Bound<friction_law_gpu::SevereVelocityWeakeningLaw,
-                    friction_law_gpu::ThermalPressurization>::Type>(*drParameters_),
-          .output = std::make_unique<seissol::dr::output::RateAndStateThermalPressurization>()};
-    } else {
-      return {
-          .storage = std::make_unique<seissol::LTSRateAndState>(drParameters_.get()),
-          .initializer =
-              std::make_unique<seissol::dr::initializer::RateAndStateSevereVelocityInitializer>(
-                  drParameters_, faultMesh_, models_),
-          .frictionLaw = friction_law::makeFrictionSolverFactory<
-              Bound<friction_law_cpu::SevereVelocityWeakeningLaw, friction_law_cpu::NoTP>::Type>(
-              *drParameters_),
-          .frictionLawDevice = friction_law::makeFrictionSolverFactory<
-              Bound<friction_law_gpu::SevereVelocityWeakeningLaw, friction_law_gpu::NoTP>::Type>(
-              *drParameters_),
-          .output = std::make_unique<seissol::dr::output::RateAndState>()};
-    }
-  }
-};
-} // namespace
-
+/// The factory of the friction law of `drParameters`, made with `args` after the parameters.
+template <typename... Args>
 std::unique_ptr<AbstractFactory>
-    getFactory(const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
-               const initializer::FaultMesh& faultMesh,
-               const data::ModelLoader& models) {
+    makeFactory(const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
+                const Args&... args) {
   switch (drParameters->frictionLawType) {
   case seissol::dr::misc::FrictionLawType::NoFault:
-    return std::make_unique<NoFaultFactory>(drParameters, faultMesh, models);
+    return std::make_unique<NoFaultFactory>(drParameters, args...);
   case seissol::dr::misc::FrictionLawType::ImposedSlipRatesYoffe:
-    return std::make_unique<ImposedSlipRatesYoffeFactory>(drParameters, faultMesh, models);
+    return std::make_unique<ImposedSlipRatesYoffeFactory>(drParameters, args...);
   case seissol::dr::misc::FrictionLawType::ImposedSlipRatesGaussian:
-    return std::make_unique<ImposedSlipRatesGaussianFactory>(drParameters, faultMesh, models);
+    return std::make_unique<ImposedSlipRatesGaussianFactory>(drParameters, args...);
   case seissol::dr::misc::FrictionLawType::ImposedSlipRatesDelta:
-    return std::make_unique<ImposedSlipRatesDeltaFactory>(drParameters, faultMesh, models);
+    return std::make_unique<ImposedSlipRatesDeltaFactory>(drParameters, args...);
   case seissol::dr::misc::FrictionLawType::LinearSlipWeakening:
-    return std::make_unique<LinearSlipWeakeningFactory>(drParameters, faultMesh, models);
+    return std::make_unique<LinearSlipWeakeningFactory>(drParameters, args...);
   case seissol::dr::misc::FrictionLawType::LinearSlipWeakeningBimaterial:
-    return std::make_unique<LinearSlipWeakeningBimaterialFactory>(drParameters, faultMesh, models);
+    return std::make_unique<LinearSlipWeakeningBimaterialFactory>(drParameters, args...);
   case seissol::dr::misc::FrictionLawType::LinearSlipWeakeningTPApprox:
-    return std::make_unique<LinearSlipWeakeningTPApproxFactory>(drParameters, faultMesh, models);
+    return std::make_unique<LinearSlipWeakeningTPApproxFactory>(drParameters, args...);
   case seissol::dr::misc::FrictionLawType::RateAndStateAgingLaw:
-    return std::make_unique<RateAndStateAgingFactory>(drParameters, faultMesh, models);
+    return makeTPFactory<RateAndStateAgingFactory, RateAndStateAgingTPFactory>(drParameters,
+                                                                               args...);
   case seissol::dr::misc::FrictionLawType::RateAndStateSlipLaw:
-    return std::make_unique<RateAndStateSlipFactory>(drParameters, faultMesh, models);
+    return makeTPFactory<RateAndStateSlipFactory, RateAndStateSlipTPFactory>(drParameters, args...);
   case seissol::dr::misc::FrictionLawType::RateAndStateSevereVelocityWeakening:
-    return std::make_unique<RateAndStateSevereVelocityWeakeningFactory>(
-        drParameters, faultMesh, models);
+    return makeTPFactory<RateAndStateSevereVelocityWeakeningFactory,
+                         RateAndStateSevereVelocityWeakeningTPFactory>(drParameters, args...);
   case seissol::dr::misc::FrictionLawType::RateAndStateAgingNucleation:
     logError() << "friction law 101 currently disabled";
     return {nullptr};
   case seissol::dr::misc::FrictionLawType::RateAndStateFastVelocityWeakening:
-    return std::make_unique<RateAndStateFastVelocityWeakeningFactory>(
-        drParameters, faultMesh, models);
+    return makeTPFactory<RateAndStateFastVelocityWeakeningFactory,
+                         RateAndStateFastVelocityWeakeningTPFactory>(drParameters, args...);
   default:
     logError() << "unknown friction law";
     return nullptr;
   }
 }
+
+} // namespace
+
+DynamicRuptureTuple AbstractFactory::produce() {
+  auto parts = solver();
+  return {.storage = std::move(parts.storage),
+          .initializer = initializer(),
+          .frictionLaw = std::move(parts.frictionLaw),
+          .frictionLawDevice = std::move(parts.frictionLawDevice),
+          .output = output()};
+}
+
+std::unique_ptr<AbstractFactory>
+    getFactory(const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters,
+               const initializer::FaultMesh& faultMesh,
+               const data::ModelLoader& models) {
+  return makeFactory(drParameters, faultMesh, models);
+}
+
+std::unique_ptr<AbstractFactory> getFactory(
+    const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters) {
+  return makeFactory(drParameters);
+}
+
 } // namespace seissol::dr::factory

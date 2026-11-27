@@ -26,7 +26,7 @@
 #include <vector>
 
 namespace seissol::dr::initializer {
-void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
+void ImposedSlipRatesInitializer::readFault(DynamicRupture::Storage& drStorage) {
   logQuadratureRules(drStorage);
   for (auto& layer : drStorage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
@@ -80,11 +80,14 @@ void ImposedSlipRatesInitializer::initializeFault(DynamicRupture::Storage& drSto
       }
 
       // Set initial and nucleation stress to zero, these are not needed for this FL
-
-      fixInterpolatedSTFParameters(layer);
-
-      initializeOtherVariables(layer);
     });
+  }
+}
+
+void ImposedSlipRatesInitializer::deriveInitialState(DynamicRupture::Storage& drStorage) {
+  for (auto& layer : drStorage.leaves(Ghost)) {
+    fixInterpolatedSTFParameters(layer);
+    initializeOtherVariables(layer);
   }
 }
 
@@ -98,7 +101,7 @@ void ImposedSlipRatesInitializer::rotateSlipToFaultCS(
   for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
     const auto& drFaceInformation = layer.var<DynamicRupture::FaceInformation>();
     const auto meshFace = drFaceInformation[ltsFace].meshFace;
-    const Fault& fault = faultMesh_.mesh.getFault().at(meshFace);
+    const Fault& fault = faultMesh().mesh.getFault().at(meshFace);
 
     CoordinateT strikeVector{};
     CoordinateT dipVector{};

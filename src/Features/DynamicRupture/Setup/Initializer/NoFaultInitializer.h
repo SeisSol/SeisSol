@@ -19,7 +19,6 @@ namespace seissol::dr::initializer {
 class NoFaultInitializer : public BaseDRInitializer {
   public:
   using BaseDRInitializer::BaseDRInitializer;
-  using BaseDRInitializer::initializeFault;
 };
 } // namespace seissol::dr::initializer
 

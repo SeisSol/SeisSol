@@ -23,11 +23,17 @@ class RateAndStateInitializer : public BaseDRInitializer {
   /**
    * Computes initial friction and slip rates
    */
-  void initializeFault(DynamicRupture::Storage& drStorage) override;
+  void deriveInitialState(DynamicRupture::Storage& drStorage) override;
 
-  protected: /**
-              * Adds the additional parameters sl0, rs_a
-              */
+  protected:
+  /**
+   * Reads the faults, and tells where the parameters f0, muW and b come from
+   */
+  void readFault(DynamicRupture::Storage& drStorage) override;
+
+  /**
+   * Adds the additional parameters sl0, rs_a
+   */
   void addAdditionalParameters(std::unordered_map<std::string, void*>& parameterToStorageMap,
                                DynamicRupture::Layer& layer) override;
 
@@ -164,7 +170,7 @@ class ThermalPressurizationInitializer {
   /**
    * Intializes temperature and pressure and sets compute grid to 0
    */
-  void initializeFault(DynamicRupture::Storage& drStorage);
+  void deriveInitialState(DynamicRupture::Storage& drStorage);
 
   /**
    * Evaluates, whether the FaultParameterDB provides a certain parameter.
@@ -199,10 +205,14 @@ class RateAndStateThermalPressurizationInitializer : public RateAndStateInitiali
       const FaultMesh& faultMesh,
       data::ModelLoader models);
 
+  /// without a mesh and fault files (see BaseDRInitializer)
+  explicit RateAndStateThermalPressurizationInitializer(
+      const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters);
+
   /**
    * Intializes temperature and pressure and sets compute grid to 0
    */
-  void initializeFault(DynamicRupture::Storage& drStorage) override;
+  void deriveInitialState(DynamicRupture::Storage& drStorage) override;
 
   protected:
   /**
@@ -225,10 +235,14 @@ class RateAndStateFastVelocityThermalPressurizationInitializer
       const FaultMesh& faultMesh,
       data::ModelLoader models);
 
+  /// without a mesh and fault files (see BaseDRInitializer)
+  explicit RateAndStateFastVelocityThermalPressurizationInitializer(
+      const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters);
+
   /**
    * Intializes temperature and pressure and sets compute grid to 0
    */
-  void initializeFault(DynamicRupture::Storage& drStorage) override;
+  void deriveInitialState(DynamicRupture::Storage& drStorage) override;
 
   protected:
   /**
@@ -251,10 +265,14 @@ class RateAndStateSevereVelocityThermalPressurizationInitializer
       const FaultMesh& faultMesh,
       data::ModelLoader models);
 
+  /// without a mesh and fault files (see BaseDRInitializer)
+  explicit RateAndStateSevereVelocityThermalPressurizationInitializer(
+      const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters);
+
   /**
    * Intializes temperature and pressure and sets compute grid to 0
    */
-  void initializeFault(DynamicRupture::Storage& drStorage) override;
+  void deriveInitialState(DynamicRupture::Storage& drStorage) override;
 
   protected:
   /**

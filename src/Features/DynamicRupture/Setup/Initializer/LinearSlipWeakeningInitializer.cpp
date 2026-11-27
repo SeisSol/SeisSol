@@ -22,8 +22,8 @@
 
 namespace seissol::dr::initializer {
 
-void LinearSlipWeakeningInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
-  BaseDRInitializer::initializeFault(drStorage);
+void LinearSlipWeakeningInitializer::deriveInitialState(DynamicRupture::Storage& drStorage) {
+  BaseDRInitializer::deriveInitialState(drStorage);
   for (auto& layer : drStorage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
       using Cfg = decltype(cfg);
@@ -79,8 +79,9 @@ void LinearSlipWeakeningInitializer::addAdditionalParameters(
   });
 }
 
-void LinearSlipWeakeningBimaterialInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
-  LinearSlipWeakeningInitializer::initializeFault(drStorage);
+void LinearSlipWeakeningBimaterialInitializer::deriveInitialState(
+    DynamicRupture::Storage& drStorage) {
+  LinearSlipWeakeningInitializer::deriveInitialState(drStorage);
   for (auto& layer : drStorage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
       using Cfg = decltype(cfg);

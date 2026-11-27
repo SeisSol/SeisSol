@@ -21,6 +21,7 @@
 #include "Core/Memory/Tree/Backmap.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/TimeStepping/Layout/ClusterLayout.h"
+#include "Features/DynamicRupture/Physics/Impedances.h"
 #include "Features/DynamicRupture/Setup/DynamicRuptureImpedance.h"
 #include "Features/DynamicRupture/Solver/Storage.h"
 #include "Features/DynamicRupture/Typedefs.h"
@@ -478,23 +479,8 @@ void initializeDynamicRuptureMatricesOfLayer(DynamicRupture::Layer& layer,
     waveSpeedsMinus[ltsFace].sWaveVelocity = minusMaterial->getSWaveSpeed();
 
     // calculate Impedances Z and eta
-    impAndEta[ltsFace].zp =
-        (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].pWaveVelocity);
-    impAndEta[ltsFace].zpNeig =
-        (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].pWaveVelocity);
-    impAndEta[ltsFace].zs =
-        (waveSpeedsPlus[ltsFace].density * waveSpeedsPlus[ltsFace].sWaveVelocity);
-    impAndEta[ltsFace].zsNeig =
-        (waveSpeedsMinus[ltsFace].density * waveSpeedsMinus[ltsFace].sWaveVelocity);
-
-    impAndEta[ltsFace].invZp = 1 / impAndEta[ltsFace].zp;
-    impAndEta[ltsFace].invZpNeig = 1 / impAndEta[ltsFace].zpNeig;
-    impAndEta[ltsFace].invZs = 1 / impAndEta[ltsFace].zs;
-    impAndEta[ltsFace].invZsNeig = 1 / impAndEta[ltsFace].zsNeig;
-
-    impAndEta[ltsFace].etaP = 1.0 / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
-    impAndEta[ltsFace].invEtaS = 1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig;
-    impAndEta[ltsFace].etaS = 1.0 / (1.0 / impAndEta[ltsFace].zs + 1.0 / impAndEta[ltsFace].zsNeig);
+    impAndEta[ltsFace] =
+        dr::impedancesAndEta<Cfg>(waveSpeedsPlus[ltsFace], waveSpeedsMinus[ltsFace]);
 
     // The flux through the face is the Jacobian along its normal. The imposed state is given in the
     // coordinates of the face, which T rotates back, so it is the x Jacobian of the material in

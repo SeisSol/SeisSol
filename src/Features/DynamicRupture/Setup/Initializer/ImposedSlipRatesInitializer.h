@@ -20,13 +20,19 @@ class ImposedSlipRatesInitializer : public BaseDRInitializer {
   using BaseDRInitializer::BaseDRInitializer;
 
   /**
-   * Main function to initialize all fault dependent parameters.
-   * @param drStorage pointer to the dynamic rupture storage
-   * not need to store values in the Fortran parts
+   * Fixes the parameters of the source time functions, and initializes the variables of the
+   * outputs.
    */
-  void initializeFault(DynamicRupture::Storage& drStorage) override;
+  void deriveInitialState(DynamicRupture::Storage& drStorage) override;
 
   protected:
+  /**
+   * Reads the slip in strike and dip direction and the rupture onset, rotates the slip to the
+   * coordinate systems of the faces, and sets the stresses to zero, which this friction law does
+   * not use.
+   */
+  void readFault(DynamicRupture::Storage& drStorage) override;
+
   /**
    * Add additional parameters to be read from the easi file
    * This will be specialized in the derived friction law initializers

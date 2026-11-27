@@ -18,6 +18,9 @@
 #include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
 #include "Features/DynamicRupture/Solver/Storage.h"
 
+#include <optional>
+#include <string>
+#include <unordered_map>
 #include <utility>
 #include <yaml-cpp/yaml.h>
 
@@ -38,7 +41,8 @@ struct FaultMesh {
  */
 class BaseDRInitializer {
   protected:
-  FaultMesh faultMesh_;
+  //! (none without fault files: see the constructor that takes no mesh)
+  std::optional<FaultMesh> faultMesh_;
   /**
    * reference to the dynamic rupture parameters, which describe the global behaviour
    */
@@ -73,18 +77,48 @@ class BaseDRInitializer {
         faultParameterNames_(
             seissol::initializer::faultProvides(models_, drParameters->faultFileName)) {};
 
+  /**
+   * Without a mesh and fault files: such an initializer only derives the initial state of the
+   * friction law from parameters already in the storage (see deriveInitialState()), e.g. on the
+   * synthetic faults of the proxy.
+   */
+  explicit BaseDRInitializer(
+      const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters)
+      : drParameters_(drParameters) {}
+
   virtual ~BaseDRInitializer() = default;
 
   /**
-   * Main function to initialize all fault dependent parameters.
-   * In particular this initializes the initial and nucleation stress and rotates them to the fault
-   * aligned coordinate system Furthermore data is copied to the fortran part
+   * Main function to initialize all fault dependent parameters: reads them (readFault()), and
+   * derives the initial state of the friction law from them (deriveInitialState()).
    * @param drStorage pointer to the dynamic rupture storage
-   * not need to store values in the Fortran parts
    */
-  virtual void initializeFault(DynamicRupture::Storage& drStorage);
+  void initializeFault(DynamicRupture::Storage& drStorage);
+
+  /**
+   * Derives what the friction law starts from (e.g. its friction coefficient and its state, and
+   * the variables of the outputs) from the parameters in the storage, which readFault() reads;
+   * needs neither the mesh nor the fault files.
+   */
+  virtual void deriveInitialState(DynamicRupture::Storage& drStorage);
+
+  /**
+   * The parameters of the friction law that the fault files give per point, besides the stresses,
+   * by their names there: where they go in the storage, for the faces of `layer`.
+   */
+  std::unordered_map<std::string, void*> lawParameters(DynamicRupture::Layer& layer);
 
   protected:
+  /**
+   * Reads the parameters of the faults from the fault files, at the points of the faces of the
+   * mesh: the initial and the nucleation stresses, which it rotates to the coordinate systems of
+   * the faces, and the parameters of the friction law (see addAdditionalParameters()).
+   */
+  virtual void readFault(DynamicRupture::Storage& drStorage);
+
+  /// the mesh of the faults; only an initializer that has one reads them
+  [[nodiscard]] const FaultMesh& faultMesh() const;
+
   /**
    * Add additional parameters to be read from the easi file
    * This will be specialized in the derived friction law initializers

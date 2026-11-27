@@ -29,8 +29,18 @@
 #include <vector>
 
 namespace seissol::dr::initializer {
-void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
-  BaseDRInitializer::initializeFault(drStorage);
+void RateAndStateInitializer::readFault(DynamicRupture::Storage& drStorage) {
+  BaseDRInitializer::readFault(drStorage);
+
+  const auto rsF0Param = !faultProvides(faultNameAlternatives({"rs_f0", "RS_f0"}));
+  const auto rsMuWParam = !faultProvides(faultNameAlternatives({"rs_muw", "RS_muw"}));
+  const auto rsBParam = !faultProvides(faultNameAlternatives({"rs_b", "RS_b"}));
+  logInfo() << "RS parameter source (1 == from parameter file, 0 == from easi file): f0"
+            << rsF0Param << "- muW" << rsMuWParam << "- b" << rsBParam;
+}
+
+void RateAndStateInitializer::deriveInitialState(DynamicRupture::Storage& drStorage) {
+  BaseDRInitializer::deriveInitialState(drStorage);
 
   const auto rsF0ParamName = faultNameAlternatives({"rs_f0", "RS_f0"});
   const auto rsMuWParamName = faultNameAlternatives({"rs_muw", "RS_muw"});
@@ -39,9 +49,6 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
   const auto rsF0Param = !faultProvides(rsF0ParamName);
   const auto rsMuWParam = !faultProvides(rsMuWParamName);
   const auto rsBParam = !faultProvides(rsBParamName);
-
-  logInfo() << "RS parameter source (1 == from parameter file, 0 == from easi file): f0"
-            << rsF0Param << "- muW" << rsMuWParam << "- b" << rsBParam;
 
   for (auto& layer : drStorage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
@@ -255,7 +262,7 @@ ThermalPressurizationInitializer::ThermalPressurizationInitializer(
     const std::set<std::string>& faultParameterNames)
     : drParameters_(drParameters), faultParameterNames_(faultParameterNames) {}
 
-void ThermalPressurizationInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
+void ThermalPressurizationInitializer::deriveInitialState(DynamicRupture::Storage& drStorage) {
   for (auto& layer : drStorage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
       using Cfg = decltype(cfg);
@@ -313,10 +320,16 @@ RateAndStateThermalPressurizationInitializer::RateAndStateThermalPressurizationI
       ThermalPressurizationInitializer(drParameters,
                                        RateAndStateInitializer::faultParameterNames_) {}
 
-void RateAndStateThermalPressurizationInitializer::initializeFault(
+RateAndStateThermalPressurizationInitializer::RateAndStateThermalPressurizationInitializer(
+    const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters)
+    : RateAndStateInitializer(drParameters),
+      ThermalPressurizationInitializer(drParameters,
+                                       RateAndStateInitializer::faultParameterNames_) {}
+
+void RateAndStateThermalPressurizationInitializer::deriveInitialState(
     DynamicRupture::Storage& drStorage) {
-  RateAndStateInitializer::initializeFault(drStorage);
-  ThermalPressurizationInitializer::initializeFault(drStorage);
+  RateAndStateInitializer::deriveInitialState(drStorage);
+  ThermalPressurizationInitializer::deriveInitialState(drStorage);
 }
 
 void RateAndStateThermalPressurizationInitializer::addAdditionalParameters(
@@ -334,10 +347,17 @@ RateAndStateFastVelocityThermalPressurizationInitializer::
       ThermalPressurizationInitializer(drParameters,
                                        RateAndStateFastVelocityInitializer::faultParameterNames_) {}
 
-void RateAndStateFastVelocityThermalPressurizationInitializer::initializeFault(
+RateAndStateFastVelocityThermalPressurizationInitializer::
+    RateAndStateFastVelocityThermalPressurizationInitializer(
+        const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters)
+    : RateAndStateFastVelocityInitializer(drParameters),
+      ThermalPressurizationInitializer(drParameters,
+                                       RateAndStateFastVelocityInitializer::faultParameterNames_) {}
+
+void RateAndStateFastVelocityThermalPressurizationInitializer::deriveInitialState(
     DynamicRupture::Storage& drStorage) {
-  RateAndStateFastVelocityInitializer::initializeFault(drStorage);
-  ThermalPressurizationInitializer::initializeFault(drStorage);
+  RateAndStateFastVelocityInitializer::deriveInitialState(drStorage);
+  ThermalPressurizationInitializer::deriveInitialState(drStorage);
 }
 
 void RateAndStateFastVelocityThermalPressurizationInitializer::addAdditionalParameters(
@@ -355,10 +375,17 @@ RateAndStateSevereVelocityThermalPressurizationInitializer::
       ThermalPressurizationInitializer(
           drParameters, RateAndStateSevereVelocityInitializer::faultParameterNames_) {}
 
-void RateAndStateSevereVelocityThermalPressurizationInitializer::initializeFault(
+RateAndStateSevereVelocityThermalPressurizationInitializer::
+    RateAndStateSevereVelocityThermalPressurizationInitializer(
+        const std::shared_ptr<seissol::initializer::parameters::DRParameters>& drParameters)
+    : RateAndStateSevereVelocityInitializer(drParameters),
+      ThermalPressurizationInitializer(
+          drParameters, RateAndStateSevereVelocityInitializer::faultParameterNames_) {}
+
+void RateAndStateSevereVelocityThermalPressurizationInitializer::deriveInitialState(
     DynamicRupture::Storage& drStorage) {
-  RateAndStateSevereVelocityInitializer::initializeFault(drStorage);
-  ThermalPressurizationInitializer::initializeFault(drStorage);
+  RateAndStateSevereVelocityInitializer::deriveInitialState(drStorage);
+  ThermalPressurizationInitializer::deriveInitialState(drStorage);
 }
 
 void RateAndStateSevereVelocityThermalPressurizationInitializer::addAdditionalParameters(
