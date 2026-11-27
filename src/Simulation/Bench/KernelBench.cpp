@@ -20,7 +20,9 @@
 #include "Core/Monitoring/Metric.h"
 #include "Core/Numerical/Quadrature.h"
 #include "Core/Parallel/Runtime/Stream.h"
+#include "Core/TimeStepping/Compute/ClusterClock.h"
 #include "Features/DynamicRupture/Solver/DynamicRupture.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
 #include "Features/DynamicRupture/Solver/Storage.h"
 #include "Features/Plasticity/Solver/Plasticity.h"
 #include "Features/Plasticity/Solver/Storage.h"
@@ -60,7 +62,10 @@ class KernelBench : public LoopBench {
 
   explicit KernelBench(const BenchSetup& setup);
   // (the device may still work on the data)
-  ~KernelBench() override { runtime_.wait(); }
+  ~KernelBench() override {
+    runtime_.wait();
+    clock_.dispose();
+  }
 
   KernelBench(const KernelBench&) = delete;
   KernelBench(KernelBench&&) = delete;
@@ -78,6 +83,7 @@ class KernelBench : public LoopBench {
   void runNeighbor();
   void runGodunovDR();
   void runPlasticity();
+  void runFrictionLaw();
 
   void runAderDevice();
   void runLocalWOAderDevice();
@@ -100,6 +106,10 @@ class KernelBench : public LoopBench {
   parallel::runtime::StreamRuntime runtime_;
   //! the cells that yielded (on the device)
   memory::MemkindArray<std::size_t> yielded_;
+  //! the friction law on the host and on the device, which reads the time from the clock there
+  std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolver_;
+  std::unique_ptr<dr::friction_law::FrictionSolverImpl<Cfg>> frictionSolverDevice_;
+  solver::ClusterClock clock_;
 
   PerformanceEstimate aderEstimate_{};
   PerformanceEstimate localWOAderEstimate_{};
@@ -119,6 +129,20 @@ KernelBench<Cfg>::KernelBench(const BenchSetup& setup)
   neighborKernel_.setGlobalData(globalData);
   dynRupKernel_.setGlobalData(globalData);
   computeEstimates();
+
+  if (data_.hasFaces()) {
+    frictionSolver_ = dr::friction_law::makeFrictionSolver<Cfg>(data_.frictionLaw());
+    frictionSolver_->allocateAuxiliaryMemory(globalData.onHost);
+    frictionSolver_->setupLayer(data_.faces(), runtime_);
+    if constexpr (isDeviceOn()) {
+      clock_.set(0, runtime_);
+      frictionSolverDevice_ = dr::friction_law::makeFrictionSolver<Cfg>(data_.frictionLawDevice());
+      frictionSolverDevice_->allocateAuxiliaryMemory(globalData.onDevice);
+      frictionSolverDevice_->setClock(clock_.device());
+      frictionSolverDevice_->setupLayer(data_.faces(), runtime_);
+    }
+    runtime_.wait();
+  }
 }
 
 template <typename Cfg>
@@ -177,6 +201,12 @@ void KernelBench<Cfg>::run(Kernel kernel) {
   case Kernel::PlasticityYield:
     onDevice_ ? runPlasticityDevice() : runPlasticity();
     break;
+  case Kernel::FrictionLaw:
+    if (!data_.hasFaces()) {
+      throw std::invalid_argument("The loops of the faces of dynamic rupture need the faces.");
+    }
+    runFrictionLaw();
+    break;
   case Kernel::All:
     run(Kernel::Local);
     run(Kernel::Neighbor);
@@ -206,6 +236,9 @@ auto KernelBench<Cfg>::estimate(Kernel kernel) const -> PerformanceEstimate {
   case Kernel::Plasticity:
   case Kernel::PlasticityYield:
     return plasticityEstimate_;
+  case Kernel::FrictionLaw:
+    // (the friction laws count no FLOPs)
+    return {};
   case Kernel::All:
     return estimate(Kernel::Local) + estimate(Kernel::Neighbor);
   case Kernel::AllDR:
@@ -403,6 +436,15 @@ void KernelBench<Cfg>::runPlasticity() {
     }
     LIKWID_MARKER_STOP("plasticity");
   }
+}
+
+template <typename Cfg>
+void KernelBench<Cfg>::runFrictionLaw() {
+  const auto [timePoints, timeWeights] =
+      quadrature::shiftedGaussLegendre(Cfg::ConvergenceOrder, 0, Timestep);
+  const auto frictionTime = dr::friction_law::FrictionSolver::computeDeltaT<Cfg>(timePoints);
+  auto& solver = onDevice_ ? *frictionSolverDevice_ : *frictionSolver_;
+  solver.evaluate(0, frictionTime, timeWeights.data(), runtime_);
 }
 
 // On the device, every kernel records a graph of its own: the graphs of a layer are kept by their

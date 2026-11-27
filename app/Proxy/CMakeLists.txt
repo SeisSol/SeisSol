@@ -61,6 +61,25 @@ if (TESTING)
             LABELS proxy
         )
     endforeach()
+    # the friction laws: alone in the kernel mode, with the faces in the cluster mode
+    foreach(law 0 16 6 1058 3 4 7 103 103tp 33 34 35)
+        seissol_add_proxy_smoke_test(
+            NAME "Proxy (friction law ${law}): fl"
+            TARGET seissol-proxy-exe
+            KERNEL fl
+            OPTIONS --friction-law=${law}
+            LABELS proxy
+        )
+    endforeach()
+    foreach(law 16 3tp 7)
+        seissol_add_proxy_smoke_test(
+            NAME "Proxy (clusters, friction law ${law}): all_dr"
+            TARGET seissol-proxy-exe
+            KERNEL all_dr
+            OPTIONS --mode=cluster --friction-law=${law}
+            LABELS proxy
+        )
+    endforeach()
 
     # The plain format is what a human reads; keep it from silently going away.
     seissol_add_smoke_test(
@@ -105,6 +124,20 @@ if (TESTING)
         NAME "Proxy: the plasticity of the cluster mode in the kernel mode"
         TARGET seissol-proxy-exe
         ARGS 10 1 all --plasticity=yield
+        EXPECT_FAILURE
+        LABELS proxy
+    )
+    seissol_add_smoke_test(
+        NAME "Proxy: a friction law without parameters in the proxy"
+        TARGET seissol-proxy-exe
+        ARGS 10 1 fl --friction-law=2
+        EXPECT_FAILURE
+        LABELS proxy
+    )
+    seissol_add_smoke_test(
+        NAME "Proxy: thermal pressurization without rate and state"
+        TARGET seissol-proxy-exe
+        ARGS 10 1 fl --friction-law=16tp
         EXPECT_FAILURE
         LABELS proxy
     )

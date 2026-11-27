@@ -19,6 +19,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <memory>
 #include <ostream>
@@ -36,7 +37,7 @@ namespace {
 using KernelName = std::pair<Kernel, std::string_view>;
 
 /// the kernels by their names, in the order the help lists them
-constexpr std::array<KernelName, 10> KernelNames{{
+constexpr std::array<KernelName, 11> KernelNames{{
     {Kernel::All, "all"},
     {Kernel::AllDR, "all_dr"},
     {Kernel::Local, "local"},
@@ -47,12 +48,17 @@ constexpr std::array<KernelName, 10> KernelNames{{
     {Kernel::LocalWOAder, "localwoader"},
     {Kernel::Plasticity, "plast"},
     {Kernel::PlasticityYield, "plast_yield"},
+    {Kernel::FrictionLaw, "fl"},
 }};
+
+/// the friction laws the proxy has parameters for, and those of them with thermal pressurization
+constexpr std::array<std::uint32_t, 11> FrictionLawTypes{0, 3, 4, 6, 7, 16, 33, 34, 35, 103, 1058};
+constexpr std::array<std::uint32_t, 4> ThermalPressurizationTypes{3, 4, 7, 103};
 
 /// Whether only the kernel mode runs `kernel`: a part of the loops of a cluster.
 constexpr auto kernelModeOnly(Kernel kernel) -> bool {
   return kernel == Kernel::Ader || kernel == Kernel::LocalWOAder || kernel == Kernel::Plasticity ||
-         kernel == Kernel::PlasticityYield;
+         kernel == Kernel::PlasticityYield || kernel == Kernel::FrictionLaw;
 }
 
 /// The entry of KernelNames that `matches`; nullptr if there is none.
@@ -72,6 +78,7 @@ auto makeBench(const ProxyConfig& config) -> std::unique_ptr<LoopBench> {
                          .cells = config.cells,
                          .dynamicRupture = needsDynamicRupture(config.kernels),
                          .plasticity = cellPlasticity(config),
+                         .frictionLaw = config.frictionLaw,
                          .executor = config.executor};
   return makeLoopBench(config.mode, setup);
 }
@@ -126,6 +133,24 @@ auto Aux::mode2str(Mode mode) -> std::string_view {
   return mode == Mode::Cluster ? "cluster" : "kernel";
 }
 
+auto Aux::str2frictionLaw(const std::string& frictionLawStr) -> FrictionLaw {
+  FrictionLaw frictionLaw{};
+  std::string number = frictionLawStr;
+  if (number.size() > 2 && number.ends_with("tp")) {
+    frictionLaw.thermalPressurization = true;
+    number.resize(number.size() - 2);
+  }
+  if (number.empty() || !std::ranges::all_of(number, [](char c) { return c >= '0' && c <= '9'; })) {
+    throw std::runtime_error("Unknown friction law: " + frictionLawStr);
+  }
+  frictionLaw.type = static_cast<std::uint32_t>(std::stoul(number));
+  return frictionLaw;
+}
+
+auto Aux::frictionLaw2str(FrictionLaw frictionLaw) -> std::string {
+  return std::to_string(frictionLaw.type) + (frictionLaw.thermalPressurization ? "tp" : "");
+}
+
 auto Aux::getAllowedKernels() -> std::vector<std::string> {
   std::vector<std::string> kernels{};
   kernels.reserve(KernelNames.size());
@@ -145,6 +170,7 @@ void Aux::writeOutput(std::ostream& stream,
     stream << "=================================================\n";
     stream << "seissol proxy mode                  : " << kernelStr << '\n';
     stream << "loops run as                        : " << output.mode << '\n';
+    stream << "friction law                        : " << output.frictionLaw << '\n';
     stream << "time for seissol proxy              : " << output.time << '\n';
     stream << "cycles                              : " << output.cycles << '\n';
     stream << '\n';
@@ -177,6 +203,7 @@ void Aux::writeOutput(std::ostream& stream,
     document["name"] = kernelStr;
     document["cycle-source"] = output.cycleSource;
     document["mode"] = output.mode;
+    document["friction-law"] = output.frictionLaw;
     document["time"] = finite(output.time);
     document["cycles"] = finite(static_cast<double>(output.cycles));
     document["gflop-libxsmm"] = finite(output.libxsmmNumTotalGFlop);
@@ -204,7 +231,8 @@ void Aux::displayOutput(const ProxyOutput& output, const std::string& kernelStr)
 
 auto needsDynamicRupture(const std::vector<Kernel>& kernels) -> bool {
   return std::ranges::any_of(kernels, [](Kernel kernel) {
-    return kernel == Kernel::AllDR || kernel == Kernel::NeighborDR || kernel == Kernel::GodunovDR;
+    return kernel == Kernel::AllDR || kernel == Kernel::NeighborDR || kernel == Kernel::GodunovDR ||
+           kernel == Kernel::FrictionLaw;
   });
 }
 
@@ -224,6 +252,16 @@ auto cellPlasticity(const ProxyConfig& config) -> CellPlasticity {
 }
 
 void checkConfig(const ProxyConfig& config) {
+  if (std::ranges::find(FrictionLawTypes, config.frictionLaw.type) == FrictionLawTypes.end()) {
+    throw std::invalid_argument("The proxy has no parameters for the friction law " +
+                                Aux::frictionLaw2str(config.frictionLaw) + ".");
+  }
+  if (config.frictionLaw.thermalPressurization &&
+      std::ranges::find(ThermalPressurizationTypes, config.frictionLaw.type) ==
+          ThermalPressurizationTypes.end()) {
+    throw std::invalid_argument("Only the friction laws of rate and state have thermal "
+                                "pressurization (3, 4, 7, 103).");
+  }
   if (config.mode == Mode::Cluster) {
     for (const auto kernel : config.kernels) {
       if (kernelModeOnly(kernel)) {
@@ -304,6 +342,7 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   output.cycles = totalCycles;
   output.cycleSource = cycleSourceName();
   output.mode = Aux::mode2str(config.mode);
+  output.frictionLaw = Aux::frictionLaw2str(config.frictionLaw);
   output.libxsmmNumTotalGFlop = static_cast<double>(libxsmm_num_total_flops) * 1.e-9;
   output.pspammNumTotalGFlop = static_cast<double>(pspamm_num_total_flops) * 1.e-9;
   output.libxsmmAndpspammNumTotalGFlop =

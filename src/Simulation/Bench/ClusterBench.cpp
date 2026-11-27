@@ -13,8 +13,6 @@
 #include "Core/Monitoring/Metric.h"
 #include "Core/TimeStepping/Compute/ComputeCluster.h"
 #include "Features/DynamicRupture/Solver/DynamicRuptureCluster.h"
-#include "Features/DynamicRupture/Solver/FrictionLaws/CpuImpl/NoFault.h"
-#include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
 #include "Features/DynamicRupture/Solver/Storage.h"
 #include "Features/Plasticity/Solver/Plasticity.h"
 #include "Features/Plasticity/Solver/PlasticityStage.h"
@@ -33,27 +31,15 @@
 #include "Core/Common/Instrumentation.h"
 #endif
 
-#ifdef ACL_DEVICE
-#include "Features/DynamicRupture/Solver/FrictionLaws/GpuImpl/NoFault.h"
-#endif
-
 namespace seissol::proxy {
 
 namespace {
 
-#ifdef ACL_DEVICE
-template <typename Cfg>
-using NoFaultOnDevice = dr::friction_law::gpu::NoFault<Cfg>;
-#else
-template <typename Cfg>
-using NoFaultOnDevice = dr::friction_law::cpu::NoFault<Cfg>;
-#endif
-
 /**
  * The loops of the clusters of a simulation in the configuration `Cfg`, on SyntheticData: a
  * WaveCluster of the cells, with the plasticity as a stage of its correction if the cells have
- * one, and a DynamicRuptureCluster of the fault faces without friction. They run step by step,
- * outside of the time stepping.
+ * one, and a DynamicRuptureCluster of the fault faces with their friction law. They run step by
+ * step, outside of the time stepping.
  */
 template <typename Cfg>
 class ClusterBench : public LoopBench {
@@ -143,11 +129,6 @@ ClusterBench<Cfg>::ClusterBench(const BenchSetup& setup) : executor_(setup.execu
   }
 
   if (data_.hasFaces()) {
-    const auto frictionLaw =
-        dr::friction_law::makeFrictionSolverFactory<dr::friction_law::cpu::NoFault>(
-            data_.drParameters());
-    const auto frictionLawDevice =
-        dr::friction_law::makeFrictionSolverFactory<NoFaultOnDevice>(data_.drParameters());
     DynamicRupture::Layer& faces = data_.faces();
     faultCluster_ =
         std::make_unique<solver::DynamicRuptureCluster<Cfg>>(Timestep,
@@ -157,8 +138,8 @@ ClusterBench<Cfg>::ClusterBench(const BenchSetup& setup) : executor_(setup.execu
                                                              std::vector<solver::PickpointPlan>{},
                                                              data_.globalData().template get<Cfg>(),
                                                              &faces,
-                                                             frictionLaw,
-                                                             frictionLawDevice,
+                                                             data_.frictionLaw(),
+                                                             data_.frictionLawDevice(),
                                                              flopCounter_,
                                                              &loopStatistics_,
                                                              nullptr,

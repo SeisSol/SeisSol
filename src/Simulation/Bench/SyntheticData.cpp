@@ -23,6 +23,11 @@
 #include "Core/Memory/Tree/Colormap.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Parallel/OpenMP.h"
+#include "Features/DynamicRupture/DRParameters.h"
+#include "Features/DynamicRupture/Misc.h"
+#include "Features/DynamicRupture/Physics/Impedances.h"
+#include "Features/DynamicRupture/Setup/Factory.h"
+#include "Features/DynamicRupture/Setup/Initializer/BaseDRInitializer.h"
 #include "Features/DynamicRupture/Solver/Storage.h"
 #include "Features/DynamicRupture/Typedefs.h"
 #include "Features/Plasticity/Solver/Storage.h"
@@ -30,6 +35,7 @@
 #include "Simulation/Bench/LoopBench.h"
 #include "Simulation/Bench/Proxy.h"
 #include "Simulation/InitProcedure/Internal/Recording.h"
+#include "WavePropagation/Physics/CommonDatastructures.h"
 #include "WavePropagation/Solver/SolverSelector.h"
 #include "WavePropagation/Solver/Storage.h"
 
@@ -37,7 +43,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <memory>
 #include <random>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <utility>
 
 #ifdef ACL_DEVICE
 #include "Simulation/InitProcedure/Internal/Scratchpads.h"
@@ -62,6 +73,122 @@ void fillWithStuff(RealT* buffer, std::size_t count) {
   }
 }
 
+/// the material on both sides of the fault faces: that of the SCEC benchmarks TPV5, TPV101, ...
+constexpr model::IsotropicWaveSpeeds FaultMaterial{
+    .density = 2670.0, .pWaveVelocity = 6000.0, .sWaveVelocity = 3464.0};
+
+/// the normal stress on the fault faces, a compression
+constexpr double NormalStress = -120.0e6;
+
+/// The parameters of the parameter file for the friction law `frictionLaw`, from a benchmark of it:
+/// TPV101 for the aging law and its siblings, TPV104 for the fast velocity weakening, TPV105 for
+/// thermal pressurization.
+auto drParametersOf(FrictionLaw frictionLaw)
+    -> std::shared_ptr<initializer::parameters::DRParameters> {
+  auto parameters = std::make_shared<initializer::parameters::DRParameters>();
+  parameters->frictionLawType = static_cast<dr::misc::FrictionLawType>(frictionLaw.type);
+  parameters->isThermalPressureOn = frictionLaw.thermalPressurization;
+  switch (frictionLaw.type) {
+  case 3:
+  case 4:
+  case 7:
+    parameters->rsF0 = 0.6;
+    parameters->rsSr0 = 1e-6;
+    parameters->rsB = 0.012;
+    parameters->rsInitialSlipRate1 = 1e-16;
+    break;
+  case 103:
+    parameters->rsF0 = 0.6;
+    parameters->rsSr0 = 1e-6;
+    parameters->rsB = 0.014;
+    parameters->muW = 0.2;
+    parameters->rsInitialSlipRate1 = 1e-16;
+    break;
+  case 6:
+    parameters->vStar = 0.1;
+    parameters->prakashLength = 0.01;
+    break;
+  default:
+    break;
+  }
+  if (frictionLaw.thermalPressurization) {
+    parameters->thermalDiffusivity = 1e-6;
+    parameters->heatCapacity = 2.7e6;
+    parameters->undrainedTPResponse = 0.1e6;
+    parameters->initialTemperature = 483.15;
+    parameters->initialPressure = 0;
+  }
+  return parameters;
+}
+
+/// The shear traction on the fault faces under the friction law `type`: from a benchmark of it, as
+/// for drParametersOf(), above the strength for the linear slip weakening (TPV5 in its nucleation
+/// patch); none for the imposed slip rates.
+auto shearStressOf(std::uint32_t type) -> double {
+  switch (type) {
+  case 6:
+  case 16:
+  case 1058:
+    return 81.6e6;
+  case 3:
+  case 4:
+    return 75.0e6;
+  case 7:
+    return 70.8e6;
+  case 103:
+    return 40.0e6;
+  case 33:
+  case 34:
+  case 35:
+    return 0;
+  default:
+    return 70.0e6;
+  }
+}
+
+/// The rise of the shear stress after the initial state of the laws of rate and state: their
+/// nucleation in the benchmark (TPV101, TPV104), which overstresses all faces here, not a patch.
+auto nucleationStressOf(std::uint32_t type) -> double {
+  switch (type) {
+  case 3:
+  case 4:
+  case 7:
+    return 25.0e6;
+  case 103:
+    return 45.0e6;
+  default:
+    return 0;
+  }
+}
+
+/// The parameters of the fault files for the friction law `type`, by their names there (see
+/// BaseDRInitializer::lawParameters()): from a benchmark of it, as for drParametersOf().
+auto faultParametersOf(std::uint32_t type) -> std::unordered_map<std::string, double> {
+  std::unordered_map<std::string, double> values{
+      // linear slip weakening (TPV5)
+      {"mu_s", 0.677},
+      {"mu_d", 0.525},
+      {"d_c", 0.4},
+      {"cohesion", 0.0},
+      // thermal pressurization (TPV105)
+      {"tp_halfWidthShearZone", 0.02},
+      {"tp_hydraulicDiffusivity", 4e-4},
+      // the source time functions of the imposed slip rates
+      {"tau_S", 0.05},
+      {"tau_R", 1.0},
+      {"rupture_rise_time", 1.0},
+  };
+  // rate and state
+  if (type == 103) {
+    values.insert({{"rs_a", 0.01}, {"rs_sl0", 0.4}, {"rs_srW", 0.1}});
+  } else if (type == 7) {
+    values.insert({{"rs_a", 0.008}, {"rs_sl0", 1e-7}});
+  } else {
+    values.insert({{"rs_a", 0.008}, {"rs_sl0", 0.02}});
+  }
+  return values;
+}
+
 } // namespace
 
 template <typename Cfg>
@@ -74,7 +201,7 @@ SyntheticData<Cfg>::SyntheticData(const BenchSetup& setup)
     initPlasticity();
   }
   if (dynamicRupture_) {
-    initFaults();
+    initFaults(setup.frictionLaw);
   }
   initDevice();
 }
@@ -229,9 +356,16 @@ void SyntheticData<Cfg>::initPlasticity() {
 }
 
 template <typename Cfg>
-void SyntheticData<Cfg>::initFaults() {
-  DynamicRupture dynamicRupture(&drParameters_);
-  dynamicRupture.addTo(drStorage_);
+void SyntheticData<Cfg>::initFaults(FrictionLaw frictionLaw) {
+  // the variables and the solvers of the friction law, as a run makes them, without the mesh
+  drParameters_ = drParametersOf(frictionLaw);
+  const auto factory = dr::factory::getFactory(drParameters_);
+  auto solver = factory->solver();
+  faultVariables_ = std::move(solver.storage);
+  frictionLaw_ = std::move(solver.frictionLaw);
+  frictionLawDevice_ = std::move(solver.frictionLawDevice);
+
+  faultVariables_->addTo(drStorage_);
   drStorage_.setLayerCount(ltsStorage_.getColorMap());
   drStorage_.fixate();
 
@@ -332,6 +466,77 @@ void SyntheticData<Cfg>::initFaults() {
           faceDerivativesOnDevice_ + (timeDerivativePlus[face] - faceDerivatives_);
       timeDerivativeMinusDevice[face] =
           faceDerivativesOnDevice_ + (timeDerivativeMinus[face] - faceDerivatives_);
+    }
+  }
+
+  initFaultState(*factory, frictionLaw);
+}
+
+template <typename Cfg>
+void SyntheticData<Cfg>::initFaultState(dr::factory::AbstractFactory& factory,
+                                        FrictionLaw frictionLaw) {
+  using namespace dr::misc::quantity_indices;
+  DynamicRupture::Layer& faults = faces();
+  constexpr auto PointCount = dr::misc::NumPaddedPoints<Cfg>;
+
+  // the material on both sides
+  auto* impAndEta = faults.var<DynamicRupture::ImpAndEta>(Cfg());
+  auto* waveSpeedsPlus = faults.var<DynamicRupture::WaveSpeedsPlus>();
+  auto* waveSpeedsMinus = faults.var<DynamicRupture::WaveSpeedsMinus>();
+  for (std::size_t face = 0; face < faults.size(); ++face) {
+    waveSpeedsPlus[face] = FaultMaterial;
+    waveSpeedsMinus[face] = FaultMaterial;
+    impAndEta[face] = dr::impedancesAndEta<Cfg>(FaultMaterial, FaultMaterial);
+  }
+
+  // the initial state, the last stress source of a face, which is in effect from the start (its
+  // onset and its rise time stay zero, as those of the nucleations, which have no stress)
+  const auto sourceCount = dr::stressSourceCount(*drParameters_);
+  const auto initialSource = sourceCount - 1;
+  auto* stress = faults.var<DynamicRupture::StressSourceInFaultCS>(Cfg());
+  const auto shearStress = shearStressOf(frictionLaw.type);
+  for (std::size_t face = 0; face < faults.size(); ++face) {
+    for (std::uint32_t point = 0; point < PointCount; ++point) {
+      stress[face * sourceCount + initialSource][XX][point] = NormalStress;
+      stress[face * sourceCount + initialSource][XY][point] = shearStress;
+    }
+  }
+
+  // the parameters of the friction law, as the fault files would give them
+  const auto initializer = factory.initializer();
+  const auto values = faultParametersOf(frictionLaw.type);
+  for (const auto& [name, data] : initializer->lawParameters(faults)) {
+    const auto value = values.find(name);
+    if (value == values.end()) {
+      throw std::logic_error("The proxy has no value for the parameter " + name +
+                             " of the friction law " + std::to_string(frictionLaw.type) + ".");
+    }
+    std::fill_n(static_cast<real*>(data), faults.size() * PointCount, value->second);
+  }
+
+  // The imposed slip rates take their slip in the coordinate systems of the faces from the mesh
+  // otherwise: one meter along the first direction. Their slip began half a rise time before the
+  // steps, so that these see the middle of the source time function (the delta of the source time
+  // function of FL=35 comes at the start).
+  if (frictionLaw.type == 33 || frictionLaw.type == 34 || frictionLaw.type == 35) {
+    auto* slipDirection1 = faults.var<LTSImposedSlipRates::ImposedSlipDirection1>(Cfg());
+    auto* onsetTime = faults.var<LTSImposedSlipRates::OnsetTime>(Cfg());
+    const auto onset = frictionLaw.type == 35 ? 0.0 : -0.5 * values.at("rupture_rise_time");
+    for (std::size_t face = 0; face < faults.size(); ++face) {
+      std::fill_n(slipDirection1[face], PointCount, 1.0);
+      std::fill_n(onsetTime[face], PointCount, onset);
+    }
+  }
+
+  initializer->deriveInitialState(drStorage_);
+
+  // The initial state of the laws of rate and state holds the faces at rest at their initial slip
+  // rate, under the stress it was derived for; with the nucleation of the benchmark on top, the
+  // faces rupture instead, as the nucleation patch does in the benchmark.
+  const auto nucleationStress = nucleationStressOf(frictionLaw.type);
+  for (std::size_t face = 0; face < faults.size(); ++face) {
+    for (std::uint32_t point = 0; point < PointCount; ++point) {
+      stress[face * sourceCount + initialSource][XY][point] += nucleationStress;
     }
   }
 }

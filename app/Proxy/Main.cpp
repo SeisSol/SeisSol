@@ -37,8 +37,8 @@ int runMain(int argc, char* argv[]) {
   std::stringstream kernelHelp;
   const auto allowedKernels = Aux::getAllowedKernels();
   kernelHelp << "Kernels to benchmark. A comma-separated list of (those kernels will be run "
-                "sequentially in each pass; ader, localwoader, plast and plast_yield in the kernel "
-                "mode only): ";
+                "sequentially in each pass; ader, localwoader, plast, plast_yield and fl in the "
+                "kernel mode only): ";
   {
     bool comma = false;
     for (const auto& kernel : allowedKernels) {
@@ -76,6 +76,13 @@ int runMain(int argc, char* argv[]) {
                      "cells that stay within the yield surface (elastic), or cells that yield in "
                      "every step (yield)",
                      false);
+  args.addOption("friction-law",
+                 'l',
+                 "The friction law of the faces of dynamic rupture, by its number in the "
+                 "parameter file, with tp after it for thermal pressurization (one of 0, 3, 4, 6, "
+                 "7, 16, 33, 34, 35, 103, 1058; 3tp, 4tp, 7tp, 103tp; default: 0, no friction)",
+                 utils::Args::Required,
+                 false);
   args.addOption("config",
                  'c',
                  "The configuration to run the kernels in, by its name (default: the one the "
@@ -109,6 +116,9 @@ int runMain(int argc, char* argv[]) {
 
   try {
     config.kernels = Aux::str2kernel(kernelStr);
+    if (args.isSet("friction-law")) {
+      config.frictionLaw = Aux::str2frictionLaw(args.getArgument<std::string>("friction-law"));
+    }
     checkConfig(config);
   } catch (std::exception& error) {
     std::cerr << error.what() << '\n';

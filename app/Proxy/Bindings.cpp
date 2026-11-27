@@ -25,7 +25,13 @@ PYBIND11_MODULE(seissol_proxy_bindings, module) {
       .value("godunov_dr", Kernel::GodunovDR)
       .value("plast", Kernel::Plasticity)
       .value("plast_yield", Kernel::PlasticityYield)
+      .value("fl", Kernel::FrictionLaw)
       .export_values();
+
+  py::class_<FrictionLaw>(module, "FrictionLaw")
+      .def(py::init<>())
+      .def_readwrite("type", &FrictionLaw::type)
+      .def_readwrite("thermal_pressurization", &FrictionLaw::thermalPressurization);
 
   py::enum_<Mode>(module, "Mode")
       .value("kernel", Mode::Kernel)
@@ -51,6 +57,7 @@ PYBIND11_MODULE(seissol_proxy_bindings, module) {
       .def_readwrite("kernel", &ProxyConfig::kernels)
       .def_readwrite("mode", &ProxyConfig::mode)
       .def_readwrite("plasticity", &ProxyConfig::plasticity)
+      .def_readwrite("friction_law", &ProxyConfig::frictionLaw)
       .def_readwrite("verbose", &ProxyConfig::verbose)
       .def_readwrite("executor", &ProxyConfig::executor);
 

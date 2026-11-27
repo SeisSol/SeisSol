@@ -25,6 +25,7 @@ VALID_FIELDS = {
     "name": "all",
     "cycle-source": "tsc",
     "mode": "kernel",
+    "friction-law": "0",
     "time": 0.0123,
     "cycles": 42.0,
     "gflop-libxsmm": 0.0,

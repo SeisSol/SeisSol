@@ -26,6 +26,8 @@ struct BenchSetup {
   //! with faces of dynamic rupture: all faces of the cells lie on the fault
   bool dynamicRupture{false};
   CellPlasticity plasticity{CellPlasticity::None};
+  //! (with dynamic rupture)
+  FrictionLaw frictionLaw{};
   Executor executor{Executor::Host};
 };
 

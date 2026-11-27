@@ -16,16 +16,20 @@
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
 #include "Features/DynamicRupture/DRParameters.h"
+#include "Features/DynamicRupture/Setup/Factory.h"
+#include "Features/DynamicRupture/Solver/FrictionLaws/FrictionSolver.h"
 #include "Features/DynamicRupture/Solver/Storage.h"
 #include "Simulation/Bench/LoopBench.h"
 #include "Simulation/Bench/Proxy.h"
 
 #include <cstddef>
+#include <memory>
 
 namespace seissol::proxy {
 
-/// the size of the time steps of the loops
-constexpr double Timestep = 1.0;
+/// the size of the time steps of the loops: a step of a cell of some hundred meters, as the
+/// friction laws take it to be one
+constexpr double Timestep = 1e-3;
 
 constexpr double GravitationalAcceleration = 9.81;
 
@@ -49,8 +53,10 @@ constexpr solver::StepParams Step{.time = 0,
  * neighbors read (GTS).
  *
  * With plasticity, the cells either stay within the yield surface, or have neither cohesion nor
- * friction and yield in every step (see RelaxationTime). The faults have no friction (see
- * DRParameters), and the stress sources of a run by default.
+ * friction and yield in every step (see RelaxationTime). The faults have the friction law of the
+ * setup, with the parameters of a benchmark of it, the same at all points (see
+ * docs/miniapp.rst), and the stress sources of a run by default; what the friction law derives
+ * from these, its initializer derives (see BaseDRInitializer::deriveInitialState()).
  */
 template <typename Cfg>
 class SyntheticData {
@@ -77,23 +83,32 @@ class SyntheticData {
 
   [[nodiscard]] GlobalDataStore& globalData() { return globalData_; }
 
-  /// the parameters of the faults, which their storage and their friction law take alike
-  [[nodiscard]] const initializer::parameters::DRParameters& drParameters() const {
-    return drParameters_;
+  /// the friction solvers of the faults on the host and on the device; only with dynamic rupture
+  [[nodiscard]] const dr::friction_law::FrictionSolverFactory& frictionLaw() const {
+    return frictionLaw_;
+  }
+  [[nodiscard]] const dr::friction_law::FrictionSolverFactory& frictionLawDevice() const {
+    return frictionLawDevice_;
   }
 
   private:
   void initGlobalData();
   void initCells(FaceType faceType);
   void initPlasticity();
-  void initFaults();
+  void initFaults(FrictionLaw frictionLaw);
+  void initFaultState(dr::factory::AbstractFactory& factory, FrictionLaw frictionLaw);
   void initDevice();
 
   std::size_t cellCount_;
   bool dynamicRupture_;
   CellPlasticity plasticity_;
   initializer::LayerIdentifier layerId_;
-  initializer::parameters::DRParameters drParameters_{};
+  //! the parameters of the faults, which their storage, their friction law and its initializer
+  //! take alike
+  std::shared_ptr<initializer::parameters::DRParameters> drParameters_;
+  std::unique_ptr<DynamicRupture> faultVariables_;
+  dr::friction_law::FrictionSolverFactory frictionLaw_;
+  dr::friction_law::FrictionSolverFactory frictionLawDevice_;
 
   memory::ManagedAllocator allocator_;
   GlobalDataStore globalData_;

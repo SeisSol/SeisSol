@@ -37,6 +37,8 @@ namespace seissol::proxy {
  *   localwoader  their local integration (the second part of local)
  *   plast        the plastic correction of cells that stay within the yield surface
  *   plast_yield  the plastic correction of cells that yield
+ *   fl           the friction law of the fault faces (the second part of godunov_dr in the
+ *                cluster mode)
  */
 enum class Kernel {
   All = 0,
@@ -48,7 +50,18 @@ enum class Kernel {
   GodunovDR,
   AllDR,
   Plasticity,
-  PlasticityYield
+  PlasticityYield,
+  FrictionLaw
+};
+
+/**
+ * The friction law of the fault faces: its number as in the parameter file (FL), and whether it
+ * has thermal pressurization (the laws of rate and state). The faces get the parameters of a
+ * benchmark of the law, the same on all of them (see docs/miniapp.rst).
+ */
+struct FrictionLaw {
+  std::uint32_t type{0};
+  bool thermalPressurization{false};
 };
 
 /**
@@ -81,6 +94,8 @@ struct ProxyConfig {
   Mode mode{Mode::Kernel};
   //! (in the cluster mode)
   CellPlasticity plasticity{CellPlasticity::None};
+  //! of the faces of dynamic rupture; without friction by default
+  FrictionLaw frictionLaw{};
   bool verbose{true};
   //! where the loops run: on the host, or (in a GPU build, by default) on the device
   Executor executor{isDeviceOn() ? Executor::Device : Executor::Host};
@@ -98,6 +113,8 @@ struct ProxyOutput {
   std::string_view cycleSource{"none"};
   //! "kernel" or "cluster", see Mode
   std::string_view mode{"kernel"};
+  //! as Aux::frictionLaw2str() writes it
+  std::string frictionLaw{"0"};
   double libxsmmNumTotalGFlop{};
   double pspammNumTotalGFlop{};
   double libxsmmAndpspammNumTotalGFlop{};
@@ -123,6 +140,10 @@ struct Aux {
   static auto getAllowedKernels() -> std::vector<std::string>;
 
   static auto mode2str(Mode mode) -> std::string_view;
+
+  /// A friction law by its number, with "tp" after it for thermal pressurization, e.g. 103tp.
+  static auto str2frictionLaw(const std::string& frictionLawStr) -> FrictionLaw;
+  static auto frictionLaw2str(FrictionLaw frictionLaw) -> std::string;
 
   static void writeOutput(std::ostream& stream,
                           const ProxyOutput& output,

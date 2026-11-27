@@ -45,6 +45,7 @@ PROXY_FIELDS: dict[str, str] = {
     "name": "string",
     "cycle-source": "string",
     "mode": "string",
+    "friction-law": "string",
     "time": "positive",
     "cycles": "non-negative",
     "gflop-libxsmm": "non-negative",
