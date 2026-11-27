@@ -112,7 +112,6 @@ class ThermalPressurization {
                                                       StepCoefficients<Type>& step) {
     const auto& drParameters = ctx.data->drParameters;
     const real deltaT = ctx.args->deltaT[timeIndex];
-    const auto ltsFace = ctx.ltsFace;
 
     forEachPoint(ctx, [&](std::uint32_t pointIndex) {
       real temperatureDiffusion = 0.0;
@@ -120,48 +119,46 @@ class ThermalPressurization {
       real pressureDiffusion = 0.0;
       real pressureSlope = 0.0;
 
-      const real lambdaPrime =
-          drParameters.undrainedTPResponse * drParameters.thermalDiffusivity /
-          (ctx.data->hydraulicDiffusivity[ltsFace][pointIndex] - drParameters.thermalDiffusivity);
+      const GridLoop grid(ctx, deltaT, pointIndex);
 
-      for (std::uint32_t tpGridPointIndex = 0; tpGridPointIndex < drParameters.tpGridPoints;
-           ++tpGridPointIndex) {
+      const real lambdaPrime = grid.undrainedTPResponse * grid.thermalDiffusivity /
+                               (grid.hydraulicDiffusivity - grid.thermalDiffusivity);
+
+      for (std::uint32_t tpGridPointIndex = 0; tpGridPointIndex < grid.count; ++tpGridPointIndex) {
         // Gaussian shear zone in spectral domain, normalized by w
         // \hat{l} / w
         const real squaredNormalizedTpGrid =
-            misc::power<2>(ctx.args->tpGridPoints[tpGridPointIndex] /
-                           ctx.data->halfWidthShearZone[ltsFace][pointIndex]);
+            misc::power<2>(grid.gridPoints[tpGridPointIndex] / grid.halfWidthShearZone);
 
         // This is exp(-A dt) in Noda & Lapusta (2010) equation (10)
-        const real thetaTpGrid = drParameters.thermalDiffusivity * squaredNormalizedTpGrid;
-        const real sigmaTpGrid =
-            ctx.data->hydraulicDiffusivity[ltsFace][pointIndex] * squaredNormalizedTpGrid;
-        const real preExpTheta = -thetaTpGrid * deltaT;
-        const real preExpSigma = -sigmaTpGrid * deltaT;
+        const real thetaTpGrid = grid.thermalDiffusivity * squaredNormalizedTpGrid;
+        const real sigmaTpGrid = grid.hydraulicDiffusivity * squaredNormalizedTpGrid;
+        const real preExpTheta = -thetaTpGrid * grid.deltaT;
+        const real preExpSigma = -sigmaTpGrid * grid.deltaT;
         const real exp1mTheta = -std::expm1(preExpTheta);
         const real exp1mSigma = -std::expm1(preExpSigma);
 
-        const std::size_t gridIndex = ltsFace * drParameters.tpGridPoints + tpGridPointIndex;
         const real scaledInverseFourierCoefficient =
-            ctx.args->tpInverseFourierCoefficients[tpGridPointIndex] /
-            ctx.data->halfWidthShearZone[ltsFace][pointIndex];
+            grid.inverseFourierCoefficients[tpGridPointIndex] / grid.halfWidthShearZone;
 
         // The spectral state carries over as + F(t) exp(-A dt) in equation (10), which knows
         // nothing of this step's shear heating.
         temperatureDiffusion += scaledInverseFourierCoefficient *
-                                ctx.data->theta[gridIndex][pointIndex] * std::exp(preExpTheta);
+                                grid.theta[tpGridPointIndex * GridLoop::Stride] *
+                                std::exp(preExpTheta);
         pressureDiffusion += scaledInverseFourierCoefficient *
-                             ctx.data->sigma[gridIndex][pointIndex] * std::exp(preExpSigma);
+                             grid.sigma[tpGridPointIndex * GridLoop::Stride] *
+                             std::exp(preExpSigma);
 
         // The generation B/A * (1 - exp(-A dt)) is linear in tau * V, so the whole dependence of
         // the step on the slip rate sits in one scalar and the grid does not have to be walked
         // again. heatSource stores \exp(-\hat{l}^2 / 2) / \sqrt{2 \pi}
-        const real omegaSlope = ctx.args->heatSource[tpGridPointIndex];
+        const real omegaSlope = grid.heatSource[tpGridPointIndex];
         temperatureSlope += scaledInverseFourierCoefficient * omegaSlope /
-                            (drParameters.heatCapacity * thetaTpGrid) * exp1mTheta;
+                            (grid.heatCapacity * thetaTpGrid) * exp1mTheta;
         pressureSlope += scaledInverseFourierCoefficient * omegaSlope *
-                         (drParameters.undrainedTPResponse + lambdaPrime) /
-                         (drParameters.heatCapacity * sigmaTpGrid) * exp1mSigma;
+                         (grid.undrainedTPResponse + lambdaPrime) /
+                         (grid.heatCapacity * sigmaTpGrid) * exp1mSigma;
       }
 
       // Update pore pressure change: sigma = pore pressure + lambda' * temperature
@@ -217,7 +214,6 @@ class ThermalPressurization {
                             const PointValues<Cfg, Type>& slipRateMagnitude,
                             std::uint32_t timeIndex,
                             const StepCoefficients<Type>& step) {
-    const auto& drParameters = ctx.data->drParameters;
     const real deltaT = ctx.args->deltaT[timeIndex];
     const auto ltsFace = ctx.ltsFace;
 
@@ -225,35 +221,33 @@ class ThermalPressurization {
       const real tauV = shearHeating(ctx.data->mu[ltsFace][pointIndex],
                                      normalStress[pointIndex],
                                      slipRateMagnitude[pointIndex]);
-      const real lambdaPrime =
-          drParameters.undrainedTPResponse * drParameters.thermalDiffusivity /
-          (ctx.data->hydraulicDiffusivity[ltsFace][pointIndex] - drParameters.thermalDiffusivity);
 
-      for (std::uint32_t tpGridPointIndex = 0; tpGridPointIndex < drParameters.tpGridPoints;
-           ++tpGridPointIndex) {
+      const GridLoop grid(ctx, deltaT, pointIndex);
+
+      const real lambdaPrime = grid.undrainedTPResponse * grid.thermalDiffusivity /
+                               (grid.hydraulicDiffusivity - grid.thermalDiffusivity);
+
+      for (std::uint32_t tpGridPointIndex = 0; tpGridPointIndex < grid.count; ++tpGridPointIndex) {
         const real squaredNormalizedTpGrid =
-            misc::power<2>(ctx.args->tpGridPoints[tpGridPointIndex] /
-                           ctx.data->halfWidthShearZone[ltsFace][pointIndex]);
-        const real thetaTpGrid = drParameters.thermalDiffusivity * squaredNormalizedTpGrid;
-        const real sigmaTpGrid =
-            ctx.data->hydraulicDiffusivity[ltsFace][pointIndex] * squaredNormalizedTpGrid;
-        const real preExpTheta = -thetaTpGrid * deltaT;
-        const real preExpSigma = -sigmaTpGrid * deltaT;
+            misc::power<2>(grid.gridPoints[tpGridPointIndex] / grid.halfWidthShearZone);
+        const real thetaTpGrid = grid.thermalDiffusivity * squaredNormalizedTpGrid;
+        const real sigmaTpGrid = grid.hydraulicDiffusivity * squaredNormalizedTpGrid;
+        const real preExpTheta = -thetaTpGrid * grid.deltaT;
+        const real preExpSigma = -sigmaTpGrid * grid.deltaT;
 
         // Noda & Lapusta (2010) equation (10), F(t) exp(-A dt) + B/A (1 - exp(-A dt)), written as
         // F(t) + (B/A - F(t)) (1 - exp(-A dt)) with expm1 alone: a mode at its steady state B/A
         // stays there in any precision, rather than drifting by the mismatch of exp and expm1 in
         // every step.
-        const real omega = tauV * ctx.args->heatSource[tpGridPointIndex];
-        const real thetaSteady = omega / (drParameters.heatCapacity * thetaTpGrid);
-        const real sigmaSteady = omega * (drParameters.undrainedTPResponse + lambdaPrime) /
-                                 (drParameters.heatCapacity * sigmaTpGrid);
-        const std::size_t gridIndex = ltsFace * drParameters.tpGridPoints + tpGridPointIndex;
-        const real thetaOld = ctx.data->theta[gridIndex][pointIndex];
-        const real sigmaOld = ctx.data->sigma[gridIndex][pointIndex];
-        ctx.data->theta[gridIndex][pointIndex] =
+        const real omega = tauV * grid.heatSource[tpGridPointIndex];
+        const real thetaSteady = omega / (grid.heatCapacity * thetaTpGrid);
+        const real sigmaSteady =
+            omega * (grid.undrainedTPResponse + lambdaPrime) / (grid.heatCapacity * sigmaTpGrid);
+        const real thetaOld = grid.theta[tpGridPointIndex * GridLoop::Stride];
+        const real sigmaOld = grid.sigma[tpGridPointIndex * GridLoop::Stride];
+        grid.theta[tpGridPointIndex * GridLoop::Stride] =
             thetaOld + (thetaSteady - thetaOld) * -std::expm1(preExpTheta);
-        ctx.data->sigma[gridIndex][pointIndex] =
+        grid.sigma[tpGridPointIndex * GridLoop::Stride] =
             sigmaOld + (sigmaSteady - sigmaOld) * -std::expm1(preExpSigma);
       }
 
@@ -267,6 +261,49 @@ class ThermalPressurization {
   }
 
   private:
+  /**
+   * What the walk over the wavenumber grid of a point reads, taken from the context once before the
+   * walk. The walk calls exp and expm1, which, as far as the compiler knows, may change any memory
+   * that a pointer reaches, the context included; so it would load the parameters, the tables and
+   * the data of the point anew in every step of the grid, through the context, unless they are
+   * held in variables of the point's own.
+   */
+  struct GridLoop {
+    /// the distance between the values of two neighboring wavenumbers of a point in the spectral
+    /// state (theta, sigma)
+    static constexpr std::size_t Stride = misc::NumPaddedPoints<Cfg>;
+
+    std::uint32_t count;
+    real deltaT;
+    real thermalDiffusivity;
+    real heatCapacity;
+    real undrainedTPResponse;
+    real hydraulicDiffusivity;
+    real halfWidthShearZone;
+    const real* __restrict gridPoints;
+    const real* __restrict inverseFourierCoefficients;
+    const real* __restrict heatSource;
+    /// the spectral state of the point at the first wavenumber
+    real* __restrict theta;
+    real* __restrict sigma;
+
+    template <common::RangeType Type>
+    SEISSOL_HOSTDEVICE GridLoop(const FrictionLawContext<Cfg, Type>& ctx,
+                                real stepDeltaT,
+                                std::uint32_t pointIndex)
+        : count(ctx.data->drParameters.tpGridPoints), deltaT(stepDeltaT),
+          thermalDiffusivity(ctx.data->drParameters.thermalDiffusivity),
+          heatCapacity(ctx.data->drParameters.heatCapacity),
+          undrainedTPResponse(ctx.data->drParameters.undrainedTPResponse),
+          hydraulicDiffusivity(ctx.data->hydraulicDiffusivity[ctx.ltsFace][pointIndex]),
+          halfWidthShearZone(ctx.data->halfWidthShearZone[ctx.ltsFace][pointIndex]),
+          gridPoints(ctx.args->tpGridPoints),
+          inverseFourierCoefficients(ctx.args->tpInverseFourierCoefficients),
+          heatSource(ctx.args->heatSource),
+          theta(&ctx.data->theta[static_cast<std::size_t>(ctx.ltsFace) * count][pointIndex]),
+          sigma(&ctx.data->sigma[static_cast<std::size_t>(ctx.ltsFace) * count][pointIndex]) {}
+  };
+
   /// tau * V, the shear heating a point produces at the given state
   SEISSOL_HOSTDEVICE static real shearHeating(real mu, real normalStress, real slipRate) {
     return -mu * normalStress * slipRate;
