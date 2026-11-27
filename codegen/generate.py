@@ -139,7 +139,6 @@ def main():
         ]:
             chainforge_spec = importlib.util.find_spec("chainforge")
             if chainforge_spec is not None:
-                chainforge_spec.loader.load_module()
                 cost_estimators = FusedGemmsBoundingBoxCostEstimator
             else:
                 raise ModuleNotFoundError(
@@ -158,12 +157,14 @@ def main():
 
     subfolders = []
 
-    equationsSpec = importlib.util.find_spec(
-        f"kernels.equations.{cmdLineArgs.equations}"
-    )
+    equationsModuleName = f"kernels.equations.{cmdLineArgs.equations}"
+
+    equationsSpec = importlib.util.find_spec(equationsModuleName)
     if equationsSpec is None:
         raise RuntimeError("Could not find kernels for " + cmdLineArgs.equations)
-    equations = equationsSpec.loader.load_module()
+
+    # actually load the module
+    equations = importlib.import_module(equationsModuleName)
 
     equation_class = equations.EQUATION_CLASS
 
