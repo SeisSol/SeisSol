@@ -27,35 +27,6 @@ target_link_libraries(seissol-lib PUBLIC seissol-config)
 
 # include necessary kernel files (we can't include all of them right now, because of some undefined kernels + tensors)
 
-# the kernels of the solvers the configurations advance their cells with (cmake/configs.cmake);
-# stp takes the local and neighbor kernels of linearck
-if ("linearck" IN_LIST SEISSOL_SOLVERS_USED OR "stp" IN_LIST SEISSOL_SOLVERS_USED)
-  target_sources(seissol-lib PRIVATE
-    WavePropagation/Solver/LinearCK/Local.cpp
-    WavePropagation/Solver/LinearCK/Neighbor.cpp
-    )
-endif()
-if ("linearck" IN_LIST SEISSOL_SOLVERS_USED)
-  target_sources(seissol-lib PRIVATE
-    WavePropagation/Solver/LinearCK/Time.cpp
-    )
-  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCK)
-endif()
-if ("linearckanelastic" IN_LIST SEISSOL_SOLVERS_USED)
-  target_sources(seissol-lib PRIVATE
-    WavePropagation/Solver/LinearCKAnelastic/Neighbor.cpp
-    WavePropagation/Solver/LinearCKAnelastic/Local.cpp
-    WavePropagation/Solver/LinearCKAnelastic/Time.cpp
-    )
-  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCKANELASTIC)
-endif()
-if ("stp" IN_LIST SEISSOL_SOLVERS_USED)
-  target_sources(seissol-lib PRIVATE
-    WavePropagation/Solver/STP/Time.cpp
-    )
-  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_STP)
-endif()
-
 # GPU code
 if (WITH_GPU)
   # include cmake files will define seissol-device-lib target

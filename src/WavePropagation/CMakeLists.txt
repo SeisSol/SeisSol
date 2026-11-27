@@ -30,6 +30,35 @@ add_library(seissol-wavepropagation OBJECT
     Solver/WaveClusterFactory.cpp
 )
 
+# the kernels of the solvers the configurations advance their cells with (cmake/configs.cmake);
+# stp takes the local and neighbor kernels of linearck
+if ("linearck" IN_LIST SEISSOL_SOLVERS_USED OR "stp" IN_LIST SEISSOL_SOLVERS_USED)
+  target_sources(seissol-wavepropagation PRIVATE
+    Solver/LinearCK/Local.cpp
+    Solver/LinearCK/Neighbor.cpp
+    )
+endif()
+if ("linearck" IN_LIST SEISSOL_SOLVERS_USED)
+  target_sources(seissol-wavepropagation PRIVATE
+    Solver/LinearCK/Time.cpp
+    )
+  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCK)
+endif()
+if ("linearckanelastic" IN_LIST SEISSOL_SOLVERS_USED)
+  target_sources(seissol-wavepropagation PRIVATE
+    Solver/LinearCKAnelastic/Neighbor.cpp
+    Solver/LinearCKAnelastic/Local.cpp
+    Solver/LinearCKAnelastic/Time.cpp
+    )
+  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_LINEARCKANELASTIC)
+endif()
+if ("stp" IN_LIST SEISSOL_SOLVERS_USED)
+  target_sources(seissol-wavepropagation PRIVATE
+    Solver/STP/Time.cpp
+    )
+  target_compile_definitions(seissol-common-properties INTERFACE SEISSOL_KERNELS_STP)
+endif()
+
 target_link_libraries(seissol-wavepropagation PUBLIC seissol-common-properties)
 # the wave propagation uses the core
 get_property(SEISSOL_CORE_TARGETS GLOBAL PROPERTY SEISSOL_CORE_TARGETS)
