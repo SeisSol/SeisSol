@@ -690,8 +690,11 @@ void EnergyOutput::checkAbortCriterion(
     const std::string& prefixMessage) {
   size_t abortCount = 0;
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
+    // a time of zero, or from the largest double on (with which the minimum over the faces starts,
+    // and infinity where every point still waits for its rupture) carries no information, and does
+    // not count as ready to abort either, or a run would abort before its rupture
     if ((timeSinceThreshold[sim] > 0) and
-        (timeSinceThreshold[sim] < std::numeric_limits<double>::infinity())) {
+        (timeSinceThreshold[sim] < std::numeric_limits<double>::max())) {
       if (static_cast<double>(timeSinceThreshold[sim]) < terminatorMaxTimePostRupture_) {
         logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold[sim]
                   << "s; in simulation: " << sim

@@ -13,7 +13,6 @@
 
 #include <Eigen/Core>
 #include <array>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -157,7 +156,9 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
       "terminatorslipratethreshold", std::numeric_limits<real>::max()));
   const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
       "terminatormaxtimepostrupture", std::numeric_limits<double>::max());
-  const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
+  // the terminator is off by default, i.e. with the largest double, which is finite
+  const bool isCheckAbortCriteraEnabled =
+      terminatorMaxTimePostRupture < std::numeric_limits<double>::max();
 
   const double etaDamp = [&]() {
     const auto dampRead1 = reader->read<double>("etadamp");
