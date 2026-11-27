@@ -1407,7 +1407,9 @@ def _command_run(args):
         stderr=subprocess.STDOUT,
     )
     (work / "seissol.log").write_bytes(completed.stdout)
-    log = completed.stdout.decode("utf-8", errors="replace")
+    # the lines as Python reads text: on Windows, they end in \r\n, which the
+    # patterns below, anchored at the end of a line, would not match
+    log = completed.stdout.decode("utf-8", errors="replace").replace("\r\n", "\n")
     sys.stdout.write(log)
 
     result["status"] = "run"
