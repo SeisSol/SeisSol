@@ -496,6 +496,16 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
     auto* impAndEta = layer.var<DynamicRupture::ImpAndEta>();
     auto* impedanceMatrices = layer.var<DynamicRupture::ImpedanceMatrices>();
 
+    // defined outside of the OpenMP loop: with a lambda in the body of an OpenMP loop, NVHPC 24.9
+    // runs it wrongly with several threads
+    const auto getDofs = [&](const auto& position) -> real* {
+      const auto halo = ltsStorage.getColorMap().argument(position.color).halo;
+      if (halo == HaloType::Ghost) {
+        return ltsStorage.lookup<LTS::DofsHalo>(position);
+      } else {
+        return ltsStorage.lookup<LTS::Dofs>(position);
+      }
+    };
 #pragma omp parallel for private(matTData, matTinvData, matAPlusData, matAMinusData)               \
     schedule(static)
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
@@ -535,15 +545,6 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       real* timeDerivative2 = nullptr;
       real* timeDerivative1Device = nullptr;
       real* timeDerivative2Device = nullptr;
-
-      const auto getDofs = [&](const auto& position) -> real* {
-        const auto halo = ltsStorage.getColorMap().argument(position.color).halo;
-        if (halo == HaloType::Ghost) {
-          return ltsStorage.lookup<LTS::DofsHalo>(position);
-        } else {
-          return ltsStorage.lookup<LTS::Dofs>(position);
-        }
-      };
 
       for (std::size_t duplicate = 0; duplicate < LTS::Backmap::MaxDuplicates; ++duplicate) {
         const auto positionOpt = backmap.getDup(derivativesMeshId, duplicate);
