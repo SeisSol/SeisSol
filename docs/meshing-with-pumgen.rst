@@ -95,3 +95,41 @@ PUMGen supports automatic mesh refinement depending on the velocity structure sp
                               halfSizeX="1e5" halfSizeY="1e5" halfSizeZ="1e5"
                               bypassFindRegionAndUseGroup="1"/>
   </VelocityAwareMeshing>
+
+
+Velocity-aware meshing with Gmsh
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The same velocity-aware settings can be used with Gmsh. The
+``pumgen-sizefield`` tool, built with ``-DEASI=ON``, samples the easi
+material model on a regular grid and writes a background size field.
+This gives Gmsh smaller target element sizes where wave speeds are lower.
+
+Save the XML example above as ``velocity.xml``. For each cuboid, set
+``bypassFindRegionAndUseGroup`` to the Gmsh ``Physical Volume`` tag,
+which is also used as the easi material group.
+
+.. code-block:: bash
+
+   pumgen-sizefield --spacing 500 velocity.xml size
+
+Choose a grid spacing close to the smallest target element size. Keep
+``size.geo`` and the generated ``.bin`` files together. In ``model.geo``,
+add the following after the physical volume definitions and before meshing.
+
+.. code-block:: c
+
+   Mesh.MeshSizeExtendFromBoundary = 0;
+   Mesh.MeshSizeFromPoints = 0;
+   Mesh.MeshSizeFromCurvature = 0;
+   Include "size.geo";
+
+Set ``Mesh.MeshSizeMax`` to cap element sizes outside the refinement cuboids.
+
+.. code-block:: bash
+
+   gmsh model.geo -3 -format msh4 -bin -o model.msh
+   pumgen -s msh4 --velocity-check velocity.xml model.msh model.puml.h5
+
+The optional ``--velocity-check`` compares each tetrahedron's mean and
+longest edge lengths with the target size at its barycenter.
