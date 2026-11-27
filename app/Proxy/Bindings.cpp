@@ -5,7 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#include "Proxy/Common.h"
+#include "Core/Common/Executor.h"
+#include "Simulation/Bench/Proxy.h"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -18,18 +19,23 @@ PYBIND11_MODULE(seissol_proxy_bindings, module) {
       .value("all_dr", Kernel::AllDR)
       .value("local", Kernel::Local)
       .value("neigh", Kernel::Neighbor)
-      .value("ader", Kernel::Ader)
-      .value("localwoader", Kernel::LocalWOAder)
       .value("neigh_dr", Kernel::NeighborDR)
       .value("godunov_dr", Kernel::GodunovDR)
+      .export_values();
+
+  py::enum_<seissol::Executor>(module, "Executor")
+      .value("host", seissol::Executor::Host)
+      .value("device", seissol::Executor::Device)
       .export_values();
 
   py::class_<ProxyConfig>(module, "ProxyConfig")
       .def(py::init<>())
       .def_readwrite("cells", &ProxyConfig::cells)
       .def_readwrite("timesteps", &ProxyConfig::timesteps)
-      .def_readwrite("kernel", &ProxyConfig::kernel)
-      .def_readwrite("verbose", &ProxyConfig::verbose);
+      // (the kernels of a step, one after the other)
+      .def_readwrite("kernel", &ProxyConfig::kernels)
+      .def_readwrite("verbose", &ProxyConfig::verbose)
+      .def_readwrite("executor", &ProxyConfig::executor);
 
   py::class_<ProxyOutput>(module, "ProxyOutput")
       .def(py::init<>())

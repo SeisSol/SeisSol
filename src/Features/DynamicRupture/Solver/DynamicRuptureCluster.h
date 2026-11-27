@@ -12,10 +12,10 @@
 #include "Core/Common/Real.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Monitoring/DeviceTimer.h"
+#include "Core/Monitoring/FlopCounter.h"
 #include "Core/Monitoring/LoopStatistics.h"
 #include "Core/Monitoring/Metric.h"
 #include "Core/Parallel/Runtime/Stream.h"
-#include "Core/Run/Context.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Actor/ActorStateStatistics.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
@@ -63,7 +63,7 @@ class DynamicRuptureCluster : public FaceCluster {
                         DynamicRupture::Layer* layerData,
                         const dr::friction_law::FrictionSolverFactory& frictionSolverFactory,
                         const dr::friction_law::FrictionSolverFactory& frictionSolverFactoryDevice,
-                        RunContext& run,
+                        monitoring::FlopCounter& flopCounter,
                         LoopStatistics* loopStatistics,
                         DeviceTimeline* deviceTimeline,
                         ActorStateStatistics* actorStateStatistics);
@@ -79,6 +79,9 @@ class DynamicRuptureCluster : public FaceCluster {
   public:
   [[nodiscard]] bool outputsAhead(long steps) const override;
   [[nodiscard]] bool hostWork() const override;
+  /// The work of one step of the faces as the FLOP counter counts it: that of their space-time
+  /// interpolation (the friction law counts none).
+  [[nodiscard]] PerformanceEstimate interactionEstimate() const { return estimate_; }
   [[nodiscard]] std::vector<parallel::runtime::StreamRuntime*> runtimes() override;
   void setRunTimeOutputs(bool runTimeOutputs) override;
 
@@ -120,7 +123,7 @@ class DynamicRuptureCluster : public FaceCluster {
 
   PerformanceEstimate computeFlops();
 
-  RunContext& run_;
+  monitoring::FlopCounter& flopCounter_;
   kernels::DynamicRupture<Cfg> dynamicRuptureKernel_;
 
   CompoundGlobalData<Cfg> globalData_;

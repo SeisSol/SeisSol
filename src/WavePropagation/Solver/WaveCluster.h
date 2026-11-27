@@ -19,10 +19,10 @@
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Memory/Typedefs.h"
 #include "Core/Monitoring/DeviceTimeline.h"
+#include "Core/Monitoring/FlopCounter.h"
 #include "Core/Monitoring/LoopStatistics.h"
 #include "Core/Monitoring/Metric.h"
 #include "Core/Parallel/Runtime/Stream.h"
-#include "Core/Run/Context.h"
 #include "Core/TimeStepping/Actor/ActorStateStatistics.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
 #include "Core/TimeStepping/Compute/CellCluster.h"
@@ -54,7 +54,8 @@ class WaveCluster : public CellCluster {
 
   /// What a wave cluster takes from the run besides its cells.
   struct Setup {
-    RunContext& run;
+    //! where the cluster counts its work
+    monitoring::FlopCounter& flopCounter;
     //! the global data of all configurations, for the faces between configurations on the device
     GlobalDataStore& globalData;
     //! the configurations of the run
@@ -89,6 +90,12 @@ class WaveCluster : public CellCluster {
   [[nodiscard]] std::vector<parallel::runtime::StreamRuntime*> runtimes() override;
   void setTime(double time) override;
   void finishPhase() override;
+
+  /// The work of one prediction of the cells (their local integration), and of one correction (the
+  /// contributions of their neighbors, those through the faces of dynamic rupture included), as
+  /// the FLOP counter counts it.
+  [[nodiscard]] PerformanceEstimate predictionEstimate() const;
+  [[nodiscard]] PerformanceEstimate correctionEstimate() const;
 
   protected:
   std::function<void()> hostPrediction(const StepParams& params) override;
@@ -132,7 +139,7 @@ class WaveCluster : public CellCluster {
   enum class ComputePart : std::size_t { Local = 0, Neighbor, DRNeighbor, NumComputeParts };
   void incrementPerformanceMetrics(ComputePart part);
 
-  RunContext& run_;
+  monitoring::FlopCounter& flopCounter_;
 
   kernels::Spacetime<Cfg> spacetimeKernel_;
   kernels::Time<Cfg> timeKernel_;

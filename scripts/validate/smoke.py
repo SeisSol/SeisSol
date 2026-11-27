@@ -75,8 +75,8 @@ PROXY_RELATIONS: list[tuple[str, str, str, str]] = [
 ]
 
 
-# Mirrors CycleSource in src/Proxy/Cycles.h. A value outside this set means the
-# two have drifted apart.
+# Mirrors CycleSource in src/Simulation/Bench/Cycles.h. A value outside this
+# set means the two have drifted apart.
 CYCLE_SOURCES = frozenset({"tsc", "cntvct", "none"})
 
 # The line a sanitizer (cmake/sanitizers.cmake) ends each of its reports with.

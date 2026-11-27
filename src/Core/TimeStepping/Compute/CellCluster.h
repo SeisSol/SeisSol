@@ -73,6 +73,13 @@ class CellCluster : public ComputeCluster {
 
   void finalize() override;
 
+  /// Runs one prediction, or one correction, of the cells on their own: outside of the time
+  /// stepping, without the stages of the cluster (see addStage()), on the executor of the cluster;
+  /// on the device, the work may still run on the streams of the cluster afterwards (see
+  /// runtimes()). For the measurements of the loops (see Simulation/Bench/LoopBench.h).
+  void predictOnce(const StepParams& params);
+  void correctOnce(const StepParams& params);
+
   [[nodiscard]] unsigned int getClusterId() const { return clusterId_; }
   [[nodiscard]] unsigned int getGlobalClusterId() const { return globalClusterId_; }
 

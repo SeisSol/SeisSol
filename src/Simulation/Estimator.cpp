@@ -15,8 +15,7 @@
 #include "Core/Common/Real.h"
 #include "Core/Numerical/Statistics.h"
 #include "Core/Parallel/MPI.h"
-#include "Proxy/Common.h"
-#include "Proxy/Runner.h"
+#include "Simulation/Bench/Proxy.h"
 
 #include <algorithm>
 #include <limits>

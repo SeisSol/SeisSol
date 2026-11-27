@@ -35,7 +35,7 @@ For benchmarking the performance (make sure you don't do that on a login node), 
 
     SeisSol_proxy_YOUR_CONFIGURATION 1000000 50 all
 
-Sometimes, it is useful to only run a specific kernel, e.g. ``ader``.
+Sometimes, it is useful to only run a specific kernel, e.g. ``local`` (the prediction of the cells) or ``neigh`` (their correction); ``all`` runs both, as a time step does, and ``all_dr`` the loops of a time step with dynamic rupture.
 
 Running SeisSol on a PC
 -----------------------

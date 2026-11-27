@@ -18,8 +18,6 @@ add_subdirectory(Core)
 
 add_subdirectory(Features)
 
-add_subdirectory(Proxy)
-
 add_subdirectory(Simulation)
 
 add_subdirectory(WavePropagation)

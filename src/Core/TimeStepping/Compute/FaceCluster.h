@@ -30,6 +30,10 @@ class FaceCluster : public ComputeCluster {
 
   [[nodiscard]] DataReadiness dataReadiness() const final;
 
+  /// Does the face work of one step on its own, outside of the time stepping (as
+  /// CellCluster::predictOnce).
+  void interactOnce(const StepParams& params) { interact(params); }
+
   protected:
   using ComputeCluster::ComputeCluster;
 

@@ -5,8 +5,8 @@
 //
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
-#ifndef SEISSOL_SRC_PROXY_CYCLES_H_
-#define SEISSOL_SRC_PROXY_CYCLES_H_
+#ifndef SEISSOL_SRC_SIMULATION_BENCH_CYCLES_H_
+#define SEISSOL_SRC_SIMULATION_BENCH_CYCLES_H_
 
 #include <cstdint>
 #include <string_view>
@@ -96,4 +96,4 @@ inline auto cycleFrequency() -> std::uint64_t {
 
 } // namespace seissol::proxy
 
-#endif // SEISSOL_SRC_PROXY_CYCLES_H_
+#endif // SEISSOL_SRC_SIMULATION_BENCH_CYCLES_H_

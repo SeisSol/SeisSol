@@ -23,7 +23,6 @@
 #include "Core/Parallel/Runtime/HostRuntime.h"
 #include "Core/Parallel/Runtime/Stream.h"
 #include "Core/Parallel/Trace.h"
-#include "Core/Run/Context.h"
 #include "Core/TimeStepping/Actor/AbstractTimeCluster.h"
 #include "Core/TimeStepping/Actor/ActorState.h"
 #include "Core/TimeStepping/Actor/ActorStateStatistics.h"
@@ -83,7 +82,7 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
     DynamicRupture::Layer* layerData,
     const dr::friction_law::FrictionSolverFactory& frictionSolverFactory,
     const dr::friction_law::FrictionSolverFactory& frictionSolverFactoryDevice,
-    RunContext& run,
+    monitoring::FlopCounter& flopCounter,
     LoopStatistics* loopStatistics,
     DeviceTimeline* deviceTimeline,
     ActorStateStatistics* actorStateStatistics)
@@ -97,7 +96,7 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
                   loopStatistics,
                   deviceTimeline,
                   actorStateStatistics),
-      run_(run), globalData_(globalData), layerData_(layerData),
+      flopCounter_(flopCounter), globalData_(globalData), layerData_(layerData),
       frictionSolver_(dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactory)),
       frictionSolverDevice_(
           dr::friction_law::makeFrictionSolver<Cfg>(frictionSolverFactoryDevice)) {
@@ -138,7 +137,7 @@ DynamicRuptureCluster<Cfg>::DynamicRuptureCluster(
   regionComputeDynamicRupture_ = loopStatistics_->getRegion("computeDynamicRupture");
   traceDynamicRupture_ = monitoring::Trace::name("computeDynamicRupture");
 
-  perfHandle_ = run_.flopCounter().addMetric(
+  perfHandle_ = flopCounter_.addMetric(
       getLayerType() == HaloType::Copy ? "dr-frictionlaw-copy" : "dr-frictionlaw-interior", "DR");
 }
 
@@ -457,7 +456,7 @@ StepWork DynamicRuptureCluster<Cfg>::prepare(ActorAction action) {
         work.outputs =
             std::ranges::any_of(pickpoints_, [](const auto& slot) { return !slot.times.empty(); });
       }
-      run_.flopCounter().incrementMetric(perfHandle_, estimate_);
+      flopCounter_.incrementMetric(perfHandle_, estimate_);
     }
   }
   return work;

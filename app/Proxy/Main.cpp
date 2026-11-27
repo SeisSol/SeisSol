@@ -9,10 +9,8 @@
 #include "Alignment.h"
 #include "Core/Common/ConfigRegistry.h"
 #include "Core/Common/Executor.h"
-#include "Proxy/Common.h"
-#include "Proxy/LikwidWrapper.h"
-#include "Proxy/Runner.h"
-#include "Proxy/Tools.h"
+#include "Core/Common/Instrumentation.h"
+#include "Simulation/Bench/Proxy.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -101,8 +99,12 @@ int runMain(int argc, char* argv[]) {
   config.executor = seissol::isDeviceOn() ? seissol::Executor::Device : seissol::Executor::Host;
 
   LIKWID_MARKER_INIT;
-
-  registerMarkers();
+  // the regions of the loops over the cells on the host (see LoopBench)
+#pragma omp parallel
+  {
+    LIKWID_MARKER_REGISTER("local");
+    LIKWID_MARKER_REGISTER("neighboring");
+  }
 
 #ifdef ACL_DEVICE
   // with SEISSOL_HSA_QUEUES (HIP only), the stream runtime of the proxy runs on the HSA queue that
@@ -124,7 +126,6 @@ int runMain(int argc, char* argv[]) {
     seissol::parallel::runtime::useHsaQueues(queues);
   }
 #endif
-  printHostname();
 
   const auto output = runProxy(config);
 

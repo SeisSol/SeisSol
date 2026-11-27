@@ -93,7 +93,7 @@ std::unique_ptr<solver::FaceCluster>
                               &layer,
                               frictionLaw_,
                               frictionLawDevice_,
-                              run_,
+                              run_.flopCounter(),
                               monitoring.loopStatistics,
                               monitoring.deviceTimeline,
                               monitoring.actorStateStatistics);

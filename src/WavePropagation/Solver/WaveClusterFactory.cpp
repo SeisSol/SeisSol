@@ -48,7 +48,7 @@ std::unique_ptr<CellCluster>
       layer.getIdentifier().config, [&](auto cfg) -> std::unique_ptr<CellCluster> {
         using Cfg = decltype(cfg);
         const typename WaveCluster<Cfg>::Setup setup{
-            .run = run_,
+            .flopCounter = run_.flopCounter(),
             .globalData = globalData_,
             .configs = configs_,
             .initialConditions = &initialConditions_.at(configIdOf<Cfg>()),

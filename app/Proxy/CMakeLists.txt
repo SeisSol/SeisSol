@@ -34,7 +34,7 @@ install(TARGETS seissol-proxy-exe RUNTIME)
 if (TESTING)
     # Each kernel is run through the JSON output mode, so the run itself and
     # the numbers it reports are checked in one go.
-    foreach(kernel all all_dr ader localwoader local neigh neigh_dr godunov_dr)
+    foreach(kernel all all_dr local neigh neigh_dr godunov_dr)
         seissol_add_proxy_smoke_test(
             NAME "Proxy: ${kernel}"
             TARGET seissol-proxy-exe

@@ -178,6 +178,25 @@ void CellCluster::correct() {
   }
 }
 
+void CellCluster::predictOnce(const StepParams& params) {
+  // (the device timer would keep the events of the loops otherwise)
+  deviceLoops_.collect();
+  if (executor_ == Executor::Device) {
+    devicePrediction(params);
+  } else {
+    hostPrediction(params)();
+  }
+}
+
+void CellCluster::correctOnce(const StepParams& params) {
+  deviceLoops_.collect();
+  if (executor_ == Executor::Device) {
+    deviceCorrection(params);
+  } else {
+    hostCorrection(params);
+  }
+}
+
 void CellCluster::finalize() {
   stages_.clear();
   ComputeCluster::finalize();

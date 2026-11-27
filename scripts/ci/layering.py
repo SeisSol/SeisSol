@@ -19,7 +19,7 @@ not moved yet counts with the path that scripts/ci/restructure.py gives it.
   .../{Solver,Output}/...            solver of it
   .../Setup/...                      setup of it
   .../<file>                         root of it (configuration, basic types)
-  Simulation/..., Proxy/..., src/*   composition
+  Simulation/..., src/*              composition
 
 An include breaks a rule if
   - the core includes the wave propagation, a feature or the composition,
@@ -115,7 +115,7 @@ def classify(path):
         return "/".join(parts[:2]), role
     if len(parts) == 1:
         return "src", "core"
-    if parts[0] in ("Simulation", "Proxy"):
+    if parts[0] == "Simulation":
         return parts[0], "composition"
     return parts[0], "unplaced"
 

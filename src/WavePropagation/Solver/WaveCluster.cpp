@@ -88,7 +88,7 @@ WaveCluster<Cfg>::WaveCluster(unsigned int clusterId,
                   loopStatistics,
                   deviceTimeline,
                   actorStateStatistics),
-      run_(setup.run), configBoundary_(setup.configs),
+      flopCounter_(setup.flopCounter), configBoundary_(setup.configs),
       globalData_(setup.globalData.template get<Cfg>()),
       gravitationalAcceleration_(setup.gravitationalAcceleration) {
   assert(globalData_.onHost != nullptr);
@@ -121,12 +121,11 @@ WaveCluster<Cfg>::WaveCluster(unsigned int clusterId,
   traceLocalIntegration_ = monitoring::Trace::name("computeLocalIntegration");
   traceNeighboringIntegration_ = monitoring::Trace::name("computeNeighboringIntegration");
 
-  perfHandle_[static_cast<std::size_t>(ComputePart::Local)] =
-      run_.flopCounter().addMetric("local", "WP");
+  perfHandle_[static_cast<std::size_t>(ComputePart::Local)] = flopCounter_.addMetric("local", "WP");
   perfHandle_[static_cast<std::size_t>(ComputePart::Neighbor)] =
-      run_.flopCounter().addMetric("neighbor", "WP");
+      flopCounter_.addMetric("neighbor", "WP");
   perfHandle_[static_cast<std::size_t>(ComputePart::DRNeighbor)] =
-      run_.flopCounter().addMetric("neighbor-dr", "DR");
+      flopCounter_.addMetric("neighbor-dr", "DR");
 }
 
 template <typename Cfg>
@@ -527,6 +526,17 @@ void WaveCluster<Cfg>::computeNeighborIntegrationFlops() {
 }
 
 template <typename Cfg>
+PerformanceEstimate WaveCluster<Cfg>::predictionEstimate() const {
+  return estimate_[static_cast<std::size_t>(ComputePart::Local)];
+}
+
+template <typename Cfg>
+PerformanceEstimate WaveCluster<Cfg>::correctionEstimate() const {
+  return estimate_[static_cast<std::size_t>(ComputePart::Neighbor)] +
+         estimate_[static_cast<std::size_t>(ComputePart::DRNeighbor)];
+}
+
+template <typename Cfg>
 void WaveCluster<Cfg>::computeFlops() {
   computeLocalIntegrationFlops();
   computeNeighborIntegrationFlops();
@@ -562,8 +572,8 @@ bool WaveCluster<Cfg>::outputsAhead(long steps) const {
 
 template <typename Cfg>
 void WaveCluster<Cfg>::incrementPerformanceMetrics(ComputePart part) {
-  run_.flopCounter().incrementMetric(perfHandle_[static_cast<std::size_t>(part)],
-                                     estimate_[static_cast<std::size_t>(part)]);
+  flopCounter_.incrementMetric(perfHandle_[static_cast<std::size_t>(part)],
+                               estimate_[static_cast<std::size_t>(part)]);
 }
 
 template <typename Cfg>

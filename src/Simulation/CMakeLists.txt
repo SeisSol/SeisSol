@@ -6,6 +6,8 @@
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 add_library(seissol-simulation OBJECT
+    Bench/LoopBench.cpp
+    Bench/Proxy.cpp
     BuiltConfigs.cpp
     EnergyOutput.cpp
     Estimator.cpp
