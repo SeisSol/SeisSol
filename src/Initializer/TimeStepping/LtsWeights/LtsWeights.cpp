@@ -110,7 +110,7 @@ LtsWeights::LtsWeights(const LtsWeightsConfig& config, seissol::SeisSol& seissol
       vertexWeightElement_(config.vertexWeightElement),
       vertexWeightDynamicRupture_(config.vertexWeightDynamicRupture),
       vertexWeightFreeSurfaceWithGravity_(config.vertexWeightFreeSurfaceWithGravity),
-      boundaryFormat_(config.boundaryFormat) {}
+      boundaryFormat_(config.boundaryFormat), faceMap_(config.faceMap) {}
 
 void LtsWeights::computeWeights(const seissol::geometry::PumlMesh& meshTopology,
                                 const seissol::geometry::PumlMesh& meshGeometry) {
@@ -382,7 +382,16 @@ std::uint64_t LtsWeights::getCluster(double timestep,
 }
 
 FaceType LtsWeights::getBoundaryCondition(const void* boundaryCond, size_t cell, unsigned face) {
-  int bcCurrentFace = seissol::geometry::decodeBoundary(boundaryCond, cell, face, boundaryFormat_);
+  const auto tag = seissol::geometry::decodeBoundary(boundaryCond, cell, face, boundaryFormat_);
+  if (faceMap_ != nullptr) {
+    // the face types as the mesh reader takes them, also from a face map file
+    const auto faceType = faceMap_->at(tag);
+    if (!faceType.has_value()) {
+      logError() << "Read an invalid face tag while computing the LTS weights:" << tag;
+    }
+    return faceType.value();
+  }
+  int bcCurrentFace = static_cast<int>(tag);
   if (bcCurrentFace > 64) {
     bcCurrentFace = 3;
   }
