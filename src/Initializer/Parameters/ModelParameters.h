@@ -9,10 +9,13 @@
 #define SEISSOL_SRC_INITIALIZER_PARAMETERS_MODELPARAMETERS_H_
 
 #include "Common/ConfigRegistry.h"
+#include "Common/SegmentMap.h"
 #include "ParameterReader.h"
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -39,6 +42,43 @@ std::string describeFlux(NumericalFlux flux,
                          double gpart,
                          double rpart,
                          const std::array<double, 6>& damping);
+
+/**
+ * A flux with its parts: the share of the Godunov flux (the rest is the centered flux), that of the
+ * damping of the Rusanov flux, which only "mixed" and its presets have, and the shares of the
+ * upwind damping in the Godunov flux (see model::DampingShares).
+ */
+struct FluxSetting {
+  NumericalFlux flux{NumericalFlux::Godunov};
+  double gpart{0};
+  double rpart{0};
+  std::array<double, 6> damping{1, 1, 1, 1, 1, 1};
+
+  bool operator==(const FluxSetting& other) const = default;
+
+  [[nodiscard]] std::string describe() const { return describeFlux(flux, gpart, rpart, damping); }
+};
+
+//! @brief The flux that numflux<suffix> names in @p reader , with its parts fluxgpart<suffix>,
+//! fluxrpart<suffix> and fluxdamping<suffix>; the parameter file and the entries of the face map
+//! give them alike (suffix "" or "nearfault").
+FluxSetting readFluxSetting(ParameterReader* reader, const std::string& suffix);
+
+/**
+ * A rule of the face map for the flux of regular faces: it selects the faces with one of its tags
+ * (any, without tags) that have a cell of one of its mesh groups on either side (any, without
+ * groups), and sets the flux of those near the fault, of the others, or of both.
+ */
+struct FaceFluxRule {
+  std::optional<SegmentMap<std::uint32_t, bool>> tags;
+  std::optional<SegmentMap<int, bool>> groups;
+  std::optional<FluxSetting> flux;
+  std::optional<FluxSetting> fluxNearFault;
+  // the entry of the face map, for the log
+  std::string name;
+
+  [[nodiscard]] bool selects(std::uint32_t tag, int group, int neighborGroup) const;
+};
 
 struct ModelParameters {
   bool hasBoundaryFile{false};
@@ -70,6 +110,8 @@ struct ModelParameters {
   // the jumps of the velocity and the pressure of a fluid (normal); all 1 is the Godunov flux
   std::array<double, 6> fluxDamping{1, 1, 1, 1, 1, 1};
   std::array<double, 6> fluxNearFaultDamping{1, 1, 1, 1, 1, 1};
+  // the rules of the face map for the flux of regular faces, in its order (see FaceFluxRule)
+  std::vector<FaceFluxRule> fluxRules;
   // the configuration the cells of the run compute in, unless their mesh group has its own
   ConfigId config{};
   // the mesh groups whose cells compute in a configuration of their own
@@ -83,6 +125,16 @@ struct ModelParameters {
   /// Every configuration cells of the run may compute in: `config` first, then those of the mesh
   /// groups in the order of their ids, each once.
   [[nodiscard]] std::vector<ConfigId> configs() const;
+  /// The flux the parameter file gives the regular faces near the fault, or the others.
+  [[nodiscard]] FluxSetting fluxSetting(bool nearFault) const;
+  /// The rule of the face map that decides the flux of a regular face with the tag `tag` between
+  /// cells of the mesh groups `group` and `neighborGroup`: the first that selects the face and sets
+  /// a flux for it (near the fault, or not); none if the parameter file does.
+  [[nodiscard]] std::optional<std::size_t>
+      fluxRuleOf(std::uint32_t tag, int group, int neighborGroup, bool nearFault) const;
+  /// The flux of such a face, by its rule or by the parameter file.
+  [[nodiscard]] FluxSetting
+      fluxOf(std::uint32_t tag, int group, int neighborGroup, bool nearFault) const;
 };
 
 /// The configuration the cells of the run compute in: the one named by `configuration` in the

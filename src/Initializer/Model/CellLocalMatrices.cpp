@@ -35,6 +35,7 @@
 #include "Model/CommonDatastructures.h"
 #include "Model/FaceCoupling.h"
 #include "Model/RiemannDamping.h"
+#include "Parallel/MPI.h"
 
 #include <Eigen/Core>
 #include <algorithm>
@@ -43,6 +44,9 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <mpi.h>
+#include <optional>
+#include <string>
 #include <utils/logger.h>
 #include <vector>
 
@@ -99,7 +103,8 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
                                         const seissol::geometry::MeshReader& meshReader,
                                         LTS::Storage& ltsStorage,
                                         const ClusterLayout& clusterLayout,
-                                        const parameters::ModelParameters& modelParameters) {
+                                        const parameters::ModelParameters& modelParameters,
+                                        std::vector<std::size_t>* faceCounts) {
   using real = Real<Cfg>;
   const std::vector<Element>& elements = meshReader.getElements();
   const std::vector<Vertex>& vertices = meshReader.getVertices();
@@ -313,7 +318,7 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
 
         // check if we're on a face that has an adjacent cell with DR face
         const bool nearFault = isSpecialBC(side);
-        const auto fluxDefault = nearFault ? modelParameters.fluxNearFault : modelParameters.flux;
+        const bool regular = cellInformation[cell].faceTypes[side] == FaceType::Regular;
 
         const auto enforceGodunovBc =
             boundaryProperties(cellInformation[cell].faceTypes[side]).enforcesGodunovFlux;
@@ -322,7 +327,35 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
 
         const auto enforceGodunov = enforceGodunovBc || enforceGodunovEa || interfaceState;
 
-        const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : fluxDefault;
+        // the flux of a regular face: the one of the first rule of the face map that selects it
+        // by its tag and the mesh groups on both sides, else the one of the parameter file; both
+        // cells of the face see the same tag and groups, and take the same flux
+        std::optional<std::size_t> rule;
+        if (regular) {
+          const auto& neighborInformation = ltsStorage.lookup<LTS::SecondaryInformation>(
+              secondaryInformation[cell].faceNeighbors[side]);
+          rule = modelParameters.fluxRuleOf(
+              static_cast<std::uint32_t>(elements[meshId].faultTags[side]),
+              secondaryInformation[cell].group,
+              neighborInformation.group,
+              nearFault);
+          // count each face once, at the cell with the smaller global id
+          if (faceCounts != nullptr &&
+              secondaryInformation[cell].globalId < neighborInformation.globalId) {
+            const auto slot = enforceGodunov ? faceCounts->size() - 1
+                                             : 2 * (rule.has_value() ? rule.value() + 1 : 0) +
+                                                   (nearFault ? 1 : 0);
+#pragma omp atomic
+            ++(*faceCounts)[slot];
+          }
+        }
+        const auto setting =
+            rule.has_value()
+                ? (nearFault ? modelParameters.fluxRules[rule.value()].fluxNearFault.value()
+                             : modelParameters.fluxRules[rule.value()].flux.value())
+                : modelParameters.fluxSetting(nearFault);
+
+        const auto flux = enforceGodunov ? parameters::NumericalFlux::Godunov : setting.flux;
 
         // the share of the Godunov flux (the rest is the centered flux) and the factor of the
         // dissipation of the Rusanov flux on this face
@@ -334,9 +367,8 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
         } else if (flux == parameters::NumericalFlux::Centered) {
           godunovShare = 0.0;
         } else if (flux == parameters::NumericalFlux::Mixed) {
-          godunovShare = nearFault ? modelParameters.fluxNearFaultGPart : modelParameters.fluxGPart;
-          rusanovFactor =
-              nearFault ? modelParameters.fluxNearFaultRPart : modelParameters.fluxRPart;
+          godunovShare = setting.gpart;
+          rusanovFactor = setting.rpart;
         }
 
         real centralFluxData[tensor::QgodLocal<Cfg>::size()]{};
@@ -362,10 +394,9 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
         }
         // the shares of the upwind damping in the Godunov part of the flux (fluxdamping,
         // fluxdampingnearfault); the faces that enforce the Godunov flux keep it whole
-        const auto& damping =
-            nearFault ? modelParameters.fluxNearFaultDamping : modelParameters.fluxDamping;
-        if (!enforceGodunov && godunovShare != 0.0 && !model::isUpwindDamping(damping)) {
-          model::scaleRiemannDamping<model::MaterialOf<Cfg>>(qGodLocal, qGodNeighbor, damping);
+        if (!enforceGodunov && godunovShare != 0.0 && !model::isUpwindDamping(setting.damping)) {
+          model::scaleRiemannDamping<model::MaterialOf<Cfg>>(
+              qGodLocal, qGodNeighbor, setting.damping);
         }
 
         // a share of the Godunov flux between 0 and 1: blend the Godunov states (computed anew for
@@ -456,6 +487,41 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
   }
 }
 
+/// The numbers of the regular faces of the run by their flux, in the log.
+void logFluxes(const parameters::ModelParameters& modelParameters,
+               std::vector<std::size_t>& faceCounts) {
+  MPI_Allreduce(MPI_IN_PLACE,
+                faceCounts.data(),
+                static_cast<int>(faceCounts.size()),
+                seissol::Mpi::castToMpiType<std::size_t>(),
+                MPI_SUM,
+                seissol::Mpi::mpi.comm());
+  logInfo() << "The regular faces by their flux:";
+  for (std::size_t slot = 0; slot + 1 < faceCounts.size(); ++slot) {
+    if (faceCounts[slot] == 0) {
+      continue;
+    }
+    const bool nearFault = slot % 2 == 1;
+    const auto ruleSlot = slot / 2;
+    const auto setting =
+        ruleSlot == 0 ? modelParameters.fluxSetting(nearFault)
+                      : (nearFault ? modelParameters.fluxRules[ruleSlot - 1].fluxNearFault.value()
+                                   : modelParameters.fluxRules[ruleSlot - 1].flux.value());
+    const auto source = ruleSlot == 0 ? std::string("the parameter file")
+                                      : modelParameters.fluxRules[ruleSlot - 1].name;
+    const auto line = std::to_string(faceCounts[slot]) +
+                      (nearFault ? " near the fault: " : " away from the fault: ") +
+                      setting.describe() + " (" + source + ")";
+    logInfo() << line.c_str();
+  }
+  if (faceCounts.back() != 0) {
+    const auto line = std::to_string(faceCounts.back()) +
+                      " at interfaces keep the Godunov flux (elastic-acoustic, between "
+                      "configurations, hydraulic skins)";
+    logInfo() << line.c_str();
+  }
+}
+
 } // namespace
 
 void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader,
@@ -466,12 +532,16 @@ void initializeCellLocalMatrices(const seissol::geometry::MeshReader& meshReader
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::LocalIntegration>().mask);
   assert(LayerMask(Ghost) == ltsStorage.info<LTS::NeighboringIntegration>().mask);
 
+  // the regular faces by their flux: by the parameter file (away from the fault, near it), by each
+  // rule of the face map (alike), and those that keep the Godunov flux at an interface
+  std::vector<std::size_t> faceCounts(2 * (modelParameters.fluxRules.size() + 1) + 1, 0);
   for (auto& layer : ltsStorage.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
       initializeCellLocalMatricesOfLayer<decltype(cfg)>(
-          layer, meshReader, ltsStorage, clusterLayout, modelParameters);
+          layer, meshReader, ltsStorage, clusterLayout, modelParameters, &faceCounts);
     });
   }
+  logFluxes(modelParameters, faceCounts);
 }
 
 } // namespace seissol::initializer

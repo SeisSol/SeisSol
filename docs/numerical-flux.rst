@@ -89,6 +89,42 @@ flux; at a material contrast, the impedance-weighted means remain.
 With ``'mixed'``, the shares apply to its Godunov part; ``'centered'`` and ``'rusanov'`` have
 none.
 
+.. _numerical_flux_face_map:
+
+The flux by face tags and mesh groups
+-------------------------------------
+
+The face map (``facemapfile``, see :doc:`puml-mesh-format`) can give regular faces a flux of
+their own. An entry of ``regular`` that is a map selects faces by their ``tags``, by the mesh
+``groups`` of their cells, or by both, and gives their flux with the keys of the parameter file:
+
+.. code-block:: yaml
+
+   regular:
+     - 0, 6
+     - tags: 100-110             # regular faces of their own tags, with their own flux
+       numflux: godunov-shearcentered
+     - groups: 2, 5-7            # the regular faces of the cells of these mesh groups
+       numfluxnearfault: mixed
+       fluxgpartnearfault: 0.5
+   freeSurface: 1
+   dynamicRupture: 3, 65-
+   outflow: 5
+
+* A face is selected by ``groups`` if the cell on either side of it belongs to one of them; with
+  ``tags`` and ``groups``, it has to match both.
+* ``numflux`` and its parts set the flux of the selected faces away from the fault,
+  ``numfluxnearfault`` and its parts that of those near it; an entry that names only one of them
+  leaves the other faces as they are. The rules of the parameter file apply as well: a preset
+  sets its parts itself, and only ``'mixed'`` takes ``fluxgpart`` and ``fluxrpart``.
+* The first entry that selects a face and sets a flux for it decides; the faces that no entry
+  selects take the flux of the parameter file.
+* Both cells of a face see its tag and both mesh groups, and take the same flux.
+* Only regular faces take a flux of their own; the other face types keep the Godunov flux (see
+  below).
+
+The log lists at startup how many regular faces take which flux, and from where.
+
 Faces with the Godunov flux
 ---------------------------
 

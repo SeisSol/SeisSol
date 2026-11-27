@@ -8,6 +8,7 @@
 #include "SeisSolParameters.h"
 
 #include "Common/ConfigRegistry.h"
+#include "Initializer/FaceMap.h"
 #include "Initializer/Parameters/CubeGeneratorParameters.h"
 #include "Initializer/Parameters/DRParameters.h"
 #include "Initializer/Parameters/InitializationParameters.h"
@@ -38,8 +39,9 @@ SeisSolParameters readSeisSolParameters(ParameterReader* parameterReader) {
   const InitializationParameters initializationParameters =
       readInitializationParameters(parameterReader, config);
   const MeshParameters meshParameters = readMeshParameters(parameterReader);
-  const ModelParameters modelParameters =
-      readModelParameters(parameterReader, config, groupConfigs);
+  ModelParameters modelParameters = readModelParameters(parameterReader, config, groupConfigs);
+  // the face map may give the flux of regular faces by their tags and mesh groups
+  modelParameters.fluxRules = readFaceFluxRules(meshParameters.faceMapFile);
   const OutputParameters outputParameters =
       readOutputParameters(parameterReader, modelParameters.configs());
   const SourceParameters sourceParameters = readSourceParameters(parameterReader);

@@ -164,6 +164,11 @@ As an example, the following would replicate the default SeisSol behavior.
    analytical:
       - 7
 
+The file is given as ``facemapfile`` in the ``&MeshNml`` section. An entry of the list may also be
+a map that names its tags under ``tags``. For regular faces, such a map may in addition give their
+numerical flux, with the keys of the parameter file, and select them by the mesh groups of their
+cells; see :ref:`numerical_flux_face_map`.
+
 Topological Connectivity (e.g. for periodic or stitched domains)
 ----------------------------------------------------------------
 

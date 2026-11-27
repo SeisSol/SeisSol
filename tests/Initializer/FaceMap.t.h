@@ -137,4 +137,68 @@ TEST_CASE("Face map from a file" * doctest::test_suite("initializer")) {
   CHECK_FALSE(map.at(1).has_value());
 }
 
+TEST_CASE("Face map entries with a flux" * doctest::test_suite("initializer")) {
+  using initializer::parameters::FluxSetting;
+  using initializer::parameters::NumericalFlux;
+  const auto node = YAML::Load(R"(
+        regular:
+            - 0, 6
+            - tags: 100-110
+              numflux: godunov-shearcentered
+            - groups: 2, 5-
+              numfluxnearfault: mixed
+              fluxgpartnearfault: 0.5
+              fluxdampingnearfault: 1 1 1 0.5
+            - tags: [120, 130-139]
+            - tags: 140
+              groups: 3
+              fluxdamping: 1 0 1 1
+        dynamicRupture:
+            - 3
+            - tags: 65-99
+    )");
+
+  // the tags of the entries that are maps belong to their face type
+  const auto map = parseFaceMap(node);
+  CHECK(map.at(0) == FaceType::Regular);
+  CHECK(map.at(100) == FaceType::Regular);
+  CHECK(map.at(110) == FaceType::Regular);
+  CHECK(map.at(120) == FaceType::Regular);
+  CHECK(map.at(135) == FaceType::Regular);
+  CHECK(map.at(140) == FaceType::Regular);
+  CHECK(map.at(70) == FaceType::DynamicRupture);
+  CHECK_FALSE(map.at(111).has_value());
+
+  // the entries that give a flux are its rules, in their order; tags alone are none
+  const auto rules = parseFaceFluxRules(node);
+  REQUIRE(rules.size() == 3);
+
+  CHECK(rules[0].tags.has_value());
+  CHECK_FALSE(rules[0].groups.has_value());
+  CHECK(rules[0].flux ==
+        FluxSetting{
+            .flux = NumericalFlux::Mixed, .gpart = 1, .rpart = 0.1, .damping = {1, 1, 1, 0, 1, 1}});
+  CHECK_FALSE(rules[0].fluxNearFault.has_value());
+  CHECK(rules[0].selects(100, 0, 0));
+  CHECK(rules[0].selects(110, 7, 8));
+  CHECK_FALSE(rules[0].selects(111, 0, 0));
+
+  CHECK_FALSE(rules[1].tags.has_value());
+  CHECK_FALSE(rules[1].flux.has_value());
+  CHECK(rules[1].fluxNearFault == FluxSetting{.flux = NumericalFlux::Mixed,
+                                              .gpart = 0.5,
+                                              .rpart = 0,
+                                              .damping = {1, 1, 1, 0.5, 1, 1}});
+  // a cell of one of the groups on either side
+  CHECK(rules[1].selects(0, 2, 1));
+  CHECK(rules[1].selects(0, 1, 7));
+  CHECK_FALSE(rules[1].selects(0, 1, 3));
+
+  CHECK(rules[2].flux ==
+        FluxSetting{.flux = NumericalFlux::Godunov, .damping = {1, 0, 1, 1, 1, 1}});
+  CHECK(rules[2].selects(140, 3, 1));
+  CHECK_FALSE(rules[2].selects(140, 1, 1));
+  CHECK_FALSE(rules[2].selects(0, 3, 3));
+}
+
 } // namespace seissol::unit_test
