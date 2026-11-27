@@ -14,6 +14,9 @@
 #ifdef __INTEL_LLVM_COMPILER
 #if __INTEL_LLVM_COMPILER >= 20250000
 #define SEISSOL_INTEL_SIMD_EXCEPTION
+#if __INTEL_LLVM_COMPILER < 20260000
+#define SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
+#endif
 #endif
 #endif // __INTEL_LLVM_COMPILER
 
@@ -309,14 +312,18 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
 
     const auto details = static_cast<Derived*>(this)->getMuDetails(ltsFace, localStateVariable);
 
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
+#endif
     for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
       // first guess = sliprate value of the previous step
       slipRateTest[pointIndex] = this->slipRateMagnitude_[ltsFace][pointIndex];
     }
 
     for (uint32_t i = 0; i < settings_.maxNumberSlipRateUpdates; i++) {
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
+#endif
       for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
         // calculate friction coefficient and objective function
         muF[pointIndex] =
@@ -332,7 +339,9 @@ class RateAndStateBase : public BaseFrictionLaw<RateAndStateBase<Derived, TPMeth
         return std::fabs(val) < settings_.newtonTolerance;
       });
       if (hasConverged) {
+#ifndef SEISSOL_INTEL_SIMD_EXCEPTION_STRICT
 #pragma omp simd
+#endif
         for (std::uint32_t pointIndex = 0; pointIndex < misc::NumPaddedPoints; pointIndex++) {
           this->mu_[ltsFace][pointIndex] = muF[pointIndex];
         }
