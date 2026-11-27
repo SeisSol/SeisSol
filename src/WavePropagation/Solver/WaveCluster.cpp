@@ -500,7 +500,7 @@ void WaveCluster<Cfg>::computeLocalIntegrationFlops() {
 
     // Contribution from displacement/integrated displacement
     for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
-      if (cellInformation->faceTypes[face] == FaceType::FreeSurfaceGravity) {
+      if (cellInformation[cell].faceTypes[face] == FaceType::FreeSurfaceGravity) {
         estimate += GravitationalFreeSurfaceBc<Cfg>::metrics(face);
       }
     }
