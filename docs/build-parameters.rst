@@ -32,9 +32,9 @@ You may explicitly compile and install multiple of these configurations at the s
 
     * ``elastic``: isotropic elastic
     * ``viscoelastic``: obsolete, use ``viscoelastic2`` instead
-    * ``viscoelastic2``: isotropic viscoelastic. Requires a positive number of relaxation mechanisms (``NUMBER_OF_MECHANISMS``).
+    * ``viscoelastic2``: isotropic viscoelastic. Requires a positive number of relaxation mechanisms (``NUMBER_OF_MECHANISMS``). It does not support free surfaces with gravity, Dirichlet or analytical boundaries; SeisSol stops during the initialization if the mesh has any.
     * ``anisotropic``: anisotropic elastic; essentially uses the same kernels as the ``elastic`` mode, but with more general matrices
-    * ``poroelastic``: isotropic poroelastic
+    * ``poroelastic``: isotropic poroelastic. It does not support free surfaces with gravity; SeisSol stops during the initialization if the mesh has any.
 - ``NUMBER_OF_MECHANISMS``: the number of mechanisms for viscoelastic simulations. For all other equations, this parameter is required to be 0.
 - ``ORDER``: the expected convergence order. It corresponds to the polynomial degree plus 1. The order is used for both space and time integration. For example, if you specify order 4, you will be using polynomials of degree 3 in space and time. Note that a higher order can impact the performance greatly.
 - ``PRECISION``:
