@@ -11,6 +11,7 @@
 #include "Common/ConfigRegistry.h"
 #include "ParameterReader.h"
 
+#include <array>
 #include <cstddef>
 #include <string>
 #include <unordered_map>
@@ -57,6 +58,11 @@ struct ModelParameters {
   double fluxNearFaultRPart{0};
   double fluxGPart{0};
   double fluxNearFaultGPart{0};
+  // the shares of the upwind damping in the Godunov part of the flux (see
+  // model::scaleRiemannDamping): of the velocity jumps (normal, tangential) and of the traction
+  // jumps (normal, tangential); all 1 is the Godunov flux
+  std::array<double, 4> fluxDamping{1, 1, 1, 1};
+  std::array<double, 4> fluxNearFaultDamping{1, 1, 1, 1};
   // the configuration the cells of the run compute in, unless their mesh group has its own
   ConfigId config{};
   // the mesh groups whose cells compute in a configuration of their own

@@ -40,8 +40,11 @@ ITMTime = 0.01 !Time duration for which ITM is on
 ITMVelocityscalingfactor = 2 ! Scaling factor
 ITMReflectionType = 1 ! 1 reflects both waves, 2 reflects both waves with constant velocity, 3 reflects only P-waves, 4 reflects only S-waves
 
-numflux = 'godunov' ! The numerical flux. Values: 'godunov', 'rusanov'
-numfluxnearfault = 'godunov' ! The numerical flux for faces of cells adjacent to the fault (on cells which have at least one DR face), excluding the DR faces themselves. Values: 'godunov', 'rusanov'
+numflux = 'godunov' ! The numerical flux. Values: 'godunov', 'rusanov', 'centered', 'mixed'
+numfluxnearfault = 'godunov' ! The numerical flux for faces of cells adjacent to the fault (on cells which have at least one DR face), excluding the DR faces themselves. Values: 'godunov', 'rusanov', 'centered', 'mixed'
+fluxgpart = 0.0 ! 'mixed': the share of the Godunov flux, the rest is the centered flux (fluxgpartnearfault for the faces near the fault)
+fluxrpart = 0.0 ! 'mixed': the factor of the dissipation of the Rusanov flux added to it (fluxrpartnearfault for the faces near the fault)
+fluxdamping = '1 1 1 1' ! The shares of the upwind damping in the Godunov part of the flux: of the velocity jumps (normal, tangential) and of the traction jumps (normal, tangential). '1 1 1 0' removes the damping of tangential traction jumps (fluxdampingnearfault for the faces near the fault, e.g. against the drift of linear slip weakening on asymmetric meshes; in tests stable with order 4, unstable with order 6 at CFL 0.5)
 /
 
 &IniCondition

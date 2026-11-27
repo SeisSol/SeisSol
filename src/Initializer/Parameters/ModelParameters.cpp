@@ -9,6 +9,7 @@
 
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
+#include "Initializer/InputAux.h"
 #include "Initializer/Parameters/ParameterReader.h"
 
 #include <algorithm>
@@ -279,6 +280,19 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
   const auto fluxGPart = reader->readWithDefault("fluxgpart", 0.0);
   const auto fluxGPartNearFault = reader->readWithDefault("fluxgpartnearfault", 0.0);
 
+  const auto readDamping = [&](const std::string& name) {
+    const auto shares = seissol::initializer::convertStringToArray<double, 4>(
+        reader->readWithDefault(name, std::string("1 1 1 1")));
+    for (const auto share : shares) {
+      if (!(share >= 0.0)) {
+        logError() << "The shares of" << name << "have to be at least 0.";
+      }
+    }
+    return shares;
+  };
+  const auto fluxDamping = readDamping("fluxdamping");
+  const auto fluxDampingNearFault = readDamping("fluxdampingnearfault");
+
   return ModelParameters{.hasBoundaryFile = hasBoundaryFile,
                          .plasticity = plasticity,
                          .plasticityPointwise = plasticityPointwise,
@@ -298,6 +312,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
                          .fluxNearFaultRPart = fluxRPartNearFault,
                          .fluxGPart = fluxGPart,
                          .fluxNearFaultGPart = fluxGPartNearFault,
+                         .fluxDamping = fluxDamping,
+                         .fluxNearFaultDamping = fluxDampingNearFault,
                          .config = config,
                          .groupConfigs = std::move(groupConfigs),
                          .simulationCount = simulationCount};

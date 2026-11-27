@@ -34,6 +34,7 @@
 #include "Model/Common.h"
 #include "Model/CommonDatastructures.h"
 #include "Model/FaceCoupling.h"
+#include "Model/RiemannDamping.h"
 
 #include <Eigen/Core>
 #include <algorithm>
@@ -359,6 +360,14 @@ void initializeCellLocalMatricesOfLayer(LTS::Layer& layer,
             rusanovMinusView(i, i) = -wavespeed * 0.5 * rusanovFactor;
           }
         }
+        // the shares of the upwind damping in the Godunov part of the flux (fluxdamping,
+        // fluxdampingnearfault); the faces that enforce the Godunov flux keep it whole
+        const auto& damping =
+            nearFault ? modelParameters.fluxNearFaultDamping : modelParameters.fluxDamping;
+        if (!enforceGodunov && godunovShare != 0.0 && !model::isUpwindDamping(damping)) {
+          model::scaleRiemannDamping<model::MaterialOf<Cfg>>(qGodLocal, qGodNeighbor, damping);
+        }
+
         // a share of the Godunov flux between 0 and 1: blend the Godunov states (computed anew for
         // every face) with the centered flux
         if (godunovShare != 0.0 && godunovShare != 1.0) {
