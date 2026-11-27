@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# Porous media for the cases on fault1d-long, with the skeleton of
+# material-elastic.yaml and a permeability so high that the frequency of Biot,
+# viscosity / (permeability rho_fluid tortuosity / porosity) = 200 rad/s,
+# lies within the band of the rupture: the density the shear wave moves
+# relaxes from 1920 to 2120 kg/m^3 as the fluid follows the skeleton, and the
+# radiation damping by 5 per cent (see fault1d.Porosity).
+!Any
+components:
+  - !GroupFilter
+    groups: 1
+    components: !ConstantMap
+      map:
+        bulk_solid:   80.0e9
+        rho:          2600.0
+        lambda:       3.24e10
+        mu:           3.24e10
+        porosity:     0.3
+        permeability: 1.0e-9
+        tortuosity:   1.5
+        bulk_fluid:   2.5e9
+        rho_fluid:    1000.0
+        viscosity:    0.001
+  - !GroupFilter
+    groups: 2
+    components: !ConstantMap
+      map:
+        bulk_solid:   80.0e9
+        rho:          2600.0
+        lambda:       1.62e10
+        mu:           1.62e10
+        porosity:     0.3
+        permeability: 1.0e-9
+        tortuosity:   1.5
+        bulk_fluid:   2.5e9
+        rho_fluid:    1000.0
+        viscosity:    0.001

@@ -74,6 +74,15 @@ set(SEISSOL_SNAPSHOT_TOLERANCE_SINGLE 0 CACHE STRING
 # N * dt and the accumulated time exact; the runner insists on both.
 set(SEISSOL_MINITEST_TIMESTEP 6.103515625e-05)
 
+# The band of frequencies over which an anelastic build fits the quality
+# factors of its mechanisms (FreqCentral, FreqRatio): 5 to 500 Hz, about the
+# waves of the cases, whose wavelengths of tens of metres in a medium of some
+# kilometres per second make for tens of Hz. The stability bound of
+# docs/attenuation.rst on the step, a quarter of 1 / (FreqCentral
+# sqrt(FreqRatio)) = 0.5 ms, lies far above the step.
+set(SEISSOL_ANELASTIC_CENTRAL 50.0)
+set(SEISSOL_ANELASTIC_RATIO 100.0)
+
 # ---------------------------------------------------------------------------
 # What this build can do.
 #
@@ -134,7 +143,10 @@ function(seissol_add_minimesh)
 endfunction()
 
 foreach (preset box6 box48 skew48 fault48 faultskew48 fault1d fault1d-bimaterial fault2d
-                fault2d-periodic mat48 periodicx72 periodic162 open96)
+                fault2d-periodic mat48 periodicx72 periodic162 open96
+                box48-relabel fault48-relabel fault1d-relabel fault2d-periodic-relabel
+                fault1d-dip60 fault1d-dip30 fault1d-flat fault1d-lts fault2d-surface
+                fault1d-long fault1d-long-bimaterial)
   seissol_add_minimesh(NAME ${preset} PRESET ${preset})
 endforeach()
 
@@ -174,8 +186,11 @@ set_tests_properties(verification.antiplane.self-test PROPERTIES
                      SKIP_RETURN_CODE 77
                      LABELS "verification;smoke;dr")
 
-# every receiver strictly inside a cell of every mesh; see minimesh.py locate
+# every receiver strictly inside a cell of every mesh, but of fault2d-surface, whose cases take
+# receivers of their own (below), as it is the half y > 0 of fault2d-periodic; see minimesh.py
+# locate
 get_property(meshes GLOBAL PROPERTY SEISSOL_MINIMESHES)
+list(REMOVE_ITEM meshes fault2d-surface)
 set(mesh_files "")
 set(mesh_fixtures "")
 foreach (mesh ${meshes})
@@ -197,10 +212,12 @@ add_test(NAME verification.faultreceivers
                  ${SEISSOL_MINIMESH_DIR}/fault48.puml.h5
                  ${SEISSOL_MINIMESH_DIR}/faultskew48.puml.h5
                  ${SEISSOL_MINIMESH_DIR}/fault1d.puml.h5
-                 ${SEISSOL_MINIMESH_DIR}/fault1d-bimaterial.puml.h5)
+                 ${SEISSOL_MINIMESH_DIR}/fault1d-bimaterial.puml.h5
+                 ${SEISSOL_MINIMESH_DIR}/fault1d-long.puml.h5
+                 ${SEISSOL_MINIMESH_DIR}/fault1d-long-bimaterial.puml.h5)
 set_tests_properties(verification.faultreceivers PROPERTIES
                      FIXTURES_REQUIRED
-                     "minimesh.fault48;minimesh.faultskew48;minimesh.fault1d;minimesh.fault1d-bimaterial"
+                     "minimesh.fault48;minimesh.faultskew48;minimesh.fault1d;minimesh.fault1d-bimaterial;minimesh.fault1d-long;minimesh.fault1d-long-bimaterial"
                      LABELS "verification;smoke;dr")
 
 # the receivers of the rupture front along y, spread out along it
@@ -239,13 +256,31 @@ add_test(NAME verification.faultreceivers2d-periodic
 set_tests_properties(verification.faultreceivers2d-periodic PROPERTIES
                      FIXTURES_REQUIRED minimesh.fault2d-periodic
                      LABELS "verification;smoke;dr")
+# those of fault2d-periodic at y > 0, and the volume receivers at y < 0 mirrored, one of them
+# moved off a face of its cell
+add_test(NAME verification.receivers2d-surface
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate
+                 ${CMAKE_CURRENT_SOURCE_DIR}/cases/receiver2d-surface.dat
+                 ${SEISSOL_MINIMESH_DIR}/fault2d-surface.puml.h5)
+set_tests_properties(verification.receivers2d-surface PROPERTIES
+                     FIXTURES_REQUIRED minimesh.fault2d-surface
+                     LABELS "verification;smoke;dr")
+add_test(NAME verification.faultreceivers2d-surface
+         COMMAND ${Python3_EXECUTABLE}
+                 ${CMAKE_CURRENT_SOURCE_DIR}/minimesh.py locate --fault
+                 ${CMAKE_CURRENT_SOURCE_DIR}/cases/faultreceiver2d-surface.dat
+                 ${SEISSOL_MINIMESH_DIR}/fault2d-surface.puml.h5)
+set_tests_properties(verification.faultreceivers2d-surface PROPERTIES
+                     FIXTURES_REQUIRED minimesh.fault2d-surface
+                     LABELS "verification;smoke;dr")
 
 # ---------------------------------------------------------------------------
 # seissol_add_minitest(NAME <name> MESH <mesh> PARAMETERS <file>
 #                      [MATERIAL file] [RANKS n] [THREADS n] [STEPS n]
 #                      [TIMESTEP dt] [THRESHOLDS file] [EXPECT_ZERO]
 #                      [EXPECT_FAILURE regex] [NO_SNAPSHOT] [SNAPSHOT_KEY key]
-#                      [SNAPSHOT_EVERYWHERE]
+#                      [SNAPSHOT_EVERYWHERE] [LTS]
 #                      [REQUIRE key=value ...] [SET Section.Key=Value ...]
 #                      [ENV NAME=VALUE ...] [FILES name ...]
 #                      [ACTIVITY column:threshold ...]
@@ -271,11 +306,15 @@ set_tests_properties(verification.faultreceivers2d-periodic PROPERTIES
 # end, and then restarts from it for the rest of its steps, with RESTART_SET
 # on top of SET; EXPECT_FAILURE then concerns the restart. Its identity with
 # the case run without a restart is tested directly, so it gets no snapshot.
+#
+# A case with LTS steps locally, at the rate 2, as its cells' CFL limits let
+# them: TIMESTEP then samples the volume receivers and, with STEPS, sets the
+# end time, and the run has to put the cells in more than one cluster.
 # ---------------------------------------------------------------------------
 
 function(seissol_add_minitest)
   cmake_parse_arguments(MT
-      "EXPECT_ZERO;NO_SNAPSHOT;SNAPSHOT_EVERYWHERE"
+      "EXPECT_ZERO;NO_SNAPSHOT;SNAPSHOT_EVERYWHERE;LTS"
       "NAME;MESH;PARAMETERS;MATERIAL;RANKS;THREADS;STEPS;TIMESTEP;THRESHOLDS;EXPECT_FAILURE;SNAPSHOT_KEY;RESTART"
       "REQUIRE;SET;ENV;FILES;ACTIVITY;EXPECT_SUMMARY;RESTART_SET;LABELS"
       ${ARGN})
@@ -337,6 +376,12 @@ function(seissol_add_minitest)
   if (MT_EXPECT_ZERO)
     list(APPEND arguments --expect-zero)
   endif()
+  if (MT_LTS)
+    list(APPEND arguments --lts)
+  endif()
+  # the band of frequencies an anelastic build fits its mechanisms to
+  list(APPEND arguments --set-anelastic "equations.FreqCentral=${SEISSOL_ANELASTIC_CENTRAL}"
+                        --set-anelastic "equations.FreqRatio=${SEISSOL_ANELASTIC_RATIO}")
   if (MT_EXPECT_FAILURE)
     list(APPEND arguments "--expect-failure=${MT_EXPECT_FAILURE}")
   endif()
@@ -444,27 +489,40 @@ endfunction()
 
 # ---------------------------------------------------------------------------
 # seissol_add_comparison(NAME <name> REFERENCE <case> CANDIDATE <case>
-#                        [TOLERANCE r] [PREFIX p] [SIMULATIONS r:c ...]
-#                        [RECEIVERS all|volume|fault] [LABELS label ...])
+#                        [TOLERANCE r] [SINGLE_TOLERANCE r] [PREFIX p]
+#                        [SIMULATIONS r:c ...]
+#                        [RECEIVERS all|volume|fault] [NEGATE column ...]
+#                        [SCALE value|column] [ENERGIES tolerance]
+#                        [LABELS label ...])
 #
 # Holds two runs against each other. A tolerance of zero demands identical
-# output. With SIMULATIONS, only the simulations given as pairs are compared:
+# output; SINGLE_TOLERANCE, if given, is the one of a build in single
+# precision. With SIMULATIONS, only the simulations given as pairs are compared:
 # r:c holds the simulation c of the candidate against the simulation r of the
 # reference, counted from zero, so that runs of different numbers of
 # simulations can be compared. RECEIVERS restricts the comparison to the
-# volume or the on-fault receivers. The runner propagates a skip: if either
-# input was skipped because this build lacks the configuration, so is the
-# comparison.
+# volume or the on-fault receivers. The columns NEGATE names are compared with
+# the opposite sign of the candidate, for a candidate that states them in a
+# frame of the other orientation. SCALE column relates a difference to the
+# largest value of its column rather than to the two values, for runs that
+# differ by rounding, which a value that passes through zero would magnify.
+# ENERGIES compares the energy output as well, each quantity to this
+# tolerance relative to its largest value. The runner propagates a skip: if
+# either input was skipped because this build lacks the configuration, so is
+# the comparison.
 # ---------------------------------------------------------------------------
 
 function(seissol_add_comparison)
   cmake_parse_arguments(CMP
       ""
-      "NAME;REFERENCE;CANDIDATE;TOLERANCE;PREFIX;RECEIVERS"
-      "SIMULATIONS;LABELS"
+      "NAME;REFERENCE;CANDIDATE;TOLERANCE;SINGLE_TOLERANCE;PREFIX;RECEIVERS;SCALE;ENERGIES"
+      "SIMULATIONS;NEGATE;LABELS"
       ${ARGN})
   if (NOT CMP_TOLERANCE)
     set(CMP_TOLERANCE 0)
+  endif()
+  if (NOT CMP_SINGLE_TOLERANCE)
+    set(CMP_SINGLE_TOLERANCE ${CMP_TOLERANCE})
   endif()
   if (NOT CMP_PREFIX)
     set(CMP_PREFIX output/mini)
@@ -472,11 +530,20 @@ function(seissol_add_comparison)
   if (NOT CMP_RECEIVERS)
     set(CMP_RECEIVERS all)
   endif()
+  if (NOT CMP_SCALE)
+    set(CMP_SCALE value)
+  endif()
 
   set(simulations "")
   foreach (pair ${CMP_SIMULATIONS})
     list(APPEND simulations --simulations ${pair})
   endforeach()
+  foreach (column ${CMP_NEGATE})
+    list(APPEND simulations --negate ${column})
+  endforeach()
+  if (DEFINED CMP_ENERGIES)
+    list(APPEND simulations --energies ${CMP_ENERGIES})
+  endif()
 
   set(directory ${SEISSOL_VERIFICATION_DIR})
   add_test(NAME verification.${CMP_NAME}${SEISSOL_VERIFICATION_SUFFIX}
@@ -490,7 +557,9 @@ function(seissol_add_comparison)
                    --result ${directory}/results/${CMP_NAME}.json
                    --prefix ${CMP_PREFIX}
                    --tolerance ${CMP_TOLERANCE}
+                   --tolerance-single ${CMP_SINGLE_TOLERANCE}
                    --receivers ${CMP_RECEIVERS}
+                   --scale ${CMP_SCALE}
                    ${simulations})
   set(fixtures
       case.${SEISSOL_VERIFICATION_CONFIG}.${CMP_REFERENCE}
@@ -509,16 +578,18 @@ endfunction()
 # ---------------------------------------------------------------------------
 # seissol_add_rupture(NAME <name> FL <law> FAULT <file> [SET ...] [ENV ...] [MESH mesh]
 #                     [RANKS n] [THREADS n] [EXPECT_FAILURE regex] [EXPECT_ZERO]
-#                     [FILES name ...] [RESTART step [RESTART_SET ...]])
+#                     [FILES name ...] [RESTART step [RESTART_SET ...]]
+#                     [REQUIRE key=value ...])
 #
 # A case of a friction law on fault48 (see the friction laws in Cases.cmake).
+# REQUIRE adds to the elastic build every such case requires.
 # ---------------------------------------------------------------------------
 
 function(seissol_add_rupture)
   cmake_parse_arguments(RUP
       "EXPECT_ZERO;NO_SNAPSHOT;SNAPSHOT_EVERYWHERE"
       "NAME;FL;FAULT;MESH;RANKS;THREADS;EXPECT_FAILURE;RESTART"
-      "SET;ENV;FILES;RESTART_SET;LABELS"
+      "SET;ENV;FILES;RESTART_SET;REQUIRE;LABELS"
       ${ARGN})
   if (NOT RUP_MESH)
     set(RUP_MESH fault48)
@@ -556,7 +627,7 @@ function(seissol_add_rupture)
       SNAPSHOT_KEY "{configuration}-{dr-quad-rule}"
       FILES ${RUP_FAULT} faultreceiver.dat ${RUP_FILES}
       STEPS 64
-      REQUIRE equations=elastic
+      REQUIRE equations=elastic ${RUP_REQUIRE}
       SET "DynamicRupture.FL=${RUP_FL}"
           "DynamicRupture.ModelFileName='${RUP_FAULT}'"
           ${RUP_SET}
@@ -565,8 +636,106 @@ function(seissol_add_rupture)
 endfunction()
 
 # ---------------------------------------------------------------------------
+# seissol_add_plastic_relaxation(NAME <name> [STEPS n] [SET ...] [LABELS ...])
+#
+# A uniform initial stress beyond the yield of its Drucker-Prager material
+# (cases/plasticity-overstress.yaml) on periodic162, which has no boundary to
+# send out a wave from: the stress relaxes towards the yield uniformly, as
+# run_case.py plastic computes it in closed form, which holds the volume
+# receivers, and the plastic moment and the strain energy of the energy output,
+# to rounding.
+# ---------------------------------------------------------------------------
+
+function(seissol_add_plastic_relaxation)
+  cmake_parse_arguments(PR "" "NAME;STEPS" "SET;LABELS" ${ARGN})
+  if (NOT PR_STEPS)
+    set(PR_STEPS 64)
+  endif()
+  seissol_add_minitest(
+      NAME ${PR_NAME}
+      MESH periodic162
+      PARAMETERS wave.par
+      STEPS ${PR_STEPS}
+      REQUIRE equations=elastic
+      SET "IniCondition.cICType='Zero'" "equations.Plasticity=1"
+          "equations.PlasticityFileName='plasticity-overstress.yaml'"
+          "Output.EnergyOutput=1" "Output.EnergyOutputInterval=1.220703125e-04" ${PR_SET}
+      FILES plasticity-overstress.yaml
+      ACTIVITY "s_xy:1e5"
+      NO_SNAPSHOT
+      LABELS "plasticity;exact;${PR_LABELS}")
+  add_test(NAME verification.exact.${PR_NAME}${SEISSOL_VERIFICATION_SUFFIX}
+           COMMAND ${Python3_EXECUTABLE}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/run_case.py plastic
+                   --name ${PR_NAME}
+                   --case-result ${SEISSOL_VERIFICATION_DIR}/results/${PR_NAME}.json
+                   --work ${SEISSOL_VERIFICATION_DIR}/work/${PR_NAME}
+                   --mesh-manifest ${SEISSOL_MINIMESH_DIR}/periodic162.json
+                   --tolerance-double 1e-10
+                   --tolerance-single 1e-4
+                   --result ${SEISSOL_VERIFICATION_DIR}/results/exact-${PR_NAME}.json)
+  set_tests_properties(verification.exact.${PR_NAME}${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
+      SKIP_RETURN_CODE 77
+      FIXTURES_REQUIRED "case.${SEISSOL_VERIFICATION_CONFIG}.${PR_NAME};verification"
+      TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
+      LABELS "verification;plasticity;exact;${PR_LABELS}")
+  set_property(GLOBAL APPEND_STRING PROPERTY SEISSOL_DECLARED_CASES
+      "    {\"name\": \"exact-${PR_NAME}\", \"mesh\": \"periodic162\", \"requires\": []},\n")
+endfunction()
+
+# ---------------------------------------------------------------------------
+# seissol_add_plastic_wave(NAME <name> TV <time> [STEPS n] [SET ...] [LABELS ...])
+#
+# The planar wave of wave.par on periodic162 through Drucker-Prager parameters
+# without cohesion, friction and initial stress (cases/plasticity-maxwell.yaml),
+# under which every deviatoric stress relaxes towards zero with the time TV: a
+# Maxwell body in shear, whose wave stays linear and disperses. run_case.py
+# plastic holds the volume receivers, and the energies and the plastic moment of
+# the energy output, against the wave as SeisSol splits each step into an
+# elastic one and the relaxation, to the thresholds of
+# cases/thresholds-plasticity.json, and reports how far the split lies from the
+# Maxwell body itself.
+# ---------------------------------------------------------------------------
+
+function(seissol_add_plastic_wave)
+  cmake_parse_arguments(PW "" "NAME;TV;STEPS" "SET;LABELS" ${ARGN})
+  if (NOT PW_STEPS)
+    set(PW_STEPS 512)
+  endif()
+  seissol_add_minitest(
+      NAME ${PW_NAME}
+      MESH periodic162
+      PARAMETERS wave.par
+      STEPS ${PW_STEPS}
+      REQUIRE equations=elastic
+      SET "equations.Plasticity=1" "equations.Tv=${PW_TV}"
+          "equations.PlasticityFileName='plasticity-maxwell.yaml'"
+          "Output.EnergyOutput=1" "Output.EnergyOutputInterval=9.765625e-04" ${PW_SET}
+      FILES plasticity-maxwell.yaml
+      ACTIVITY "s_xy:1e-3"
+      NO_SNAPSHOT
+      LABELS "plasticity;exact;${PW_LABELS}")
+  add_test(NAME verification.exact.${PW_NAME}${SEISSOL_VERIFICATION_SUFFIX}
+           COMMAND ${Python3_EXECUTABLE}
+                   ${CMAKE_CURRENT_SOURCE_DIR}/run_case.py plastic
+                   --name ${PW_NAME}
+                   --case-result ${SEISSOL_VERIFICATION_DIR}/results/${PW_NAME}.json
+                   --work ${SEISSOL_VERIFICATION_DIR}/work/${PW_NAME}
+                   --mesh-manifest ${SEISSOL_MINIMESH_DIR}/periodic162.json
+                   --thresholds ${CMAKE_CURRENT_SOURCE_DIR}/cases/thresholds-plasticity.json
+                   --result ${SEISSOL_VERIFICATION_DIR}/results/exact-${PW_NAME}.json)
+  set_tests_properties(verification.exact.${PW_NAME}${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
+      SKIP_RETURN_CODE 77
+      FIXTURES_REQUIRED "case.${SEISSOL_VERIFICATION_CONFIG}.${PW_NAME};verification"
+      TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
+      LABELS "verification;plasticity;exact;${PW_LABELS}")
+  set_property(GLOBAL APPEND_STRING PROPERTY SEISSOL_DECLARED_CASES
+      "    {\"name\": \"exact-${PW_NAME}\", \"mesh\": \"periodic162\", \"requires\": []},\n")
+endfunction()
+
+# ---------------------------------------------------------------------------
 # seissol_add_fault1d(NAME <name> FL <law> FAULT <file> [MESH mesh] [STEPS n]
-#                     [MATERIAL file] [REQUIRE capability ...]
+#                     [MATERIAL file] [REQUIRE capability ...] [LTS]
 #                     [FILES file ...] [SET ...] [LABELS label ...])
 #
 # A friction law on a fault1d mesh, held against the exact solution of the
@@ -578,17 +747,19 @@ endfunction()
 # since the exact solution is the better reference; the comparison is a test of
 # its own, so that it can be repeated, and its thresholds recorded, without
 # running SeisSol again. Without MATERIAL, the case takes the material of its
-# build, and without REQUIRE, it runs in elastic and anisotropic builds. FILES
-# are further inputs, such as receivers that SET names.
+# build, and without REQUIRE, it runs in elastic and anisotropic builds; a case
+# in an anelastic or a porous medium requires its equations. FILES
+# are further inputs, such as receivers that SET names. LTS steps locally (see
+# seissol_add_minitest).
 #
 # A case on fault2d-periodic takes minutes, many times what the others take,
 # in every configuration it runs in. It runs where scipy is there to compare it
-# with, and in double precision without fused simulations only: in single
-# precision, these cases deviate from the spectral method as in double, and
-# with fused simulations, of order 3, they have no thresholds to be judged by.
-# The cases on fault1d hold the friction laws in those configurations. They
-# carry the label spectral, so that a job without the time for them can leave
-# them out.
+# with, and in double precision, in order 6, without fused simulations only: in
+# single precision, these cases deviate from the spectral method as in double,
+# and in the other orders, which ci-cpu holds as well, and with fused
+# simulations, of order 3, they have no thresholds to be judged by. The cases
+# on fault1d hold the friction laws in those configurations. They carry the
+# label spectral, so that a job without the time for them can leave them out.
 #
 # The spectral solution at the receivers is the same in every configuration
 # that runs a case on fault2d-periodic; the comparisons keep it in
@@ -600,7 +771,7 @@ endfunction()
 set(SEISSOL_SPECTRAL_DIR ${CMAKE_CURRENT_BINARY_DIR}/solutions)
 
 function(seissol_add_fault1d)
-  cmake_parse_arguments(F1D "" "NAME;FL;FAULT;MESH;STEPS;MATERIAL" "SET;LABELS;REQUIRE;FILES"
+  cmake_parse_arguments(F1D "LTS" "NAME;FL;FAULT;MESH;STEPS;MATERIAL" "SET;LABELS;REQUIRE;FILES"
                         ${ARGN})
   if (NOT F1D_MESH)
     set(F1D_MESH fault1d)
@@ -608,22 +779,28 @@ function(seissol_add_fault1d)
   if (NOT F1D_STEPS)
     set(F1D_STEPS 1536)
   endif()
-  # the exact solution holds for elastic media, isotropic or not; an anisotropic
-  # build runs the isotropic cases with the material of material-anisotropic.yaml
+  # the exact solution holds for elastic media, isotropic or not, and for
+  # isotropic anelastic and porous ones; an anisotropic build runs the isotropic
+  # cases with the material of material-anisotropic.yaml
   if (NOT F1D_REQUIRE)
     set(F1D_REQUIRE "equations=elastic|anisotropic")
   endif()
-  if (F1D_MESH STREQUAL "fault2d-periodic")
-    list(APPEND F1D_REQUIRE "scipy=true" "precision=double" "fused=1")
+  if (F1D_MESH MATCHES "^fault2d-(periodic|surface)")
+    list(APPEND F1D_REQUIRE "scipy=true" "precision=double" "order=6" "fused=1")
     list(APPEND F1D_LABELS spectral)
   endif()
   if (F1D_MATERIAL)
     set(F1D_MATERIAL MATERIAL ${F1D_MATERIAL})
   endif()
+  set(F1D_OPTIONS "")
+  if (F1D_LTS)
+    set(F1D_OPTIONS LTS)
+  endif()
   seissol_add_minitest(
       NAME ${F1D_NAME}
       MESH ${F1D_MESH}
       PARAMETERS rupture1d.par
+      ${F1D_OPTIONS}
       ${F1D_MATERIAL}
       FILES ${F1D_FAULT} faultreceiver.dat ${F1D_FILES}
       STEPS ${F1D_STEPS}
@@ -652,7 +829,7 @@ function(seissol_add_fault1d)
       "case.${SEISSOL_VERIFICATION_CONFIG}.${F1D_NAME};minimesh.${F1D_MESH};verification"
       TIMEOUT ${SEISSOL_MINITEST_TIMEOUT}
       LABELS "verification;dr;exact;${F1D_LABELS}")
-  if (F1D_MESH STREQUAL "fault2d-periodic")
+  if (F1D_MESH MATCHES "^fault2d-(periodic|surface)")
     set_tests_properties(verification.exact.${F1D_NAME}${SEISSOL_VERIFICATION_SUFFIX} PROPERTIES
         RESOURCE_LOCK verification.spectral.${F1D_NAME})
   endif()
@@ -723,3 +900,50 @@ foreach (SEISSOL_VERIFICATION_CONFIG IN LISTS verification_configs)
                        FIXTURES_CLEANUP verification
                        LABELS "verification;coverage")
 endforeach()
+
+# ---------------------------------------------------------------------------
+# The suite of an installation, which run_suite.py runs against the installed
+# executable, without the build, e.g. on a machine with a GPU, which the build
+# does not need: the scripts, the cases and the snapshot references, what the
+# configuration wrote to the build (to build/ of the suite), and suite.json,
+# what CTest knows of the tests of the build, which the installation writes.
+# Each executable has a suite of its own, under its name, as the builds of
+# several executables may share an installation.
+# ---------------------------------------------------------------------------
+
+set(SEISSOL_SUITE_DESTINATION
+    share/seissol/verification/$<TARGET_FILE_BASE_NAME:seissol-bin>)
+file(GLOB suite_scripts ${CMAKE_CURRENT_SOURCE_DIR}/*.py)
+install(FILES ${suite_scripts} DESTINATION ${SEISSOL_SUITE_DESTINATION})
+install(DIRECTORY cases DESTINATION ${SEISSOL_SUITE_DESTINATION})
+install(DIRECTORY ${SEISSOL_SNAPSHOT_DIR}/ DESTINATION ${SEISSOL_SUITE_DESTINATION}/references)
+set(suite_files environment.json)
+foreach (config IN LISTS verification_configs)
+  list(APPEND suite_files ${config}/capabilities.json ${config}/declared.json)
+endforeach()
+foreach (file IN LISTS suite_files)
+  get_filename_component(directory ${file} DIRECTORY)
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${file}
+          DESTINATION ${SEISSOL_SUITE_DESTINATION}/build/${directory})
+endforeach()
+list(TRANSFORM suite_files REPLACE "^(.+)$" "\"\\1\"" OUTPUT_VARIABLE quoted_files)
+string(JOIN ", " suite_files_json ${quoted_files})
+file(GENERATE
+     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/suite-origin.json
+     CONTENT "{
+  \"source\": \"${CMAKE_CURRENT_SOURCE_DIR}\",
+  \"references\": \"${SEISSOL_SNAPSHOT_DIR}\",
+  \"project\": \"${PROJECT_SOURCE_DIR}\",
+  \"build\": \"${CMAKE_CURRENT_BINARY_DIR}\",
+  \"binary\": \"$<TARGET_FILE:seissol-bin>\",
+  \"python\": \"${Python3_EXECUTABLE}\",
+  \"mpiexec\": \"${MPIEXEC_EXECUTABLE}\",
+  \"files\": [${suite_files_json}]
+}
+")
+# the destination names the executable, which only the generation knows
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/InstallSuite.cmake.in
+               ${CMAKE_CURRENT_BINARY_DIR}/InstallSuite.cmake.configured @ONLY)
+file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/InstallSuite.cmake
+     INPUT ${CMAKE_CURRENT_BINARY_DIR}/InstallSuite.cmake.configured)
+install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/InstallSuite.cmake)

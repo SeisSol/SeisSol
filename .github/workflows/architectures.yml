@@ -62,17 +62,7 @@ jobs:
           sudo pip3 install setuptools numpy h5py --break-system-packages
           sudo pip3 install git+https://github.com/SeisSol/PSpaMM.git --break-system-packages
           sudo mkdir -p /opt/dependencies
-
-      - name: checkout-easi
-        uses: actions/checkout@v6
-        with:
-          repository: SeisSol/easi
-
-      - name: build-easi
-        run: |
-          mkdir build && cd build
-          CMAKE_PREFIX_PATH=/opt/dependencies cmake .. -GNinja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/dependencies -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
-          sudo ninja install
+          sudo chown "$(id -u):$(id -g)" /opt/dependencies
 
       - id: checkout
         name: checkout-seissol
@@ -80,52 +70,27 @@ jobs:
         with:
           submodules: recursive
 
+      - name: checkout-easi
+        uses: actions/checkout@v6
+        with:
+          repository: SeisSol/easi
+          path: easi
+
+      - name: build-easi
+        run: scripts/ci/build-easi.sh easi /opt/dependencies
+
+      # (the steps of the job are in scripts/ci/jobs/aarch64.sh, which runs them locally as well)
       - id: build
         name: build-seissol
-        run: |
-          mkdir build && cd build
-
-          export CMAKE_PREFIX_PATH=/opt/dependencies
-
-          # allow oversubscribe for OpenMPI (needed for test discovery)
-          export OMPI_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
-
-          # The architecture the kernels are generated for (HOST_ARCH) sets no flags of the compiler
-          # on ARM; -mcpu does, for the code GCC generates and for the instructions its assembler
-          # takes. The snapshot references of the verification tests come from another
-          # environment, which this one deviates from by rounding, as the CPU CI
-          # (scripts/compile/compile-variants.yaml).
-          cmake .. -GNinja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_FLAGS="-mcpu=${{ matrix.setup.cpu }}" \
-            -DCMAKE_CXX_FLAGS="-mcpu=${{ matrix.setup.cpu }}" \
-            -DHOST_ARCH=${{ matrix.setup.host-arch }} \
-            -DGEMM_TOOLS_LIST=PSpaMM \
-            -DCONFIGS=ci-cpu \
-            -DNETCDF=OFF \
-            -DGRAPH_PARTITIONING_LIBS=none \
-            -DTESTING=ON \
-            -DTESTING_GENERATED=ON \
-            -DSEISSOL_SNAPSHOT_TOLERANCE_DOUBLE=1e-9
-
-          ninja -j "$(nproc)"
+        env:
+          CPU: ${{ matrix.setup.cpu }}
+          HOST_ARCH: ${{ matrix.setup.host-arch }}
+        run: scripts/ci/jobs/aarch64.sh build
 
       - id: test
         name: test-seissol
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: |
-          # allow oversubscribe for OpenMPI
-          export OMPI_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
-
-          # all but the cases of dynamic rupture on fault2d-periodic, which take minutes each and hold
-          # the friction laws against a spectral method: with them, the job takes longer than its
-          # 150 minutes on the four cores of the runner. The CPU CI runs them.
-          cd build
-          ctest -j "$(nproc)" -LE spectral --output-on-failure --output-junit junit.xml
+        run: scripts/ci/jobs/aarch64.sh test
 
       - name: upload-test-logs
         uses: actions/upload-artifact@v7
@@ -155,8 +120,8 @@ jobs:
   # as x86 does, more strictly than these targets: a data race that only the weaker ordering lets
   # show stays hidden here, unlike in the aarch64 job on hardware.
   #
-  # The libraries of the target come from .ci/emulated/dependencies.sh, which the cache keeps from
-  # one run to the next.
+  # The libraries of the target come from scripts/ci/emulated/dependencies.sh, which the cache
+  # keeps from one run to the next.
   # ---------------------------------------------------------------------------
   emulated:
     name: emulated<${{ matrix.target.host-arch }}>
@@ -219,6 +184,13 @@ jobs:
       CC: ${{ matrix.target.cc }}
       CXX: ${{ matrix.target.cxx }}
       CROSS_PREFIX: /opt/cross/${{ matrix.target.triplet }}
+      # the target, for the steps in scripts/ci/jobs/emulated.sh (which runs them locally as well)
+      TRIPLET: ${{ matrix.target.triplet }}
+      QEMU_CPU: ${{ matrix.target.qemu-cpu }}
+      FLAGS: ${{ matrix.target.flags }}
+      HOST_ARCH: ${{ matrix.target.host-arch }}
+      GEMM_TOOLS: ${{ matrix.target.gemm-tools }}
+      CONFIGS: ${{ matrix.target.configs }}
     steps:
       - name: apt-get
         run: |
@@ -245,13 +217,11 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ${{ env.CROSS_PREFIX }}
-          key: emulated-${{ matrix.target.triplet }}-${{ hashFiles('.ci/emulated/dependencies.sh', '.ci/emulated/toolchain.cmake') }}
+          key: emulated-${{ matrix.target.triplet }}-${{ hashFiles('scripts/ci/emulated/dependencies.sh', 'scripts/ci/emulated/toolchain.cmake') }}
 
       - name: build-dependencies
         if: ${{ steps.dependencies.outputs.cache-hit != 'true' }}
-        run: |
-          source .ci/emulated/environment.sh ${{ matrix.target.triplet }} "${CROSS_PREFIX}" ${{ matrix.target.qemu-cpu }}
-          .ci/emulated/dependencies.sh ${{ matrix.target.triplet }} "${CROSS_PREFIX}"
+        run: scripts/ci/jobs/emulated.sh dependencies
 
       - name: save-dependencies
         if: ${{ steps.dependencies.outputs.cache-hit != 'true' }}
@@ -267,66 +237,16 @@ jobs:
           path: easi
 
       - name: build-easi
-        run: |
-          source .ci/emulated/environment.sh ${{ matrix.target.triplet }} "${CROSS_PREFIX}" ${{ matrix.target.qemu-cpu }}
-          # next to the other libraries of the target, after the cache has kept those
-          cmake -S easi -B easi/build -GNinja \
-            -DCMAKE_TOOLCHAIN_FILE="$(pwd)/.ci/emulated/toolchain.cmake" \
-            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="${CROSS_PREFIX}" \
-            -DASAGI=OFF -DLUA=OFF -DEASICUBE=OFF -DIMPALAJIT=OFF
-          cmake --build easi/build
-          cmake --install easi/build
+        run: scripts/ci/jobs/emulated.sh easi
 
       - id: build
         name: build-seissol
-        run: |
-          source .ci/emulated/environment.sh ${{ matrix.target.triplet }} "${CROSS_PREFIX}" ${{ matrix.target.qemu-cpu }}
-
-          # allow oversubscribe for OpenMPI (needed for test discovery)
-          export OMPI_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
-
-          # HOST_ARCH sets no flags of the compiler for most of these targets: the flags name the
-          # vector instructions, for the code of the compiler and for its assembler, which takes
-          # those of the kernels. Eigen is the one of the build machine, whose headers are the same
-          # for every target. The verification cases take longer than natively, and the snapshot
-          # references come from another environment, which this one deviates from by rounding,
-          # as the CPU CI (scripts/compile/compile-variants.yaml).
-          cmake -S . -B build -GNinja \
-            -DCMAKE_TOOLCHAIN_FILE="$(pwd)/.ci/emulated/toolchain.cmake" \
-            -DEigen3_DIR=/usr/share/eigen3/cmake \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_FLAGS="${{ matrix.target.flags }}" \
-            -DCMAKE_CXX_FLAGS="${{ matrix.target.flags }}" \
-            -DHOST_ARCH=${{ matrix.target.host-arch }} \
-            -DGEMM_TOOLS_LIST=${{ matrix.target.gemm-tools }} \
-            -DCONFIGS=${{ matrix.target.configs }} \
-            -DNETCDF=OFF \
-            -DGRAPH_PARTITIONING_LIBS=none \
-            -DNUMA_AWARE_PINNING=OFF \
-            -DTESTING=ON \
-            -DTESTING_GENERATED=ON \
-            -DSEISSOL_VERIFICATION_CONFIGS=first \
-            -DSEISSOL_MINITEST_TIMEOUT=1800 \
-            -DSEISSOL_SNAPSHOT_TOLERANCE_DOUBLE=1e-9
-
-          # one compile job per core, as for the native builds of the set
-          cmake --build build --parallel "$(nproc)"
+        run: scripts/ci/jobs/emulated.sh build
 
       - id: test
         name: test-seissol
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
-        run: |
-          source .ci/emulated/environment.sh ${{ matrix.target.triplet }} "${CROSS_PREFIX}" ${{ matrix.target.qemu-cpu }}
-
-          # allow oversubscribe for OpenMPI
-          export OMPI_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_base_oversubscribe=1
-          export PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe
-
-          cd build
-          ctest -j "$(nproc)" -LE convergence --output-on-failure --output-junit junit.xml
+        run: scripts/ci/jobs/emulated.sh test
 
       - name: upload-test-logs
         uses: actions/upload-artifact@v7

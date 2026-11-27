@@ -191,6 +191,104 @@ def apply_overrides(parameters, overrides):
 
 
 # --------------------------------------------------------------------------
+# turned meshes
+# --------------------------------------------------------------------------
+
+# a stress tensor of a fault map: the initial stress and the nucleations
+_FAULT_STRESS = re.compile(r"^(s|nuc\d*)_(xx|yy|zz|xy|yz|xz)$")
+
+
+def turned_stresses(values, rotation):
+    """The values of a fault map with its stress tensors turned by the
+    matrix `rotation`, R sigma R^T. A traction in fault coordinates (T_n,
+    Tnuc_s, ...) stays as it is: it turns with the fault."""
+    import numpy as np
+
+    turned = dict(values)
+    prefixes = {match.group(1) for match in map(_FAULT_STRESS.match, values) if match}
+    for prefix in sorted(prefixes):
+        tensor = np.zeros((3, 3))
+        for i, j, name in (
+            (0, 0, "xx"), (1, 1, "yy"), (2, 2, "zz"),
+            (0, 1, "xy"), (1, 2, "yz"), (0, 2, "xz"),
+        ):  # fmt: skip
+            tensor[i, j] = tensor[j, i] = float(values.get(f"{prefix}_{name}", 0.0))
+        tensor = rotation @ tensor @ rotation.T
+        for i, j, name in (
+            (0, 0, "xx"), (1, 1, "yy"), (2, 2, "zz"),
+            (0, 1, "xy"), (1, 2, "yz"), (0, 2, "xz"),
+        ):  # fmt: skip
+            turned[f"{prefix}_{name}"] = float(tensor[i, j])
+    return turned
+
+
+def turned_point(values, rotation):
+    """The reference point (XRef, YRef, ZRef) of the DynamicRupture section
+    `values`, whose names are in lower case, turned by `rotation`; with
+    refPointMethod=1, it is a direction, which turns all the same."""
+    import numpy as np
+
+    point = np.array(
+        [float(values.get(name, 0.0)) for name in ("xref", "yref", "zref")]
+    )
+    return rotation @ point
+
+
+def turn_case(work, parameters, rotation):
+    """Turn a case with the mesh it runs on, which minimesh.py turned by the
+    matrix `rotation` (see TURNED there): the receivers, the reference point
+    of the fault and the stresses of the fault map are all given for the mesh
+    before the turn. The material has to be isotropic and at rest; anything
+    else that would have to turn as well is refused, rather than left as it
+    is."""
+    import numpy as np
+
+    rotation = np.asarray(rotation, dtype=float)
+    initial = (parameters.get("IniCondition", "cICType") or "'Zero'").strip("'\"")
+    if initial.lower() != "zero":
+        raise SystemExit(f"a turned mesh takes a case at rest, not {initial}")
+    material = parameters.get("equations", "MaterialFileName")
+    if material and re.search(
+        r"^\s*c\d\d\s*:", (work / material.strip("'\"")).read_text("utf-8"), re.M
+    ):
+        raise SystemExit("a turned mesh takes an isotropic material")
+
+    for section, key in (("Output", "RFileName"), ("Pickpoint", "PPFileName")):
+        name = parameters.get(section, key)
+        if not name:
+            continue
+        path = work / name.strip("'\"")
+        lines = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                point = rotation @ np.array([float(value) for value in line.split()])
+                lines.append(" ".join(repr(float(value)) for value in point))
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    rupture = parameters.values("DynamicRupture")
+    if not rupture:
+        return
+    for name, value in zip(("XRef", "YRef", "ZRef"), turned_point(rupture, rotation)):
+        parameters.set("DynamicRupture", name, repr(float(value)))
+    model = rupture.get("modelfilename")
+    if model:
+        import fault1d
+
+        path = work / model.strip("'\"")
+        maps = fault1d.read_constant_maps(path)
+        if set(maps) != {None}:
+            raise SystemExit(f"{path.name} is not a single constant map, to turn")
+        turned = turned_stresses(maps[None], rotation)
+        lines = [
+            f"# {path.name}, turned with the mesh by the runner",
+            "!ConstantMap",
+            "map:",
+        ]
+        lines += [f"  {name}: {value!r}" for name, value in turned.items()]
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+# --------------------------------------------------------------------------
 # capabilities
 # --------------------------------------------------------------------------
 
@@ -283,6 +381,23 @@ def read_receiver(path):
     if "SimulationIndex" in names:
         return _join_simulations(names, rows)
     return names, rows
+
+
+def quantity_of(label):
+    """The quantity that a column of read_receiver holds: its label without the
+    simulation it belongs to (``v1[3]`` holds v1)."""
+    return label.split("[", 1)[0]
+
+
+def columns_of(names, quantity):
+    """The columns of read_receiver that hold `quantity`: one, or one per fused
+    simulation (``v1[0]``, ``v1[1]``, ...)."""
+    columns = [
+        column for column, label in enumerate(names) if quantity_of(label) == quantity
+    ]
+    if not columns:
+        raise SystemExit(f"the receivers do not record {quantity}")
+    return columns
 
 
 def _join_simulations(names, rows):
@@ -429,7 +544,19 @@ def check_outputs(
     return problems
 
 
-def read_analysis(path):
+# the indices of the velocities among the quantities of the analysis, by equation system; the
+# others are stresses or pressures (see the Quantities of the materials in src/Equations)
+ANALYSIS_VELOCITIES = {
+    "elastic": (6, 7, 8),
+    "anisotropic": (6, 7, 8),
+    "viscoelastic": (6, 7, 8),
+    "poroelastic": (6, 7, 8, 10, 11, 12),
+    "acoustic": (1, 2, 3),
+    "viscoacoustic": (1, 2, 3),
+}
+
+
+def read_analysis(path, velocities=()):
     """Read ``<prefix>-analysis.csv``, which SeisSol writes at the end of a run.
 
     The file holds one row per quantity, norm and simulation. SeisSol writes it
@@ -442,7 +569,13 @@ def read_analysis(path):
     A quantity the wave does not excite, e.g. a stress component off the plane
     of a plane wave along an axis, has no relative error: SeisSol divides by the
     zero norm of its analytical solution and writes inf or nan. Its relative
-    norms are left out; its deviation from zero stays in the absolute ones.
+    norms are left out; its deviation from zero stays in the absolute ones. So
+    are they where the norm of its analytical solution, the absolute norm over
+    the relative one, is the rounding of the eigenvectors of the wave, below
+    1e-8 of the largest of the quantities of its kind, the velocities (the
+    indices `velocities`) or the stresses and pressures: the memory variables
+    of an anelastic material, and the fluid of a porous one, leave such
+    rounding in components that the waves of an elastic solid leave zero.
     """
     norms = {}
     with path.open(encoding="utf-8", newline="") as stream:
@@ -464,17 +597,36 @@ def read_analysis(path):
             if math.isfinite(value)
             or not math.isfinite(absolute.get(variable, math.nan))
         }
+        # the norms of the analytical solution, by the kind of the quantity
+        analytical = {
+            variable: absolute[variable] / value
+            for variable, value in norms[norm].items()
+            if variable in absolute and math.isfinite(value) and value > 0.0
+        }
+
+        def kind(variable):
+            return int(variable.split("[")[0]) in velocities
+
+        largest = {}
+        for variable, value in analytical.items():
+            largest[kind(variable)] = max(largest.get(kind(variable), 0.0), value)
+        norms[norm] = {
+            variable: value
+            for variable, value in norms[norm].items()
+            if variable not in analytical
+            or analytical[variable] > 1e-8 * largest[kind(variable)]
+        }
     return norms
 
 
-def check_analysis(work, prefix, thresholds_file, key, record):
+def check_analysis(work, prefix, thresholds_file, key, record, equations=None):
     """Judge the analytical error, or record it when no threshold is set."""
     path = work / f"{prefix}-analysis.csv"
     if not path.exists():
         return [
             "no analysis output; the initial condition has no analytical solution"
         ], {}
-    norms = read_analysis(path)
+    norms = read_analysis(path, ANALYSIS_VELOCITIES.get(equations, ()))
     observed = {norm: max(values.values()) for norm, values in norms.items() if values}
 
     table = json.loads(Path(thresholds_file).read_text(encoding="utf-8"))
@@ -522,7 +674,14 @@ def receiver_files(root, prefix, kinds=RECEIVER_KINDS["all"]):
 
 
 def compare_receivers(
-    reference, candidate, prefix, tolerance, floor, kinds=RECEIVER_KINDS["all"]
+    reference,
+    candidate,
+    prefix,
+    tolerance,
+    floor,
+    kinds=RECEIVER_KINDS["all"],
+    negate=(),
+    scale="value",
 ):
     """Compare two runs' receiver output.
 
@@ -530,6 +689,13 @@ def compare_receivers(
     only way to state bit identity about an ASCII output. A mismatch is then
     quantified anyway, because a difference of 1e-16 and one of 1e-3 call for
     completely different investigations.
+
+    The columns named in `negate` are compared with the opposite sign of the
+    candidate, for runs that state a quantity in a frame of the other
+    orientation. A difference is relative to the larger of the two values,
+    or with `scale` "column", to the largest value of the column in the
+    reference file, so that rounding in a value that passes through zero does
+    not count as a difference of order one.
     """
     problems = []
     worst = {}
@@ -547,7 +713,7 @@ def compare_receivers(
 
     identical = True
     for name in sorted(set(left) & set(right)):
-        if output_bytes(left[name]) == output_bytes(right[name]):
+        if not negate and output_bytes(left[name]) == output_bytes(right[name]):
             continue
         identical = False
         names, rows_left = read_receiver(left[name])
@@ -557,10 +723,21 @@ def compare_receivers(
                 f"{name}: {len(rows_left)} samples against {len(rows_right)}"
             )
             continue
+        signs = [-1.0 if quantity_of(label) in negate else 1.0 for label in names]
+        largest = [
+            max((abs(row[column]) for row in rows_left), default=0.0)
+            for column in range(len(names))
+        ]
         for row_left, row_right in zip(rows_left, rows_right):
             for column, (a, b) in enumerate(zip(row_left, row_right)):
                 label = names[column] if column < len(names) else str(column)
-                relative = abs(a - b) / max(abs(a), abs(b), floor)
+                if column < len(signs):
+                    b *= signs[column]
+                if scale == "column" and column < len(largest):
+                    denominator = max(largest[column], floor)
+                else:
+                    denominator = max(abs(a), abs(b), floor)
+                relative = abs(a - b) / denominator
                 worst[label] = max(worst.get(label, 0.0), relative)
 
     if identical:
@@ -579,6 +756,141 @@ def compare_receivers(
                     f"{label}={value:.3g}" for label, value in sorted(exceeded.items())
                 )
             )
+    return problems, worst
+
+
+def read_energies(path):
+    """The energy output of a run (EnergyOutput.cpp): per quantity and
+    simulation, the times and the values, in the order written."""
+    series = {}
+    with Path(path).open(encoding="utf-8", newline="") as handle:
+        for row in csv.DictReader(handle):
+            key = (row["variable"], int(row["simulation_index"]))
+            times, values = series.setdefault(key, ([], []))
+            times.append(float(row["time"]))
+            values.append(float(row["measurement"]))
+    return series
+
+
+def read_elementwise(path):
+    """The elementwise fault output of a run (prefix-fault.xdmf, written with
+    the posix backend): the times of its steps, the centroids of its
+    triangles and, per attribute, its values, a row per step and a column per
+    triangle."""
+    import xml.etree.ElementTree as ElementTree
+
+    import numpy as np
+
+    path = Path(path)
+    grids = ElementTree.parse(path).getroot().findall(".//Grid[@GridType='Uniform']")
+    times = [float(grid.find("Time").get("Value")) for grid in grids]
+
+    def binary(item):
+        kind = {"Float": "f", "Int": "i", "UInt": "u"}[item.get("NumberType")]
+        dtype = np.dtype(f"<{kind}{item.get('Precision')}")
+        if item.get("Format") != "Binary":
+            raise SystemExit(f"{path.name}: only binary data items are understood")
+        return np.fromfile(path.parent / item.text.strip(), dtype=dtype)
+
+    first = grids[0]
+    triangles = binary(first.find("Topology/DataItem")).reshape(-1, 3)
+    vertices = binary(first.find("Geometry/DataItem")).reshape(-1, 3)
+    attributes = {}
+    for attribute in first.findall("Attribute"):
+        # a series is a hyperslab of a binary item that holds all steps
+        items = attribute.findall(".//DataItem")
+        if items[0].get("ItemType") != "HyperSlab":
+            continue
+        values = binary(items[-1])
+        attributes[attribute.get("Name")] = values.reshape(-1, triangles.shape[0])[
+            : len(times)
+        ]
+    return times, vertices[triangles].mean(axis=1), attributes
+
+
+def elementwise_receivers(times, attributes, simulation, count):
+    """The triangles of the elementwise fault output as fault receivers, as
+    read_receiver and read_receiver_header give them, of the simulation
+    `simulation` of `count`: the names of the columns, the rows, a step
+    each, and the initial traction in the fault frame that the header of a
+    fault receiver states."""
+    suffix = f"-{simulation}" if count > 1 else ""
+    names = sorted(
+        name[: len(name) - len(suffix)]
+        for name in attributes
+        if name.endswith(suffix) and (count > 1 or "-" not in name)
+    )
+    triangles = next(iter(attributes.values())).shape[1]
+    receivers = []
+    for triangle in range(triangles):
+        columns = [attributes[f"{name}{suffix}"][:, triangle] for name in names]
+        rows = [
+            [time] + [float(column[k]) for column in columns]
+            for k, time in enumerate(times)
+        ]
+        header = {
+            name: [repr(float(attributes[f"{source}{suffix}"][0, triangle]))]
+            for name, source in (("T_s", "Ts0"), ("T_d", "Td0"))
+        }
+        receivers.append((["Time"] + names, rows, header))
+    return receivers
+
+
+def energy_file(root, prefix):
+    """The energy output of a run with the output prefix `prefix`."""
+    return Path(root) / f"{prefix}-energy.csv"
+
+
+def compare_energies(reference, candidate, prefix, tolerance):
+    """Compare the energy output of two runs, each quantity relative to its
+    largest value in the reference: the reduction over the ranks sums in
+    another order on another number of them, so that a sum that passes
+    through zero differs by rounding beyond any bound relative to itself.
+
+    The momentum is such a sum: the two sides of a fault, and the two halves
+    of a wave, carry opposite momenta, and what is left of their sum is its
+    rounding. It is reported, but not judged."""
+    problems = []
+    worst = {}
+    left_path = energy_file(reference, prefix)
+    right_path = energy_file(candidate, prefix)
+    for path, role in ((left_path, "reference"), (right_path, "candidate")):
+        if not path.exists():
+            return [f"the {role} run wrote no energy output"], worst
+    left, right = read_energies(left_path), read_energies(right_path)
+    if set(left) != set(right):
+        problems.append(
+            "the runs output other energies: " f"{sorted(set(left) ^ set(right))}"
+        )
+    for key in sorted(set(left) & set(right)):
+        (times_left, values_left), (times_right, values_right) = left[key], right[key]
+        if times_left != times_right:
+            problems.append(f"{key[0]}: the runs output it at other times")
+            continue
+        scale = max((abs(value) for value in values_left), default=0.0)
+        largest = max(
+            (abs(a - b) for a, b in zip(values_left, values_right)), default=0.0
+        )
+        relative = largest / scale if scale > 0.0 else largest
+        name = f"energy:{key[0]}" + (f"[{key[1]}]" if key[1] else "")
+        worst[name] = relative
+    exceeded = {
+        name: value
+        for name, value in worst.items()
+        if value > tolerance and not name.startswith("energy:momentum")
+    }
+    if exceeded:
+        problems.append(
+            f"energies differ by more than {tolerance:.3g}: "
+            + ", ".join(
+                f"{name}={value:.3g}" for name, value in sorted(exceeded.items())
+            )
+        )
+    else:
+        print(
+            "energies agree to "
+            + ", ".join(f"{name}={value:.3g}" for name, value in sorted(worst.items()))
+        )
     return problems, worst
 
 
@@ -706,8 +1018,12 @@ SI_PREFIXES = {
 }
 
 
-def check_log(log, timestep):
-    """Check what only the log can tell: the parameters and the time step."""
+CLUSTER_LINE = re.compile(r"info \d+ : (\d+) : (\d+) , (\d+) *$", re.M)
+
+
+def check_log(log, timestep, lts=False):
+    """Check what only the log can tell: the parameters and the time step, or
+    with local time stepping, that the cells fall into more than one cluster."""
     problems = []
 
     unknown = sorted(
@@ -719,7 +1035,23 @@ def check_log(log, timestep):
     if unknown:
         problems.append(f"parameters unknown to SeisSol: {', '.join(unknown)}")
 
-    if timestep is not None:
+    if lts:
+        # the histogram of the clusters, a line "cluster : cells , rupture
+        # faces" each, follows its heading
+        _, _, histogram = log.partition("Cluster histogram (cells, DR faces):")
+        clusters = [
+            int(cluster)
+            for cluster, cells, _ in CLUSTER_LINE.findall(
+                histogram.split("Simulations:")[0]
+            )
+            if int(cells) > 0
+        ]
+        if len(clusters) < 2:
+            problems.append(
+                "local time stepping put the cells in a single cluster, so that "
+                "the case steps as with global time stepping"
+            )
+    elif timestep is not None:
         matches = TIMESTEP_LINE.findall(log)
         if not matches:
             problems.append(
@@ -839,7 +1171,10 @@ def _command_run(args):
     # the configuration is a gap in the suite, reported as a skip
     substitutions = {key: str(value) for key, value in capabilities.items()}
     files = [name.format(**substitutions) for name in args.file]
-    overrides = [entry.format(**substitutions) for entry in args.set]
+    # what only a build with anelastic mechanisms reads comes first, so that a
+    # case may override it; elsewhere it is not even part of the inputs
+    anelastic = args.set_anelastic if int(capabilities.get("mechanisms", 0)) > 0 else []
+    overrides = [entry.format(**substitutions) for entry in anelastic + args.set]
     restart_overrides = [entry.format(**substitutions) for entry in args.restart_set]
     missing = [name for name in files if not (case_dir / name).exists()]
     if missing:
@@ -895,12 +1230,22 @@ def _command_run(args):
                 f"the time step {args.timestep!r} is not a power of two; "
                 f"use e.g. {2.0 ** round(math.log2(abs(args.timestep) or 1.0))!r}"
             )
-        parameters.set("Discretization", "FixTimeStep", repr(args.timestep))
-        # one receiver sample per step, at exactly the step times
+        if args.lts:
+            # the cells step as their CFL limit lets them, in clusters at the
+            # rate 2, which SeisSol's default of FixTimeStep leaves alone; the
+            # time step samples the volume receivers, and with the steps, the
+            # end time
+            parameters.set("Discretization", "ClusteredLTS", "2")
+            parameters.set("Discretization", "FixTimeStep", "5000.0")
+        else:
+            parameters.set("Discretization", "FixTimeStep", repr(args.timestep))
+        # one receiver sample per time step, at exactly its times
         parameters.set("Output", "pickdt", repr(args.timestep))
         if args.steps is not None:
             parameters.set("AbortCriteria", "EndTime", repr(args.steps * args.timestep))
     apply_overrides(parameters, overrides)
+    if args.mesh_manifest and "rotation" in manifest:
+        turn_case(work, parameters, manifest["rotation"])
 
     prefix = parameters.get("Output", "OutputFile") or "output/out"
     (work / Path(prefix).parent).mkdir(parents=True, exist_ok=True)
@@ -1093,7 +1438,7 @@ def _command_run(args):
     if completed.returncode != 0:
         problems.append(f"exit code {completed.returncode}")
     else:
-        problems += check_log(log, args.timestep)
+        problems += check_log(log, args.timestep, args.lts)
         problems += check_outputs(
             work,
             prefix,
@@ -1113,7 +1458,7 @@ def _command_run(args):
         if capabilities["fused"] > 1:
             key += "/s{}".format(capabilities["fused"])
         analysis_problems, observed = check_analysis(
-            work, prefix, args.thresholds, key, args.record
+            work, prefix, args.thresholds, key, args.record, capabilities["equations"]
         )
         problems += analysis_problems
         result["analysis"] = observed
@@ -1158,6 +1503,11 @@ def _command_compare(args):
         return SKIP_RETURN_CODE
 
     kinds = RECEIVER_KINDS[args.receivers]
+    if (
+        args.tolerance_single is not None
+        and inputs["candidate"].get("capabilities", {}).get("precision") == "single"
+    ):
+        args.tolerance = args.tolerance_single
     if args.simulations:
         problems, worst = compare_simulations(
             Path(args.reference),
@@ -1177,7 +1527,15 @@ def _command_compare(args):
             args.tolerance,
             args.floor,
             kinds,
+            negate=frozenset(args.negate),
+            scale=args.scale,
         )
+    if args.energies is not None:
+        energy_problems, energy_worst = compare_energies(
+            Path(args.reference), Path(args.candidate), args.prefix, args.energies
+        )
+        problems += energy_problems
+        worst.update(energy_worst)
     result["receivers"] = args.receivers
     result["status"] = "run"
     result["tolerance"] = args.tolerance
@@ -1550,14 +1908,36 @@ def _command_snapshot(args):
 # --------------------------------------------------------------------------
 
 
+def _mirrored_along_y(spec):
+    """Whether the mesh of the spec `spec` (minimesh.Spec, as its manifest
+    holds it) is the half y > 0 of a period of twice its length along y,
+    mirrored at y = 0: it ends in free surfaces at y = 0 and at its far end
+    (see minimesh.py, fault2d-surface)."""
+    planes = {}
+    for plane, tag in spec["boundary"]:
+        planes.update(
+            {name: tag for name in ("ymin", "ymax")} if plane == "all" else {plane: tag}
+        )
+    origin = spec["origin"] or [-0.5 * length for length in spec["size"]]
+    return (
+        not spec["periodic"][1]
+        and planes.get("ymin") == planes.get("ymax") == 1
+        and origin[1] == 0.0
+    )
+
+
 def _fault1d_groups(manifest):
     """The material groups at x < 0 and at x > 0 of a fault1d mesh, which may
-    be periodic across the fault as well."""
+    be periodic across the fault as well, and mirrored along y (see
+    _mirrored_along_y)."""
     spec = manifest["spec"]
+    origin = spec["origin"] or [-0.5 * length for length in spec["size"]]
     if (
         [list(plane) for plane in spec["faults"]] != [["x", None]]
-        or list(spec["periodic"])[1:] != [True, True]
-        or spec["origin"] is not None
+        or not (spec["periodic"][1] or _mirrored_along_y(spec))
+        or not spec["periodic"][2]
+        or origin[0] != -0.5 * spec["size"][0]
+        or origin[2] != -0.5 * spec["size"][2]
     ):
         raise SystemExit(
             f"{manifest['name']} is no fault1d mesh: the exact solution needs the fault "
@@ -1684,7 +2064,9 @@ def _gauss_point_deviations(column, exact, events, law, imposed, keep=None):
     return found
 
 
-def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers):
+def compare_fault1d(
+    problem, series, indices, fault_receivers, volume_receivers, rotation=None
+):
     """The deviations of the receivers from the exact solution, per quantity.
 
     The fault receivers are compared as magnitudes, of the slip rate, the
@@ -1692,7 +2074,9 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
     strike and dip of the documented fault frame; that the receivers use this
     frame is checked against the initial traction their header states. The
     volume receivers are compared component by component, as vectors of the
-    velocity and the stress in global coordinates.
+    velocity and the stress in global coordinates. On a mesh that the matrix
+    `rotation` turned, the problem is the one before the turn, and its waves
+    turn with the mesh.
 
     Where the receivers report something else than the physical quantity, they
     are held against what they report: with thermal pressurization, Pn0 is the
@@ -1760,13 +2144,271 @@ def compare_fault1d(problem, series, indices, fault_receivers, volume_receivers)
         worst("direction", misalignment)
 
     step = series["time"][1] - series["time"][0]
+    turn = np.eye(3) if rotation is None else np.asarray(rotation)
     for position, (names, rows) in volume_receivers:
+        distance = (turn.T @ np.asarray(position, dtype=float))[0]
         found = _volume_deviations(
-            names, rows, step, problem.radiated(series, position[0])
+            names, rows, step, _turned_fields(problem.radiated(series, distance), turn)
         )
         for name, value in found.items():
             worst(name, value)
     return deviations
+
+
+def compare_fault1d_energies(
+    problem, series, energies, simulation, area, extent, rotation=None
+):
+    """The deviations of the energies that the energy output reports
+    (docs/energy-output.rst) for the simulation `simulation` from those of
+    the exact solution, each relative to the largest value of its exact
+    series.
+
+    On fault1d, the fault slips uniformly over its area A, and the traction
+    of the waves it sends out is -H V, the radiation damping of the slip
+    rate V (see fault1d.Problem), and in media that relax, -eta V - g * V;
+    the energy output takes the traction of the waves, not the stress the
+    fault is loaded with. The potency is A times the accumulated slip, and
+    the seismic moment that times the harmonic mean of the shear moduli of
+    the two sides along the slip so far, d^T Gamma d with the Christoffel
+    matrix Gamma of the side (of the unrelaxed medium) and the direction d of
+    the slip. The total frictional work is the integral of A V . H V over
+    time, and the static frictional work A V . H u / 2 at a time, with u the
+    slip by then and H V the traction of the waves. The kinetic and the
+    strain energy, and the momentum, are those of the waves within the
+    column, whose ends at x = `extent` they leave through; the momentum
+    turns with a mesh that the matrix `rotation` turned, and its deviation
+    is relative to the integral of rho |v| instead, as the momenta of the two
+    sides cancel where their media are alike. In media that relax, see
+    _relaxing_energies.
+    """
+    import fault1d
+    import numpy as np
+
+    time = series["time"]
+    rate = np.column_stack((series["slip-rate-y"], series["slip-rate-z"]))
+
+    def integral(values):
+        return np.concatenate(
+            ([0.0], np.cumsum(0.5 * (values[1:] + values[:-1]) * np.diff(time)))
+        )
+
+    slip = np.column_stack([integral(column) for column in rate.T])
+    length = np.linalg.norm(slip, axis=1)
+    direction = np.where(
+        length[:, None] > 0.0, slip / np.maximum(length, 1e-300)[:, None], (1.0, 0.0)
+    )
+    left, right = (
+        np.einsum("ti,ij,tj->t", direction, medium.christoffel[1:, 1:], direction)
+        for medium in (problem.left, problem.right)
+    )
+    potency = area * series["accumulated-slip"]
+    if problem.relaxation is None:
+        resisted = rate @ problem.eta_shear.T
+    else:
+        # the traction the waves take off the fault, by their propagator at it
+        _, at_fault = problem.radiated(series, 0.0)
+        resisted = -at_fault[:, [fault1d.VOIGT.index("xy"), fault1d.VOIGT.index("xz")]]
+    exact = {
+        "potency": potency,
+        "seismic_moment": 2.0 * left * right / (left + right) * potency,
+        "total_frictional_work": area * integral(np.einsum("ti,ti->t", rate, resisted)),
+        "static_frictional_work": 0.5 * area * np.einsum("ti,ti->t", resisted, slip),
+    }
+    wanted = ("elastic_kinetic_energy", "elastic_strain_energy")
+    if problem.relaxation is not None:
+        exact.update(
+            _relaxing_energies(
+                problem, series, energies, simulation, area, extent, rotation
+            )
+        )
+    elif all((name, simulation) in energies for name in wanted):
+        # at the times of the output only, by Gauss-Legendre on either side
+        times = np.asarray(energies[(wanted[0], simulation)][0])
+        kinetic, strain = np.zeros(times.size), np.zeros(times.size)
+        momentum, magnitude = np.zeros((times.size, 3)), np.zeros(times.size)
+        nodes, weights = np.polynomial.legendre.leggauss(96)
+        for start, end in ((extent[0], 0.0), (0.0, extent[1])):
+            medium = problem.left if end <= 0.0 else problem.right
+            compliance = np.linalg.inv(medium.stiffness)
+            for node, weight in zip(nodes, weights):
+                x = 0.5 * (start + end) + 0.5 * (end - start) * node
+                velocity, stress = (
+                    np.column_stack(
+                        [np.interp(times, time, column) for column in field.T]
+                    )
+                    for field in problem.radiated(series, x)
+                )
+                scale = 0.5 * (end - start) * weight * area
+                kinetic += scale * 0.5 * medium.rho * np.sum(velocity**2, axis=1)
+                strain += (
+                    scale * 0.5 * np.einsum("ti,ij,tj->t", stress, compliance, stress)
+                )
+                momentum += scale * medium.rho * velocity
+                magnitude += scale * medium.rho * np.linalg.norm(velocity, axis=1)
+        exact["elastic_kinetic_energy"] = (times, kinetic)
+        exact["elastic_strain_energy"] = (times, strain)
+        momentum = (
+            momentum @ (np.eye(3) if rotation is None else np.asarray(rotation)).T
+        )
+        for axis, name in enumerate(("momentumX", "momentumY", "momentumZ")):
+            exact[name] = (times, momentum[:, axis], float(np.max(magnitude)))
+    deviations = {}
+    for name, values in exact.items():
+        if (name, simulation) not in energies:
+            raise SystemExit(f"the energy output holds no {name}")
+        times, measured = energies[(name, simulation)]
+        if isinstance(values, tuple):
+            # at the times of the output it gives, which are among those of the output
+            measured = np.interp(values[0], times, measured)
+            expected = values[1]
+            scale = values[2] if len(values) > 2 else float(np.max(np.abs(expected)))
+        else:
+            expected = np.interp(times, time, values)
+            scale = float(np.max(np.abs(values)))
+        largest = float(np.max(np.abs(np.asarray(measured) - expected)))
+        key = "momentum" if name.startswith("momentum") else name.replace("_", "-")
+        deviations[f"energy-{key}"] = _larger(
+            deviations.get(f"energy-{key}", 0.0),
+            largest / scale if scale > 0.0 else largest,
+        )
+    return deviations
+
+
+def _relaxing_energies(problem, series, energies, simulation, area, extent, rotation):
+    """The energies of the energy output within the column, of media whose
+    shear wave relaxes (see fault1d.Relaxation), at the times of the output
+    until the first front reaches an end of the column: the outflow planes
+    absorb the unrelaxed wave, and reflect what has relaxed (see
+    minimesh.py), which the column then holds as well. By Gauss-Legendre on
+    either side, from the fields of fault1d.Problem.relaxing_fields, as
+    docs/energy-output.rst defines the energies:
+
+    * an anelastic medium stores 2 mu_r eps^2 in its relaxed stiffness, mu_r
+      = mu_U (1 - sum_l Y_l), and 2 mu_U Y_l e_l^2 in the spring of each
+      mechanism l, whose dashpot dissipates 4 omega_l mu_U Y_l e_l^2, with
+      the tensor components eps and e_l of the shear strains, summed over
+      xy and xz;
+    * a porous medium moves the kinetic energy
+      (rho_bar v^2 + 2 rho_f v . w + m w^2) / 2 with the velocity w of the
+      fluid relative to the skeleton, stores sigma^2 / (2 mu) of its shear
+      stress, the pressure staying zero, and Darcy's friction dissipates
+      nu / kappa w^2;
+    * plasticity without a yield stores sigma^2 / (2 mu), as the elastic
+      medium does, and turns the stress into the plastic strain at the rate
+      sigma / (2 mu T_v), whose eta grows at its magnitude: the plastic moment
+      is the integral of mu eta.
+
+    The momentum is rho v, of a porous medium rho_bar v + rho_f w."""
+    import fault1d
+    import numpy as np
+
+    kinetic_names = ("elastic_kinetic_energy", "poroelastic_kinetic_energy")
+    present = [name for name in kinetic_names if (name, simulation) in energies]
+    if not present:
+        return {}
+    output = np.asarray(energies[(present[0], simulation)][0])
+    leave = min(
+        abs(extent[0]) / problem.left.shear_speed,
+        abs(extent[1]) / problem.right.shear_speed,
+    )
+    times = output[output <= leave]
+    time = series["time"]
+    # the fields up to the last of these times, a step on
+    kept = int(np.searchsorted(time, times[-1])) + 2
+    reduced = {
+        name: values[:kept] if np.ndim(values) and len(values) == len(time) else values
+        for name, values in series.items()
+    }
+    fine = reduced["time"]
+    sums = {}
+    momentum, magnitude = np.zeros((times.size, 3)), np.zeros(times.size)
+
+    def add(name, values):
+        sums[name] = sums.get(name, 0.0) + values
+
+    nodes, weights = np.polynomial.legendre.leggauss(96)
+    for start, end in ((extent[0], 0.0), (0.0, extent[1])):
+        medium = problem.left if end <= 0.0 else problem.right
+        dispersion = medium.dispersion
+        mu = medium.stiffness[3, 3]
+        for node, weight in zip(nodes, weights):
+            x = 0.5 * (start + end) + 0.5 * (end - start) * node
+            fields = problem.relaxing_fields(reduced, x)
+
+            def at(field):
+                return np.column_stack(
+                    [np.interp(times, fine, column) for column in field.T]
+                )
+
+            scale = 0.5 * (end - start) * weight * area
+            velocity, stress = at(fields["velocity"]), at(fields["stress"])
+            if isinstance(dispersion, fault1d.Porosity):
+                fluid = at(fields["fluid"])
+                add(
+                    "poroelastic_kinetic_energy",
+                    scale
+                    * 0.5
+                    * np.sum(
+                        dispersion.mixture * velocity**2
+                        + 2.0 * dispersion.rho_fluid * velocity * fluid
+                        + dispersion.inertia * fluid**2,
+                        axis=1,
+                    ),
+                )
+                add(
+                    "poroelastic_strain_energy",
+                    scale * np.sum(stress**2, axis=1) / (2.0 * mu),
+                )
+                add(
+                    "darcy_dissipation_rate",
+                    scale * dispersion.drag * np.sum(fluid**2, axis=1),
+                )
+                carried = dispersion.mixture * velocity + dispersion.rho_fluid * fluid
+                moved = dispersion.mixture * np.linalg.norm(
+                    velocity, axis=1
+                ) + dispersion.rho_fluid * np.linalg.norm(fluid, axis=1)
+            else:
+                add(
+                    "elastic_kinetic_energy",
+                    scale * 0.5 * medium.rho * np.sum(velocity**2, axis=1),
+                )
+                carried = medium.rho * velocity
+                moved = medium.rho * np.linalg.norm(velocity, axis=1)
+            if isinstance(dispersion, fault1d.Anelasticity):
+                relaxed = mu * (1.0 - float(np.sum(dispersion.s_coefficients)))
+                strain = at(fields["strain"])
+                add(
+                    "elastic_strain_energy",
+                    scale * 2.0 * relaxed * np.sum(strain**2, axis=1),
+                )
+                stored, dissipated = 0.0, 0.0
+                for index, (omega, coefficient) in enumerate(
+                    zip(dispersion.frequencies, dispersion.s_coefficients)
+                ):
+                    spring = np.sum(at(fields[f"spring-{index}"]) ** 2, axis=1)
+                    stored = stored + 2.0 * mu * coefficient * spring
+                    dissipated = dissipated + 4.0 * omega * mu * coefficient * spring
+                add("anelastic_strain_energy", scale * stored)
+                add("viscous_dissipation_rate", scale * dissipated)
+            if isinstance(dispersion, fault1d.Yieldless):
+                add(
+                    "elastic_strain_energy",
+                    scale * np.sum(stress**2, axis=1) / (2.0 * mu),
+                )
+                rate = np.linalg.norm(fields["stress"], axis=1) * (
+                    dispersion.frequency / (2.0 * mu)
+                )
+                eta = np.concatenate(
+                    ([0.0], np.cumsum(0.5 * (rate[1:] + rate[:-1]) * np.diff(fine)))
+                )
+                add("plastic_moment", scale * mu * np.interp(times, fine, eta))
+            momentum[:, 1:] += scale * carried
+            magnitude += scale * moved
+    exact = {name: (times, values) for name, values in sums.items()}
+    momentum = momentum @ (np.eye(3) if rotation is None else np.asarray(rotation)).T
+    for axis, name in enumerate(("momentumX", "momentumY", "momentumZ")):
+        exact[name] = (times, momentum[:, axis], float(np.max(magnitude)))
+    return exact
 
 
 def _volume_deviations(names, rows, step, radiated, end=None):
@@ -1781,9 +2423,20 @@ def _volume_deviations(names, rows, step, radiated, end=None):
     if end is not None:
         recorded = recorded[recorded[:, names.index("Time")] <= end]
     # the volume receivers sample on their own, up to a step before the end
-    samples = np.rint(recorded[:, names.index("Time")] / step).astype(int)
+    position = recorded[:, names.index("Time")] / step
+    samples = np.rint(position).astype(int)
     velocity, stress = radiated
-    velocity, stress = velocity[samples], stress[samples]
+    if np.all(np.abs(position - samples) <= 1e-6):
+        velocity, stress = velocity[samples], stress[samples]
+    else:
+        # stepping locally, the rupture steps at its CFL limit, and the volume
+        # receivers sample between the points of the integration
+        grid = np.arange(velocity.shape[0]) * step
+        times = recorded[:, names.index("Time")]
+        velocity, stress = (
+            np.column_stack([np.interp(times, grid, column) for column in field.T])
+            for field in (velocity, stress)
+        )
     deviations = {}
     index = [names.index(name) for name in ("v1", "v2", "v3")]
     error = np.linalg.norm(recorded[:, index] - velocity, axis=1)
@@ -1792,6 +2445,22 @@ def _volume_deviations(names, rows, step, radiated, end=None):
     error = np.linalg.norm(recorded[:, index] - stress, axis=1)
     deviations["stress"] = float(error.max() / np.linalg.norm(stress, axis=1).max())
     return deviations
+
+
+def _turned_fields(fields, rotation):
+    """The velocity and the stress (in the order of fault1d.VOIGT) of
+    `fields`, per row, turned by the matrix `rotation`."""
+    import fault1d
+    import numpy as np
+
+    velocity, stress = fields
+    pairs = [("xyz".index(name[0]), "xyz".index(name[1])) for name in fault1d.VOIGT]
+    tensor = np.zeros((stress.shape[0], 3, 3))
+    for column, (i, j) in enumerate(pairs):
+        tensor[:, i, j] = tensor[:, j, i] = stress[:, column]
+    tensor = np.einsum("ik,tkl,jl->tij", rotation, tensor, rotation)
+    turned = np.column_stack([tensor[:, i, j] for i, j in pairs])
+    return velocity @ np.asarray(rotation).T, turned
 
 
 def _is_series(value):
@@ -1846,6 +2515,16 @@ def compare_front(front, step, fault_receivers, volume_receivers):
 
     for names, rows, header in fault_receivers:
         point = [float(header[name][0]) for name in ("x1", "x2", "x3")]
+        if "Vr" in names:
+            # the rupture velocity of the face of the receiver, from the
+            # gradient of the rupture times of its Gauss points, which the
+            # front sets once, at its own speed (see docs/fault-output.rst);
+            # zero until it has passed all of them
+            speed = rows[-1][names.index("Vr")]
+            deviations["rupture-velocity"] = _larger(
+                deviations.get("rupture-velocity", 0.0),
+                abs(speed - front.speed) / front.speed,
+            )
         problem, series, rows = solve(point, rows, 0)
         indices = [round(row[0] / step) for row in rows]
         merge(compare_fault1d(problem, series, indices, [(names, rows, header)], []))
@@ -2070,6 +2749,24 @@ def compare_antiplane(
             )
             for name, value in found.items():
                 worst(name, value)
+            expected = reference.get("rupture-velocity")
+            if (
+                "Vr" in names
+                and expected is not None
+                # a front faster than the fastest wave is where the fault
+                # fails all at once, as where it nucleates; the speed of the
+                # front tells nothing there, and the gradient of the rupture
+                # times that SeisSol takes it from is rounding
+                and expected[point] <= solver.fastest
+            ):
+                # the rupture velocity of the face, from the gradient of the
+                # rupture times of its Gauss points at the one of the
+                # receiver, once all of them have ruptured
+                speed = column("Vr")[-1]
+                worst(
+                    "rupture-velocity",
+                    abs(speed - float(expected[point])) / float(expected[point]),
+                )
 
         # the receivers state the initial traction of the load in the fault
         # frame, before the slip rate of t = 0 takes its part of it
@@ -2124,6 +2821,15 @@ def _antiplane_reference(solver, solution, points, positions, law):
             reference[name] = value[:, points]
         elif value.shape == (solver.y.size,):
             reference[name] = value[points]
+    if "rupture-time" in solution:
+        # the speed of the front, from the slope of the rupture time along y,
+        # by central differences across the period
+        ruptured = np.asarray(solution["rupture-time"], dtype=float)
+        spacing = solver.length / solver.count
+        slope = (np.roll(ruptured, -1) - np.roll(ruptured, 1)) / (2.0 * spacing)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            speed = np.where(np.abs(slope) > 0.0, 1.0 / np.abs(slope), np.nan)
+        reference["rupture-velocity"] = speed[points]
     healed = None
     if law in (2, 6, 16, 1058):
         healed = _first_rise(solution["time"], solution["friction"])
@@ -2249,8 +2955,18 @@ def _compare_antiplane_case(
 
     if left.rho != right.rho or not np.array_equal(left.stiffness, right.stiffness):
         raise fault1d.Unsupported("the spectral method takes one medium on both sides")
+    if left.dispersion is not None:
+        raise fault1d.Unsupported("the spectral method takes an elastic medium")
     fault_receivers = simulations[0][0]
-    width, length = manifest["spec"]["size"][:2]
+    spec = manifest["spec"]
+    width, length = spec["size"][:2]
+    # a mesh that ends in free surfaces at y = 0 and at the far end of y is
+    # the half y > 0 of the period of twice its length, mirrored at y = 0 (see
+    # minimesh.py, fault2d-surface): an antiplane rupture about y = 0 leaves
+    # no shear traction sigma_yz on either plane
+    mirrored = _mirrored_along_y(spec)
+    if mirrored:
+        length *= 2.0
     # the points of the method run through the first fault receiver
     spacing = length / args.points
     offset = (float(fault_receivers[0][2]["x2"][0]) + 0.5 * length) % spacing
@@ -2260,6 +2976,12 @@ def _compare_antiplane_case(
     except easimodel.Unsupported as reason:
         raise fault1d.Unsupported(f"{model.name}: {reason}") from reason
     if antiplane.in_plane(fault):
+        if mirrored:
+            # at a mirror plane, the in-plane slip leaves no normal velocity
+            # rather than no normal traction
+            raise fault1d.Unsupported(
+                "a free surface across in-plane slip is no mirror"
+            )
         solver = antiplane.Inplane(left, length, width, args.points, offset)
     points = sorted(
         {_antiplane_point(solver, header) for _, _, header in fault_receivers}
@@ -2285,9 +3007,11 @@ def _compare_antiplane_case(
     path = None
     reference = None
     if args.solutions:
+        # the key holds all that the solution is computed from, and nothing of
+        # the case otherwise, so that cases that pose the same problem on
+        # other meshes share it
         key = _reference_key(
             {
-                "case": args.name,
                 "method": type(solver).__name__,
                 "points": args.points,
                 "offset": offset,
@@ -2304,7 +3028,7 @@ def _compare_antiplane_case(
                 "law": law,
             }
         )
-        path = Path(args.solutions) / f"{args.name}-{key}.npz"
+        path = Path(args.solutions) / f"{type(solver).__name__.lower()}-{key}.npz"
         if path.exists():
             reference = _load_reference(path)
             print(f"the spectral solution is the one kept in {path}")
@@ -2326,6 +3050,45 @@ def _compare_antiplane_case(
             "no fault receiver lies on a Gauss point of the fault of this build"
         )
     return deviations, unavailable
+
+
+def judge_deviations(thresholds, key, deviations, record_them, unavailable=None):
+    """The problems of the deviations `deviations` of the configuration `key`
+    (case/equations/o<order>/<precision>) against the table `thresholds`: a
+    deviation above its threshold, one without a threshold, and a threshold
+    of a deviation that was not compared, unless `unavailable` gives a reason
+    why it could not be for its name. A configuration without thresholds is
+    judged by none. With `record_them`, the deviations are printed in a form
+    that can be pasted into the table."""
+    table = json.loads(Path(thresholds).read_text(encoding="utf-8"))
+    wanted = table.get("entries", {}).get(key)
+    problems = []
+    print(
+        "deviations from the exact solution: "
+        + ", ".join(f"{name}={value:.3g}" for name, value in sorted(deviations.items()))
+    )
+    if wanted is None:
+        print(f"no thresholds for {key}")
+    else:
+        for name, limit in sorted(wanted.items()):
+            seen = deviations.get(name)
+            reason = unavailable(name) if unavailable is not None else None
+            if seen is None and reason is not None:
+                print(f"{name} is not compared: {reason}")
+            elif seen is None:
+                problems.append(f"{name} has a threshold but was not compared")
+            elif limit is None:
+                print(f"{key} {name} = {seen:.6g} (no threshold set)")
+            elif not seen <= limit:
+                problems.append(
+                    f"{name} is {seen:.6g}, above the threshold {limit:.6g}"
+                )
+        unjudged = sorted(set(deviations) - set(wanted))
+        if unjudged:
+            problems.append(f"no threshold for {', '.join(unjudged)}")
+    if record_them:
+        print("record:", json.dumps({key: deviations}))
+    return problems
 
 
 def _command_exact(args):
@@ -2372,6 +3135,21 @@ def _command_exact(args):
         work / parameters.get("equations", "MaterialFileName")
     )
     manifest = json.loads(Path(args.mesh_manifest).read_text(encoding="utf-8"))
+    # the runner turned the case with a turned mesh (see turn_case); the exact
+    # solution takes it as it was before the turn, and turns what it predicts
+    rotation = manifest.get("rotation")
+    if rotation is not None:
+        import numpy as np
+
+        rotation = np.array(rotation)
+        if fault is None:
+            raise SystemExit("a turned mesh takes a uniform fault")
+        fault = turned_stresses(fault, rotation.T)
+        rupture = dict(rupture)
+        for name, value in zip(
+            ("xref", "yref", "zref"), turned_point(rupture, rotation.T)
+        ):
+            rupture[name] = repr(float(value))
     left, right = _fault1d_groups(manifest)
     if manifest["spec"]["periodic"][0] and importlib.util.find_spec("scipy") is None:
         result["status"] = "skipped"
@@ -2379,8 +3157,35 @@ def _command_exact(args):
         record(args.result, result)
         print(result["reason"][0])
         return SKIP_RETURN_CODE
-    left = fault1d.medium_of(materials, left)
-    right = fault1d.medium_of(materials, right)
+    capabilities = json.loads(Path(args.capabilities).read_text(encoding="utf-8"))
+    # a build with anelastic mechanisms fits them to the band of the parameters
+    attenuation = None
+    if int(capabilities.get("mechanisms", 0)) > 0:
+        attenuation = (
+            float(parameters.get("equations", "FreqCentral")),
+            float(parameters.get("equations", "FreqRatio")),
+            int(capabilities["mechanisms"]),
+        )
+    try:
+        groups = (left, right)
+        left = fault1d.medium_of(materials, left, attenuation)
+        right = fault1d.medium_of(materials, right, attenuation)
+        if (parameters.get("equations", "Plasticity") or "0").strip() != "0":
+            # SeisSol relaxes with Tv = 0.1 where the parameters leave it out
+            relaxation = float(parameters.get("equations", "Tv") or 0.1)
+            plasticity = fault1d.read_constant_maps(
+                work
+                / (
+                    parameters.get("equations", "PlasticityFileName")
+                    or parameters.get("equations", "MaterialFileName")
+                )
+            )
+            left, right = (
+                fault1d.yieldless(medium, plasticity, group, relaxation)
+                for medium, group in zip((left, right), groups)
+            )
+    except fault1d.Unsupported as reason:
+        raise SystemExit(f"the case has no exact solution here: {reason}") from reason
 
     prefix = Path(parameters.get("Output", "OutputFile") or "output/out")
     directory = work / prefix.parent
@@ -2392,6 +3197,18 @@ def _command_exact(args):
         raise SystemExit("the case wrote no fault receivers")
     times = [row[0] for row in fault_receivers[0][1]]
     interval = times[1] - times[0]
+    stepping = parameters.get("Discretization", "ClusteredLTS") or "1"
+    if (
+        stepping != "1"
+        and abs(times[-1] - (len(times) - 1) * interval) > 1e-9 * interval
+    ):
+        # stepping locally, the cluster of the rupture takes the steps of its
+        # CFL limit, and a shorter one at the end, to end at the end time; the
+        # sample after that one is left out
+        fault_receivers = [
+            (names, rows[:-1], header) for names, rows, header in fault_receivers
+        ]
+        times = times[:-1]
     if any(abs(t - k * interval) > 1e-9 * interval for k, t in enumerate(times)):
         raise SystemExit(
             "the fault receivers do not sample at a fixed interval from zero"
@@ -2453,50 +3270,87 @@ def _command_exact(args):
                 for faults, volumes in simulations
             )
         else:
-            problem = fault1d.Problem(rupture, fault, left, right)
-            series = problem.solve(times[-1], step)
+            problem = fault1d.Problem(rupture, fault, left, right, rotation=rotation)
+            if problem.relaxation is not None:
+                # a medium that relaxes faster than the steps resolve, as a porous
+                # one does at the frequency of Biot, takes steps that resolve it
+                fastest = float(problem.relaxation.rates.max())
+                step = interval / max(
+                    args.substeps, math.ceil(4.0 * interval * fastest)
+                )
+            energies = None
+            if energy_file(work, prefix).exists():
+                energies = read_energies(energy_file(work, prefix))
+            end = max([times[-1]] + [max(t) for t, _ in (energies or {}).values()])
+            series = problem.solve(math.ceil(end / step) * step, step)
             indices = [round(t / step) for t in times]
             deviations = _worst(
-                compare_fault1d(problem, series, indices, faults, volumes)
+                compare_fault1d(problem, series, indices, faults, volumes, rotation)
                 for faults, volumes in simulations
             )
+            elementwise = work / f"{prefix}-fault.xdmf"
+            if elementwise.exists():
+                # the triangles of the elementwise output, whose values come from the
+                # degrees of freedom at the end of a step, where those of the receivers
+                # come from the expansion of the step in time
+                ew_times, _, attributes = read_elementwise(elementwise)
+                ew_indices = [round(t / step) for t in ew_times]
+                found = _worst(
+                    compare_fault1d(
+                        problem,
+                        series,
+                        ew_indices,
+                        elementwise_receivers(
+                            ew_times, attributes, simulation, len(simulations)
+                        ),
+                        [],
+                        rotation,
+                    )
+                    for simulation in range(len(simulations))
+                )
+                deviations.update(
+                    {f"elementwise-{name}": value for name, value in found.items()}
+                )
+            if energies is not None:
+                spec = manifest["spec"]
+                origin = (spec["origin"] or [-0.5 * spec["size"][0]])[0]
+                extent = (origin, origin + spec["size"][0])
+                area = spec["size"][1] * spec["size"][2]
+                deviations = _worst(
+                    [deviations]
+                    + [
+                        compare_fault1d_energies(
+                            problem,
+                            series,
+                            energies,
+                            simulation,
+                            area,
+                            extent,
+                            rotation,
+                        )
+                        for simulation in range(len(simulations))
+                    ]
+                )
     except fault1d.Unsupported as reason:
         raise SystemExit(f"the case has no exact solution here: {reason}") from reason
 
-    capabilities = json.loads(Path(args.capabilities).read_text(encoding="utf-8"))
     key = "{}/{}/o{}/{}".format(
         args.name,
         capabilities["equations"],
         capabilities["order"],
         capabilities["precision"],
     )
-    table = json.loads(Path(args.thresholds).read_text(encoding="utf-8"))
-    wanted = table.get("entries", {}).get(key)
-    problems = []
-    print(
-        "deviations from the exact solution: "
-        + ", ".join(f"{name}={value:.3g}" for name, value in sorted(deviations.items()))
+    problems = judge_deviations(
+        args.thresholds,
+        key,
+        deviations,
+        args.record,
+        lambda name: (
+            unavailable
+            if unavailable is not None and name not in _AT_RECEIVER
+            else None
+        ),
     )
-    if wanted is None:
-        print(f"no thresholds for {key}")
-    else:
-        for name, limit in sorted(wanted.items()):
-            seen = deviations.get(name)
-            if seen is None and unavailable is not None and name not in _AT_RECEIVER:
-                print(f"{name} is not compared: {unavailable}")
-            elif seen is None:
-                problems.append(f"{name} has a threshold but was not compared")
-            elif limit is None:
-                print(f"{key} {name} = {seen:.6g} (no threshold set)")
-            elif not seen <= limit:
-                problems.append(
-                    f"{name} is {seen:.6g}, above the threshold {limit:.6g}"
-                )
-        unjudged = sorted(set(deviations) - set(wanted))
-        if unjudged:
-            problems.append(f"no threshold for {', '.join(unjudged)}")
-    if args.record:
-        print("record:", json.dumps({key: deviations}))
 
     result["status"] = "run"
     result["configuration"] = key
@@ -2505,6 +3359,433 @@ def _command_exact(args):
     record(args.result, result)
     for problem_text in problems:
         print(f"error: {problem_text}", file=sys.stderr)
+    return 1 if problems else 0
+
+
+def plastic_relaxation(initial, cohesion, friction, relaxation, times):
+    """The stress that a uniform state, the initial stress `initial` (a dict
+    of s_xx to s_xz) of a Drucker-Prager material, adds to it at `times`,
+    under viscoplastic relaxation with the time `relaxation`, as the
+    receivers record it: without the initial stress.
+
+    The yield is tau_c = max(0, c cos(phi) - sigma_m sin(phi)), with
+    phi = atan(`friction`), the cohesion c and the mean stress sigma_m, and
+    tau = sqrt(J2) of the deviator s. Beyond it, the relaxation turns
+    tau - tau_c down by exp(-dt / T_v) in each step, along s, and leaves the
+    mean stress; as long as nothing else changes the stress, that is the
+    exponential decay at the end of every step. The volume receivers sample
+    at those ends."""
+    import numpy as np
+
+    names = ("xx", "yy", "zz", "xy", "yz", "xz")
+    tensor = np.zeros((3, 3))
+    for (i, j), name in zip(((0, 0), (1, 1), (2, 2), (0, 1), (1, 2), (0, 2)), names):
+        tensor[i, j] = tensor[j, i] = float(initial.get(f"s_{name}", 0.0))
+    mean = np.trace(tensor) / 3.0
+    deviator = tensor - mean * np.eye(3)
+    tau = math.sqrt(0.5 * np.sum(deviator * deviator))
+    angle = math.atan(friction)
+    limit = max(0.0, cohesion * math.cos(angle) - mean * math.sin(angle))
+    times = np.asarray(times, dtype=float)
+    if tau <= limit:
+        return np.zeros((times.size, 3, 3)), tau, limit
+    drop = (1.0 - limit / tau) * -np.expm1(-times / relaxation)
+    return -drop[:, None, None] * deviator[None, :, :], tau, limit
+
+
+def _matrix_exponential(matrix):
+    """exp(matrix) of a small square matrix, by scaling and squaring a
+    Taylor series."""
+    import numpy as np
+
+    norm = float(np.max(np.sum(np.abs(matrix), axis=1)))
+    squarings = max(0, math.ceil(math.log2(norm)) + 1) if norm > 0.5 else 0
+    scaled = matrix / 2.0**squarings
+    result = np.eye(matrix.shape[0], dtype=complex)
+    term = np.eye(matrix.shape[0], dtype=complex)
+    for order in range(1, 40):
+        term = term @ scaled / order
+        result = result + term
+        if np.max(np.abs(term)) <= 1e-18 * np.max(np.abs(result)):
+            break
+    for _ in range(squarings):
+        result = result @ result
+    return result
+
+
+def _elastic_jacobians(rho, mu, lam):
+    """The Jacobians A_d of q_t + sum_d A_d dq/dx_d = 0 for an isotropic
+    elastic solid, in the quantities of SeisSol (s_xx, s_yy, s_zz, s_xy, s_yz,
+    s_xz, v1, v2, v3; see getTransposedCoefficientMatrix of the elastic
+    material)."""
+    import numpy as np
+
+    pairs = {(0, 0): 0, (1, 1): 1, (2, 2): 2, (0, 1): 3, (1, 2): 4, (0, 2): 5}
+    stress = {**pairs, **{(j, i): index for (i, j), index in pairs.items()}}
+    jacobians = np.zeros((3, 9, 9))
+    for d in range(3):
+        # d sigma_ij / dt = lam delta_ij div v + mu (dv_i/dx_j + dv_j/dx_i)
+        for i in range(3):
+            jacobians[d, i, 6 + d] -= lam
+            if i != d:
+                jacobians[d, stress[(i, d)], 6 + i] -= mu
+        jacobians[d, d, 6 + d] -= 2.0 * mu
+        # rho dv_i / dt = d sigma_ij / dx_j
+        for i in range(3):
+            jacobians[d, 6 + i, stress[(i, d)]] -= 1.0 / rho
+    return jacobians
+
+
+def _canonical_eigenvectors(operator):
+    """The eigenvalues of `operator`, sorted by their real parts, and its
+    eigenvectors as Planarwave canonicalizes them (canonicalizeEigenvectors in
+    Scenarios.cpp): an eigenspace gets, one after the other, the projection of
+    the coordinate axis it holds the most of (the first of equal ones), of unit
+    length, its coordinate there real and positive."""
+    import numpy as np
+
+    values, vectors = np.linalg.eig(operator)
+    order = np.argsort(values.real, kind="stable")
+    values, vectors = values[order], vectors[:, order]
+    scale = float(np.max(np.abs(values)))
+    canonical = np.zeros_like(vectors, dtype=complex)
+    assigned = [False] * len(values)
+    for first in range(len(values)):
+        if assigned[first]:
+            continue
+        space = [
+            j
+            for j in range(first, len(values))
+            if not assigned[j] and abs(values[j] - values[first]) <= 1e-8 * scale
+        ]
+        for j in space:
+            assigned[j] = True
+        orthonormal, _ = np.linalg.qr(vectors[:, space])
+        projector = orthonormal @ orthonormal.conj().T
+        for column in space:
+            largest = float(np.max(projector.diagonal().real))
+            axis = 0
+            while projector[axis, axis].real < (1.0 - 1e-8) * largest:
+                axis += 1
+            vector = projector[:, axis] / math.sqrt(projector[axis, axis].real)
+            canonical[:, column] = vector
+            projector = projector - np.outer(vector, vector.conj())
+    return values, canonical
+
+
+def plastic_wave(rho, mu, lam, kvec, relaxation, step, steps):
+    """The planar wave of an elastic solid (Planarwave in Scenarios.cpp, which
+    sets up its modes -S2 and P) through Drucker-Prager parameters without
+    cohesion, friction and initial stress. Its yield is zero: every deviatoric
+    stress relaxes towards zero with the time `relaxation` T_v, which makes
+    the solid a Maxwell body in shear. The wave stays a single Fourier mode,
+    the real part of q(t) exp(-i k.x), which this returns as SeisSol steps it,
+    at the ends of the steps 0 to `steps` of the length `step`: each step an
+    elastic one, here exact, and then the plastic correction, which turns the
+    deviator down by exp(-dt / T_v). It returns as well the amplitudes of the
+    plastic strain each step adds, the stress the correction releases over
+    2 mu, and the amplitudes of the Maxwell body itself, without the split,
+    which the split leaves by about dt / (2 T_v)."""
+    import numpy as np
+
+    kvec = np.asarray(kvec, dtype=float)
+    operator = np.einsum("d,dij->ij", kvec, _elastic_jacobians(rho, mu, lam))
+    _, vectors = _canonical_eigenvectors(operator)
+    # the modes -S2 and P of Planarwave, at the amplitude 1 and the phase 0
+    state = vectors[:, 1] + vectors[:, 8]
+    deviator = np.zeros((9, 9))
+    deviator[:3, :3] = np.eye(3) - 1.0 / 3.0
+    deviator[3:6, 3:6] = np.eye(3)
+    # q(t) exp(-i k.x) solves q_t = i (k.A) q - P q / T_v, P the deviator
+    elastic = _matrix_exponential(1j * operator * step)
+    released = -math.expm1(-step / relaxation)
+    maxwell = _matrix_exponential((1j * operator - deviator / relaxation) * step)
+    split, continuous, strains = [state], [state], []
+    for _ in range(steps):
+        predicted = elastic @ split[-1]
+        drop = released * (deviator @ predicted)
+        strains.append(drop[:6] / (2.0 * mu))
+        split.append(predicted - drop)
+        continuous.append(maxwell @ continuous[-1])
+    return np.array(split), np.array(strains), np.array(continuous)
+
+
+def _plastic_moment(strains, mu, volume, samples=2048):
+    """The plastic moment mu int eta dV of the plastic strains `strains`, a
+    row per step of the amplitudes of a Fourier mode, by the steps up to each
+    row: eta grows by sqrt(0.5 dstrain_ij dstrain_ij) in a step, and its mean
+    over a volume of whole periods is the one over the phase."""
+    import numpy as np
+
+    phases = np.exp(1j * 2.0 * np.pi * np.arange(samples) / samples)
+    weights = np.array([0.5, 0.5, 0.5, 1.0, 1.0, 1.0])
+    eta = np.zeros(samples)
+    moments = [0.0]
+    for strain in strains:
+        values = (strain[:, None] * phases[None, :]).real
+        eta += np.sqrt(np.einsum("c,cp->p", weights, values**2))
+        moments.append(mu * volume * float(np.mean(eta)))
+    return np.array(moments)
+
+
+def _wave_energies(states, rho, mu, lam, volume):
+    """The kinetic and the elastic strain energy of a Fourier mode with the
+    amplitudes `states` (a row per time) over a volume of whole periods: the
+    mean of Re(a e^(i phi)) Re(b e^(i phi)) is Re(a conj(b)) / 2."""
+    import numpy as np
+
+    velocity = states[:, 6:]
+    kinetic = 0.25 * rho * volume * np.sum(np.abs(velocity) ** 2, axis=1)
+    stress = states[:, :6]
+    trace = stress[:, 0] + stress[:, 1] + stress[:, 2]
+    deviator = stress.copy()
+    deviator[:, :3] -= trace[:, None] / 3.0
+    contraction = np.sum(np.abs(deviator[:, :3]) ** 2, axis=1) + 2.0 * np.sum(
+        np.abs(deviator[:, 3:]) ** 2, axis=1
+    )
+    bulk = lam + 2.0 * mu / 3.0
+    density = np.abs(trace) ** 2 / (18.0 * bulk) + contraction / (4.0 * mu)
+    return kinetic, 0.5 * volume * density
+
+
+def _command_plastic(args):
+    """Hold a Drucker-Prager material against its exact plastic relaxation:
+    a uniform state beyond the yield (see plastic_relaxation), or a planar
+    wave through the material without yield (see plastic_wave), and with the
+    energy output, the plastic moment, and the energies of the wave."""
+    import fault1d
+    import numpy as np
+
+    result = {"name": f"exact-{args.name}"}
+    case_path = Path(args.case_result)
+    case = (
+        json.loads(case_path.read_text(encoding="utf-8"))
+        if case_path.exists()
+        else None
+    )
+    if case is None or case["status"] != "run":
+        result["status"] = "skipped"
+        result["reason"] = [
+            "the case was skipped" if case else "the case left no result behind"
+        ]
+        record(args.result, result)
+        print(f"skipped: {result['reason'][0]}")
+        return SKIP_RETURN_CODE
+    if case.get("problems"):
+        print(
+            "error: the case itself failed; there is nothing to compare",
+            file=sys.stderr,
+        )
+        return 1
+
+    work = Path(args.work)
+    parameters = ParameterFile((work / "parameters.par").read_text(encoding="utf-8"))
+    name = parameters.get("equations", "PlasticityFileName") or parameters.get(
+        "equations", "MaterialFileName"
+    )
+    maps = fault1d.read_constant_maps(work / name)
+    values = dict(maps.get(None, {}))
+    values.update(maps.get(1, {}))
+    relaxation = float(parameters.get("equations", "Tv"))
+    materials = fault1d.read_constant_maps(
+        work / parameters.get("equations", "MaterialFileName")
+    )
+    medium = dict(materials.get(None, {}))
+    medium.update(materials.get(1, {}))
+    rho, mu = float(medium["rho"]), float(medium["mu"])
+    lam = float(medium["lambda"])
+    impedance = math.sqrt(rho * mu)
+    manifest = json.loads(Path(args.mesh_manifest).read_text(encoding="utf-8"))
+    volume = float(np.prod(manifest["spec"]["size"]))
+    prefix = Path(parameters.get("Output", "OutputFile") or "output/out")
+    paths = sorted((work / prefix.parent).glob(f"{prefix.name}-receiver-*.dat"))
+    if not paths:
+        raise SystemExit("the case wrote no receivers")
+    energies = None
+    if energy_file(work, prefix).exists():
+        energies = read_energies(energy_file(work, prefix))
+    capabilities = case["capabilities"]
+    pairs = (
+        (0, 0, "xx"),
+        (1, 1, "yy"),
+        (2, 2, "zz"),
+        (0, 1, "xy"),
+        (1, 2, "yz"),
+        (0, 2, "xz"),
+    )
+    initial = (parameters.get("IniCondition", "cICType") or "Zero").strip("'\"")
+    worst = {}
+
+    def measured(key):
+        if energies is None or (key, 0) not in energies:
+            raise SystemExit(f"the energy output holds no {key}")
+        times, series = energies[(key, 0)]
+        return np.asarray(times), np.asarray(series)
+
+    if initial.lower() == "zero":
+        # a uniform state beyond the yield; everything holds to rounding
+        worst.update({"stress": 0.0, "velocity": 0.0})
+        for path in paths:
+            names, rows = read_receiver(path)
+            rows = np.array(rows)
+            expected, tau, limit = plastic_relaxation(
+                values,
+                float(values["plastCo"]),
+                float(values["bulkFriction"]),
+                relaxation,
+                rows[:, names.index("Time")],
+            )
+            scale = tau - limit
+            if scale <= 0.0:
+                raise SystemExit(
+                    f"the initial stress does not yield: tau {tau:.6g}, tau_c {limit:.6g}"
+                )
+            for i, j, component in pairs:
+                for column in columns_of(names, f"s_{component}"):
+                    recorded = rows[:, column]
+                    worst["stress"] = _larger(
+                        worst["stress"],
+                        float(np.max(np.abs(recorded - expected[:, i, j]))) / scale,
+                    )
+            for component in ("v1", "v2", "v3"):
+                # a uniform state stays at rest; the velocity is held against the one
+                # that a shear wave would carry of the stress the relaxation releases
+                for column in columns_of(names, component):
+                    recorded = rows[:, column]
+                    worst["velocity"] = _larger(
+                        worst["velocity"],
+                        float(np.max(np.abs(recorded))) * impedance / scale,
+                    )
+        if energies is not None:
+            # the relaxation releases tau - tau_c along the deviator, and turns it into the
+            # plastic strain (tau - tau_c) s / (2 mu tau) at the end, of which a share
+            # 1 - exp(-t / T_v) by the time t: its eta is that share of (tau - tau_c) / (2 mu),
+            # and what is left of the deviator, tau - that share of tau - tau_c, stores
+            # tau^2 / (2 mu) per volume
+            times, moment = measured("plastic_moment")
+            share = -np.expm1(-times / relaxation)
+            expected = volume * share * scale / 2.0
+            worst["plastic-moment"] = float(np.max(np.abs(moment - expected))) / (
+                volume * scale / 2.0
+            )
+            times, strain = measured("elastic_strain_energy")
+            # the energy output takes the stress of the unknowns, without the initial one
+            released = -np.expm1(-times / relaxation) * scale
+            expected = volume * released**2 / (2.0 * mu)
+            worst["energy-strain"] = float(np.max(np.abs(strain - expected))) / (
+                volume * scale**2 / (2.0 * mu)
+            )
+        tolerance = (
+            args.tolerance_single
+            if capabilities.get("precision") == "single"
+            else args.tolerance_double
+        )
+        print(
+            "deviations from the exact relaxation, relative to tau - tau_c: "
+            + ", ".join(f"{key}={value:.3g}" for key, value in sorted(worst.items()))
+        )
+        problems = [
+            f"the {key} deviates by {value:.3g}, above {tolerance:.3g}"
+            for key, value in sorted(worst.items())
+            if not value <= tolerance
+        ]
+    elif initial.lower() == "planarwave":
+        for key in ("plastCo", "bulkFriction") + tuple(f"s_{c}" for *_, c in pairs):
+            if float(values.get(key, 0.0)) != 0.0:
+                raise SystemExit(
+                    "a planar wave has an exact solution here only where the "
+                    f"material does not yield or always does: {key} is not zero"
+                )
+        kvec = [float(v) for v in parameters.get("IniCondition", "kVec").split()]
+        step = float(parameters.get("Discretization", "FixTimeStep"))
+        records = []
+        for path in paths:
+            names, rows = read_receiver(path)
+            header = read_receiver_header(path)
+            point = np.array([float(header[f"x{axis}"][0]) for axis in (1, 2, 3)])
+            records.append((point, names, np.array(rows)))
+        end = max(float(rows[-1, names.index("Time")]) for _, names, rows in records)
+        if energies is not None:
+            end = max([end] + [max(times) for times, _ in energies.values()])
+        steps = round(end / step)
+        split, strains, continuous = plastic_wave(
+            rho, mu, lam, kvec, relaxation, step, steps
+        )
+        scales = (
+            float(np.max(np.abs(split[0, :6]))),
+            float(np.max(np.abs(split[0, 6:]))),
+        )
+        worst.update({"stress": 0.0, "velocity": 0.0})
+        unsplit = 0.0
+        for point, names, rows in records:
+            indices = np.rint(rows[:, names.index("Time")] / step).astype(int)
+            phase = np.exp(-1j * float(np.dot(kvec, point)))
+            columns = [f"s_{c}" for *_, c in pairs] + ["v1", "v2", "v3"]
+            for quantity, column in enumerate(columns):
+                kind, scale = (
+                    ("stress", scales[0]) if quantity < 6 else ("velocity", scales[1])
+                )
+                expected = (split[indices, quantity] * phase).real
+                for index in columns_of(names, column):
+                    recorded = rows[:, index]
+                    worst[kind] = _larger(
+                        worst[kind], float(np.max(np.abs(recorded - expected))) / scale
+                    )
+                unsplit = max(
+                    unsplit,
+                    float(
+                        np.max(
+                            np.abs(
+                                (
+                                    continuous[indices, quantity]
+                                    - split[indices, quantity]
+                                )
+                            )
+                        )
+                    )
+                    / scale,
+                )
+        print(
+            "the exact Maxwell body, without the split of the steps, lies "
+            f"{unsplit:.3g} from the split"
+        )
+        result["unsplit"] = unsplit
+        if energies is not None:
+            kinetic, strain = _wave_energies(split, rho, mu, lam, volume)
+            moment = _plastic_moment(strains, mu, volume)
+            for key, series in (
+                ("energy-kinetic", kinetic),
+                ("energy-strain", strain),
+                ("plastic-moment", moment),
+            ):
+                name = {
+                    "energy-kinetic": "elastic_kinetic_energy",
+                    "energy-strain": "elastic_strain_energy",
+                    "plastic-moment": "plastic_moment",
+                }[key]
+                times, values_measured = measured(name)
+                indices = np.rint(times / step).astype(int)
+                worst[key] = float(
+                    np.max(np.abs(values_measured - series[indices]))
+                ) / float(np.max(np.abs(series)))
+        key = "{}/{}/o{}/{}".format(
+            args.name,
+            capabilities["equations"],
+            capabilities["order"],
+            capabilities["precision"],
+        )
+        problems = judge_deviations(args.thresholds, key, worst, args.record)
+        result["configuration"] = key
+    else:
+        raise SystemExit(
+            f"no exact plastic solution for the initial condition {initial}"
+        )
+    result["status"] = "run"
+    result["deviations"] = worst
+    result["problems"] = problems
+    record(args.result, result)
+    for problem in problems:
+        print(f"error: {problem}", file=sys.stderr)
     return 1 if problems else 0
 
 
@@ -2576,6 +3857,20 @@ def main(argv=None):
     run.add_argument("--threads", type=int, default=1)
     run.add_argument("--steps", type=int)
     run.add_argument("--timestep", type=float)
+    run.add_argument(
+        "--set-anelastic",
+        action="append",
+        default=[],
+        metavar="SECTION.KEY=VALUE",
+        help="an override that only a build with anelastic mechanisms takes, "
+        "before those of --set",
+    )
+    run.add_argument(
+        "--lts",
+        action="store_true",
+        help="step locally, at the rate 2; the time step then only samples the "
+        "volume receivers and sets the end time with the steps",
+    )
     run.add_argument("--mpiexec", default="")
     # these are passed as --flag=value because their values start with a dash,
     # which argparse would otherwise read as the next option
@@ -2656,6 +3951,11 @@ def main(argv=None):
         help="largest permitted relative difference; zero demands identical files",
     )
     compare.add_argument(
+        "--tolerance-single",
+        type=float,
+        help="the tolerance where the candidate ran in single precision",
+    )
+    compare.add_argument(
         "--floor",
         type=float,
         default=1e-30,
@@ -2674,6 +3974,27 @@ def main(argv=None):
         choices=sorted(RECEIVER_KINDS),
         default="all",
         help="compare the receivers of this kind only",
+    )
+    compare.add_argument(
+        "--negate",
+        action="append",
+        default=[],
+        metavar="COLUMN",
+        help="compare this column with the opposite sign of the candidate; repeatable",
+    )
+    compare.add_argument(
+        "--scale",
+        choices=("value", "column"),
+        default="value",
+        help="relate a difference to the larger of the two values, or to the "
+        "largest value of the column in the reference",
+    )
+    compare.add_argument(
+        "--energies",
+        type=float,
+        metavar="TOLERANCE",
+        help="compare the energy output as well, each quantity to this "
+        "tolerance relative to its largest value",
     )
     compare.add_argument("--result")
     compare.set_defaults(func=_command_compare)
@@ -2745,6 +4066,35 @@ def main(argv=None):
     )
     exact.add_argument("--result")
     exact.set_defaults(func=_command_exact)
+
+    plastic = commands.add_parser(
+        "plastic",
+        help="hold a uniform state that yields, or a planar wave through a material "
+        "without yield, against its exact relaxation",
+    )
+    plastic.add_argument("--name", required=True)
+    plastic.add_argument("--case-result", required=True)
+    plastic.add_argument("--work", required=True)
+    plastic.add_argument("--mesh-manifest", required=True)
+    plastic.add_argument("--result")
+    plastic.add_argument(
+        "--tolerance-double",
+        type=float,
+        help="the tolerance of the uniform state in double precision",
+    )
+    plastic.add_argument(
+        "--tolerance-single",
+        type=float,
+        help="the tolerance of the uniform state in single precision",
+    )
+    plastic.add_argument("--thresholds", help="the thresholds of the planar wave")
+    plastic.add_argument(
+        "--record",
+        action="store_true",
+        default=bool(os.environ.get("SEISSOL_RECORD_THRESHOLDS")),
+        help="print the deviations in a form that can be pasted into the table",
+    )
+    plastic.set_defaults(func=_command_plastic)
 
     coverage = commands.add_parser(
         "coverage", help="account for declared versus run cases"

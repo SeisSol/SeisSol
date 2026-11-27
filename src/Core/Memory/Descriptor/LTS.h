@@ -35,6 +35,7 @@ enum class AllocationPreset {
   TimedofsConstant,
   ConstantShared,
   Timebucket,
+  TimebucketHalo,
   Plasticity,
   PlasticityData
 };
@@ -55,6 +56,8 @@ inline auto allocationModeWP(AllocationPreset preset) {
     case AllocationPreset::PlasticityData:
       return AllocationMode::HostOnly;
     case AllocationPreset::Timebucket:
+      [[fallthrough]];
+    case AllocationPreset::TimebucketHalo:
       [[fallthrough]];
     case AllocationPreset::Timedofs:
       return (MaxOrder <= 7 ? AllocationMode::HostOnlyHBM : AllocationMode::HostOnly);
@@ -85,8 +88,11 @@ inline auto allocationModeWP(AllocationPreset preset) {
       [[fallthrough]];
     case AllocationPreset::PlasticityData:
       return useUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompressPinned;
-    case AllocationPreset::Timebucket:
+    case AllocationPreset::TimebucketHalo:
+      // what MPI sends and receives
       return useMPIUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompress;
+    case AllocationPreset::Timebucket:
+      [[fallthrough]];
     default:
       return useUSM() ? AllocationMode::HostDeviceUnified : modeMaybeCompress;
     }

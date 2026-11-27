@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# A fault without a friction law (FL = 0) and without a stress of its own. It
+# takes a fault file all the same: without one, SeisSol switches the rupture
+# off and treats the faces of the fault as any other face. Every friction law
+# reads an initial and a nucleation stress, which are zero here.
+!ConstantMap
+map:
+  s_xx:   0.0
+  s_yy:   0.0
+  s_zz:   0.0
+  s_xy:   0.0
+  s_yz:   0.0
+  s_xz:   0.0
+  nuc_xx: 0.0
+  nuc_yy: 0.0
+  nuc_zz: 0.0
+  nuc_xy: 0.0
+  nuc_yz: 0.0
+  nuc_xz: 0.0

@@ -79,6 +79,18 @@ seissol_add_minitest(
     ACTIVITY "v1:1e-12"
     LABELS "smoke;plasticity")
 
+# A uniform stress beyond the yield relaxes towards it by exp(-dt / Tv) in every
+# step, which plasticity-relaxation holds to rounding, over eight relaxation
+# times and in a single step each
+seissol_add_plastic_relaxation(NAME plasticity-relaxation SET "equations.Tv=4.8828125e-04")
+seissol_add_plastic_relaxation(NAME plasticity-relaxation-instant STEPS 8
+                               SET "equations.Tv=7.62939453125e-06")
+# A planar wave through Drucker-Prager parameters without a yield relaxes as in
+# a Maxwell body, with Tv a quarter of the period of its S wave; its stresses
+# fall to a seventh over the 512 steps, and the split of the steps leaves them
+# by 0.3 per cent
+seissol_add_plastic_wave(NAME plasticity-wave TV 7.8125e-03)
+
 # the time mirror makes the waves four times as fast from step 5 to step 15, and
 # the time steps four times as short: the 10 steps between become 40, so that
 # the 48 cells take 50 steps. Without the shorter steps, they would take 20, at
@@ -95,8 +107,8 @@ seissol_add_minitest(
     EXPECT_SUMMARY "simulation.cellUpdates=2400"
     LABELS "smoke;itm")
 
-# without a friction law the fault is welded: NoFault passes the traction of
-# the continuous-contact state through unchanged
+# without a fault file, the rupture is off, and the faces of the fault are
+# faces as any other
 seissol_add_minitest(
     NAME smoke-fault48
     MESH fault48
@@ -104,6 +116,21 @@ seissol_add_minitest(
     STEPS 20
     REQUIRE equations=elastic
     ACTIVITY "v1:1e-12"
+    LABELS "smoke;dr")
+# without a friction law the fault is welded: NoFault passes the traction of
+# the continuous-contact state through unchanged. The fault file keeps the
+# rupture on (see fault-welded.yaml).
+set(SEISSOL_WELDED "DynamicRupture.FL=0" "DynamicRupture.ModelFileName='fault-welded.yaml'")
+seissol_add_minitest(
+    NAME smoke-fault48-welded
+    MESH fault48
+    PARAMETERS wave.par
+    STEPS 20
+    REQUIRE equations=elastic
+    SET ${SEISSOL_WELDED}
+    FILES fault-welded.yaml
+    ACTIVITY "v1:1e-12"
+    NO_SNAPSHOT
     LABELS "smoke;dr")
 
 # the Dirichlet faces drive a wave into the body at rest; their setup takes the
@@ -240,17 +267,29 @@ seissol_add_comparison(
     TOLERANCE 0
     LABELS "bitwise;mpi;plan")
 
-# A welded fault is the absence of a fault: fault48 and box48 are the same
-# mesh apart from the tag on the plane x = 0, and the rupture quadrature is
-# exact for the polynomial degrees involved, so the two runs differ by
-# rounding only. A sign or rotation error in the rupture flux gives a
-# difference of order one; the bound sits between the two regimes and gets
-# tightened once the actual difference has been measured.
+# A fault whose rupture is off is no fault at all: fault48 and box48 are the
+# same mesh apart from the tag on the plane x = 0.
+seissol_add_comparison(
+    NAME identity-fault48-off
+    REFERENCE smoke-box48
+    CANDIDATE smoke-fault48
+    TOLERANCE 0
+    LABELS "identity;dr")
+# A welded fault is the absence of a fault: the rupture quadrature is exact for
+# the polynomial degrees involved, so the two runs differ by rounding only,
+# relative to the largest value of a column, as a value that passes through
+# zero magnifies its rounding beyond any bound: by 1.3e-12 in double precision,
+# 5e-5 in single. A sign or rotation error in the rupture flux gives a
+# difference of order one.
+set(SEISSOL_WELDED_ROUNDING 1e-10)
+set(SEISSOL_WELDED_ROUNDING_SINGLE 1e-3)
 seissol_add_comparison(
     NAME identity-fault48-nofault
     REFERENCE smoke-box48
-    CANDIDATE smoke-fault48
-    TOLERANCE 1e-6
+    CANDIDATE smoke-fault48-welded
+    TOLERANCE ${SEISSOL_WELDED_ROUNDING}
+    SINGLE_TOLERANCE ${SEISSOL_WELDED_ROUNDING_SINGLE}
+    SCALE column
     LABELS "identity;dr")
 
 # ---------------------------------------------------------------------------
@@ -924,6 +963,38 @@ seissol_add_comparison(
     TOLERANCE 0
     LABELS "bitwise;mpi;dr")
 
+# The energy output, which sums over the cells and the faces of a rank and then
+# over the ranks, in another order on another number of them or of threads; the
+# cases of its own keep the parameters of the others, and with them their
+# snapshots. The momentum is reported, but not judged (see
+# run_case.compare_energies).
+set(SEISSOL_ENERGY_OUTPUT "Output.EnergyOutput=1" "Output.EnergyOutputInterval=9.765625e-04")
+set(SEISSOL_ENERGY_SUMS 1e-13)
+seissol_add_rupture(NAME rupture-lsw-energy FL 16 FAULT fault-lsw.yaml
+                    SET ${SEISSOL_ENERGY_OUTPUT} NO_SNAPSHOT LABELS energy)
+seissol_add_rupture(NAME rupture-lsw-energy-mpi4 FL 16 FAULT fault-lsw.yaml RANKS 4
+                    SET ${SEISSOL_ENERGY_OUTPUT} LABELS "energy;mpi")
+seissol_add_comparison(
+    NAME identity-rupture-lsw-energy-mpi4
+    REFERENCE rupture-lsw-energy
+    CANDIDATE rupture-lsw-energy-mpi4
+    TOLERANCE 0
+    ENERGIES ${SEISSOL_ENERGY_SUMS}
+    LABELS "identity;mpi;dr;energy")
+seissol_add_rupture(NAME rupture-rs-fvw-tp-energy FL 103 FAULT fault-rs-fvw-tp.yaml
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_ENERGY_OUTPUT}
+                    NO_SNAPSHOT LABELS energy)
+seissol_add_rupture(NAME rupture-rs-fvw-tp-energy-threads4 FL 103 FAULT fault-rs-fvw-tp.yaml
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_ENERGY_OUTPUT} THREADS 4
+                    LABELS "energy;threads")
+seissol_add_comparison(
+    NAME identity-rupture-rs-fvw-tp-energy-threads4
+    REFERENCE rupture-rs-fvw-tp-energy
+    CANDIDATE rupture-rs-fvw-tp-energy-threads4
+    TOLERANCE 0
+    ENERGIES ${SEISSOL_ENERGY_SUMS}
+    LABELS "identity;threads;dr;energy")
+
 # The clusters take their steps along the time stepping plan (SEISSOL_TIMESTEPPING_PLAN, see
 # TimeManager::followPlan) instead of deciding them as actors: the same run, bit for bit, with the
 # faces of a fault and through two epochs (the receivers write after 32 of the 64 steps).
@@ -988,6 +1059,19 @@ seissol_add_comparison(
     NAME bitwise-rupture-lsw-restart
     REFERENCE rupture-lsw
     CANDIDATE rupture-lsw-restart
+    TOLERANCE 0
+    RECEIVERS volume
+    LABELS "bitwise;restart;dr")
+# Rate and state with thermal pressurization carries more of the state of a
+# fault through a checkpoint: the state variable, the convergence of its
+# solver, and the temperature, the pore pressure and their transforms Theta
+# and Sigma on the grid of the diffusion across the shear zone.
+seissol_add_rupture(NAME rupture-rs-fvw-tp-restart FL 103 FAULT fault-rs-fvw-tp.yaml
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} RESTART 32 LABELS restart)
+seissol_add_comparison(
+    NAME bitwise-rupture-rs-fvw-tp-restart
+    REFERENCE rupture-rs-fvw-tp
+    CANDIDATE rupture-rs-fvw-tp-restart
     TOLERANCE 0
     RECEIVERS volume
     LABELS "bitwise;restart;dr")
@@ -1063,6 +1147,111 @@ seissol_add_comparison(
     LABELS "bitwise;mpi;copies;dr")
 
 # ---------------------------------------------------------------------------
+# Stage 1: the faces of a fault, whichever faces of their cells they are.
+#
+# SeisSol numbers the vertices of a cell by their ids, which decide which face
+# of each of its two cells a fault face is, and with it the variant of every
+# kernel that works on it. Of the 14 pairs of faces that this numbering allows
+# on the two sides of a face, the meshes numbered along the lattice hold
+# (3, 0) and (3, 1) only; their copies with the vertices numbered at random
+# hold the others (see minimesh.py, RELABELLED). A welded fault has to be the
+# absence of a fault there as well.
+#
+# A fully symmetric quadrature rule on the faces, as Dunavant's, puts the
+# points of a face where they are whichever face it is, so that a rupture on a
+# relabelled mesh differs from the one on the original by rounding only; with
+# Stroud's, the points move with the numbering, and only the exact solutions
+# hold the cases on relabelled meshes (Stage 2). The same goes for the side of
+# the fault that the reference point makes its plus side: on the other side,
+# it turns the fault normal and with it the strike around, but not the dip
+# (see docs/parameter-file.rst). With the jump across the fault turned around
+# as well, that leaves the strike components of the fault receivers and the
+# normal stress as they are, and turns the dip components and the normal
+# velocity around.
+#
+# The differences are relative to the largest value of their column: a value
+# that passes through zero, as the shear stress of a wave does, magnifies a
+# difference by rounding beyond any bound.
+# ---------------------------------------------------------------------------
+
+seissol_add_minitest(
+    NAME smoke-box48-relabel
+    MESH box48-relabel
+    PARAMETERS wave.par
+    STEPS 20
+    REQUIRE equations=elastic
+    ACTIVITY "v1:1e-12"
+    NO_SNAPSHOT
+    LABELS "smoke;relabel")
+seissol_add_minitest(
+    NAME smoke-fault48-relabel
+    MESH fault48-relabel
+    PARAMETERS wave.par
+    STEPS 20
+    REQUIRE equations=elastic
+    SET ${SEISSOL_WELDED}
+    FILES fault-welded.yaml
+    ACTIVITY "v1:1e-12"
+    NO_SNAPSHOT
+    LABELS "smoke;dr;relabel")
+# box48-relabel is numbered as fault48-relabel (see minimesh.py, RELABELLED):
+# the projection of the initial wave depends on the numbering
+seissol_add_comparison(
+    NAME identity-fault48-relabel-nofault
+    REFERENCE smoke-box48-relabel
+    CANDIDATE smoke-fault48-relabel
+    TOLERANCE ${SEISSOL_WELDED_ROUNDING}
+    SINGLE_TOLERANCE ${SEISSOL_WELDED_ROUNDING_SINGLE}
+    SCALE column
+    LABELS "identity;dr;relabel")
+
+# the columns of the fault receivers that the other plus side turns around
+set(SEISSOL_TURNED_COLUMNS SRd T_d Td0 Sld u_n)
+set(SEISSOL_MIRRORED "DynamicRupture.XRef=1.0e5")
+
+seissol_add_rupture(NAME rupture-lsw-relabel FL 16 FAULT fault-lsw.yaml MESH fault48-relabel
+                    NO_SNAPSHOT REQUIRE dr-quad-rule=dunavant LABELS relabel)
+seissol_add_rupture(NAME rupture-rs-fvw-tp-relabel FL 103 FAULT fault-rs-fvw-tp.yaml
+                    MESH fault48-relabel SET ${SEISSOL_RS_FVW} ${SEISSOL_TP}
+                    NO_SNAPSHOT REQUIRE dr-quad-rule=dunavant LABELS relabel)
+seissol_add_rupture(NAME rupture-lsw-mirror FL 16 FAULT fault-lsw.yaml
+                    SET ${SEISSOL_MIRRORED}
+                    NO_SNAPSHOT REQUIRE dr-quad-rule=dunavant LABELS mirror)
+seissol_add_rupture(NAME rupture-rs-fvw-tp-mirror FL 103 FAULT fault-rs-fvw-tp.yaml
+                    MESH fault48-relabel SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_MIRRORED}
+                    NO_SNAPSHOT REQUIRE dr-quad-rule=dunavant LABELS "relabel;mirror")
+# The rounding grows with the rupture, the more so with rate and state and thermal
+# pressurization: to 8e-13 and 1.4e-10 of the largest value of a column in double precision, and
+# to 2.2e-4 and 4.9e-2 in single, there in the components along the dip, which a rupture along the
+# strike leaves small (and to 1.4e-3 for the linear slip weakening in single precision with GCC 13
+# on hsw). So the single precision holds a component or a sign turned the wrong way, the double
+# precision the identity; each tolerance leaves room for the rounding of other compilers and
+# processors.
+set(SEISSOL_RUPTURE_ROUNDING_lsw 1e-10)
+set(SEISSOL_RUPTURE_ROUNDING_SINGLE_lsw 1e-2)
+set(SEISSOL_RUPTURE_ROUNDING_rs-fvw-tp 1e-8)
+set(SEISSOL_RUPTURE_ROUNDING_SINGLE_rs-fvw-tp 0.2)
+foreach (law lsw rs-fvw-tp)
+  seissol_add_comparison(
+      NAME identity-rupture-${law}-relabel
+      REFERENCE rupture-${law}
+      CANDIDATE rupture-${law}-relabel
+      TOLERANCE ${SEISSOL_RUPTURE_ROUNDING_${law}}
+      SINGLE_TOLERANCE ${SEISSOL_RUPTURE_ROUNDING_SINGLE_${law}}
+      SCALE column
+      LABELS "identity;dr;relabel")
+  seissol_add_comparison(
+      NAME identity-rupture-${law}-mirror
+      REFERENCE rupture-${law}
+      CANDIDATE rupture-${law}-mirror
+      TOLERANCE ${SEISSOL_RUPTURE_ROUNDING_${law}}
+      SINGLE_TOLERANCE ${SEISSOL_RUPTURE_ROUNDING_SINGLE_${law}}
+      SCALE column
+      NEGATE ${SEISSOL_TURNED_COLUMNS}
+      LABELS "identity;dr;mirror")
+endforeach()
+
+# ---------------------------------------------------------------------------
 # Stage 2: friction laws against an exact solution (seissol_add_fault1d).
 #
 # On fault1d, a uniform fault stays uniform: nothing is transferred along it,
@@ -1085,8 +1274,19 @@ seissol_add_comparison(
 # ---------------------------------------------------------------------------
 
 set(SEISSOL_FAULT1D_TP_OUTPUT "Pickpoint.OutputMask=1 1 1 1 1 1 0 1 1 1 1 1")
+# The elementwise output as well, every 64 steps and on faces split in four, which
+# takes its values from the degrees of freedom at the end of a step, where the
+# receivers take them from the expansion of the step in time; its deviations are
+# those of the receivers, prefixed with elementwise-
+set(SEISSOL_FAULT1D_ELEMENTWISE "DynamicRupture.OutputPointType=5"
+    "Elementwise.printtimeinterval_sec=3.90625e-03" "Elementwise.refinement_strategy=2"
+    "Elementwise.refinement=1")
+set(SEISSOL_FAULT1D_ELEMENTWISE_MASK "Elementwise.OutputMask=1 1 1 1 1 1 0 1 1 1 1 0")
+set(SEISSOL_FAULT1D_ELEMENTWISE_TP_MASK "Elementwise.OutputMask=1 1 1 1 1 1 0 1 1 1 1 1")
 
-seissol_add_fault1d(NAME fault1d-lsw FL 16 FAULT fault1d-lsw.yaml LABELS convergence)
+seissol_add_fault1d(NAME fault1d-lsw FL 16 FAULT fault1d-lsw.yaml
+                    SET ${SEISSOL_FAULT1D_ELEMENTWISE} ${SEISSOL_FAULT1D_ELEMENTWISE_MASK}
+                    LABELS convergence)
 # the forced rupture weakens the fault over t_0
 seissol_add_fault1d(NAME fault1d-lsw-forced FL 16 FAULT fault1d-lsw-forced.yaml
                     SET ${SEISSOL_NO_NUCLEATION} "DynamicRupture.t_0=3.125e-02"
@@ -1113,6 +1313,7 @@ seissol_add_fault1d(NAME fault1d-rs-fvw FL 103 FAULT fault1d-rs-fvw.yaml
                     STEPS 2048 SET ${SEISSOL_RS_FVW} LABELS convergence)
 seissol_add_fault1d(NAME fault1d-rs-fvw-tp FL 103 FAULT fault1d-rs-fvw-tp.yaml
                     STEPS 2048 SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
+                        ${SEISSOL_FAULT1D_ELEMENTWISE} ${SEISSOL_FAULT1D_ELEMENTWISE_TP_MASK}
                     LABELS convergence)
 # the initial pore pressure lowers the effective normal stress the initial state
 # has to hold the traction under
@@ -1147,6 +1348,175 @@ seissol_add_fault1d(NAME fault1d-anisotropic-imposed FL 33 FAULT fault1d-imposed
                     MATERIAL material-fault1d-anisotropic.yaml REQUIRE equations=anisotropic
                     LABELS convergence)
 
+# In an anelastic medium, the radiation damping relaxes: the fault takes the
+# impedance of the unrelaxed medium at once and the rest as a convolution with
+# its slip rate, and the waves disperse on their way to the receivers (see
+# fault1d.py). The outflow planes absorb the shear wave of the unrelaxed
+# impedance Z_U, and reflect (Z_U - Z) / (Z_U + Z) of one that relaxes to Z,
+# 3 to 6 per cent below 50 Hz in material-viscoelastic.yaml; fault1d-long
+# keeps what they reflect out of the time of the cases, that of the imposed
+# slip rate within 1536 steps. The energy output books the strain of the
+# springs of the mechanisms and the dissipation of their dashpots as well; the
+# energies of the volume are compared until the first front reaches an end of
+# the column, after which it holds what the outflow planes reflect.
+seissol_add_fault1d(NAME fault1d-viscoelastic-lsw FL 16 FAULT fault1d-lsw.yaml
+                    MESH fault1d-long REQUIRE equations=viscoelastic
+                    SET ${SEISSOL_FAULT1D_ELEMENTWISE}
+                        ${SEISSOL_FAULT1D_ELEMENTWISE_MASK}
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-viscoelastic-lsw-bimaterial FL 6 FAULT fault1d-lsw.yaml
+                    MESH fault1d-long-bimaterial REQUIRE equations=viscoelastic
+                    SET "DynamicRupture.pc_vstar=0.1"
+                        "DynamicRupture.pc_prakashLength=0.1"
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-viscoelastic-rs-fvw-tp FL 103 FAULT fault1d-rs-fvw-tp.yaml
+                    MESH fault1d-long STEPS 2048 REQUIRE equations=viscoelastic
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP}
+                        ${SEISSOL_FAULT1D_TP_OUTPUT}
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-viscoelastic-imposed FL 33 FAULT fault1d-imposed.yaml
+                    MESH fault1d-long REQUIRE equations=viscoelastic
+                    SET "DynamicRupture.SlipRateOutputType=0"
+                    LABELS convergence)
+
+# In a porous medium, the pore fluid, which a shear wave first leaves behind,
+# follows the skeleton as Darcy's friction drags it along: the density the wave
+# moves relaxes, and with it the radiation damping (see fault1d.py). In
+# material-fault1d-poroelastic.yaml, the frequency of Biot lies within the band
+# of the rupture, and the damping rises by 5 per cent as it relaxes; the
+# outflow planes reflect 2.5 per cent of what arrives below that frequency. In
+# material-poroelastic.yaml, it lies at 17 kHz, and the fluid follows within a
+# fraction of a step (fault1d-poroelastic-lsw-stiff). The faults take the pore
+# pressure on them, which a porous medium reads (fault1d-*-porous.yaml). With
+# thermal pressurization, the friction acts on the normal stress less the pore
+# pressure of the medium on the fault and that of the shear zone; a fault that
+# slips uniformly leaves the former at zero, so that fault1d-poroelastic-rs-fvw-tp
+# holds the latter in the medium that relaxes. The energy output books the
+# kinetic energy of the pore fluid and the dissipation of Darcy's friction as
+# well.
+seissol_add_fault1d(NAME fault1d-poroelastic-lsw FL 16 FAULT fault1d-lsw-porous.yaml
+                    MESH fault1d-long MATERIAL material-fault1d-poroelastic.yaml
+                    REQUIRE equations=poroelastic
+                    SET ${SEISSOL_FAULT1D_ELEMENTWISE}
+                        ${SEISSOL_FAULT1D_ELEMENTWISE_MASK}
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-poroelastic-lsw-bimaterial FL 6 FAULT fault1d-lsw-porous.yaml
+                    MESH fault1d-long-bimaterial MATERIAL material-fault1d-poroelastic.yaml
+                    REQUIRE equations=poroelastic
+                    SET "DynamicRupture.pc_vstar=0.1"
+                        "DynamicRupture.pc_prakashLength=0.1"
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-poroelastic-rs-fvw FL 103 FAULT fault1d-rs-fvw-porous.yaml
+                    MESH fault1d-long STEPS 2048 MATERIAL material-fault1d-poroelastic.yaml
+                    REQUIRE equations=poroelastic
+                    SET ${SEISSOL_RS_FVW}
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-poroelastic-rs-fvw-tp FL 103
+                    FAULT fault1d-rs-fvw-tp-porous.yaml MESH fault1d-long STEPS 2048
+                    MATERIAL material-fault1d-poroelastic.yaml REQUIRE equations=poroelastic
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
+                    LABELS convergence)
+seissol_add_fault1d(NAME fault1d-poroelastic-imposed FL 33 FAULT fault1d-imposed.yaml
+                    MESH fault1d-long MATERIAL material-fault1d-poroelastic.yaml
+                    REQUIRE equations=poroelastic
+                    SET "DynamicRupture.SlipRateOutputType=0"
+                    LABELS convergence)
+# material-poroelastic.yaml relaxes within a fraction of a step into the elastic
+# solid of the density of the mixture, whose shear wave, at 2130 m/s, is slower
+# than those of the other cases on the same mesh. The case deviates three times
+# as much as fault1d-poroelastic-lsw, at the fault and at the receivers, and an
+# elastic run of that solid does so as well: both halve with cells half as long
+# across the fault, and the porous run lies 5e-4 from the elastic one. The
+# propagators of the medium do not invert on Talbot's contour beyond some 60 m
+# from the fault, where their exponent spans hundreds of orders of magnitude on
+# it; the energies of the column are left out there.
+seissol_add_fault1d(NAME fault1d-poroelastic-lsw-stiff FL 16 FAULT fault1d-lsw-porous.yaml
+                    MESH fault1d-long REQUIRE equations=poroelastic
+                    SET "Output.EnergyOutput=0"
+                    LABELS convergence)
+
+# Plasticity without a yield (plasticity-maxwell.yaml) relaxes every deviatoric
+# stress with the time Tv, here a sixteenth of a second, as a Maxwell body does:
+# the shear modulus relaxes to zero, and the radiation damping with it, so that
+# the fault slips faster than in the elastic solid, by a third at the peak of
+# fault1d-plastic-lsw, and on under the stress it leaves (see fault1d.Yieldless).
+# The outflow planes reflect what has relaxed, at low frequencies nearly all of
+# it, hence fault1d-long. SeisSol splits each step into an elastic one and the
+# relaxation, which leaves its stresses by about dt / (2 Tv), 5e-4 here. The
+# energy output books the plastic moment as well, which accumulates the
+# magnitude of the stress: no error of the discrete waves cancels in it, and it
+# comes out 0.6 to 0.7 per cent above the exact one.
+set(SEISSOL_FAULT1D_YIELDLESS "equations.Plasticity=1" "equations.Tv=0.0625"
+    "equations.PlasticityFileName='plasticity-maxwell.yaml'")
+seissol_add_fault1d(NAME fault1d-plastic-lsw FL 16 FAULT fault1d-lsw.yaml
+                    MESH fault1d-long REQUIRE equations=elastic FILES plasticity-maxwell.yaml
+                    SET ${SEISSOL_FAULT1D_YIELDLESS}
+                        ${SEISSOL_FAULT1D_ELEMENTWISE} ${SEISSOL_FAULT1D_ELEMENTWISE_MASK}
+                    LABELS "convergence;plasticity")
+seissol_add_fault1d(NAME fault1d-plastic-rs-fvw FL 103 FAULT fault1d-rs-fvw.yaml
+                    MESH fault1d-long STEPS 2048 REQUIRE equations=elastic
+                    FILES plasticity-maxwell.yaml
+                    SET ${SEISSOL_FAULT1D_YIELDLESS} ${SEISSOL_RS_FVW}
+                    LABELS "convergence;plasticity")
+
+# The same on fault1d with its vertices numbered at random, which puts its
+# faces on eleven pairs of the faces of their cells (see the faces of a fault,
+# Stage 1): with a rule that is not fully symmetric, the points of its faces lie
+# elsewhere, and only the exact solution holds it
+seissol_add_fault1d(NAME fault1d-lsw-relabel FL 16 FAULT fault1d-lsw.yaml
+                    MESH fault1d-relabel LABELS "convergence;relabel")
+seissol_add_fault1d(NAME fault1d-rs-fvw-tp-relabel FL 103 FAULT fault1d-rs-fvw-tp.yaml
+                    MESH fault1d-relabel STEPS 2048
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
+                    LABELS "convergence;relabel")
+
+# The same on fault1d turned in space (see minimesh.py, TURNED): the runner
+# turns the receivers, the reference point and the stresses of the fault with
+# the mesh, and the exact solution turns the waves it predicts. The fault
+# receivers report along the strike and the dip of the turned fault, which on
+# the horizontal one are those that
+# docs/left-lateral-right-lateral-normal-reverse.rst states for it.
+foreach (turn dip60 dip30 flat)
+  seissol_add_fault1d(NAME fault1d-lsw-oblique-${turn} FL 16 FAULT fault1d-lsw-oblique.yaml
+                      MESH fault1d-${turn} REQUIRE equations=elastic
+                      SET ${SEISSOL_FAULT1D_ELEMENTWISE} ${SEISSOL_FAULT1D_ELEMENTWISE_MASK}
+                      LABELS "convergence;turned")
+endforeach()
+seissol_add_fault1d(NAME fault1d-rs-fvw-tp-dip30 FL 103 FAULT fault1d-rs-fvw-tp.yaml
+                    MESH fault1d-dip30 STEPS 2048 REQUIRE equations=elastic
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
+                    LABELS "convergence;turned")
+# the stresses as tractions in fault coordinates, which SeisSol turns into a
+# stress along the strike and the dip of each face: on a turned fault, the same
+# tractions are another stress (see fault1d-lsw-traction.yaml)
+seissol_add_fault1d(NAME fault1d-lsw-traction FL 16 FAULT fault1d-lsw-traction.yaml
+                    LABELS convergence)
+foreach (turn dip60 flat)
+  seissol_add_fault1d(NAME fault1d-lsw-traction-${turn} FL 16 FAULT fault1d-lsw-traction.yaml
+                      MESH fault1d-${turn} REQUIRE equations=elastic
+                      LABELS "convergence;turned")
+endforeach()
+
+# Local time stepping, on fault1d with thin cells along the fault (see
+# minimesh.py, fault1d-lts): the rupture steps in their cluster, at its CFL
+# limit, and its waves cross into the next cluster, of the volume receivers.
+# Every output of the energies is a time all clusters step to, by a shorter
+# step where it falls between theirs; only the one at the end is left.
+set(SEISSOL_ENERGY_AT_END "Output.EnergyOutputInterval=1.0e100")
+seissol_add_fault1d(NAME fault1d-lsw-lts FL 16 FAULT fault1d-lsw.yaml MESH fault1d-lts LTS
+                    SET ${SEISSOL_ENERGY_AT_END}
+                    LABELS "convergence;lts")
+seissol_add_fault1d(NAME fault1d-rs-fvw-tp-lts FL 103 FAULT fault1d-rs-fvw-tp.yaml
+                    MESH fault1d-lts LTS STEPS 2048
+                    SET ${SEISSOL_RS_FVW} ${SEISSOL_TP} ${SEISSOL_FAULT1D_TP_OUTPUT}
+                        ${SEISSOL_ENERGY_AT_END}
+                    LABELS "convergence;lts")
+
+# the outputs of rupture1d.par and the rupture velocity Vr, which the fault
+# receivers take from the gradient of the rupture times of the Gauss points of
+# their face (see docs/fault-output.rst)
+set(SEISSOL_RUPTURE_VELOCITY_OUTPUT "Pickpoint.OutputMask=1 1 1 1 1 1 1 1 1 1 1 0")
+
 # A forced rupture front along y on fault2d, at 1.5 times the shear wave
 # speed. A front that outruns the shear waves outruns all it sends out, and
 # behind it, every point of the fault solves the 0D problem of fault1d,
@@ -1159,12 +1529,15 @@ seissol_add_fault1d(NAME fault1d-anisotropic-imposed FL 33 FAULT fault1d-imposed
 # compute at their position, from the jump of the velocity, and the volume
 # receivers. The other quantities of the fault receivers come from the Gauss
 # point of the fault nearest to them, a few metres away along the front,
-# which reaches it up to 0.4 ms earlier or later.
+# which reaches it up to 0.4 ms earlier or later; but for the rupture
+# velocity of their face, which the front sets at its own speed wherever it
+# is steady, so at all three receivers.
 seissol_add_fault1d(NAME fault2d-supershear FL 16 FAULT fault2d-supershear.yaml
                     MESH fault2d STEPS 2048 FILES faultreceiver2d.dat receiver2d.dat
                     SET "DynamicRupture.t_0=2.0e-02" "DynamicRupture.SlipRateOutputType=0"
                         "Pickpoint.PPFileName='faultreceiver2d.dat'"
                         "Output.RFileName='receiver2d.dat'"
+                        ${SEISSOL_RUPTURE_VELOCITY_OUTPUT}
                     LABELS convergence)
 # with twelve times the cells of fault1d, the case runs for a few minutes;
 # it gets four times the time the others get
@@ -1195,7 +1568,8 @@ set(SEISSOL_ANTIPLANE
 seissol_add_fault1d(NAME fault2d-antiplane FL 16 FAULT fault2d-antiplane.yaml
                     MESH fault2d-periodic STEPS 2560
                     FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
-                    SET ${SEISSOL_ANTIPLANE} LABELS convergence)
+                    SET ${SEISSOL_ANTIPLANE} ${SEISSOL_RUPTURE_VELOCITY_OUTPUT}
+                    LABELS convergence)
 # the comparison takes minutes as well, for the field at the volume receivers
 set_tests_properties(verification.fault2d-antiplane${SEISSOL_VERIFICATION_SUFFIX}
                      verification.exact.fault2d-antiplane${SEISSOL_VERIFICATION_SUFFIX}
@@ -1224,6 +1598,32 @@ foreach (law aging:3 slip:4 svw:7 fvw:103)
                        verification.exact.fault2d-antiplane-rs-${name}${SEISSOL_VERIFICATION_SUFFIX}
                        PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
 endforeach()
+# The antiplane rupture with linear slip weakening on fault2d-periodic with
+# its vertices numbered at random, whose faces lie on all 14 pairs of faces of
+# their cells (see the faces of a fault, Stage 1)
+seissol_add_fault1d(NAME fault2d-antiplane-relabel FL 16 FAULT fault2d-antiplane.yaml
+                    MESH fault2d-periodic-relabel STEPS 2560
+                    FILES faultreceiver2d-periodic.dat receiver2d-periodic.dat
+                    SET ${SEISSOL_ANTIPLANE} ${SEISSOL_RUPTURE_VELOCITY_OUTPUT}
+                    LABELS "convergence;relabel")
+set_tests_properties(verification.fault2d-antiplane-relabel${SEISSOL_VERIFICATION_SUFFIX}
+                     verification.exact.fault2d-antiplane-relabel${SEISSOL_VERIFICATION_SUFFIX}
+                     PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
+# The same on the half y > 0 of fault2d-periodic, with free surfaces in place
+# of the mirror plane y = 0 and of the period (see minimesh.py,
+# fault2d-surface): the rupture breaks the surface, and the spectral method
+# takes the mirrored mesh. The receivers are those at y > 0 and, mirrored, the
+# volume receivers at y < 0, one of them moved off a face of its cell.
+seissol_add_fault1d(NAME fault2d-antiplane-surface FL 16 FAULT fault2d-antiplane.yaml
+                    MESH fault2d-surface STEPS 2560
+                    FILES faultreceiver2d-surface.dat receiver2d-surface.dat
+                    SET ${SEISSOL_ANTIPLANE} ${SEISSOL_RUPTURE_VELOCITY_OUTPUT}
+                        "Pickpoint.PPFileName='faultreceiver2d-surface.dat'"
+                        "Output.RFileName='receiver2d-surface.dat'"
+                    LABELS "convergence;surface")
+set_tests_properties(verification.fault2d-antiplane-surface${SEISSOL_VERIFICATION_SUFFIX}
+                     verification.exact.fault2d-antiplane-surface${SEISSOL_VERIFICATION_SUFFIX}
+                     PROPERTIES TIMEOUT ${SEISSOL_FAULT2D_TIMEOUT})
 # Fast velocity weakening with thermal pressurization, whose pore pressure
 # rises by up to a fifth of the normal stress (see
 # fault2d-antiplane-rs-fvw-tp.yaml); the fault receivers report it and the

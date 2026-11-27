@@ -147,15 +147,22 @@ class ShearedPlasticityCell {
   static constexpr double RelaxationTime = 0.1;
   static constexpr double TimeStep = 1.0e-3;
 
-  // At a yielding node, the yield factor is (taulim / tau - 1) r = -r / 2, hence (Wollherr et al.,
-  // eq. 10) d/dt strain_xy = -yield s_xy / (2 mu tV r) = ShearStress / (4 mu tV), while the other
-  // components stay zero. eta grows by dt sqrt(0.5 d/dt strain_ij d/dt strain_ij).
-  static constexpr double YieldingNodeStrainXY = TimeStep * ShearStress / (4 * Mu * RelaxationTime);
-  static inline const double YieldingNodeEta = YieldingNodeStrainXY * std::sqrt(0.5);
+  // At a yielding node, the yield factor is (taulim / tau - 1) r = -r / 2, with
+  // r = 1 - exp(-dt / tV): the relaxation releases r ShearStress / 2 of the shear stress, which
+  // turns into the plastic strain strain_xy = -yield s_xy / (2 mu) = r ShearStress / (4 mu), while
+  // the other components stay zero. eta grows by sqrt(0.5 dstrain_ij dstrain_ij), in which
+  // strain_xy occurs as strain_xy and as strain_yx, by strain_xy.
+  static double yieldingNodeStrainXY(double relaxationTime = RelaxationTime) {
+    return Plasticity::computeRelaxTime(relaxationTime, TimeStep) * ShearStress / (4 * Mu);
+  }
+  static double yieldingNodeEta(double relaxationTime = RelaxationTime) {
+    return yieldingNodeStrainXY(relaxationTime);
+  }
 
-  // Runs the kernel once on the zero DOFs and plastic strains; node `i` yields iff `yields(i)`.
+  // Runs the kernel once on the zero DOFs and plastic strains, with the relaxation time
+  // `relaxationTime`; node `i` yields iff `yields(i)`.
   template <typename YieldsT>
-  std::size_t run(const YieldsT& yields) {
+  std::size_t run(const YieldsT& yields, double relaxationTime = RelaxationTime) {
     std::vector<model::Plasticity> parameters(NumNodes);
     for (std::size_t node = 0; node < NumNodes; ++node) {
       parameters[node].bulkFriction = 0;
@@ -174,9 +181,7 @@ class ShearedPlasticityCell {
     pstrain_.fill(0);
     const GlobalData<Cfg> global = seissol::Pool<Cfg>::host();
     return Plasticity::computePlasticity(
-        static_cast<real>(Plasticity::computeRelaxTime(RelaxationTime, TimeStep)),
-        static_cast<real>(TimeStep),
-        static_cast<real>(RelaxationTime),
+        static_cast<real>(Plasticity::computeRelaxTime(relaxationTime, TimeStep)),
         &global,
         &plasticityData,
         dofs_.data(),
@@ -239,9 +244,9 @@ TEST_CASE_TEMPLATE("Plasticity computePlasticity corrects every cell with a yiel
       for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
         for (std::size_t node = 0; node < NumNodes; ++node) {
           if (node == yieldingNode) {
-            CHECK(cell.plasticStrain(sim, node, Cell::ComponentXY) / Cell::YieldingNodeStrainXY ==
+            CHECK(cell.plasticStrain(sim, node, Cell::ComponentXY) / Cell::yieldingNodeStrainXY() ==
                   doctest::Approx(1.0));
-            CHECK(cell.eta(sim, node) / Cell::YieldingNodeEta == doctest::Approx(1.0));
+            CHECK(cell.eta(sim, node) / Cell::yieldingNodeEta() == doctest::Approx(1.0));
           } else {
             CHECK(cell.plasticStrain(sim, node, Cell::ComponentXY) == 0);
             CHECK(cell.eta(sim, node) == 0);
@@ -257,7 +262,21 @@ TEST_CASE_TEMPLATE("Plasticity computePlasticity corrects every cell with a yiel
     for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
       for (std::size_t node = 0; node < NumNodes; ++node) {
         CAPTURE(node);
-        CHECK(cell.eta(sim, node) / Cell::YieldingNodeEta == doctest::Approx(1.0));
+        CHECK(cell.eta(sim, node) / Cell::yieldingNodeEta() == doctest::Approx(1.0));
+      }
+    }
+  }
+
+  SUBCASE(
+      "Without a relaxation time, the stress beyond the yield turns into plastic strain at once") {
+    CHECK(cell.run([](std::size_t /*node*/) { return true; }, 0.0) == 1);
+    for (std::size_t sim = 0; sim < Cfg::NumSimulations; ++sim) {
+      for (std::size_t node = 0; node < NumNodes; ++node) {
+        CAPTURE(node);
+        CHECK(cell.plasticStrain(sim, node, Cell::ComponentXY) /
+                  (Cell::ShearStress / (4 * Cell::Mu)) ==
+              doctest::Approx(1.0));
+        CHECK(cell.eta(sim, node) / Cell::yieldingNodeEta(0.0) == doctest::Approx(1.0));
       }
     }
   }

@@ -9,7 +9,7 @@
 """Include ratchet for the layout of src/ into Core/, WavePropagation/, Features/ and Simulation/.
 
 Every file below src/ belongs to a unit and has a role, both given by its path; a file that has
-not moved yet counts with the path that .ci/restructure.py gives it.
+not moved yet counts with the path that scripts/ci/restructure.py gives it.
 
   Core/<X>/...                       core of unit Core/<X>
   WavePropagation/...                the wave propagation: always there, as one of its equations
@@ -32,7 +32,7 @@ An include breaks a rule if
 A feature may include the wave propagation (its physics only the physics and the root). The
 composition may include anything. Together, the rules leave no cycles between the units.
 
-Every rule break must be listed in the baseline (.ci/layering-baseline.txt), and the baseline must
+Every rule break must be listed in the baseline (scripts/ci/layering-baseline.txt), and the baseline must
 not list rule breaks that are gone: after removing some, run with --update. New rule breaks only
 go into the baseline with --update --accept-new.
 
@@ -56,7 +56,7 @@ except ImportError:  # the layout is complete
         return path
 
 
-BASELINE = ".ci/layering-baseline.txt"
+BASELINE = "scripts/ci/layering-baseline.txt"
 # (split, so that REUSE does not take the strings for the license of this file)
 LICENSE_HEADER = (
     "# SPDX"
@@ -268,8 +268,8 @@ def write_baseline(root, breaks):
     with open(os.path.join(root, BASELINE), "w", encoding="utf-8") as file:
         file.write(
             LICENSE_HEADER + "#\n"
-            "# The include rule breaks that .ci/layering.py tolerates (rule, includer, included;\n"
-            "# paths in the target layout). Only ever shrinks: run .ci/layering.py --update after\n"
+            "# The include rule breaks that scripts/ci/layering.py tolerates (rule, includer, included;\n"
+            "# paths in the target layout). Only ever shrinks: run scripts/ci/layering.py --update after\n"
             "# removing rule breaks.\n"
         )
         for entry in sorted(breaks):
@@ -369,7 +369,7 @@ def main():
     status = 0
     if new:
         print(
-            f"{len(new)} new include rule breaks (see the docstring of .ci/layering.py):"
+            f"{len(new)} new include rule breaks (see the docstring of scripts/ci/layering.py):"
         )
         for rule, includer, included in new:
             print(f"  {rule}: {includer} includes {included}")
@@ -377,7 +377,7 @@ def main():
     if gone:
         print(
             f"{len(gone)} rule breaks of the baseline are gone; "
-            "run .ci/layering.py --update and commit the baseline"
+            "run scripts/ci/layering.py --update and commit the baseline"
         )
         status = 1
     if status == 0:

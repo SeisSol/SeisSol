@@ -9,6 +9,7 @@
 
 #include "Core/Parallel/Pin.h"
 
+#include <async/as/Pin.h>
 #include <atomic>
 #include <functional>
 #include <thread>
@@ -32,10 +33,13 @@ class HelperThread {
 
   private:
   std::function<bool()> function_;
-  const Pinning* pinning_;
   std::atomic<bool> isFinished_;
   std::atomic<bool> shouldReset_;
   std::thread thread_;
+  // the free CPUs, computed by the thread that creates the helper: the computation is a collective
+  // on the processes of the node, which the helper thread must not call (it starts anew in each
+  // epoch)
+  async::as::CpuMask freeMask_;
 };
 
 } // namespace seissol::parallel

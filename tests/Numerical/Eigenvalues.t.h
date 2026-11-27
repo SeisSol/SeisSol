@@ -215,4 +215,33 @@ TEST_CASE("Balancing leaves entries that are not finite alone" * doctest::test_s
   }
 }
 
+TEST_CASE("Balancing scales a column against the diagonal of a row without entries off it" *
+          doctest::test_suite("numerical")) {
+  // a wave of a stress and a velocity; a stress that it leaves without coupling, whose row
+  // nothing balances, and in it the anelastic coefficient of a memory variable whose row holds
+  // its decay only, as in the plane-wave operator of an anelastic solid
+  Eigen::Matrix<std::complex<double>, 4, 4> m;
+  m << 0.0, 1e10, 0.0, 0.0, //
+      1e-4, 0.0, 0.0, 0.0,  //
+      0.0, 0.0, 0.0, 5e9,   //
+      0.0, 0.0, 0.0, std::complex<double>(0.0, 1.0);
+  const auto scale = seissol::eigenvalues::balance(m);
+  REQUIRE(scale(3) < 1e-6);
+  REQUIRE(m.cwiseAbs().maxCoeff() < 1e4);
+}
+
+TEST_CASE("Balancing settles where a diagonal outweighs the column of its row without entries "
+          "off it" *
+          doctest::test_suite("numerical")) {
+  // as an operator shifted by one of its eigenvalues has it: a scaling that grew the entry off the
+  // diagonal toward the diagonal, which the scaling of the other row then shrank again, would
+  // never settle
+  Eigen::Matrix<std::complex<double>, 2, 2> m;
+  m << 1.0, 0.0, //
+      1e-6, 1e-3;
+  const auto scale = seissol::eigenvalues::balance(m);
+  REQUIRE(scale(0) == 1.0);
+  REQUIRE(scale(1) == 1.0);
+}
+
 } // namespace seissol::unit_test

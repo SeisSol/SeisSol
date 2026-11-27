@@ -92,20 +92,20 @@ repos:
     hooks:
     -   id: check-filename
         language: system
-        entry: .ci/filename.py --fix src app tests
+        entry: scripts/ci/filename.py --fix src app tests
         pass_filenames: false
         name: '[C++] filename check'
     -   id: check-headers
         name: check header conformity
         language: system
-        entry: .ci/header.py --fix src app tests
+        entry: scripts/ci/header.py --fix src app tests
         pass_filenames: false
         name: '[C++] header check'
     -   id: check-layering
         language: system
-        entry: .ci/layering.py
+        entry: scripts/ci/layering.py
         pass_filenames: false
-        files: ^(src/|\.ci/(layering|restructure|includegraph))
+        files: ^(src/|scripts/ci/(layering|restructure|includegraph))
         name: '[C++] include layering check'
 
 -   repo: https://github.com/pre-commit/mirrors-clang-format

@@ -71,8 +71,6 @@ std::size_t PlasticityStage<Cfg>::correctCell(std::size_t cell, LTS::Ref<Cfg>& d
     return 0;
   }
   return Plasticity<Cfg>::computePlasticity(oneMinusIntegratingFactor_,
-                                            timestep_,
-                                            tv_,
                                             globalData_.onHost,
                                             &plasticity_[cell],
                                             data.template get<LTS::Dofs>(),

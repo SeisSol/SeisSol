@@ -508,9 +508,11 @@ void ReceiverBasedOutputBuilder::initJacobian2dMatrices() {
 
 void ReceiverBasedOutputBuilder::assignNearestGaussianPoints() {
   for (auto& geoPoint : outputData_->receivers) {
+    const auto transform =
+        geometry::AffineTransform::fromMeshCell(geoPoint.elementIndex.value(), *meshReader_);
     dispatchConfig(configOfFace(geoPoint.faultFaceIndex.value()), [&](auto cfg) {
       using Cfg = decltype(cfg);
-      assignNearestGaussianPoint<Cfg>(geoPoint);
+      assignNearestGaussianPoint<Cfg>(geoPoint, transform);
     });
   }
 }

@@ -48,8 +48,6 @@ namespace seissol::kernels {
 template <typename Cfg>
 std::size_t
     Plasticity<Cfg>::computePlasticity(real oneMinusIntegratingFactor,
-                                       real timeStepWidth,
-                                       real tV,
                                        const GlobalData<Cfg>* global,
                                        const seissol::model::PlasticityData<Cfg>* plasticityData,
                                        real degreesOfFreedom[tensor::Q<Cfg>::size()],
@@ -140,8 +138,6 @@ std::size_t
   }
 
   if (adjust != 0) {
-    const real factor = plasticityData->mufactor / (tV * oneMinusIntegratingFactor);
-
     // calculate plastic strain
     constexpr std::size_t NumNodes = init::QStressNodal<Cfg>::Stop[multisim::BasisDim<Cfg>] -
                                      init::QStressNodal<Cfg>::Start[multisim::BasisDim<Cfg>];
@@ -170,7 +166,9 @@ std::size_t
 #pragma omp simd
     for (std::size_t qp = 0; qp < NumTotalPoints; ++qp) {
 
-      real dudtPstrainSqAcc = 0;
+      // 0.5 dstrain_{ij} dstrain_{ij}, in which a shear component stands for the two entries ij
+      // and ji of the tensor
+      real pstrainSqAcc = 0;
 
 #pragma unroll
       for (std::size_t x = 0; x < 6; ++x) {
@@ -185,36 +183,36 @@ std::size_t
          * P_{ij}(sigma) = { tau_c/tau s_{ij} + m delta_{ij}         if     tau >= taulim
          *                 { sigma_{ij} + sigma0_{ij}                else
          *
-         * Thus,
+         * The relaxation changes the stress at a fixed total strain, so that it turns the stress
+         * it releases into plastic strain,
          *
-         * d/dt strain_{ij} = { (1 - tau_c/tau) / (2mu tV) s_{ij}   if     tau >= taulim
-         *                    { 0                                    else
+         * d/dt sigma_{ij} = -2mu d/dt strain_{ij},
          *
-         * Consider tau >= taulim first. We have (1 - tau_c/tau) = -yield / r. Therefore,
+         * and over the step, in which the stress follows the exact solution of the relaxation,
+         * the plastic strain grows by
          *
-         * d/dt strain_{ij} = -1 / (2mu tV r) yield s_{ij}
-         *                  = -1 / (2mu tV r) (sigmaNew_{ij} - sigma_{ij})
-         *                  = (sigma_{ij} - sigmaNew_{ij}) / (2mu tV r)
-         *                  = -yield s_{ij} / (2mu tV r)
+         * dstrain_{ij} = (sigma_{ij} - sigmaNew_{ij}) / (2mu) = -yield s_{ij} / (2mu)
          *
-         * If tau < taulim, then sigma_{ij} - sigmaNew_{ij} = 0.
+         * whatever the time step is relative to tV, and for tV = 0 as well. If tau < taulim,
+         * then sigma_{ij} - sigmaNew_{ij} = 0.
          */
         const auto qStressNodalUpdate = qStressNodal[q] * yieldFactor[qp];
-        const auto dudtPstrain = -factor * qStressNodalUpdate;
+        const auto pstrainUpdate = -plasticityData->mufactor * qStressNodalUpdate;
 
-        // Integrate with explicit Euler
-        pstrain[q] += timeStepWidth * dudtPstrain;
+        pstrain[q] += pstrainUpdate;
 
         // now contains the update for qStressNodal (cf. below)
         qStressNodal[q] = qStressNodalUpdate;
 
-        dudtPstrainSqAcc += dudtPstrain * dudtPstrain;
+        pstrainSqAcc += (x < 3 ? static_cast<real>(0.5) : static_cast<real>(1.0)) * pstrainUpdate *
+                        pstrainUpdate;
       }
 
       // eta := int_0^t sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt) dt
-      // Approximate with eta += timeStepWidth * sqrt(0.5 dstrain_{ij}/dt dstrain_{ij}/dt)
-
-      qEtaNodal[qp] += timeStepWidth * std::sqrt(static_cast<real>(0.5) * dudtPstrainSqAcc);
+      // The relaxation scales the deviatoric stress of a node without turning it, so that the
+      // plastic strain of the step keeps one direction, and eta grows by
+      // sqrt(0.5 dstrain_{ij} dstrain_{ij}) exactly.
+      qEtaNodal[qp] += std::sqrt(pstrainSqAcc);
     }
 
     // added to the DOFs once, for the reason given in Local::computeIntegral
@@ -297,8 +295,6 @@ void Plasticity<Cfg>::computePlasticityBatched(
                                                  plasticityData,
                                                  cellIndices,
                                                  oneMinusIntegratingFactor,
-                                                 tV,
-                                                 timeStepWidth,
                                                  numElements,
                                                  defaultStream);
 

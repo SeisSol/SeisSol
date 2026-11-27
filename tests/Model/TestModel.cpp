@@ -13,5 +13,6 @@
 #include "FaceCoupling.t.h"
 #include "GodunovState.t.h"
 #include "ImpedanceLayout.t.h"      // IWYU pragma: keep
+#include "PlaneWaveDispersion.t.h"  // IWYU pragma: keep
 #include "PoroelasticImpedance.t.h" // IWYU pragma: keep
 #include "Quantities.t.h"

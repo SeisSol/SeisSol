@@ -25,8 +25,10 @@ rank count and library version.
 """
 
 import argparse
+import collections
 import hashlib
 import json
+import math
 import sys
 import tempfile
 from dataclasses import asdict, dataclass, replace
@@ -99,6 +101,20 @@ class Spec:
     seed: int = 0
     order: str = "lexicographic"
     boundary_format: str = "i32"
+    # A seed for ids of the vertices in a random order; 0 numbers them along the
+    # lattice. SeisSol numbers the vertices of a cell by their ids (see
+    # PUMLReader's canonicalVertexOrder), so the ids decide which face of a
+    # cell a face is, and with it the variant of every kernel that works on a
+    # face. Along the lattice, every face of a fault plane x = const is face 3
+    # of the cell at x < 0 and face 0 or 1 of the other.
+    relabel: int = 0
+    # rotations of the whole mesh about the origin, applied in turn, each a
+    # pair of an axis and an angle in degrees
+    rotation: tuple = ()
+    # the coordinates of the planes of the lattice along an axis, cells + 1 of
+    # them from the origin to the far end, in place of equal spacing: pairs of
+    # an axis and the coordinates
+    planes: tuple = ()
 
     def resolved_origin(self):
         if self.origin is not None:
@@ -126,6 +142,34 @@ class Spec:
     def cell_count(self):
         nx, ny, nz = self.cells
         return 6 * nx * ny * nz
+
+    def rotation_matrix(self):
+        """The rotation of the mesh, as a matrix that maps the coordinates of
+        the lattice to those of the mesh."""
+        return rotation_matrix(self.rotation)
+
+
+def rotation_matrix(rotations):
+    """The product of rotations about the coordinate axes, each a pair of an
+    axis ("x", "y" or "z") and an angle in degrees, applied in turn: the
+    rotation listed first acts first."""
+    matrix = np.eye(3)
+    for axis, degrees in rotations:
+        index = AXES.index(axis)
+        angle = math.radians(float(degrees))
+        cosine, sine = math.cos(angle), math.sin(angle)
+        # right-handed: the rotation about the axis turns the next axis
+        # towards the one after it
+        first, second = (index + 1) % 3, (index + 2) % 3
+        step = np.eye(3)
+        step[first, first] = step[second, second] = cosine
+        step[second, first] = sine
+        step[first, second] = -sine
+        # an axis aligned rotation by a multiple of 90 degrees maps the axes
+        # onto each other exactly
+        step[np.abs(step) < 1e-15] = 0.0
+        matrix = step @ matrix
+    return matrix
 
 
 PRESETS = {
@@ -181,6 +225,28 @@ PRESETS = {
         group_splits=(("x", None),),
         periodic=(False, True, True),
     ),
+    # fault1d drawn out across the fault, for anelastic and porous media: the
+    # outflow planes absorb the shear wave of the unrelaxed impedance Z_U, and
+    # reflect (Z_U - Z) / (Z_U + Z) of one that relaxes to Z. Six cells on
+    # either side keep what they reflect from the fault and the receivers for
+    # over a hundred milliseconds at the speeds of the cases (see fault1d.py).
+    "fault1d-long": Spec(
+        name="fault1d-long",
+        cells=(12, 3, 3),
+        size=(400.0, 100.0, 100.0),
+        boundary=(("xmin", 5), ("xmax", 5)),
+        faults=(("x", None),),
+        periodic=(False, True, True),
+    ),
+    "fault1d-long-bimaterial": Spec(
+        name="fault1d-long-bimaterial",
+        cells=(12, 3, 3),
+        size=(400.0, 100.0, 100.0),
+        boundary=(("xmin", 5), ("xmax", 5)),
+        faults=(("x", None),),
+        group_splits=(("x", None),),
+        periodic=(False, True, True),
+    ),
     # the fault1d column drawn out along y, for a rupture front that runs along
     # y: twelve hundred metres let a front faster than the shear waves run
     # ahead of everything its start sends out for some tens of milliseconds
@@ -204,6 +270,20 @@ PRESETS = {
         faults=(("x", None),),
         periodic=(True, True, True),
     ),
+    # the half y > 0 of fault2d-periodic, with free surfaces at y = 0 and at
+    # y = 400 in place of the period along y: an antiplane rupture that
+    # nucleates about y = 0 is even in y on fault2d-periodic, so that y = 0 and
+    # y = +-400 carry no shear traction sigma_yz, as free surfaces do. The
+    # rupture breaks the surface along a fault that meets it at right angles.
+    "fault2d-surface": Spec(
+        name="fault2d-surface",
+        cells=(8, 12, 3),
+        size=(800.0 / 3.0, 400.0, 100.0),
+        origin=(-400.0 / 3.0, 0.0, -50.0),
+        boundary=(("ymin", 1), ("ymax", 1)),
+        faults=(("x", None),),
+        periodic=(True, False, True),
+    ),
     # elongated and open on every side: energy has to decay monotonically.
     "open96": Spec(
         name="open96",
@@ -212,6 +292,53 @@ PRESETS = {
         boundary=(("all", 5),),
     ),
 }
+
+# The meshes above number their vertices along the lattice, which puts every
+# face of a fault plane x = const on face 3 of the cell at x < 0 and on face 0
+# or 1 of the other (see Spec.relabel): of the 14 pairs of faces that the
+# canonical numbering of SeisSol allows on the two sides of a face, they hold
+# two. The same meshes with their vertices numbered at random hold the rest
+# (see rupture_face_sides): each seed is the first of the first forty that
+# reaches the most pairs, which are all 14 on fault2d-periodic, a pair of its
+# own for each of the eight faces of fault48, and 11 on fault1d. box48 takes
+# the seed of fault48, so that the two relabelled meshes differ by the tag of
+# the fault only, as box48 and fault48 do.
+RELABELLED = {"box48": 5, "fault48": 5, "fault1d": 2, "fault2d-periodic": 1}
+# the pairs each relabelled mesh reaches; minimesh.py self-test holds it to them
+RELABELLED_PAIRS = {"fault48": 8, "fault1d": 11, "fault2d-periodic": 14}
+for _name, _seed in RELABELLED.items():
+    PRESETS[f"{_name}-relabel"] = replace(
+        PRESETS[_name], name=f"{_name}-relabel", relabel=_seed
+    )
+del _name, _seed
+
+# fault1d with thin cells along the fault, whose time step is less than half
+# that of the cells beyond: local time stepping at the rate 2 puts them in a
+# cluster of their own, with the rupture, and the cells beyond, with the volume
+# receivers, in the next. The fault radiates as on fault1d, and its waves cross
+# from one cluster to the other.
+PRESETS["fault1d-lts"] = replace(
+    PRESETS["fault1d"],
+    name="fault1d-lts",
+    size=(96.0, 100.0, 100.0),
+    planes=(("x", (-48.0, -8.0, 0.0, 8.0, 48.0)),),
+)
+
+# fault1d turned in space, for a fault that dips by 60 or 30 degrees and a
+# horizontal one, each of which strikes along no axis. A turn about x first
+# turns the lattice within the fault plane, so that the strike and the dip of
+# SeisSol do not run along it either; the horizontal fault takes the strike
+# that docs/left-lateral-right-lateral-normal-reverse.rst states for it.
+TURNED = {
+    "dip60": (("x", 20.0), ("y", 30.0), ("z", 25.0)),
+    "dip30": (("x", -35.0), ("y", 60.0), ("z", -40.0)),
+    "flat": (("y", 90.0), ("z", 25.0)),
+}
+for _name, _rotation in TURNED.items():
+    PRESETS[f"fault1d-{_name}"] = replace(
+        PRESETS["fault1d"], name=f"fault1d-{_name}", rotation=_rotation
+    )
+del _name, _rotation
 
 
 # --------------------------------------------------------------------------
@@ -305,6 +432,20 @@ def _vertices(spec):
         dtype=np.int64,
     )
     coords = origin + lattice * spacing
+    for axis, planes in spec.planes:
+        index = AXES.index(axis)
+        planes = np.asarray(planes, dtype=np.float64)
+        ends = (origin[index], origin[index] + size[index])
+        if planes.size != spec.cells[index] + 1 or not np.all(np.diff(planes) > 0.0):
+            raise ValueError(
+                f"{spec.name}: the planes along {axis} have to be "
+                f"{spec.cells[index] + 1} increasing coordinates"
+            )
+        if not np.allclose((planes[0], planes[-1]), ends, rtol=0.0, atol=1e-9):
+            raise ValueError(
+                f"{spec.name}: the planes along {axis} have to span the size from the origin"
+            )
+        coords[:, index] = planes[lattice[:, index]]
 
     if spec.skew != 0.0:
         preserved = _preserved_planes(spec)
@@ -450,6 +591,52 @@ def _assign_identify(spec, lattice):
     return (reduced[:, 0] * dims[1] + reduced[:, 1]) * dims[2] + reduced[:, 2]
 
 
+def _relabel(spec, coords, lattice, connect):
+    """Give the vertices new ids in a random order, seeded by spec.relabel.
+
+    The vertices keep their positions and the cells their vertices; only the
+    ids change, and with them the order in which SeisSol numbers the vertices
+    of a cell. Returns the coordinates, the lattice positions and the
+    connectivity under the new ids, and a map of the classes of identified
+    vertices of a periodic mesh to new ids, since SeisSol takes those as the
+    ids of the vertices there."""
+    new_of_old = _shuffled(lattice, spec.relabel)
+    relabelled_coords = np.empty_like(coords)
+    relabelled_coords[new_of_old] = coords
+    relabelled_lattice = np.empty_like(lattice)
+    relabelled_lattice[new_of_old] = lattice
+    classes = None
+    if any(spec.periodic):
+        dims = [
+            spec.cells[axis] if periodic else spec.cells[axis] + 1
+            for axis, periodic in enumerate(spec.periodic)
+        ]
+        reduced = np.array(
+            [
+                (i, j, k)
+                for i in range(dims[0])
+                for j in range(dims[1])
+                for k in range(dims[2])
+            ],
+            dtype=np.int64,
+        )
+        # the classes are numbered as _assign_identify numbers them
+        classes = _shuffled(reduced, spec.relabel + 1)
+    return relabelled_coords, relabelled_lattice, new_of_old[connect], classes
+
+
+def _shuffled(points, seed):
+    """New ids for lattice points, in an order that a hash of each point and
+    the seed fixes, so that it depends on neither the order in which they are
+    listed nor a random number generator of a library; returns the new id of
+    each point."""
+    keys = [_jitter(point, 3, seed) for point in points]
+    order = sorted(range(len(keys)), key=lambda n: (keys[n], n))
+    new_of_old = np.empty(len(keys), dtype=np.int64)
+    new_of_old[order] = np.arange(len(keys))
+    return new_of_old
+
+
 def build(spec):
     """Build a mesh from a specification."""
     coords, lattice = _vertices(spec)
@@ -458,6 +645,16 @@ def build(spec):
     cubes = [cells[n][0] for n in permutation]
     connect = np.array([cells[n][1] for n in permutation], dtype=np.int64)
     connect = _fix_orientation(coords, connect)
+    classes = None
+    if spec.relabel:
+        coords, lattice, connect, classes = _relabel(spec, coords, lattice, connect)
+    identify = _assign_identify(spec, lattice)
+    if classes is not None:
+        identify = classes[identify]
+    if spec.rotation:
+        # a rotation keeps the orientation of the cells, and the lattice, from
+        # which the tags and the periodicity follow
+        coords = coords @ spec.rotation_matrix().T
     return Mesh(
         spec=spec,
         coords=coords,
@@ -465,8 +662,66 @@ def build(spec):
         connect=connect,
         tags=_assign_tags(spec, connect, lattice),
         groups=_assign_groups(spec, cubes),
-        identify=_assign_identify(spec, lattice),
+        identify=identify,
     )
+
+
+# the local vertices of the SeisSol faces of a cell in its canonical order
+# (MeshTools::FACE2NODES); face s lies opposite the vertex 3 - s
+SEISSOL_FACE_NODES = ((0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3))
+
+
+def _canonical_order(topology_ids, points):
+    """The canonical local numbering of a cell as SeisSol's
+    PUMLReader::canonicalVertexOrder takes it: sorted by topological id, with
+    slots 2 and 3 swapped where the sorted cell is positively oriented."""
+    order = sorted(range(4), key=lambda local: int(topology_ids[local]))
+    matrix = np.ones((4, 4))
+    matrix[:, :3] = points[order]
+    if np.linalg.det(matrix) >= 0.0:
+        order[2], order[3] = order[3], order[2]
+    return order
+
+
+def rupture_face_sides(coords, connect, tags, identify, reference):
+    """The SeisSol faces that the rupture faces are on their plus and on their
+    minus side, counted per pair (plus, minus).
+
+    SeisSol numbers the faces of a cell by its canonical vertex order, and
+    takes the side of a rupture face on which the point `reference` lies as
+    its plus side (MeshReader::extractFaultInformation, refPointMethod 0).
+    Faces that the point does not tell apart are not counted."""
+    topology = np.arange(coords.shape[0]) if identify is None else identify
+    rupture = FACE_TYPES["dynamic-rupture"]
+    owners = {}
+    for cell, slot in zip(*np.nonzero(tags == rupture)):
+        key = tuple(
+            sorted(int(topology[connect[cell, k]]) for k in FACE_VERTICES[slot])
+        )
+        owners.setdefault(key, []).append(int(cell))
+    pairs = collections.Counter()
+    for key, cells in owners.items():
+        if len(cells) != 2:
+            continue
+        sides = []
+        for cell in cells:
+            order = _canonical_order(topology[connect[cell]], coords[connect[cell]])
+            local = [int(connect[cell, k]) for k in order]
+            missing = [k for k in range(4) if int(topology[local[k]]) not in key]
+            side = 3 - missing[0]
+            points = coords[local]
+            first, second, third = SEISSOL_FACE_NODES[side]
+            normal = np.cross(
+                points[second] - points[first], points[third] - points[first]
+            )
+            towards_reference = np.dot(reference - points[first], normal)
+            towards_cell = np.dot(points[missing[0]] - points[first], normal)
+            sides.append((side, towards_reference * towards_cell > 0.0))
+        if sides[0][1] == sides[1][1]:
+            continue
+        plus, minus = sides if sides[0][1] else sides[::-1]
+        pairs[(plus[0], minus[0])] += 1
+    return pairs
 
 
 # --------------------------------------------------------------------------
@@ -578,7 +833,7 @@ def manifest(mesh, mesh_path):
         "".join(digests[key] for key in sorted(digests)).encode("ascii")
     ).hexdigest()
     tags, counts = np.unique(mesh.tags, return_counts=True)
-    return {
+    info = {
         "name": mesh.spec.name,
         "mesh-id": combined[:16],
         "spec": asdict(mesh.spec),
@@ -590,6 +845,30 @@ def manifest(mesh, mesh_path):
         },
         "datasets": digests,
     }
+    if mesh.spec.rotation:
+        # what maps the coordinates of the lattice to those of the mesh, for
+        # the runner, which turns the case with the mesh
+        info["rotation"] = mesh.spec.rotation_matrix().tolist()
+    if np.any(mesh.tags == FACE_TYPES["dynamic-rupture"]):
+        info["rupture-face-sides"] = {
+            f"{plus}/{minus}": count
+            for (plus, minus), count in sorted(rupture_sides_of(mesh).items())
+        }
+    return info
+
+
+# the reference point of the cases (XRef = -1e5), which makes the side x < 0
+# of a fault plane x = const its plus side
+SUITE_REFERENCE_POINT = (-1.0e5, 0.0, 0.0)
+
+
+def rupture_sides_of(mesh):
+    """rupture_face_sides of a generated mesh, for the reference point of the
+    cases, rotated with the mesh."""
+    reference = mesh.spec.rotation_matrix() @ np.array(SUITE_REFERENCE_POINT)
+    return rupture_face_sides(
+        mesh.coords, mesh.connect, mesh.tags, mesh.identify, reference
+    )
 
 
 # --------------------------------------------------------------------------
@@ -979,7 +1258,20 @@ def _command_list(args):
             details.append("periodic")
         if spec.group_splits:
             details.append("groups")
-        print(f"{name:16s} {', '.join(details)}")
+        if spec.relabel:
+            details.append(f"vertex ids at random (seed {spec.relabel})")
+        for axis, planes in spec.planes:
+            details.append(
+                f"planes along {axis} at {', '.join(f'{p:g}' for p in planes)}"
+            )
+        if spec.rotation:
+            details.append(
+                "rotated "
+                + ", ".join(
+                    f"{degrees:g} deg about {axis}" for axis, degrees in spec.rotation
+                )
+            )
+        print(f"{name:24s} {', '.join(details)}")
     return 0
 
 
@@ -1042,6 +1334,20 @@ def _command_self_test(args):
             if rebuilt != reference:
                 print(f"[FAILED] {name}: not reproducible", file=sys.stderr)
                 failed = True
+    # the relabelled meshes are there to reach the faces that the others do
+    # not, as many pairs of sides as RELABELLED_PAIRS states
+    for base, wanted in RELABELLED_PAIRS.items():
+        name = f"{base}-relabel"
+        pairs = set(rupture_sides_of(build(PRESETS[name])))
+        if len(pairs) < wanted:
+            print(
+                f"[FAILED] {name}: its rupture faces hold {len(pairs)} pairs of "
+                f"sides, {sorted(pairs)}, not the {wanted} of its seed",
+                file=sys.stderr,
+            )
+            failed = True
+        else:
+            print(f"[ok] {name}: rupture faces on {len(pairs)} pairs of sides")
     return 1 if failed else 0
 
 

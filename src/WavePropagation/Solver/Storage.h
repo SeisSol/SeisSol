@@ -10,6 +10,7 @@
 #define SEISSOL_SRC_WAVEPROPAGATION_SOLVER_STORAGE_H_
 
 #include "Alignment.h"
+#include "Core/Common/BasicTypedefs.h"
 #include "Core/Common/Constants.h"
 #include "Core/Common/Real.h"
 #include "Core/Common/Typedefs.h"
@@ -25,6 +26,8 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
+#include <utility>
 
 /**
  * The variables of the cells of the wave propagation in the storage of the cells (see LTS): their
@@ -71,7 +74,12 @@ struct Material : public initializer::Variable<CellMaterialData> {};
 struct DRMapping : public initializer::VariantVariable<FaceDRMappings> {};
 struct BoundaryMapping : public initializer::VariantVariable<FaceBoundaryMappings> {};
 struct FaceDisplacements : public initializer::VariantVariable<FaceRealPtrs> {};
+// The buffers and derivatives of the cells (see StepIntegrals, AccumulatedIntegrals and
+// Derivatives): of the interior in Buffers; of the copy and ghost layers, which MPI sends and
+// receives, in BuffersHalo, which SEISSOL_USM_MPI makes unified memory (see
+// AllocationPreset::TimebucketHalo). withBuffersOf() picks the one of a layer.
 struct Buffers : public initializer::VariantBucket<Real> {};
+struct BuffersHalo : public initializer::VariantBucket<Real> {};
 
 struct StepIntegralsDevice : public initializer::VariantVariable<RealPtr> {};
 struct AccumulatedIntegralsDevice : public initializer::VariantVariable<RealPtr> {};
@@ -94,6 +102,17 @@ struct AnalyticScratch : public initializer::VariantScratchpad<Real> {};
 struct ConfigBoundaryScratch : public initializer::Scratchpad<std::uint8_t> {};
 
 struct Integrals : public initializer::VariantVariable<DofsArray> {};
+
+/// Calls `function` with the bucket that holds the buffers and derivatives of the cells of
+/// `layer`: Buffers in the interior, BuffersHalo in the copy and ghost layers.
+template <typename F>
+void withBuffersOf(const Layer& layer, F&& function) {
+  if (layer.getIdentifier().halo == HaloType::Interior) {
+    std::invoke(std::forward<F>(function), Buffers{});
+  } else {
+    std::invoke(std::forward<F>(function), BuffersHalo{});
+  }
+}
 
 /// Adds the variables of the cells of the wave propagation to `storage`, before it gets
 /// allocated; with those of the core (see addTo()).
@@ -140,8 +159,12 @@ inline void addWavePropagation(Storage& storage, const SimulationSettings& setti
 
   // TODO(David): remove/rename "constant" flag (the data is temporary; and copying it for IO is
   // handled differently)
-  storage.add<Buffers>(
-      LayerMask(), PagesizeHeap, allocationModeWP(AllocationPreset::Timebucket), true);
+  storage.add<Buffers>(LayerMask(Ghost) | LayerMask(Copy),
+                       PagesizeHeap,
+                       allocationModeWP(AllocationPreset::Timebucket),
+                       true);
+  storage.add<BuffersHalo>(
+      LayerMask(Interior), PagesizeHeap, allocationModeWP(AllocationPreset::TimebucketHalo), true);
 
   storage.add<StepIntegralsDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);
   storage.add<AccumulatedIntegralsDevice>(LayerMask(), Alignment, AllocationMode::HostOnly, true);

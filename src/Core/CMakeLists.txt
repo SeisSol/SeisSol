@@ -23,7 +23,7 @@ add_subdirectory(Parallel)
 
 add_subdirectory(TimeStepping)
 
-# The layers of the core (see .ci/layering.py): a target uses only the ones below it; the headers
+# The layers of the core (see scripts/ci/layering.py): a target uses only the ones below it; the headers
 # of Core/Data, Core/Kernels and Core/Run come with the targets that include them.
 target_link_libraries(seissol-parallel PUBLIC seissol-common)
 target_link_libraries(seissol-geometry PUBLIC seissol-common seissol-parallel)

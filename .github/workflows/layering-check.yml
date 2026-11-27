@@ -20,4 +20,4 @@ jobs:
       - name: check-layering
         run: |
           set -euo pipefail
-          python3 .ci/layering.py --report
+          python3 scripts/ci/layering.py --report

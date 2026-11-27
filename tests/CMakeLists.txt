@@ -89,7 +89,7 @@ target_compile_definitions(seissol-test-base INTERFACE YATETO_TESTING_NO_FLOP_CO
 
 # The core links on its own: an executable of all its objects (and those of the generated code),
 # which may leave no symbol undefined, shows that none of them uses the wave propagation, the
-# features or the composition; .ci/layering.py checks the includes.
+# features or the composition; scripts/ci/layering.py checks the includes.
 get_property(SEISSOL_CORE_TARGETS GLOBAL PROPERTY SEISSOL_CORE_TARGETS)
 add_executable(seissol-core-link CoreLink.cpp)
 target_link_libraries(seissol-core-link PRIVATE

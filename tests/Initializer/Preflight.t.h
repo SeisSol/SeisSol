@@ -93,11 +93,13 @@ TEST_CASE("The check of a run finds the files it misses" * doctest::test_suite("
   std::filesystem::create_directories(directory);
   {
     std::ofstream file(directory + "/parameters.par");
-    file << "&equations\nMaterialFileName = 'material.yaml'\n/\n"
-         << "&MeshNml\nMeshFile = 'mesh.puml.h5'\nmeshgenerator = 'PUML'\n/\n"
-         << "&Output\nOutputFile = 'output/data'\nReceiverOutput = 0\n"
-         << "iOutputMask = 1 1 1 1 1 1 1 1 1\n/\n"
-         << "&AbortCriteria\nEndTime = 1.0\n/\n";
+    // the band of the mechanisms, which a build with an anelastic configuration requires
+    file
+        << "&equations\nMaterialFileName = 'material.yaml'\nFreqCentral = 0.5\nFreqRatio = 100\n/\n"
+        << "&MeshNml\nMeshFile = 'mesh.puml.h5'\nmeshgenerator = 'PUML'\n/\n"
+        << "&Output\nOutputFile = 'output/data'\nReceiverOutput = 0\n"
+        << "iOutputMask = 1 1 1 1 1 1 1 1 1\n/\n"
+        << "&AbortCriteria\nEndTime = 1.0\n/\n";
   }
   {
     std::ofstream file(directory + "/material.yaml");
@@ -138,11 +140,13 @@ TEST_CASE("An error stops the check, and its report says which and where" *
   std::filesystem::create_directories(directory);
   {
     std::ofstream file(directory + "/parameters.par");
-    file << "&equations\nMaterialFileName = 'material.yaml'\n/\n"
-         << "&MeshNml\nMeshFile = 'mesh.puml.h5'\nmeshgenerator = 'PUML'\n/\n"
-         << "&Output\nOutputFile = 'output/data'\nReceiverOutput = 0\n"
-         << "iOutputMask = 1 1 1 1 1 1 1 1 1\n/\n"
-         << "&AbortCriteria\nEndTime = 1.0\n/\n";
+    // the band of the mechanisms, which a build with an anelastic configuration requires
+    file
+        << "&equations\nMaterialFileName = 'material.yaml'\nFreqCentral = 0.5\nFreqRatio = 100\n/\n"
+        << "&MeshNml\nMeshFile = 'mesh.puml.h5'\nmeshgenerator = 'PUML'\n/\n"
+        << "&Output\nOutputFile = 'output/data'\nReceiverOutput = 0\n"
+        << "iOutputMask = 1 1 1 1 1 1 1 1 1\n/\n"
+        << "&AbortCriteria\nEndTime = 1.0\n/\n";
   }
   const auto reportPath = directory + "/report.json";
 
@@ -182,13 +186,15 @@ TEST_CASE("The check of a run finds the receivers that lie in no cell" *
   // the mesh is the unit cube, with absorbing faces all around
   {
     std::ofstream file(directory + "/parameters.par");
-    file << "&equations\nMaterialFileName = 'material.yaml'\n/\n"
-         << "&MeshNml\nMeshFile = '" << std::filesystem::absolute(tpath("Testing/mesh.h5")).string()
-         << "'\nmeshgenerator = 'PUML'\n/\n"
-         << "&Output\nOutputFile = 'output/data'\nReceiverOutput = 1\n"
-         << "RFileName = 'receivers.dat'\npickdt = 0.01\n"
-         << "iOutputMask = 1 1 1 1 1 1 1 1 1\n/\n"
-         << "&AbortCriteria\nEndTime = 1.0\n/\n";
+    // the band of the mechanisms, which a build with an anelastic configuration requires
+    file
+        << "&equations\nMaterialFileName = 'material.yaml'\nFreqCentral = 0.5\nFreqRatio = 100\n/\n"
+        << "&MeshNml\nMeshFile = '" << std::filesystem::absolute(tpath("Testing/mesh.h5")).string()
+        << "'\nmeshgenerator = 'PUML'\n/\n"
+        << "&Output\nOutputFile = 'output/data'\nReceiverOutput = 1\n"
+        << "RFileName = 'receivers.dat'\npickdt = 0.01\n"
+        << "iOutputMask = 1 1 1 1 1 1 1 1 1\n/\n"
+        << "&AbortCriteria\nEndTime = 1.0\n/\n";
   }
   {
     std::ofstream file(directory + "/material.yaml");
@@ -269,8 +275,13 @@ TEST_CASE("The check of a run finds the receivers that lie in no cell" *
       const std::ifstream stream(reportPath);
       content << stream.rdbuf();
     }
-    CHECK(content.str().find("names does not supply lambda, which the material") !=
-          std::string::npos);
+    const auto report = content.str();
+    const auto missing = report.find("names does not supply");
+    REQUIRE(missing != std::string::npos);
+    const auto needed = report.find("which the material", missing);
+    REQUIRE(needed != std::string::npos);
+    // the material of an anelastic or a porous configuration misses more than lambda
+    CHECK(report.substr(missing, needed - missing).find("lambda") != std::string::npos);
   }
   SUBCASE("Without reading the whole mesh") {
     const int code =

@@ -5,6 +5,6 @@
 #
 # SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 #
-# The include rule breaks that .ci/layering.py tolerates (rule, includer, included;
-# paths in the target layout). Only ever shrinks: run .ci/layering.py --update after
+# The include rule breaks that scripts/ci/layering.py tolerates (rule, includer, included;
+# paths in the target layout). Only ever shrinks: run scripts/ci/layering.py --update after
 # removing rule breaks.

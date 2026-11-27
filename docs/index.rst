@@ -167,4 +167,5 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   :caption: Developer Guide
 
   basic-code-structure
+  verification-suite
   verification-exact-solutions

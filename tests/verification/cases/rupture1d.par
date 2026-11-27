@@ -55,6 +55,10 @@ ReceiverOutput = 1
 pickdt = 6.103515625e-05                       ! set by the runner
 RFileName = 'receiver.dat'
 xdmfWriterBackend = 'posix'
+! the energies of the fault and of the waves, which fault1d.py predicts as
+! well, every 64 steps of the runner
+EnergyOutput = 1
+EnergyOutputInterval = 3.90625e-03
 /
 
 &AbortCriteria

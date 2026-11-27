@@ -323,6 +323,10 @@ TEST_CASE_TEMPLATE_DEFINE("Friction Solver Common" * doctest::test_suite("dynami
       // as the padded weights the solver is given: it reads a weight for every padded point
       real spaceWeights[misc::NumPaddedPoints<Cfg>]{};
       const DRGodunovData<Cfg> godunovData{};
+      for (size_t o = 0; o < misc::TimeSteps<Cfg>; o++) {
+        friction_law::common::accumulateSlipForEnergy<Cfg>(
+            energyOutput, slipRateMagnitude, timeWeights[o]);
+      }
       friction_law::common::computeFrictionEnergy<Cfg>(energyOutput,
                                                        qInterpolatedPlus,
                                                        qInterpolatedMinus,
@@ -330,7 +334,6 @@ TEST_CASE_TEMPLATE_DEFINE("Friction Solver Common" * doctest::test_suite("dynami
                                                        timeWeights,
                                                        spaceWeights,
                                                        godunovData,
-                                                       slipRateMagnitude,
                                                        false);
       double gain = 0;
       for (size_t o = 0; o < misc::TimeSteps<Cfg>; o++) {
@@ -338,6 +341,31 @@ TEST_CASE_TEMPLATE_DEFINE("Friction Solver Common" * doctest::test_suite("dynami
       }
       for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
         CHECK(energyOutput.accumulatedSlip[p] - 1.0 == doctest::Approx(gain).epsilon(1e-6));
+      }
+    }
+
+    SUBCASE("The slip of the energy output takes the slip rate of every point in time") {
+      // the slip rate the friction law computes changes from one point in time to the next; the
+      // accumulated slip is the quadrature of all of them, on the host and on the device alike
+      DREnergyOutput<Cfg> energyOutput{};
+      DREnergyOutput<Cfg> deviceEnergyOutput{};
+      double expected = 0;
+      for (size_t o = 0; o < misc::TimeSteps<Cfg>; o++) {
+        real slipRateMagnitude[misc::NumPaddedPoints<Cfg>]{};
+        for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
+          slipRateMagnitude[p] = static_cast<real>(o + 1);
+        }
+        friction_law::common::accumulateSlipForEnergy<Cfg>(
+            energyOutput, slipRateMagnitude, timeWeights[o]);
+        for (std::uint32_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
+          friction_law::common::accumulateSlipForEnergy<Cfg, GpuRange>(
+              deviceEnergyOutput, slipRateMagnitude, timeWeights[o], p);
+        }
+        expected += static_cast<double>(timeWeights[o]) * static_cast<double>(o + 1);
+      }
+      for (size_t p = 0; p < misc::NumPaddedPoints<Cfg>; p++) {
+        CHECK(energyOutput.accumulatedSlip[p] == doctest::Approx(expected).epsilon(1e-6));
+        CHECK(deviceEnergyOutput.accumulatedSlip[p] == energyOutput.accumulatedSlip[p]);
       }
     }
   }

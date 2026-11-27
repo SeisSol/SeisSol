@@ -17,7 +17,7 @@ The script can be replayed on any branch: it moves the files that exist there (f
 the branch has go by the rules of their directories), rewrites the includes in src/, app/ and
 tests/, updates the CMake source lists, and rewrites mentions of the moved paths elsewhere
 (codegen/, the CMake and clang-tidy configuration, docs/, comments). Afterwards, run
-`.ci/header.py --fix src app tests` (the include guards follow the paths) and clang-format, e.g.
+`scripts/ci/header.py --fix src app tests` (the include guards follow the paths) and clang-format, e.g.
 with `pre-commit run --all-files`; both rewrite files, so never build at the same time.
 
 usage:
@@ -261,9 +261,9 @@ REMOVED_CMAKE_BLOCKS = {
 UNIT_GROUPS = ("Core", "Features")
 
 # where the script rewrites mentions of moved paths (besides the includes)
-TEXT_DIRS = ("src", "app", "tests", "codegen", "cmake", "docs", ".github", ".ci")
+TEXT_DIRS = ("src", "app", "tests", "codegen", "cmake", "docs", ".github", "scripts/ci")
 TEXT_FILES = ("CMakeLists.txt", ".clang-tidy")
-TEXT_SKIP = (".ci/restructure.py", ".ci/layering-baseline.txt")
+TEXT_SKIP = ("scripts/ci/restructure.py", "scripts/ci/layering-baseline.txt")
 TEXT_SUFFIXES = (
     ".h",
     ".hpp",
@@ -753,7 +753,9 @@ def apply(args, root):
     for dirpath, _, _ in sorted(os.walk(os.path.join(root, "src")), reverse=True):
         if not os.listdir(dirpath):
             os.rmdir(dirpath)
-    print("next: .ci/header.py --fix src app tests, then clang-format (pre-commit)")
+    print(
+        "next: scripts/ci/header.py --fix src app tests, then clang-format (pre-commit)"
+    )
 
 
 def main():

@@ -8,7 +8,7 @@
 # The runtime options of the sanitizers (cmake/sanitizers.cmake) that the CI runs the tests with.
 # In bash, before running the tests of a sanitized build:
 #
-#   source .ci/sanitizers/environment.sh
+#   source scripts/ci/sanitizers/environment.sh
 #
 # Options set before take precedence over the ones here. For the thread sanitizer, it also
 # loads Archer, through which the OpenMP runtime of LLVM tells the sanitizer how it synchronizes

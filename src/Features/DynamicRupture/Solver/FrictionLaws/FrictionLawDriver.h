@@ -40,6 +40,8 @@ struct FrictionLawDriver {
                                 : static_cast<real>(1.0);
 
       const auto isFrictionEnergyRequired{ctx.data->drParameters.isFrictionEnergyRequired};
+      const auto energiesFromAcrossFaultVelocities{
+          ctx.data->drParameters.energiesFromAcrossFaultVelocities};
       const auto isCheckAbortCriteraEnabled{ctx.data->drParameters.isCheckAbortCriteraEnabled};
       const auto terminatorSlipRateThreshold{ctx.data->drParameters.terminatorSlipRateThreshold};
 
@@ -107,6 +109,13 @@ struct FrictionLawDriver {
                                                   ctx.data->peakSlipRate[ctx.ltsFace],
                                                   firstPoint(ctx));
 
+        if (isFrictionEnergyRequired && !energiesFromAcrossFaultVelocities) {
+          common::accumulateSlipForEnergy<Cfg, Type>(ctx.data->energyData[ctx.ltsFace],
+                                                     ctx.data->slipRateMagnitude[ctx.ltsFace],
+                                                     ctx.args->timeWeights[timeIndex],
+                                                     firstPoint(ctx));
+        }
+
         if (isFrictionEnergyRequired && isCheckAbortCriteraEnabled) {
           common::updateTimeSinceSlipRateBelowThreshold<Cfg, Type>(
               ctx.data->slipRateMagnitude[ctx.ltsFace],
@@ -138,9 +147,6 @@ struct FrictionLawDriver {
                                               firstPoint(ctx));
 
       if (isFrictionEnergyRequired) {
-        const auto energiesFromAcrossFaultVelocities{
-            ctx.data->drParameters.energiesFromAcrossFaultVelocities};
-
         common::computeFrictionEnergy<Cfg, Type>(ctx.data->energyData[ctx.ltsFace],
                                                  ctx.data->qInterpolatedPlus[ctx.ltsFace],
                                                  ctx.data->qInterpolatedMinus[ctx.ltsFace],
@@ -148,7 +154,6 @@ struct FrictionLawDriver {
                                                  ctx.args->timeWeights,
                                                  ctx.args->spaceWeights,
                                                  ctx.data->godunovData[ctx.ltsFace],
-                                                 ctx.data->slipRateMagnitude[ctx.ltsFace],
                                                  energiesFromAcrossFaultVelocities,
                                                  firstPoint(ctx));
       }

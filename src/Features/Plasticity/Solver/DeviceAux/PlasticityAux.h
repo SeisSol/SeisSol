@@ -28,8 +28,6 @@ void plasticityNonlinear(Real<Cfg>** __restrict nodalStressTensors,
                          const seissol::model::PlasticityData<Cfg>* __restrict plasticity,
                          const unsigned* __restrict cellIndices,
                          Real<Cfg> oneMinusIntegratingFactor,
-                         Real<Cfg> tV,
-                         Real<Cfg> timeStepWidth,
                          size_t numElements,
                          void* streamPtr);
 } // namespace seissol::kernels::device::aux::plasticity

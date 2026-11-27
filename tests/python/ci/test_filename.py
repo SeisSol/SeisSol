@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Tests for .ci/filename.py — the PascalCase + .h-suffix enforcer.
+"""Tests for scripts/ci/filename.py — the PascalCase + .h-suffix enforcer.
 
 This script runs as a pre-commit hook on every PR. Bugs here either
 produce false negatives (bad filenames slipping through) or false
@@ -19,7 +19,7 @@ import pytest
 
 SEISSOL_ROOT = Path(__file__).resolve().parents[3]
 _spec = importlib.util.spec_from_file_location(
-    "ci_filename", SEISSOL_ROOT / ".ci" / "filename.py"
+    "ci_filename", SEISSOL_ROOT / "scripts" / "ci" / "filename.py"
 )
 fn = importlib.util.module_from_spec(_spec)
 
@@ -93,7 +93,7 @@ class TestFilenameCliPassingCases:
 
     @pytest.fixture
     def script(self):
-        return str(SEISSOL_ROOT / ".ci" / "filename.py")
+        return str(SEISSOL_ROOT / "scripts" / "ci" / "filename.py")
 
     def test_empty_directory_passes(self, tmp_path, script):
         result = subprocess.run(
@@ -136,7 +136,7 @@ class TestFilenameCliFailingCases:
 
     @pytest.fixture
     def script(self):
-        return str(SEISSOL_ROOT / ".ci" / "filename.py")
+        return str(SEISSOL_ROOT / "scripts" / "ci" / "filename.py")
 
     def test_snake_case_cpp_is_flagged(self, tmp_path, script):
         (tmp_path / "my_class.cpp").touch()
@@ -196,7 +196,7 @@ class TestFilenameDirsFlag:
 
     @pytest.fixture
     def script(self):
-        return str(SEISSOL_ROOT / ".ci" / "filename.py")
+        return str(SEISSOL_ROOT / "scripts" / "ci" / "filename.py")
 
     def test_dir_flag_flags_snake_case_dir(self, tmp_path, script):
         (tmp_path / "my_module").mkdir()
@@ -231,7 +231,7 @@ class TestFilenameAgainstRealSeisSol:
         result = subprocess.run(
             [
                 sys.executable,
-                str(SEISSOL_ROOT / ".ci" / "filename.py"),
+                str(SEISSOL_ROOT / "scripts" / "ci" / "filename.py"),
                 str(SEISSOL_ROOT / "src"),
             ],
             capture_output=True,
@@ -247,7 +247,7 @@ class TestFilenameAgainstRealSeisSol:
         result = subprocess.run(
             [
                 sys.executable,
-                str(SEISSOL_ROOT / ".ci" / "filename.py"),
+                str(SEISSOL_ROOT / "scripts" / "ci" / "filename.py"),
                 str(SEISSOL_ROOT / "app"),
             ],
             capture_output=True,
@@ -260,7 +260,7 @@ class TestFilenameAgainstRealSeisSol:
         result = subprocess.run(
             [
                 sys.executable,
-                str(SEISSOL_ROOT / ".ci" / "filename.py"),
+                str(SEISSOL_ROOT / "scripts" / "ci" / "filename.py"),
                 str(SEISSOL_ROOT / "tests"),
             ],
             capture_output=True,

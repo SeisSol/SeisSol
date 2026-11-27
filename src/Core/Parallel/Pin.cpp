@@ -274,10 +274,11 @@ bool Pinning::areAllCpusOnline() {
 #endif
 }
 
-void Pinning::pinToFreeCPUs() const {
+void Pinning::pinToFreeCPUs() const { pinCurrentThread(getFreeCPUsMask()); }
+
+void Pinning::pinCurrentThread([[maybe_unused]] const CpuMask& mask) {
 #ifdef __linux__
-  const auto freeMask = getFreeCPUsMask();
-  sched_setaffinity(0, sizeof(cpu_set_t), &freeMask.set);
+  sched_setaffinity(0, sizeof(cpu_set_t), &mask.set);
 #endif // __linux__
 }
 

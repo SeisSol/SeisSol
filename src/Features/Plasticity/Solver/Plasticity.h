@@ -33,11 +33,11 @@ class Plasticity {
     return (tV > 0.0) ? -std::expm1(-timestep / tV) : 1.0;
   }
 
-  /** Returns 1 if there was plastic yielding otherwise 0.
+  /** Returns 1 if there was plastic yielding otherwise 0. The relaxation of a step of the time
+   * tV turns the stress beyond the yield down by 1 - `oneMinusIntegratingFactor`, see
+   * computeRelaxTime.
    */
   static std::size_t computePlasticity(real oneMinusIntegratingFactor,
-                                       real timeStepWidth,
-                                       real tV,
                                        const GlobalData<Cfg>* global,
                                        const seissol::model::PlasticityData<Cfg>* plasticityData,
                                        real degreesOfFreedom[tensor::Q<Cfg>::size()],
