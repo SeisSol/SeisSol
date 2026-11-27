@@ -435,9 +435,16 @@ void initModel(seissol::SeisSol& seissolInstance) {
     }
   }
   logInfo() << "Plasticity:" << (seissolInstance.parameters().model.plasticity ? "on" : "off");
-  logInfo() << "Flux:" << parameters::fluxToString(seissolInstance.parameters().model.flux).c_str();
+  logInfo() << "Flux:"
+            << parameters::describeFlux(
+                   model.flux, model.fluxGPart, model.fluxRPart, model.fluxDamping)
+                   .c_str();
   logInfo() << "Flux near fault:"
-            << parameters::fluxToString(seissolInstance.parameters().model.fluxNearFault).c_str();
+            << parameters::describeFlux(model.fluxNearFault,
+                                        model.fluxNearFaultGPart,
+                                        model.fluxNearFaultRPart,
+                                        model.fluxNearFaultDamping)
+                   .c_str();
 
   internal::checkFaceTypeSupport(seissolInstance.memoryManager().ltsStorage(),
                                  seissolInstance.parameters().initialization.type);

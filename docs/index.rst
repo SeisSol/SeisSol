@@ -80,6 +80,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   parameter-file
   initial-condition
   boundary-conditions
+  numerical-flux
   local-timestepping
   left-lateral-right-lateral-normal-reverse
   easi

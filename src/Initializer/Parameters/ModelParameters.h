@@ -33,6 +33,13 @@ enum class NumericalFlux { Godunov, Rusanov, Centered, Mixed };
 
 std::string fluxToString(NumericalFlux flux);
 
+//! @brief The flux with its parts (see ModelParameters::fluxGPart and the following), as the log
+//! shows it.
+std::string describeFlux(NumericalFlux flux,
+                         double gpart,
+                         double rpart,
+                         const std::array<double, 6>& damping);
+
 struct ModelParameters {
   bool hasBoundaryFile{false};
   bool plasticity{false};

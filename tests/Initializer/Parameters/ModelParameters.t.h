@@ -252,6 +252,39 @@ TEST_CASE("readModelParameters reads the flux and the shares of its damping" *
   CHECK(params.fluxNearFaultDamping == std::array<double, 6>{1, 1, 1, 0, 0.25, 0.75});
 }
 
+TEST_CASE("readModelParameters sets the parts of the flux of a preset" *
+          doctest::test_suite("initializer")) {
+  const YAML::Node node = YAML::Load(R"(
+    equations:
+      materialfilename: mat.yaml
+      freqcentral: 1
+      freqratio: 1
+      numfluxnearfault: godunov-shearcentered
+  )");
+  ParameterReader reader(node, "", false);
+  const auto params = readModelParameters(&reader, defaultConfig(), {});
+
+  CHECK(params.flux == NumericalFlux::Godunov);
+  CHECK(params.fluxNearFault == NumericalFlux::Mixed);
+  CHECK(params.fluxNearFaultGPart == 1.0);
+  CHECK(params.fluxNearFaultRPart == doctest::Approx(0.1));
+  CHECK(params.fluxNearFaultDamping == std::array<double, 6>{1, 1, 1, 0, 1, 1});
+}
+
+TEST_CASE("describeFlux names the parts of the flux" * doctest::test_suite("initializer")) {
+  const std::array<double, 6> upwind{1, 1, 1, 1, 1, 1};
+  CHECK(describeFlux(NumericalFlux::Godunov, 0, 0, upwind) == "Godunov flux");
+  CHECK(describeFlux(NumericalFlux::Godunov, 0, 0, {1, 1, 1, 0, 1, 1}) ==
+        "Godunov flux (shares of the damping 1 1 1 0 1 1)");
+  CHECK(describeFlux(NumericalFlux::Centered, 0, 0, upwind) == "centered flux");
+  CHECK(describeFlux(NumericalFlux::Mixed, 0.5, 0, upwind) ==
+        "0.5 x Godunov flux + 0.5 x centered flux");
+  CHECK(describeFlux(NumericalFlux::Mixed, 1, 0.1, {1, 1, 1, 0, 1, 1}) ==
+        "1 x Godunov flux (shares of the damping 1 1 1 0 1 1) + 0.1 x damping of the Rusanov flux");
+  CHECK(describeFlux(NumericalFlux::Mixed, 0, 0.5, upwind) ==
+        "1 x centered flux + 0.5 x damping of the Rusanov flux");
+}
+
 TEST_CASE("readModelParameters simulation count" * doctest::test_suite("initializer")) {
   SUBCASE("the fused simulations of the configuration by default") {
     const YAML::Node node = YAML::Load(R"(
