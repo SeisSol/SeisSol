@@ -127,18 +127,19 @@ void plasticityNonlinear(real** __restrict nodalStressTensors,
         }
 
         eta[tid] += timeStepWidth * std::sqrt(static_cast<real>(0.5) * dudtUpdate);
-
-        auto yieldCounterAR =
-            sycl::atomic_ref<std::size_t,
-                             sycl::memory_order::relaxed,
-                             sycl::memory_scope::device,
-                             sycl::access::address_space::global_space>(*yieldCounter);
-
-        // update the FLOPs that we've been here
-        yieldCounterAR.fetch_add(1, sycl::memory_order::relaxed);
       }
       if (tid == 0) {
         isAdjustableVector[wid] = isAdjusted[0];
+        if (isAdjusted[0]) {
+          auto yieldCounterAR =
+              sycl::atomic_ref<std::size_t,
+                               sycl::memory_order::relaxed,
+                               sycl::memory_scope::device,
+                               sycl::access::address_space::global_space>(*yieldCounter);
+
+          // count the cell for the FLOPs of the yield, once, as the CPU does
+          yieldCounterAR.fetch_add(1, sycl::memory_order::relaxed);
+        }
       }
     });
   });
