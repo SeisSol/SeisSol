@@ -397,9 +397,19 @@ void initializeBoundaryMappings(const seissol::geometry::MeshReader& meshReader,
         auto offset = 0;
         for (std::size_t i = 0; i < nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension];
              ++i) {
+          // The generated nodes2D run over the nodes along the dimension of the basis functions,
+          // which comes second where simulations are fused, and leave out the entries outside
+          // their bounds, which are zero.
           double nodeReference[2];
-          nodeReference[0] = nodesReference(i, 0);
-          nodeReference[1] = nodesReference(i, 1);
+          for (std::size_t d = 0; d < 2; ++d) {
+            nodeReference[d] = multisim::multisimTranspose(
+                [&](std::size_t a, std::size_t b) {
+                  return nodesReference.isInRange(a, b) ? static_cast<double>(nodesReference(a, b))
+                                                        : 0.0;
+                },
+                i,
+                d);
+          }
           // Compute the global coordinates for the nodal points.
           double xiEtaZeta[3];
           double xyz[3];
