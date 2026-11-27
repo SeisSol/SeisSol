@@ -33,6 +33,7 @@ auto costProxyConfig(ConfigId config, unsigned cells) -> proxy::ProxyConfig {
   return proxy::ProxyConfig{.cells = cells,
                             .timesteps = Timesteps,
                             .kernels = {proxy::Kernel::All},
+                            .mode = proxy::Mode::Cluster,
                             .verbose = false,
                             .executor = isDeviceOn() ? Executor::Device : Executor::Host,
                             .config = config};
@@ -71,6 +72,7 @@ auto miniSeisSol(ConfigId config) -> double {
   auto proxyConfig = proxy::ProxyConfig{.cells = 50000,
                                         .timesteps = OnDevice ? 100U : 10U,
                                         .kernels = {seissol::proxy::Kernel::Local},
+                                        .mode = proxy::Mode::Cluster,
                                         .verbose = false,
                                         .executor = OnDevice ? Executor::Device : Executor::Host,
                                         .config = config};
@@ -138,6 +140,7 @@ auto hostDeviceSwitch() -> int {
         proxy::ProxyConfig{.cells = clusterSize,
                            .timesteps = static_cast<unsigned int>(clusterSize < 100 ? 100 : 10),
                            .kernels = {seissol::proxy::Kernel::Local},
+                           .mode = proxy::Mode::Cluster,
                            .verbose = false,
                            .executor = Executor::Host};
     const auto resultHost = proxy::runProxy(config);

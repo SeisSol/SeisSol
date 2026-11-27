@@ -140,6 +140,49 @@ def test_run_writes_every_sample(tmp_path):
     assert json.loads(entries.read_text())[0]["unit"] == "ns/(cell step)"
 
 
+def test_the_cluster_mode_reaches_the_proxy_and_the_names(tmp_path):
+    """The kernel mode keeps the names from before the modes; others get their own."""
+    proxy = tmp_path / "proxy.py"
+    proxy.write_text(
+        textwrap.dedent(
+            """\
+            import json, sys
+            if sys.argv[-2:] != ["--mode", "cluster"]:
+                sys.exit(2)
+            print(json.dumps({"name": sys.argv[3], "time": 0.5, "gflops-hw": 12.0,
+                              "gflops-nz": 9.0, "gibs": 3.0}))
+            """
+        ),
+        encoding="utf-8",
+    )
+    output = tmp_path / "report.json"
+    code = benchmark.main(
+        [
+            "run",
+            "--proxy",
+            str(proxy),
+            "--launcher",
+            sys.executable,
+            "--config",
+            "elastic-o6-f64",
+            "--kernel",
+            "all",
+            "--proxy-mode",
+            "cluster",
+            "--repetitions",
+            "1",
+            "--warmup",
+            "0",
+            "--output",
+            str(output),
+        ]
+    )
+    assert code == 0
+    written = json.loads(output.read_text())
+    assert list(written["benchmarks"]) == ["elastic-o6-f64/all/cluster"]
+    assert written["parameters"]["proxy_mode"] == "cluster"
+
+
 def test_a_proxy_in_the_working_directory_is_found(tmp_path, monkeypatch):
     """./proxyseissol is no name to look up in the PATH."""
     script = fake_proxy(tmp_path)

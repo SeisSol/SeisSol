@@ -12,9 +12,9 @@
 #include "Core/Memory/Descriptor/LTS.h"
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Memory/Typedefs.h"
+#include "Core/Monitoring/FlopCounter.h"
 #include "Core/Monitoring/Metric.h"
 #include "Core/Parallel/Runtime/Stream.h"
-#include "Core/Run/Context.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
 #include "Core/TimeStepping/Compute/CellStage.h"
 #include "Features/Plasticity/Physics/Plasticity.h"
@@ -33,7 +33,7 @@ class PlasticityStage : public seissol::solver::CellStage<Cfg> {
   public:
   using real = Real<Cfg>;
 
-  PlasticityStage(RunContext& run,
+  PlasticityStage(monitoring::FlopCounter& flopCounter,
                   double tv,
                   CompoundGlobalData<Cfg> globalData,
                   LTS::Layer& layer);
@@ -48,7 +48,7 @@ class PlasticityStage : public seissol::solver::CellStage<Cfg> {
   void finishPhase() override;
 
   private:
-  RunContext& run_;
+  monitoring::FlopCounter& flopCounter_;
   double tv_;
   CompoundGlobalData<Cfg> globalData_;
   LTS::Layer& layer_;

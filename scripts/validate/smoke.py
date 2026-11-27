@@ -44,6 +44,7 @@ from typing import Any
 PROXY_FIELDS: dict[str, str] = {
     "name": "string",
     "cycle-source": "string",
+    "mode": "string",
     "time": "positive",
     "cycles": "non-negative",
     "gflop-libxsmm": "non-negative",
@@ -212,7 +213,9 @@ def parse_proxy_json(text: str) -> dict[str, Any]:
     return document
 
 
-def check_proxy_fields(document: dict[str, Any], kernel: str) -> None:
+def check_proxy_fields(
+    document: dict[str, Any], kernel: str, expected_mode: str = "kernel"
+) -> None:
     missing = sorted(set(PROXY_FIELDS) - set(document))
     unexpected = sorted(set(document) - set(PROXY_FIELDS))
     if missing:
@@ -240,6 +243,10 @@ def check_proxy_fields(document: dict[str, Any], kernel: str) -> None:
 
     if document.get("name") != kernel:
         problems.append(f"name: expected {kernel!r}, got {document.get('name')!r}")
+
+    mode = document.get("mode")
+    if mode != expected_mode:
+        problems.append(f"mode: expected {expected_mode!r}, got {mode!r}")
 
     source = document.get("cycle-source")
     if source not in CYCLE_SOURCES:
@@ -275,13 +282,18 @@ def check_proxy_fields(document: dict[str, Any], kernel: str) -> None:
 
 
 def mode_proxy(args: argparse.Namespace) -> int:
-    command = args.command + [
-        str(args.cells),
-        str(args.timesteps),
-        args.kernel,
-        "-f",
-        "json",
-    ]
+    command = (
+        args.command
+        + [
+            str(args.cells),
+            str(args.timesteps),
+            args.kernel,
+            "-f",
+            "json",
+        ]
+        + args.option
+    )
+    expected_mode = "cluster" if "--mode=cluster" in args.option else "kernel"
     proc = run_command(command, args.timeout)
     if proc.returncode != 0:
         echo_output(proc)
@@ -292,7 +304,7 @@ def mode_proxy(args: argparse.Namespace) -> int:
     try:
         check_no_sanitizer_report(proc.stdout + proc.stderr)
         document = parse_proxy_json(extract_json_object(proc.stdout))
-        check_proxy_fields(document, args.kernel)
+        check_proxy_fields(document, args.kernel, expected_mode)
     except CheckFailed:
         echo_output(proc)
         raise
@@ -331,6 +343,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     proxy.add_argument("--cells", type=int, default=10)
     proxy.add_argument("--timesteps", type=int, default=1)
     proxy.add_argument("--timeout", type=float, default=None, help="seconds")
+    proxy.add_argument(
+        "--option",
+        action="append",
+        default=[],
+        help="an option for the proxy, e.g. --option=--mode=cluster",
+    )
     proxy.add_argument("command", nargs=argparse.REMAINDER)
     proxy.set_defaults(func=mode_proxy)
 

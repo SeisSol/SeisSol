@@ -14,8 +14,8 @@
 #include "Core/Memory/MemoryAllocator.h"
 #include "Core/Memory/Tree/Layer.h"
 #include "Core/Memory/Typedefs.h"
+#include "Core/Monitoring/FlopCounter.h"
 #include "Core/Parallel/Runtime/Stream.h"
-#include "Core/Run/Context.h"
 #include "Core/TimeStepping/Actor/StepParams.h"
 #include "Features/Plasticity/Solver/Plasticity.h"
 #include "Features/Plasticity/Solver/Storage.h"
@@ -31,11 +31,11 @@
 namespace seissol::kernels {
 
 template <typename Cfg>
-PlasticityStage<Cfg>::PlasticityStage(RunContext& run,
+PlasticityStage<Cfg>::PlasticityStage(monitoring::FlopCounter& flopCounter,
                                       double tv,
                                       CompoundGlobalData<Cfg> globalData,
                                       LTS::Layer& layer)
-    : run_(run), tv_(tv), globalData_(globalData), layer_(layer),
+    : flopCounter_(flopCounter), tv_(tv), globalData_(globalData), layer_(layer),
       yieldedHost_(1, seissol::memory::Memkind::Standard),
       yieldedDevice_(1,
                      isDeviceOn() ? seissol::memory::Memkind::DeviceGlobalMemory
@@ -50,8 +50,8 @@ PlasticityStage<Cfg>::PlasticityStage(RunContext& run,
   const auto [check, yield] = Plasticity<Cfg>::metrics();
   check_ = check;
   yield_ = yield;
-  checkHandle_ = run_.flopCounter().addMetric("plasticity-check", "PL");
-  yieldHandle_ = run_.flopCounter().addMetric("plasticity-yield", "PL");
+  checkHandle_ = flopCounter_.addMetric("plasticity-check", "PL");
+  yieldHandle_ = flopCounter_.addMetric("plasticity-yield", "PL");
 
   yieldedHost_[0] = 0;
   yieldedDevice_.copyFrom(yieldedHost_);
@@ -117,15 +117,15 @@ template <typename Cfg>
 void PlasticityStage<Cfg>::countCorrection() {
   // here instead of with the device work, which a replay of a recording skips; the yielding cells
   // get counted on the device, and added at the end of the phase
-  run_.flopCounter().incrementMetric(checkHandle_, check_ * plasticCells_);
+  flopCounter_.incrementMetric(checkHandle_, check_ * plasticCells_);
 }
 
 template <typename Cfg>
 void PlasticityStage<Cfg>::finishPhase() {
-  run_.flopCounter().incrementMetric(yieldHandle_, yield_ * yieldedHost_[0]);
+  flopCounter_.incrementMetric(yieldHandle_, yield_ * yieldedHost_[0]);
 
   yieldedHost_.copyFrom(yieldedDevice_);
-  run_.flopCounter().incrementMetric(yieldHandle_, yield_ * yieldedHost_[0]);
+  flopCounter_.incrementMetric(yieldHandle_, yield_ * yieldedHost_[0]);
 
   yieldedHost_[0] = 0;
   yieldedDevice_.copyFrom(yieldedHost_);

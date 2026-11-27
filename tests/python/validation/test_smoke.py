@@ -24,6 +24,7 @@ _spec.loader.exec_module(smoke)
 VALID_FIELDS = {
     "name": "all",
     "cycle-source": "tsc",
+    "mode": "kernel",
     "time": 0.0123,
     "cycles": 42.0,
     "gflop-libxsmm": 0.0,
@@ -92,6 +93,17 @@ def test_unexpected_field_is_reported_by_name():
 def test_kernel_name_has_to_match_what_was_requested():
     with pytest.raises(smoke.CheckFailed, match="name"):
         smoke.check_proxy_fields(dict(VALID_FIELDS), "ader")
+
+
+def test_mode_has_to_match_what_was_requested():
+    with pytest.raises(smoke.CheckFailed, match="mode"):
+        smoke.check_proxy_fields(dict(VALID_FIELDS), "all", "cluster")
+
+
+def test_cluster_mode_passes_when_requested():
+    document = dict(VALID_FIELDS)
+    document["mode"] = "cluster"
+    smoke.check_proxy_fields(document, "all", "cluster")
 
 
 def test_hardware_flops_below_nonzero_flops_is_rejected():

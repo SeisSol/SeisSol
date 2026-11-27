@@ -33,12 +33,31 @@ install(TARGETS seissol-proxy-exe RUNTIME)
 
 if (TESTING)
     # Each kernel is run through the JSON output mode, so the run itself and
-    # the numbers it reports are checked in one go.
-    foreach(kernel all all_dr local neigh neigh_dr godunov_dr)
+    # the numbers it reports are checked in one go: in the kernel mode (the
+    # default), and the loops of the clusters in the cluster mode.
+    foreach(kernel all all_dr local neigh neigh_dr godunov_dr ader localwoader plast plast_yield)
         seissol_add_proxy_smoke_test(
             NAME "Proxy: ${kernel}"
             TARGET seissol-proxy-exe
             KERNEL ${kernel}
+            LABELS proxy
+        )
+    endforeach()
+    foreach(kernel all all_dr local neigh neigh_dr godunov_dr)
+        seissol_add_proxy_smoke_test(
+            NAME "Proxy (clusters): ${kernel}"
+            TARGET seissol-proxy-exe
+            KERNEL ${kernel}
+            OPTIONS --mode=cluster
+            LABELS proxy
+        )
+    endforeach()
+    foreach(plasticity elastic yield)
+        seissol_add_proxy_smoke_test(
+            NAME "Proxy (clusters, plasticity ${plasticity}): all"
+            TARGET seissol-proxy-exe
+            KERNEL all
+            OPTIONS --mode=cluster --plasticity=${plasticity}
             LABELS proxy
         )
     endforeach()
@@ -64,6 +83,28 @@ if (TESTING)
         NAME "Proxy: unknown kernel"
         TARGET seissol-proxy-exe
         ARGS 10 1 not-a-kernel
+        EXPECT_FAILURE
+        LABELS proxy
+    )
+    # loops that do not go together, see seissol::proxy::checkConfig
+    seissol_add_smoke_test(
+        NAME "Proxy: a kernel of the kernel mode in the cluster mode"
+        TARGET seissol-proxy-exe
+        ARGS 10 1 ader --mode=cluster
+        EXPECT_FAILURE
+        LABELS proxy
+    )
+    seissol_add_smoke_test(
+        NAME "Proxy: both kinds of plastic cells"
+        TARGET seissol-proxy-exe
+        ARGS 10 1 plast,plast_yield
+        EXPECT_FAILURE
+        LABELS proxy
+    )
+    seissol_add_smoke_test(
+        NAME "Proxy: the plasticity of the cluster mode in the kernel mode"
+        TARGET seissol-proxy-exe
+        ARGS 10 1 all --plasticity=yield
         EXPECT_FAILURE
         LABELS proxy
     )

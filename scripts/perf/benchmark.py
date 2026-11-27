@@ -172,9 +172,17 @@ def parse_proxy_output(stdout: str) -> dict[str, Any]:
 
 
 def run_proxy(
-    proxy: list[str], config: str, kernel: str, cells: int, timesteps: int
+    proxy: list[str],
+    config: str,
+    kernel: str,
+    cells: int,
+    timesteps: int,
+    proxy_mode: str = "kernel",
 ) -> dict[str, Any]:
     command = proxy + [str(cells), str(timesteps), kernel, "-f", "json", "-c", config]
+    # (only where it is not the default, which proxies from before the modes take as well)
+    if proxy_mode != "kernel":
+        command += ["--mode", proxy_mode]
     start = time.perf_counter()
     completed = subprocess.run(command, capture_output=True, text=True, check=False)
     elapsed = time.perf_counter() - start
@@ -189,8 +197,11 @@ def run_proxy(
     return document
 
 
-def benchmark_name(config: str, kernel: str) -> str:
-    return f"{config}/{kernel}"
+def benchmark_name(config: str, kernel: str, proxy_mode: str = "kernel") -> str:
+    # the kernel mode keeps the names of the measurements from before the modes
+    if proxy_mode == "kernel":
+        return f"{config}/{kernel}"
+    return f"{config}/{kernel}/{proxy_mode}"
 
 
 def mode_run(args: argparse.Namespace) -> int:
@@ -207,6 +218,7 @@ def mode_run(args: argparse.Namespace) -> int:
             "timesteps": args.timesteps,
             "repetitions": args.repetitions,
             "warmup": args.warmup,
+            "proxy_mode": args.proxy_mode,
         },
         "benchmarks": {},
     }
@@ -214,13 +226,17 @@ def mode_run(args: argparse.Namespace) -> int:
     for config in configs:
         for kernel in kernels:
             for _ in range(args.warmup):
-                run_proxy(proxy, config, kernel, args.cells, args.timesteps)
+                run_proxy(
+                    proxy, config, kernel, args.cells, args.timesteps, args.proxy_mode
+                )
             samples = [
-                run_proxy(proxy, config, kernel, args.cells, args.timesteps)
+                run_proxy(
+                    proxy, config, kernel, args.cells, args.timesteps, args.proxy_mode
+                )
                 for _ in range(args.repetitions)
             ]
             times = [sample["time"] / cell_steps * 1e9 for sample in samples]
-            name = benchmark_name(config, kernel)
+            name = benchmark_name(config, kernel, args.proxy_mode)
             report["benchmarks"][name] = {
                 "config": config,
                 "kernel": kernel,
@@ -426,6 +442,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--kernel",
         action="append",
         help=f"kernel to measure (repeatable; default: {', '.join(DEFAULT_KERNELS)})",
+    )
+    run.add_argument(
+        "--proxy-mode",
+        choices=("kernel", "cluster"),
+        default="kernel",
+        help="run the loops kernel by kernel, or as the clusters of a simulation (see the "
+        "--mode of the proxy)",
     )
     run.add_argument("--cells", type=int, default=50000)
     run.add_argument("--timesteps", type=int, default=20)

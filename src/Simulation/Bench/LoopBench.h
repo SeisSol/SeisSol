@@ -19,16 +19,19 @@
 
 namespace seissol::proxy {
 
+/// What the loops of the proxy run on (see SyntheticData).
+struct BenchSetup {
+  ConfigId config{};
+  std::size_t cells{};
+  //! with faces of dynamic rupture: all faces of the cells lie on the fault
+  bool dynamicRupture{false};
+  CellPlasticity plasticity{CellPlasticity::None};
+  Executor executor{Executor::Host};
+};
+
 /**
- * The loops of a time step of a simulation, on synthetic data: an interior layer of cells of one
- * configuration, with random neighbors and arbitrary values. Either all faces of the cells are
- * regular, or all of them lie on the fault, with four times as many fault faces as cells, whose
- * adjacent cells are random as well.
- *
- * The loops are those of the clusters of a simulation (see WaveCluster and DynamicRuptureCluster),
- * run step by step outside of the time stepping: every cell with the same time step, of size 1,
- * and no friction on the fault. The cells read the time integrals of their neighbors from the
- * buffers of these (GTS), and no feature works on them.
+ * The loops of a time step of a simulation on synthetic data (see SyntheticData), one step at a
+ * time: kernel by kernel (KernelBench), or as the clusters of a simulation run them (ClusterBench).
  */
 class LoopBench {
   public:
@@ -50,10 +53,12 @@ class LoopBench {
   [[nodiscard]] virtual auto estimate(Kernel kernel) const -> PerformanceEstimate = 0;
 };
 
-/// The loops on `cells` cells of the configuration `config`, with faces on the fault if
-/// `dynamicRupture`, running on `executor`.
-auto makeLoopBench(ConfigId config, std::size_t cells, bool dynamicRupture, Executor executor)
-    -> std::unique_ptr<LoopBench>;
+/// The loops of the mode `mode` on the data `setup`.
+auto makeLoopBench(Mode mode, const BenchSetup& setup) -> std::unique_ptr<LoopBench>;
+
+/// The kernels of the kernel mode, and the clusters of the cluster mode, on the data `setup`.
+auto makeKernelBench(const BenchSetup& setup) -> std::unique_ptr<LoopBench>;
+auto makeClusterBench(const BenchSetup& setup) -> std::unique_ptr<LoopBench>;
 
 } // namespace seissol::proxy
 

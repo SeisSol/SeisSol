@@ -39,9 +39,10 @@ void PlasticityFeature::addStages(seissol::solver::TimeManager& timeManager, LTS
   for (auto& layer : cells.leaves(Ghost)) {
     dispatchConfig(layer.getIdentifier().config, [&](auto cfg) {
       using Cfg = decltype(cfg);
-      timeManager.addCellStage(layer.id(),
-                               std::make_unique<PlasticityStage<Cfg>>(
-                                   run_, parameters_.tv, globalData_.get<Cfg>(), layer));
+      timeManager.addCellStage(
+          layer.id(),
+          std::make_unique<PlasticityStage<Cfg>>(
+              run_.flopCounter(), parameters_.tv, globalData_.get<Cfg>(), layer));
     });
   }
 }

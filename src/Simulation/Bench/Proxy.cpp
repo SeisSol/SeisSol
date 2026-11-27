@@ -36,14 +36,24 @@ namespace {
 using KernelName = std::pair<Kernel, std::string_view>;
 
 /// the kernels by their names, in the order the help lists them
-constexpr std::array<KernelName, 6> KernelNames{{
+constexpr std::array<KernelName, 10> KernelNames{{
     {Kernel::All, "all"},
     {Kernel::AllDR, "all_dr"},
     {Kernel::Local, "local"},
     {Kernel::Neighbor, "neigh"},
     {Kernel::NeighborDR, "neigh_dr"},
     {Kernel::GodunovDR, "godunov_dr"},
+    {Kernel::Ader, "ader"},
+    {Kernel::LocalWOAder, "localwoader"},
+    {Kernel::Plasticity, "plast"},
+    {Kernel::PlasticityYield, "plast_yield"},
 }};
+
+/// Whether only the kernel mode runs `kernel`: a part of the loops of a cluster.
+constexpr auto kernelModeOnly(Kernel kernel) -> bool {
+  return kernel == Kernel::Ader || kernel == Kernel::LocalWOAder || kernel == Kernel::Plasticity ||
+         kernel == Kernel::PlasticityYield;
+}
 
 /// The entry of KernelNames that `matches`; nullptr if there is none.
 template <typename F>
@@ -57,8 +67,13 @@ auto findKernel(const F& matches) -> const KernelName* {
 }
 
 auto makeBench(const ProxyConfig& config) -> std::unique_ptr<LoopBench> {
-  return makeLoopBench(
-      config.config, config.cells, needsDynamicRupture(config.kernels), config.executor);
+  checkConfig(config);
+  const BenchSetup setup{.config = config.config,
+                         .cells = config.cells,
+                         .dynamicRupture = needsDynamicRupture(config.kernels),
+                         .plasticity = cellPlasticity(config),
+                         .executor = config.executor};
+  return makeLoopBench(config.mode, setup);
 }
 
 /// The work of one step of the kernels of `config`.
@@ -107,6 +122,10 @@ auto Aux::str2kernel(const std::string& kernelStr) -> std::vector<Kernel> {
   return kernels;
 }
 
+auto Aux::mode2str(Mode mode) -> std::string_view {
+  return mode == Mode::Cluster ? "cluster" : "kernel";
+}
+
 auto Aux::getAllowedKernels() -> std::vector<std::string> {
   std::vector<std::string> kernels{};
   kernels.reserve(KernelNames.size());
@@ -125,6 +144,7 @@ void Aux::writeOutput(std::ostream& stream,
     stream << "===            PERFORMANCE SUMMARY            ===\n";
     stream << "=================================================\n";
     stream << "seissol proxy mode                  : " << kernelStr << '\n';
+    stream << "loops run as                        : " << output.mode << '\n';
     stream << "time for seissol proxy              : " << output.time << '\n';
     stream << "cycles                              : " << output.cycles << '\n';
     stream << '\n';
@@ -156,6 +176,7 @@ void Aux::writeOutput(std::ostream& stream,
     json::Value document;
     document["name"] = kernelStr;
     document["cycle-source"] = output.cycleSource;
+    document["mode"] = output.mode;
     document["time"] = finite(output.time);
     document["cycles"] = finite(static_cast<double>(output.cycles));
     document["gflop-libxsmm"] = finite(output.libxsmmNumTotalGFlop);
@@ -185,6 +206,45 @@ auto needsDynamicRupture(const std::vector<Kernel>& kernels) -> bool {
   return std::ranges::any_of(kernels, [](Kernel kernel) {
     return kernel == Kernel::AllDR || kernel == Kernel::NeighborDR || kernel == Kernel::GodunovDR;
   });
+}
+
+auto cellPlasticity(const ProxyConfig& config) -> CellPlasticity {
+  if (config.mode == Mode::Cluster) {
+    return config.plasticity;
+  }
+  for (const auto kernel : config.kernels) {
+    if (kernel == Kernel::Plasticity) {
+      return CellPlasticity::Elastic;
+    }
+    if (kernel == Kernel::PlasticityYield) {
+      return CellPlasticity::Yield;
+    }
+  }
+  return CellPlasticity::None;
+}
+
+void checkConfig(const ProxyConfig& config) {
+  if (config.mode == Mode::Cluster) {
+    for (const auto kernel : config.kernels) {
+      if (kernelModeOnly(kernel)) {
+        throw std::invalid_argument("Only the kernel mode runs the kernel " +
+                                    Aux::kernel2str({kernel}) + ".");
+      }
+    }
+    return;
+  }
+  if (config.plasticity != CellPlasticity::None) {
+    throw std::invalid_argument(
+        "In the kernel mode, the kernels plast and plast_yield run the plasticity.");
+  }
+  const bool elastic =
+      std::ranges::find(config.kernels, Kernel::Plasticity) != config.kernels.end();
+  const bool yield =
+      std::ranges::find(config.kernels, Kernel::PlasticityYield) != config.kernels.end();
+  if (elastic && yield) {
+    throw std::invalid_argument(
+        "The kernels plast and plast_yield need cells of their own: run them one at a time.");
+  }
 }
 
 auto estimateProxy(const ProxyConfig& config) -> PerformanceEstimate {
@@ -243,6 +303,7 @@ auto runProxy(const ProxyConfig& config) -> ProxyOutput {
   output.time = total;
   output.cycles = totalCycles;
   output.cycleSource = cycleSourceName();
+  output.mode = Aux::mode2str(config.mode);
   output.libxsmmNumTotalGFlop = static_cast<double>(libxsmm_num_total_flops) * 1.e-9;
   output.pspammNumTotalGFlop = static_cast<double>(pspamm_num_total_flops) * 1.e-9;
   output.libxsmmAndpspammNumTotalGFlop =

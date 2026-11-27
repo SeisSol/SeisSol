@@ -17,7 +17,6 @@
 #include <exception>
 #include <iostream>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <utils/args.h>
 #include <vector>
@@ -38,7 +37,8 @@ int runMain(int argc, char* argv[]) {
   std::stringstream kernelHelp;
   const auto allowedKernels = Aux::getAllowedKernels();
   kernelHelp << "Kernels to benchmark. A comma-separated list of (those kernels will be run "
-                "sequentially in each pass): ";
+                "sequentially in each pass; ader, localwoader, plast and plast_yield in the kernel "
+                "mode only): ";
   {
     bool comma = false;
     for (const auto& kernel : allowedKernels) {
@@ -51,6 +51,8 @@ int runMain(int argc, char* argv[]) {
   }
 
   const std::vector<std::string> formatValues = {"plain", "json"};
+  const std::vector<std::string> modeValues = {"kernel", "cluster"};
+  const std::vector<std::string> plasticityValues = {"none", "elastic", "yield"};
 
   utils::Args args("The SeisSol proxy is used to benchmark the kernels used in the SeisSol "
                    "earthquake simulation software. This version of SeisSol proxy was built for "
@@ -60,6 +62,20 @@ int runMain(int argc, char* argv[]) {
   args.addAdditionalOption("timesteps", "Number of timesteps");
   args.addAdditionalOption("kernel", kernelHelp.str());
   args.addEnumOption("format", formatValues, 'f', "The output format", false);
+  args.addEnumOption("mode",
+                     modeValues,
+                     'm',
+                     "How the loops run: kernel by kernel, as the proxy ran them before it ran the "
+                     "clusters (kernel, the default), or as the clusters of a simulation run them, "
+                     "with all they do around the kernels (cluster)",
+                     false);
+  args.addEnumOption("plasticity",
+                     plasticityValues,
+                     'p',
+                     "In the cluster mode, the plasticity of the cells: none (the default), "
+                     "cells that stay within the yield surface (elastic), or cells that yield in "
+                     "every step (yield)",
+                     false);
   args.addOption("config",
                  'c',
                  "The configuration to run the kernels in, by its name (default: the one the "
@@ -88,10 +104,13 @@ int runMain(int argc, char* argv[]) {
   }
 
   const auto format = formatValue == 1 ? OutputFormat::Json : OutputFormat::Plain;
+  config.mode = args.getArgument<std::int32_t>("mode", 0) == 1 ? Mode::Cluster : Mode::Kernel;
+  config.plasticity = static_cast<CellPlasticity>(args.getArgument<std::int32_t>("plasticity", 0));
 
   try {
     config.kernels = Aux::str2kernel(kernelStr);
-  } catch (std::runtime_error& error) {
+    checkConfig(config);
+  } catch (std::exception& error) {
     std::cerr << error.what() << '\n';
     return -1;
   }
@@ -99,11 +118,14 @@ int runMain(int argc, char* argv[]) {
   config.executor = seissol::isDeviceOn() ? seissol::Executor::Device : seissol::Executor::Host;
 
   LIKWID_MARKER_INIT;
-  // the regions of the loops over the cells on the host (see LoopBench)
+  // the regions of the loops over the cells on the host (see KernelBench and ClusterBench)
 #pragma omp parallel
   {
+    LIKWID_MARKER_REGISTER("ader");
+    LIKWID_MARKER_REGISTER("localwoader");
     LIKWID_MARKER_REGISTER("local");
     LIKWID_MARKER_REGISTER("neighboring");
+    LIKWID_MARKER_REGISTER("plasticity");
   }
 
 #ifdef ACL_DEVICE

@@ -56,6 +56,7 @@ We gratefully acknowledge the funding of the German Research Foundation (as part
   build-archs
   environment-variables
   build-problems
+  miniapp
 
 .. toctree::
   :maxdepth: 2

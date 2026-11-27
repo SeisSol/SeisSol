@@ -69,6 +69,7 @@ endfunction()
 # seissol_add_proxy_smoke_test(NAME <name> TARGET <target> KERNEL <kernel>
 #                              [CELLS <n>] [TIMESTEPS <n>]
 #                              [TIMEOUT <seconds>]
+#                              [OPTIONS <option>...]
 #                              [LABELS <label>...])
 #
 # Runs the proxy in JSON output mode and checks the document for formal
@@ -79,7 +80,7 @@ function(seissol_add_proxy_smoke_test)
     cmake_parse_arguments(PROXY
         ""
         "NAME;TARGET;KERNEL;CELLS;TIMESTEPS;TIMEOUT"
-        "LABELS"
+        "OPTIONS;LABELS"
         ${ARGN})
 
     if (NOT PROXY_NAME OR NOT PROXY_TARGET OR NOT PROXY_KERNEL)
@@ -100,6 +101,10 @@ function(seissol_add_proxy_smoke_test)
     if (PROXY_TIMEOUT)
         list(APPEND _driver_args --timeout "${PROXY_TIMEOUT}")
     endif()
+    # the options of the proxy, e.g. --mode=cluster (attached, as they start with a dash)
+    foreach(_option IN LISTS PROXY_OPTIONS)
+        list(APPEND _driver_args "--option=${_option}")
+    endforeach()
 
     separate_arguments(_launcher NATIVE_COMMAND "${TESTING_COMMAND}")
 
