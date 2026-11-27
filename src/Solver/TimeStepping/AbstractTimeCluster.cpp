@@ -214,6 +214,7 @@ void AbstractTimeCluster::connect(AbstractTimeCluster& other) {
 void AbstractTimeCluster::setSyncTime(double newSyncTime) {
   assert(newSyncTime > syncTime_);
   assert(state_ == ActorState::Synced);
+  lastSyncTime_ = syncTime_;
   syncTime_ = newSyncTime;
 }
 
@@ -228,11 +229,11 @@ void AbstractTimeCluster::reset() {
   }
   ct_.stepsSinceLastSync = 0;
   ct_.predictionsSinceLastSync = 0;
-  ct_.stepsUntilSync = ct_.computeStepsUntilSyncTime(ct_.correctionTime, syncTime_);
+  // between the synchronization times, not from the own time: each neighbor counts the same way
+  ct_.stepsUntilSync = ct_.computeStepsUntilSyncTime(lastSyncTime_, syncTime_);
 
   for (auto& neighbor : neighbors_) {
-    neighbor.ct.stepsUntilSync =
-        neighbor.ct.computeStepsUntilSyncTime(ct_.correctionTime, syncTime_);
+    neighbor.ct.stepsUntilSync = neighbor.ct.computeStepsUntilSyncTime(lastSyncTime_, syncTime_);
     neighbor.ct.stepsSinceLastSync = 0;
     neighbor.ct.predictionsSinceLastSync = 0;
   }
@@ -245,6 +246,9 @@ void AbstractTimeCluster::setPriority(ActorPriority newPriority) { this->priorit
 ActorState AbstractTimeCluster::getState() const { return state_; }
 
 void AbstractTimeCluster::setTime(double time) {
+  // the steps until the next synchronization point count from here
+  syncTime_ = time;
+  lastSyncTime_ = time;
   ct_.predictionTime = time;
   ct_.correctionTime = time;
   for (auto& neighbor : neighbors_) {
