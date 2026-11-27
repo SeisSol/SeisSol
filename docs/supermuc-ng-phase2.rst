@@ -226,3 +226,71 @@ As of November 2026, with the GPU driver of the nodes (compute-runtime 23.43, Le
   run, and the runs were slower; hence ``USE_GRAPH_CAPTURING=OFF`` above.
 
 oneAPI 2025.0 (and 2024.2, as far as we tested) do not have the problems of the adapters and of ``psm3`` with this driver.
+
+
+spack installation
+~~~~~~~~~~~~~~~~~~
+
+Clone seissol-spack-aid and add the repository:
+
+.. code-block:: bash
+
+    git clone --branch NG_stack26.0 https://github.com/SeisSol/seissol-spack-aid.git
+    cd seissol-spack-aid
+    spack repo add ./spack
+
+Install igc as described above (:ref:`_supermuc-ng-phase2-igc`).
+Add it and add preinstalled python packages by updating `packages.yaml` (at ``spack config edit packages``):
+
+
+.. code-block:: yaml
+
+packages:
+  python:
+    buildable: false
+    externals:
+      - spec: python@3.14.5
+        prefix: /lrz/sys/spack/release/sles15.5/26.0.0/views/python/3.14-extended/
+        modules:
+          - python/3.14-extended
+
+  py-matplotlib:
+    buildable: false
+    externals:
+      - spec: py-matplotlib@3.11.0 ^python@3.14.5
+        prefix: /lrz/sys/spack/release/sles15.5/26.0.0/views/python/3.14-extended/
+
+  py-scipy:
+    buildable: false
+    externals:
+      - spec: py-scipy@1.17.1 ^python@3.14.5
+        prefix: /lrz/sys/spack/release/sles15.5/26.0.0/views/python/3.14-extended/
+
+  py-numpy:
+    buildable: false
+    externals:
+      - spec: py-numpy@2.4.6 ^python@3.14.5
+        prefix: /lrz/sys/spack/release/sles15.5/26.0.0/views/python/3.14-extended/
+
+  intel-pvc-ocloc:
+    buildable: false
+    externals:
+    - spec: intel-pvc-ocloc@=2.42.6
+      prefix: path_to_igc (e.g. /hppfs/work/pn49ha/di73yeq4/igc)
+
+
+Discover the 2025 openapi compilers with:
+
+.. code-block:: bash
+
+    module load intel-toolkit/2025.0.1
+    icpx --version
+    spack compiler find "$(dirname "$(command -v icpx)")"
+    spack compiler info intel-oneapi-compilers@2025.0
+
+
+Finally install seissol with:
+
+.. code-block:: bash
+
+    spack install seissol@master convergence_order=4 dr_quad_rule=dunavant equations=elastic precision=single +intel_gpu intel_gpu_arch=pvc +sycl_gemm sycl_backend=oneapi build_type=RelWithDebInfo ^easi +python ^intel-oneapi-compilers@2025.0
