@@ -14,6 +14,7 @@
 #include "Initializer/Parameters/SimulationFiles.h"
 #include "TestHelper.h"
 
+#include <array>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -225,6 +226,106 @@ TEST_CASE("readModelParameters defaults" * doctest::test_suite("initializer")) {
   CHECK(params.tv == doctest::Approx(0.1));
   CHECK(params.flux == NumericalFlux::Godunov);
   CHECK(params.fluxNearFault == NumericalFlux::Godunov);
+  CHECK(params.fluxDamping == std::array<double, 6>{1, 1, 1, 1, 1, 1});
+  CHECK(params.fluxNearFaultDamping == std::array<double, 6>{1, 1, 1, 1, 1, 1});
+}
+
+TEST_CASE("readModelParameters reads the flux and the shares of its damping" *
+          doctest::test_suite("initializer")) {
+  const YAML::Node node = YAML::Load(R"(
+    equations:
+      materialfilename: mat.yaml
+      freqcentral: 1
+      freqratio: 1
+      numflux: upwind
+      numfluxnearfault: godunov
+      fluxdamping: 1 0.5 1 0
+      fluxdampingnearfault: 1 1 1 0 0.25 0.75
+  )");
+  ParameterReader reader(node, "", false);
+  const auto params = readModelParameters(&reader, defaultConfig(), {});
+
+  CHECK(params.flux == NumericalFlux::Godunov);
+  CHECK(params.fluxNearFault == NumericalFlux::Godunov);
+  // with four shares, the fluid takes the normal ones
+  CHECK(params.fluxDamping == std::array<double, 6>{1, 0.5, 1, 0, 1, 1});
+  CHECK(params.fluxNearFaultDamping == std::array<double, 6>{1, 1, 1, 0, 0.25, 0.75});
+}
+
+TEST_CASE("readModelParameters sets the parts of the flux of a preset" *
+          doctest::test_suite("initializer")) {
+  const YAML::Node node = YAML::Load(R"(
+    equations:
+      materialfilename: mat.yaml
+      freqcentral: 1
+      freqratio: 1
+      numfluxnearfault: godunov-shearcentered
+  )");
+  ParameterReader reader(node, "", false);
+  const auto params = readModelParameters(&reader, defaultConfig(), {});
+
+  CHECK(params.flux == NumericalFlux::Godunov);
+  CHECK(params.fluxNearFault == NumericalFlux::Mixed);
+  CHECK(params.fluxNearFaultGPart == 1.0);
+  CHECK(params.fluxNearFaultRPart == doctest::Approx(0.1));
+  CHECK(params.fluxNearFaultDamping == std::array<double, 6>{1, 1, 1, 0, 1, 1});
+}
+
+TEST_CASE("describeFlux names the parts of the flux" * doctest::test_suite("initializer")) {
+  const std::array<double, 6> upwind{1, 1, 1, 1, 1, 1};
+  CHECK(describeFlux(NumericalFlux::Godunov, 0, 0, upwind) == "Godunov flux");
+  CHECK(describeFlux(NumericalFlux::Godunov, 0, 0, {1, 1, 1, 0, 1, 1}) ==
+        "Godunov flux (shares of the damping 1 1 1 0 1 1)");
+  CHECK(describeFlux(NumericalFlux::Centered, 0, 0, upwind) == "centered flux");
+  CHECK(describeFlux(NumericalFlux::Mixed, 0.5, 0, upwind) ==
+        "0.5 x Godunov flux + 0.5 x centered flux");
+  CHECK(describeFlux(NumericalFlux::Mixed, 1, 0.1, {1, 1, 1, 0, 1, 1}) ==
+        "1 x Godunov flux (shares of the damping 1 1 1 0 1 1) + 0.1 x damping of the Rusanov flux");
+  CHECK(describeFlux(NumericalFlux::Mixed, 0, 0.5, upwind) ==
+        "1 x centered flux + 0.5 x damping of the Rusanov flux");
+}
+
+TEST_CASE("The first rule of the face map that sets a flux for a face decides it" *
+          doctest::test_suite("initializer")) {
+  ModelParameters params;
+  params.flux = NumericalFlux::Godunov;
+  params.fluxNearFault = NumericalFlux::Mixed;
+  params.fluxNearFaultGPart = 1.0;
+  params.fluxNearFaultRPart = 0.1;
+
+  const FluxSetting centered{.flux = NumericalFlux::Centered};
+  const FluxSetting rusanov{.flux = NumericalFlux::Rusanov};
+
+  FaceFluxRule byTag;
+  byTag.tags.emplace();
+  byTag.tags->addRange(100, 110, true);
+  byTag.flux = centered;
+
+  FaceFluxRule byGroup;
+  byGroup.groups.emplace();
+  byGroup.groups->addEntry(2, true);
+  byGroup.flux = rusanov;
+  byGroup.fluxNearFault = rusanov;
+
+  params.fluxRules = {byTag, byGroup};
+
+  // the parameter file, where no rule selects the face
+  CHECK(params.fluxOf(0, 1, 1, false) == params.fluxSetting(false));
+  CHECK(params.fluxOf(0, 1, 1, true) == params.fluxSetting(true));
+  CHECK(params.fluxSetting(true).rpart == doctest::Approx(0.1));
+  CHECK_FALSE(params.fluxRuleOf(0, 1, 1, false).has_value());
+
+  // the first rule in the order of the face map
+  CHECK(params.fluxRuleOf(105, 2, 1, false) == 0);
+  CHECK(params.fluxOf(105, 2, 1, false) == centered);
+  // the first rule sets no flux near the fault, the second does
+  CHECK(params.fluxRuleOf(105, 2, 1, true) == 1);
+  CHECK(params.fluxOf(105, 2, 1, true) == rusanov);
+  // the group on either side
+  CHECK(params.fluxOf(0, 1, 2, false) == rusanov);
+  CHECK(params.fluxOf(0, 2, 1, true) == rusanov);
+  // a tag of the first rule near the fault, without a group of the second
+  CHECK(params.fluxOf(105, 1, 1, true) == params.fluxSetting(true));
 }
 
 TEST_CASE("readModelParameters simulation count" * doctest::test_suite("initializer")) {

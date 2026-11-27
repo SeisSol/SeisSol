@@ -12,8 +12,11 @@
 #include "Initializer/Parameters/ParameterReader.h"
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <cstddef>
+#include <cstdint>
+#include <sstream>
 #include <string>
 #include <system_error>
 #include <unordered_map>
@@ -93,7 +96,121 @@ ConfigId configByName(std::string name) {
   return config.value();
 }
 
+// the values numflux and numfluxnearfault take: the fluxes, and the presets of the general flux
+// ('mixed'), which set its parts themselves
+enum class FluxValue : std::uint8_t { Godunov, Rusanov, Centered, Mixed, GodunovShearCentered };
+
+// godunov-shearcentered: the Godunov flux without the damping of the tangential traction jumps,
+// and a tenth of the damping of the Rusanov flux, without which the orders 5 and 6 are unstable
+constexpr std::array<double, 6> ShearCenteredDamping{1, 1, 1, 0, 1, 1};
+constexpr double ShearCenteredRusanovShare = 0.1;
+
+// four shares (vn vt tn tt), or six with those of a fluid (its normal velocity, its pressure),
+// which take vn and tn if not given
+std::array<double, 6> readDampingShares(ParameterReader* reader, const std::string& name) {
+  const auto text = reader->readWithDefault(name, std::string("1 1 1 1"));
+  std::istringstream stream(text);
+  std::vector<double> values;
+  double value = 0;
+  while (stream >> value) {
+    values.push_back(value);
+  }
+  if (!stream.eof() || (values.size() != 4 && values.size() != 6)) {
+    logError() << name.c_str() << "takes four shares (vn vt tn tt) or six (vn vt tn tt vf p), not"
+               << text;
+  }
+  std::array<double, 6> shares{};
+  std::copy(values.begin(), values.end(), shares.begin());
+  if (values.size() == 4) {
+    shares[4] = shares[0];
+    shares[5] = shares[2];
+  }
+  for (const auto share : shares) {
+    if (!(share >= 0.0)) {
+      logError() << "The shares of" << name.c_str() << "have to be at least 0.";
+    }
+  }
+  return shares;
+}
+
 } // namespace
+
+FluxSetting readFluxSetting(ParameterReader* reader, const std::string& suffix) {
+  const auto name = "numflux" + suffix;
+  const auto gpartName = "fluxgpart" + suffix;
+  const auto rpartName = "fluxrpart" + suffix;
+  const auto dampingName = "fluxdamping" + suffix;
+  const auto value = reader->readWithDefaultStringEnum<FluxValue>(
+      name,
+      "godunov",
+      {
+          {"godunov", FluxValue::Godunov},
+          {"upwind", FluxValue::Godunov},
+          {"rusanov", FluxValue::Rusanov},
+          {"centered", FluxValue::Centered},
+          {"mixed", FluxValue::Mixed},
+          {"godunov-shearcentered", FluxValue::GodunovShearCentered},
+      });
+  if (value == FluxValue::GodunovShearCentered) {
+    for (const auto& part : {gpartName, rpartName, dampingName}) {
+      if (reader->hasField(part)) {
+        logError() << name.c_str() << "= 'godunov-shearcentered' sets" << part.c_str()
+                   << "itself; to set the parts of the flux, take 'mixed'.";
+      }
+    }
+    return FluxSetting{.flux = NumericalFlux::Mixed,
+                       .gpart = 1.0,
+                       .rpart = ShearCenteredRusanovShare,
+                       .damping = ShearCenteredDamping};
+  }
+  const auto flux = value == FluxValue::Rusanov    ? NumericalFlux::Rusanov
+                    : value == FluxValue::Centered ? NumericalFlux::Centered
+                    : value == FluxValue::Mixed    ? NumericalFlux::Mixed
+                                                   : NumericalFlux::Godunov;
+  return FluxSetting{.flux = flux,
+                     .gpart = reader->readWithDefault(gpartName, 0.0),
+                     .rpart = reader->readWithDefault(rpartName, 0.0),
+                     .damping = readDampingShares(reader, dampingName)};
+}
+
+bool FaceFluxRule::selects(std::uint32_t tag, int group, int neighborGroup) const {
+  const auto inGroups = [&](int candidate) { return groups->at(candidate).has_value(); };
+  return (!tags.has_value() || tags->at(tag).has_value()) &&
+         (!groups.has_value() || inGroups(group) || inGroups(neighborGroup));
+}
+
+FluxSetting ModelParameters::fluxSetting(bool nearFault) const {
+  return nearFault
+             ? FluxSetting{.flux = fluxNearFault,
+                           .gpart = fluxNearFaultGPart,
+                           .rpart = fluxNearFaultRPart,
+                           .damping = fluxNearFaultDamping}
+             : FluxSetting{
+                   .flux = flux, .gpart = fluxGPart, .rpart = fluxRPart, .damping = fluxDamping};
+}
+
+std::optional<std::size_t> ModelParameters::fluxRuleOf(std::uint32_t tag,
+                                                       int group,
+                                                       int neighborGroup,
+                                                       bool nearFault) const {
+  for (std::size_t i = 0; i < fluxRules.size(); ++i) {
+    const auto& rule = fluxRules[i];
+    const bool sets = nearFault ? rule.fluxNearFault.has_value() : rule.flux.has_value();
+    if (sets && rule.selects(tag, group, neighborGroup)) {
+      return i;
+    }
+  }
+  return {};
+}
+
+FluxSetting
+    ModelParameters::fluxOf(std::uint32_t tag, int group, int neighborGroup, bool nearFault) const {
+  const auto rule = fluxRuleOf(tag, group, neighborGroup, nearFault);
+  if (!rule.has_value()) {
+    return fluxSetting(nearFault);
+  }
+  return nearFault ? fluxRules[*rule].fluxNearFault.value() : fluxRules[*rule].flux.value();
+}
 
 ConfigId readConfig(ParameterReader* baseReader) {
   auto* reader = baseReader->readSubNode("equations");
@@ -254,21 +371,8 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
 
   reader->warnDeprecated({"adjoint", "adjfilename", "anisotropy"});
 
-  const auto flux =
-      reader->readWithDefaultStringEnum<NumericalFlux>("numflux",
-                                                       "godunov",
-                                                       {
-                                                           {"godunov", NumericalFlux::Godunov},
-                                                           {"rusanov", NumericalFlux::Rusanov},
-                                                       });
-
-  const auto fluxNearFault =
-      reader->readWithDefaultStringEnum<NumericalFlux>("numfluxnearfault",
-                                                       "godunov",
-                                                       {
-                                                           {"godunov", NumericalFlux::Godunov},
-                                                           {"rusanov", NumericalFlux::Rusanov},
-                                                       });
+  const auto flux = readFluxSetting(reader, "");
+  const auto fluxNearFault = readFluxSetting(reader, "nearfault");
 
   return ModelParameters{.hasBoundaryFile = hasBoundaryFile,
                          .plasticity = plasticity,
@@ -283,8 +387,14 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
                          .materialFileNames = materialFileNames,
                          .plasticityFileNames = plasticityFileNames,
                          .itmParameters = itmParameters,
-                         .flux = flux,
-                         .fluxNearFault = fluxNearFault,
+                         .flux = flux.flux,
+                         .fluxNearFault = fluxNearFault.flux,
+                         .fluxRPart = flux.rpart,
+                         .fluxNearFaultRPart = fluxNearFault.rpart,
+                         .fluxGPart = flux.gpart,
+                         .fluxNearFaultGPart = fluxNearFault.gpart,
+                         .fluxDamping = flux.damping,
+                         .fluxNearFaultDamping = fluxNearFault.damping,
                          .config = config,
                          .groupConfigs = std::move(groupConfigs),
                          .simulationCount = simulationCount};
@@ -297,7 +407,50 @@ std::string fluxToString(NumericalFlux flux) {
   if (flux == NumericalFlux::Rusanov) {
     return "Rusanov flux";
   }
+  if (flux == NumericalFlux::Centered) {
+    return "Centered flux";
+  }
+  if (flux == NumericalFlux::Mixed) {
+    return "Mixed flux (consult parameter file)";
+  }
   return "(unknown flux)";
+}
+
+std::string describeFlux(NumericalFlux flux,
+                         double gpart,
+                         double rpart,
+                         const std::array<double, 6>& damping) {
+  std::ostringstream text;
+  const bool upwind = std::ranges::all_of(damping, [](double share) { return share == 1.0; });
+  const auto godunov = [&]() {
+    text << "Godunov flux";
+    if (!upwind) {
+      text << " (shares of the damping";
+      for (const auto share : damping) {
+        text << " " << share;
+      }
+      text << ")";
+    }
+  };
+  if (flux == NumericalFlux::Godunov) {
+    godunov();
+  } else if (flux == NumericalFlux::Rusanov) {
+    text << "Rusanov flux";
+  } else if (flux == NumericalFlux::Centered) {
+    text << "centered flux";
+  } else {
+    if (gpart != 0.0) {
+      text << gpart << " x ";
+      godunov();
+    }
+    if (gpart != 1.0) {
+      text << (gpart != 0.0 ? " + " : "") << 1.0 - gpart << " x centered flux";
+    }
+    if (rpart != 0.0) {
+      text << " + " << rpart << " x damping of the Rusanov flux";
+    }
+  }
+  return text.str();
 }
 
 } // namespace seissol::initializer::parameters
