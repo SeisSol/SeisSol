@@ -62,18 +62,21 @@ seissol::physics::Planarwave::Planarwave(const CellMaterialData& materialData,
     varField_ = {2, 3, 12};
     ampField_ = {1.0, 1.0, 1.0};
   } else {
+    // An anelastic material has the modes of its memory variables among the N below, which decay
+    // without travelling, so that P is the last of its modes
+    constexpr auto PMode = static_cast<int>(model::MaterialT::NumQuantities) - 1;
     const auto isAcoustic = materialData.local->getMuBar() <= 1e-15;
     if (isAcoustic) {
       // Acoustic materials has the following wave modes:
       // -P, N, N, N, N, N, N, N, P
       // Here we impose the P mode
-      varField_ = {8};
+      varField_ = {PMode};
       ampField_ = {1.0};
     } else {
       // Elastic materials have the following wave modes:
       // -P, -S2, -S1, N, N, N, S1, S2, P
       // Here we impose the -S2 and P mode
-      varField_ = {1, 8};
+      varField_ = {1, PMode};
       ampField_ = {1.0, 1.0};
     }
   }
