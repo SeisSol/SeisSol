@@ -40,6 +40,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cmath>
 #include <complex>
 #include <cstddef>
 #include <limits>
@@ -129,6 +130,31 @@ Eigen::Matrix<T, N, N>
   const Eigen::Matrix<double, N, N> matM = matRU * matRTInv;
   return matM.cast<T>();
 };
+
+// The Biot system propagates shear with the statically condensed density
+// rho1 = rhoBar - rhoFluid^2 / m, not with the density of the solid grains, which the Riemann
+// solver takes into account through its admittances. The paths that read ImpedancesAndEta (the
+// friction update, the slip accumulation and the receiver output) need the same impedance,
+// Z_s = sqrt(mu * rho1), so a poroelastic fault takes its shear impedances from it; the solid
+// frame is isotropic, so a scalar is exact. The other materials keep density times shear wave
+// speed.
+template <typename T>
+void setPoroelasticShearImpedances(seissol::dr::ImpedancesAndEta& impAndEta,
+                                   const T& plusMaterial,
+                                   const T& minusMaterial) {
+  if constexpr (T::Type == seissol::model::MaterialType::Poroelastic) {
+    const auto shearImpedance = [](const T& material) {
+      const double m = material.rhoFluid * material.tortuosity / material.porosity;
+      const double rhoBar =
+          (1 - material.porosity) * material.rho + material.porosity * material.rhoFluid;
+      return std::sqrt(material.mu * (rhoBar - material.rhoFluid * material.rhoFluid / m));
+    };
+    impAndEta.zs = shearImpedance(plusMaterial);
+    impAndEta.zsNeig = shearImpedance(minusMaterial);
+    impAndEta.invZs = 1 / impAndEta.zs;
+    impAndEta.invZsNeig = 1 / impAndEta.zsNeig;
+  }
+}
 
 } // namespace
 
@@ -702,6 +728,8 @@ void initializeDynamicRuptureMatrices(const seissol::geometry::MeshReader& meshR
       impAndEta[ltsFace].invZpNeig = 1 / impAndEta[ltsFace].zpNeig;
       impAndEta[ltsFace].invZs = 1 / impAndEta[ltsFace].zs;
       impAndEta[ltsFace].invZsNeig = 1 / impAndEta[ltsFace].zsNeig;
+
+      setPoroelasticShearImpedances(impAndEta[ltsFace], *plusMaterial, *minusMaterial);
 
       impAndEta[ltsFace].etaP =
           1.0 / (1.0 / impAndEta[ltsFace].zp + 1.0 / impAndEta[ltsFace].zpNeig);
