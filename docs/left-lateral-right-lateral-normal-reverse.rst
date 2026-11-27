@@ -37,6 +37,15 @@ So, e.g., for *enu* we always have a left-lateral motion, as **s** and
 **l** are parallel, and for *ned* we always have a right-lateral motion
 as **s** and **l** are anti-parallel.
 
+A horizontal fault, :math:`n=\pm e_3`, leaves the strike open. SeisSol
+takes the limit of a fault that strikes along x and dips towards y by a
+vanishing angle,
+
+:math:`s:=n_3e_1`,
+
+for which the dip vector below is :math:`d=e_2`. As for any other fault,
+the strike turns around with the normal, and the dip does not.
+
 Normal and reverse
 ~~~~~~~~~~~~~~~~~~
 

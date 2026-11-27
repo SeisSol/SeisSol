@@ -174,6 +174,22 @@ TEST_CASE("DR Geometry") {
     }
   }
 
+  SUBCASE("StrikeAndDipVectors of a horizontal fault") {
+    // the limit of a fault that strikes along x and dips towards y
+    for (const double side : {1.0, -1.0}) {
+      VrtxCoords testNormal{0.0, 0.0, side};
+      VrtxCoords testStrike{0.0, 0.0, 0.0};
+      VrtxCoords testDip{0.0, 0.0, 0.0};
+      misc::computeStrikeAndDipVectors(testNormal, testStrike, testDip);
+      REQUIRE(testStrike[0] == side);
+      REQUIRE(testStrike[1] == 0.0);
+      REQUIRE(testStrike[2] == 0.0);
+      REQUIRE(testDip[0] == 0.0);
+      REQUIRE(testDip[1] == 1.0);
+      REQUIRE(testDip[2] == 0.0);
+    }
+  }
+
   SUBCASE("XiEtaZeta2chiTau") {
     constexpr double Epsilon = 1e-6;
     double testChiTau[2] = {0.0, 0.0};
