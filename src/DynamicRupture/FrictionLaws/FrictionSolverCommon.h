@@ -642,8 +642,9 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
       localSlip[1][index] += timeWeight * interpolatedSlipRate2;
       localSlip[2][index] += timeWeight * interpolatedSlipRate3;
 
-      const real interpolatedTraction12 = bPlus * qIMinus[o][T1][i] + bMinus * qIPlus[o][T1][i];
-      const real interpolatedTraction13 = bPlus * qIMinus[o][T2][i] + bMinus * qIPlus[o][T2][i];
+      // tau* = b+ tau+ + b- tau-, as in the Riemann solver (precomputeStressFromQInterpolated)
+      const real interpolatedTraction12 = bPlus * qIPlus[o][T1][i] + bMinus * qIMinus[o][T1][i];
+      const real interpolatedTraction13 = bPlus * qIPlus[o][T2][i] + bMinus * qIMinus[o][T2][i];
 
       const auto spaceWeight = spaceWeights[i / multisim::NumSimulations];
       const auto weight = timeWeight * spaceWeight * doubledSurfaceAreaN;
