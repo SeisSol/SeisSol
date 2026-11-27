@@ -954,14 +954,16 @@ void EnergyOutput::checkAbortCriterion(const std::vector<double>& timeSinceThres
   // A simulation counts as "ready to abort" once it has been below the threshold
   // for longer than the configured time. Simulations that have not reached the
   // threshold at all are still running and must block the abort; simulations that
-  // never entered the observation window (timeSinceThreshold == 0 or infinite)
-  // carry no information and must *not* block it, or a single such simulation
-  // would keep a fused run alive indefinitely.
+  // never entered the observation window (timeSinceThreshold == 0, or the largest
+  // double with which the minimum over the faces starts, or infinite where every
+  // point still waits for its rupture) carry no information and must *not* block
+  // it, or a single such simulation would keep a fused run alive indefinitely --
+  // and must not count as ready either, or a run would abort before its rupture.
   size_t abortCount = 0;
   size_t decidableCount = 0;
   for (size_t sim = 0; sim < simulationCount_; sim++) {
     if ((timeSinceThreshold[sim] > 0) and
-        (timeSinceThreshold[sim] < std::numeric_limits<double>::infinity())) {
+        (timeSinceThreshold[sim] < std::numeric_limits<double>::max())) {
       ++decidableCount;
       if (static_cast<double>(timeSinceThreshold[sim]) < terminatorMaxTimePostRupture_) {
         logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold[sim]
