@@ -278,6 +278,9 @@ Here, :math:`b(x)` and :math:`f_0(x)` can either be varied or given in the param
 Once they are given in the fault yaml file, they are assumed to be varied and their parameter file values are ignored.
 For the parameter file and the fault yaml file, the names are the same.
 
+SeisSol chooses the initial state variable such that the fault slips at :math:`V_{ini}` under its initial traction.
+The normal stress that this takes is the one the friction law acts on: with thermal pressurization, the effective normal stress :math:`\sigma_n - P_f`, with the initial pore pressure :math:`P_f =` :code:`tp_iniPressure`.
+
 .. math::
   \begin{aligned}
     f(V, \psi) &= a \sinh^{-1}\left[\frac{V}{2V_0} \exp\left( \frac{f_0 + b \ln(V_0 \psi / L)}{a}\right) \right] \\
