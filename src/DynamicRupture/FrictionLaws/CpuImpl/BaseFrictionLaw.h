@@ -134,6 +134,12 @@ class BaseFrictionLaw : public FrictionSolver {
           common::savePeakSlipRateOutput(slipRateMagnitude_[ltsFace], peakSlipRate_[ltsFace]);
 
           if (this->drParameters_->isFrictionEnergyRequired &&
+              !this->drParameters_->energiesFromAcrossFaultVelocities) {
+            common::accumulateSlipForEnergy(
+                energyData_[ltsFace], slipRateMagnitude_[ltsFace], localTimeWeights[timeIndex]);
+          }
+
+          if (this->drParameters_->isFrictionEnergyRequired &&
               this->drParameters_->isCheckAbortCriteraEnabled) {
             common::updateTimeSinceSlipRateBelowThreshold(
                 slipRateMagnitude_[ltsFace],
@@ -178,7 +184,6 @@ class BaseFrictionLaw : public FrictionSolver {
                                         localTimeWeights.data(),
                                         spaceWeights_,
                                         godunovData_[ltsFace],
-                                        slipRateMagnitude_[ltsFace],
                                         this->drParameters_->energiesFromAcrossFaultVelocities);
         }
       }

@@ -187,7 +187,10 @@ void EnergyOutput::init(
   isTerminalOutputEnabled_ = parameters.terminalOutput && (rank == 0);
   terminatorMaxTimePostRupture_ = parameters.terminatorMaxTimePostRupture;
   terminatorMomentRateThreshold_ = parameters.terminatorMomentRateThreshold;
-  isCheckAbortCriteraSlipRateEnabled_ = std::isfinite(terminatorMaxTimePostRupture_);
+  // the slip-rate terminator is active exactly when a finite post-rupture time was configured
+  // (7682bc2d4)
+  isCheckAbortCriteraSlipRateEnabled_ =
+      (terminatorMaxTimePostRupture_ < std::numeric_limits<double>::max());
   isCheckAbortCriteraMomentRateEnabled_ = (terminatorMomentRateThreshold_ > 0);
   computeVolumeEnergiesEveryOutput_ = parameters.computeVolumeEnergiesEveryOutput;
   outputFileName_ = outputFileNamePrefix + "-energy.csv";
@@ -264,7 +267,7 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
     double& staticFrictionalWork = energiesStorage_.staticFrictionalWork(sim);
     double& seismicMoment = energiesStorage_.seismicMoment(sim);
     double& potency = energiesStorage_.potency(sim);
-    minTimeSinceSlipRateBelowThreshold_[sim] = std::numeric_limits<double>::infinity();
+    minTimeSinceSlipRateBelowThreshold_[sim] = std::numeric_limits<double>::max();
 
     for (const auto& layer : drStorage_->leaves()) {
 
@@ -313,10 +316,10 @@ void EnergyOutput::computeDynamicRuptureEnergies() {
           double potencyIncrease = 0.0;
           for (std::size_t k = 0; k < seissol::dr::misc::NumBoundaryGaussPoints; ++k) {
             potencyIncrease +=
-                drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim];
+                drEnergyOutput[i].accumulatedSlip[k * seissol::multisim::NumSimulations + sim] *
+                init::quadweights::Values[k];
           }
-          potencyIncrease *=
-              0.5 * godunovData[i].doubledSurfaceArea / seissol::dr::misc::NumBoundaryGaussPoints;
+          potencyIncrease *= godunovData[i].doubledSurfaceArea;
           potency += potencyIncrease;
           seismicMoment += potencyIncrease * mu;
         }
@@ -687,8 +690,11 @@ void EnergyOutput::checkAbortCriterion(
     const std::string& prefixMessage) {
   size_t abortCount = 0;
   for (size_t sim = 0; sim < multisim::NumSimulations; sim++) {
+    // a time of zero, or from the largest double on (with which the minimum over the faces starts,
+    // and infinity where every point still waits for its rupture) carries no information, and does
+    // not count as ready to abort either, or a run would abort before its rupture
     if ((timeSinceThreshold[sim] > 0) and
-        (timeSinceThreshold[sim] < std::numeric_limits<double>::infinity())) {
+        (timeSinceThreshold[sim] < std::numeric_limits<double>::max())) {
       if (static_cast<double>(timeSinceThreshold[sim]) < terminatorMaxTimePostRupture_) {
         logInfo() << prefixMessage.c_str() << "below threshold since" << timeSinceThreshold[sim]
                   << "s; in simulation: " << sim

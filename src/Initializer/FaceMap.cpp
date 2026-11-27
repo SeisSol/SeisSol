@@ -9,6 +9,7 @@
 #include "Initializer/BasicTypedefs.h"
 
 #include <cstdint>
+#include <exception>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -35,7 +36,7 @@ FaceMap parseFaceMap(const YAML::Node& node) {
     const auto stringType = entry.first.as<std::string>();
     const auto typeFind = StringToNameMap.find(stringType);
     if (typeFind == StringToNameMap.end()) {
-      logError() << "";
+      logError() << "Unknown face type while parsing the face map:" << stringType;
     }
     const auto type = typeFind->second;
 
@@ -93,6 +94,16 @@ FaceMap parseFaceMap(const YAML::Node& node) {
   }
 
   return map;
+}
+
+FaceMap readFaceMap(const std::string& path) {
+  YAML::Node node;
+  try {
+    node = YAML::LoadFile(path);
+  } catch (const std::exception& error) {
+    logError() << "Could not read the face map file" << path << ":" << std::string(error.what());
+  }
+  return parseFaceMap(node);
 }
 
 FaceMap defaultFaceMap() {

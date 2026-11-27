@@ -6,6 +6,7 @@
 // SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
 
 #include "Common/Constants.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/tensor.h"
 #include "Initializer/BasicTypedefs.h"
@@ -222,8 +223,13 @@ void LocalIntegrationRecorder::recordDisplacements() {
 
       if (isRequired && notFreeSurfaceGravity) {
         auto iview = init::I::view::create(idofsAddressRegistry_[cell]);
-        // NOTE: velocity components are between 6th and 8th columns
-        constexpr unsigned FirstVelocityComponent{6};
+        // gpu_addVelocity reads the three integrated velocities as consecutive columns of I,
+        // starting at this pointer. Where they start depends on the equation (column 6 for the
+        // elastic ones, column 1 for the acoustic ones); a wrong column reads other quantities or,
+        // past the last one, the integrals of other cells, without any error at runtime.
+        constexpr auto FirstVelocityComponent = model::MaterialT::TractionQuantities;
+        static_assert(FirstVelocityComponent + Cell::Dim <=
+                      tensor::I::Shape[multisim::BasisFunctionDimension + 1]);
         iVelocitiesPtrs[face].push_back(
             &multisim::multisimWrap(iview, 0, 0, FirstVelocityComponent));
         displacementsPtrs[face].push_back(faceDisplacements[cell][face]);
@@ -327,9 +333,8 @@ void LocalIntegrationRecorder::recordFreeSurfaceGravityBc() {
                                                     counter[face] * tensor::INodal::size());
           dofsFaceNodalPtrs[face].push_back(dofsFaceNodalScratch +
                                             counter[face] * tensor::INodal::size());
-          prevCoefficientsPtrs[face].push_back(
-              prevCoefficientsScratch +
-              counter[face] * nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
+          prevCoefficientsPtrs[face].push_back(prevCoefficientsScratch +
+                                               counter[face] * NodalAvgDisplacementsSize);
           invImpedances[face].push_back(0);
 
           ++counter[face];
@@ -458,11 +463,14 @@ void LocalIntegrationRecorder::recordAnalyticalBc(LTS::Layer& layer) {
 
       for (std::size_t face = 0; face < 4; ++face) {
         if (dataHost.get<LTS::CellInformation>().faceTypes[face] == FaceType::Analytical) {
+          // the host part of Local::evaluateBatchedTimeDependentBc fills the scratchpad face by
+          // face, in the order of the cells of the face; it has one entry per analytical face
+          analytical[face].push_back(analyticScratch +
+                                     cellIndices[face].size() * tensor::INodal::size());
           cellIndices[face].push_back(cell);
           dofsPtrs[face].push_back(data.get<LTS::Dofs>());
           neighPtrs[face].push_back(
               reinterpret_cast<real*>(&data.get<LTS::NeighboringIntegration>()));
-          analytical[face].push_back(analyticScratch + cell * tensor::INodal::size());
         }
       }
     }

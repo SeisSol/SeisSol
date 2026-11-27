@@ -307,6 +307,10 @@ void ReceiverWriter::addPoints(const seissol::geometry::MeshReader& mesh,
 // --------------------------------------------------------------------------
 
 void ReceiverWriter::syncPoint(double /*currentTime*/) {
+  // the samples are taken asynchronously on devices; all of them have to be in the outputs
+  for (auto& cluster : receiverClusters_) {
+    cluster->waitForSamples();
+  }
 
   if (format_ == seissol::initializer::parameters::ReceiverOutputFormat::Csv) {
     if (receiverClusters_.empty()) {

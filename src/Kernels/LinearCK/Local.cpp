@@ -394,6 +394,7 @@ void Local::evaluateBatchedTimeDependentBc(
     const ConditionalKey analyticalKey(
         *KernelNames::BoundaryConditions, *ComputationKind::Analytical, face);
     if (indicesTable.find(analyticalKey) != indicesTable.end()) {
+      // the host function below runs only once the stream reaches it; it refers to the table
       const auto& cellIds =
           indicesTable[analyticalKey].get(inner_keys::Indices::Id::Cells)->getHostData();
       const size_t numElements = cellIds.size();
@@ -408,7 +409,7 @@ void Local::evaluateBatchedTimeDependentBc(
 
             alignas(Alignment) real dofsFaceBoundaryNodal[tensor::INodal::size()];
 
-            assert(initConds != nullptr);
+            assert(initConds_ != nullptr);
             const ApplyAnalyticalSolution applyAnalyticalSolution(initConds_, data);
 
             dirichletBoundary_.evaluateTimeDependent(nullptr,

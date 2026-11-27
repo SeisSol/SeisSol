@@ -163,7 +163,7 @@ static float vp2lambda(float vp, float rho, float mu)
 int main(int argc, char* argv[])
 {
 	// Parse command line arguments
-	utils::Args args;
+	utils::Args args("Sample a velocity model on a grid around a mesh, and write it for ASAGI");
 	args.addOption("mesh", 'm', "The mesh for which the data should be collected");
 	args.addOption("border", 'b', "Border around the mesh for which data should be included",
 			utils::Args::Required, false);

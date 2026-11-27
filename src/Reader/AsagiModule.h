@@ -35,7 +35,8 @@ class AsagiModule : public Module {
   /** The total number of threads (including the communication thread */
   int totalThreads_;
 
-  parallel::Pinning* pinning_{};
+  /** The pinning of the SeisSol instance, for the CPU of the communication thread */
+  const parallel::Pinning* pinning_{nullptr};
 
   static std::shared_ptr<AsagiModule> instance;
 
@@ -48,6 +49,14 @@ class AsagiModule : public Module {
   void operator=(AsagiModule&&) = delete;
 
   utils::Env& getEnv();
+
+  /**
+   * Set the pinning of the SeisSol instance; the communication thread runs on the first CPU it
+   * leaves free.
+   *
+   * Has to be called before the mesh is read.
+   */
+  void setPinning(const parallel::Pinning& pinning);
 
   void preMPI() override;
 

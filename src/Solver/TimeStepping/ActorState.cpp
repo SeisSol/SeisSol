@@ -10,6 +10,7 @@
 #include "Common/Executor.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstddef>
 #include <iostream>
@@ -51,18 +52,20 @@ std::string actorStateToString(ActorState state) {
 void MessageQueue::push(const Message& message) {
   const std::scoped_lock lock{mutex_};
   queue_.push(message);
+  size_.store(queue_.size(), std::memory_order_release);
 }
 
 Message MessageQueue::pop() {
   const std::scoped_lock lock{mutex_};
   const Message message = queue_.front();
   queue_.pop();
+  size_.store(queue_.size(), std::memory_order_release);
   return message;
 }
 
-bool MessageQueue::hasMessages() const { return !queue_.empty(); }
+bool MessageQueue::hasMessages() const { return size_.load(std::memory_order_acquire) > 0; }
 
-size_t MessageQueue::size() const { return queue_.size(); }
+size_t MessageQueue::size() const { return size_.load(std::memory_order_acquire); }
 
 double ClusterTimes::nextCorrectionTime(double syncTime) const {
   return std::min(syncTime, correctionTime + maxTimeStepSize);
@@ -72,13 +75,25 @@ long ClusterTimes::nextCorrectionSteps() const {
   return std::min(stepsSinceLastSync + timeStepRate, stepsUntilSync);
 }
 
+double ClusterTimes::timeStepSize(double time, long steps, double syncTime) const {
+  if (isLastStep(steps)) {
+    // may exceed the maximum by the tolerance of the step count
+    return syncTime - time;
+  }
+  return std::min(syncTime - time, maxTimeStepSize);
+}
+
 double ClusterTimes::timeStepSize(double syncTime) const {
-  return std::min(syncTime - correctionTime, maxTimeStepSize);
+  return timeStepSize(correctionTime, stepsSinceLastSync, syncTime);
 }
 
 long ClusterTimes::computeStepsUntilSyncTime(double oldSyncTime, double newSyncTime) const {
   const double timeDiff = newSyncTime - oldSyncTime;
-  return static_cast<long>(std::ceil(timeStepRate * timeDiff / maxTimeStepSize));
+  if (timeDiff <= 0) {
+    return 0;
+  }
+  const double ticks = timeStepRate * timeDiff / maxTimeStepSize;
+  return std::max(1L, static_cast<long>(std::ceil(ticks - TickTolerance)));
 }
 
 NeighborCluster::NeighborCluster(double maxTimeStepSize,

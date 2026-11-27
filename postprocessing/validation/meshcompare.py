@@ -37,35 +37,57 @@ def compare(file, file_ref, epsilon):
         matching = global_id_correct
         print(f'Global IDs present; conformant: {global_id_correct}')
 
-    if not matching:
-        # if the reference solution has no global IDs, heuristically sort by barycenter, weighed by 3D cube position
-        print(
-            "No or incorrect global-id field found in the reference. Order the cells by their barycenter in a 3D array."
-        )
-        rngs = [(np.max(geom[:, i]), np.min(geom[:, i])) for i in range(3)]
-        offset = np.array([rng[1] for rng in rngs])
-        scale = np.array(
-            [
-                1,
-                rngs[0][1] - rngs[0][0],
-                (rngs[0][1] - rngs[0][0]) * (rngs[1][1] - rngs[1][0]),
-            ]
-        )
+    # positions closer than this count as the same, in the orders below: a vertex or a barycenter
+    # can carry the rounding of how its run computed it (e.g. the subcells of a refined output)
+    quantum = 1e-8 * np.max(np.max(geom, axis=0) - np.min(geom, axis=0))
 
-        fullcoords = np.einsum(
-            "s,Is->I", scale, np.mean(geom[connect], axis=1) - offset
+    def cell_vertices(geom, connect):
+        # the vertices of each cell in lexicographic order: a partition may list the vertices of a
+        # cell (e.g. of a fault or surface triangle) in another order than the reference does
+        cells = geom[connect]
+        snapped = np.round(cells / quantum)
+        order = np.lexsort((snapped[:, :, 2], snapped[:, :, 1], snapped[:, :, 0]), axis=-1)
+        return np.take_along_axis(cells, order[:, :, None], axis=1)
+
+    if not matching:
+        # if the reference solution has no global IDs, sort the cells by their barycenter,
+        # coordinate by coordinate: snapped to the grid of `quantum`, so that rounding in the
+        # barycenters does not reorder them, and once more on a grid shifted by half a step, for a
+        # barycenter that lies on a boundary of the first one
+        print(
+            "No or incorrect global-id field found in the reference. Order the cells by their barycenter."
         )
-        ids = np.argsort(fullcoords, kind="stable")
-        fullcoords_ref = np.einsum(
-            "s,Is->I", scale, np.mean(geom_ref[connect_ref], axis=1) - offset
-        )
-        ids_ref = np.argsort(fullcoords_ref, kind="stable")
+        def element_part(mesh):
+            # Two cells may lie in the same place: a surface output writes a face of an interface
+            # once for either side. They belong to different elements, and that tells them apart:
+            # the surface and fault outputs number a face as 4 * element + local side, where only
+            # the element is independent of how SeisSol has read the vertices.
+            if "global-id" not in mesh.ReadAvailableDataFields():
+                return np.zeros(mesh.nElements, dtype=np.int64)
+            gids = mesh.Read1dData("global-id", mesh.nElements, isInt=True)
+            return gids // 4 if mesh.ReadConnect().shape[1] == 3 else gids
+
+        element = element_part(mesh)
+        element_ref = element_part(mesh_ref)
+
+        def by_barycenter(geom, connect, element, shift):
+            snapped = np.floor(np.mean(geom[connect], axis=1) / quantum + shift)
+            return np.lexsort((element, snapped[:, 2], snapped[:, 1], snapped[:, 0]))
+
+        for shift in (0.0, 0.5):
+            ids = by_barycenter(geom, connect, element, shift)
+            ids_ref = by_barycenter(geom_ref, connect_ref, element_ref, shift)
+            if np.all(
+                np.abs(cell_vertices(geom, connect[ids]) - cell_vertices(geom_ref, connect_ref[ids_ref]))
+                < 1e-10
+            ):
+                break
 
     connect = connect[ids]
     connect_ref = connect_ref[ids_ref]
 
     # assert both simulations were run on the same mesh
-    assert np.all(np.abs(geom[connect] - geom_ref[connect_ref]) < 1e-10)
+    assert np.all(np.abs(cell_vertices(geom, connect) - cell_vertices(geom_ref, connect_ref)) < 1e-10)
 
     def compute_integral(geom, connect, q):
         cells = geom[connect, :]
@@ -146,8 +168,10 @@ def compare(file, file_ref, epsilon):
 
     failure = False
     if global_id_correct == False:
-        print('Global IDs present, but did not match.')
-        failure = True
+        # Not an error by itself: the cells were then paired by their barycenters, and the
+        # assertion above checked that they agree. The order of a refined output's subcells
+        # within a cell, and with it the order the global IDs give, depends on the partitioning.
+        print('Global IDs present, but they order the cells differently; paired by barycenter.')
 
     if np.any(errors > epsilon):
         print(f"Relative/absolute error {epsilon} exceeded for quantities")

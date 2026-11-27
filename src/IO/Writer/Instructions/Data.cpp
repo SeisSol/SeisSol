@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <async/ExecInfo.h>
 #include <cstddef>
-#include <cstring>
 #include <memory>
 #include <string>
 #include <utility>
@@ -36,8 +35,8 @@ WriteInline::WriteInline(const void* dataPtr,
                          std::shared_ptr<datatype::Datatype> datatype,
                          const std::vector<std::size_t>& shape)
     : DataSource(std::move(datatype), shape) {
-  data_.resize(size);
-  std::memcpy(data_.data(), dataPtr, size);
+  const auto* bytes = static_cast<const unsigned char*>(dataPtr);
+  data_.assign(bytes, bytes + size);
 }
 
 WriteInline::WriteInline(YAML::Node node)

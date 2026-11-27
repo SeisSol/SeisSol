@@ -30,6 +30,8 @@ class AbstractTimeCluster {
   ClusterTimes ct_;
   std::vector<NeighborCluster> neighbors_;
   double syncTime_ = 0.0;
+  //! the synchronization point before syncTime_, or the time the cluster started with
+  double lastSyncTime_ = 0.0;
 
   [[nodiscard]] double timeStepSize() const;
 
@@ -87,6 +89,9 @@ class AbstractTimeCluster {
   virtual void finishPhase();
 
   [[nodiscard]] long getTimeStepRate() const;
+
+  //! The number of ticks until the synchronization point, as the cluster counts them.
+  [[nodiscard]] long getStepsUntilSync() const { return ct_.stepsUntilSync; }
 
   [[nodiscard]] std::string identifier() const {
     return description() + "-" + std::to_string(ct_.timeStepRate);

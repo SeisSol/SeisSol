@@ -10,7 +10,9 @@ on:
   - push
 
 env:
-  precomputed-hash: 0f623b3e263726bc547997ca29790936396847df
+  # The release branch pins its containers by digest (they are the tags
+  # davschneller-gpu-image of 2025-01-28, which master may update)
+  precomputed-hash: f59f622f1da50a76d0f5925d09fd941168714dc1
 
 jobs:
   seissol-build-test:
@@ -54,19 +56,19 @@ jobs:
           - cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
-            container: seissol/gha-cpu:davschneller-gpu-image
+            container: seissol/gha-cpu@sha256:e2a2ae820cdd22f04cd7d103fcd008c61125956de91a482e8035463069e03399
           - cc: clang-19
             cxx: clang++-19
             fc: gfortran-13 # TODO?
-            container: seissol/gha-cpu:davschneller-gpu-image
+            container: seissol/gha-cpu@sha256:e2a2ae820cdd22f04cd7d103fcd008c61125956de91a482e8035463069e03399
           - cc: icx
             cxx: icpx
             fc: ifx
-            container: seissol/gha-gpu-intel:davschneller-gpu-image
+            container: seissol/gha-gpu-intel@sha256:9e9a5dfbc76c6e81ccc5a90ba51cbfe0a1b150db315300d92ee30329881139ec
           #- cc: nvc
           #  cxx: nvc++
           #  fc: nvfortran
-          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+          #  container: seissol/gha-gpu-nvhpc@sha256:b5d1688647ac33f0806439327887d6e20bb4a70bddd22dc8fe0e02c5066ccfe8
     steps:
       - id: checkout
         name: checkout-seissol
@@ -143,7 +145,8 @@ jobs:
           RETVAL_PROXY=$?
           set -e
 
-          if [ $RETVAL_EXE -ne 133 ]; then
+          # a fatal error ends with the abort (SIGABRT), see submodules/utils
+          if [ $RETVAL_EXE -ne 134 ]; then
             echo "Unexpected exit code for SeisSol: ${RETVAL_EXE}"
             exit 1
           fi
@@ -167,7 +170,7 @@ jobs:
     container: ${{ matrix.setup.container }}
     continue-on-error: true
     needs: [seissol-build-test]
-    if: ${{ github.repository == 'SeisSol/SeisSol' && github.ref_name == 'master' }}
+    if: ${{ github.repository == 'SeisSol/SeisSol' && (github.ref_name == 'master' || startsWith(github.ref_name, 'release/')) }}
     env:
       EXENAME: |
         ${{
@@ -335,14 +338,7 @@ jobs:
             fault: false # incomplete, hence disabled
             volume: false
             surface: false
-          - name: loh1-ic
-            equation: elastic
-            multisim: 1
-            energies: true
-            receivers: true
-            fault: false
-            volume: true
-            surface: false
+          # loh1-ic needs easi 1.5.0 (time-dependent initial conditions); the image has easi 1.4.0
           - name: acoustic
             equation: acoustic
             multisim: 1
@@ -364,25 +360,25 @@ jobs:
           - cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
-            container: seissol/gha-cpu:davschneller-gpu-image
+            container: seissol/gha-cpu@sha256:e2a2ae820cdd22f04cd7d103fcd008c61125956de91a482e8035463069e03399
             pythonbreak: true
             mpi: openmpi
           - cc: clang-19
             cxx: clang++-19
             fc: gfortran-13 # TODO?
-            container: seissol/gha-cpu:davschneller-gpu-image
+            container: seissol/gha-cpu@sha256:e2a2ae820cdd22f04cd7d103fcd008c61125956de91a482e8035463069e03399
             pythonbreak: true
             mpi: openmpi
           - cc: icx
             cxx: icpx
             fc: ifx
-            container: seissol/gha-gpu-intel:davschneller-gpu-image
+            container: seissol/gha-gpu-intel@sha256:9e9a5dfbc76c6e81ccc5a90ba51cbfe0a1b150db315300d92ee30329881139ec
             pythonbreak: false
             mpi: intel
           #- cc: nvc
           #  cxx: nvc++
           #  fc: nvfortran
-          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+          #  container: seissol/gha-gpu-nvhpc@sha256:b5d1688647ac33f0806439327887d6e20bb4a70bddd22dc8fe0e02c5066ccfe8
           #  pythonbreak: true
           #  mpi: openmpi
         parallel:

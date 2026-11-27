@@ -13,7 +13,6 @@
 
 #include <Eigen/Core>
 #include <array>
-#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -60,6 +59,7 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
   if (frictionLawType == FrictionLawType::LinearSlipWeakeningLegacy) {
     logWarning() << "Using FL=2 for the linear slip weakening friction law is deprecated; consider "
                     "switching it to FL=16";
+    frictionLawType = FrictionLawType::LinearSlipWeakening;
   }
   auto slipRateOutputType = reader->readWithDefaultEnum<SlipRateOutputType>(
       "sliprateoutputtype",
@@ -153,10 +153,12 @@ DRParameters readDRParameters(ParameterReader* baseReader) {
 
   auto* abortCriteriaReader = baseReader->readSubNode("abortcriteria");
   const auto terminatorSlipRateThreshold = static_cast<real>(abortCriteriaReader->readWithDefault(
-      "terminatorslipratethreshold", std::numeric_limits<real>::infinity()));
+      "terminatorslipratethreshold", std::numeric_limits<real>::max()));
   const auto terminatorMaxTimePostRupture = abortCriteriaReader->readWithDefault(
-      "terminatormaxtimepostrupture", std::numeric_limits<double>::infinity());
-  const bool isCheckAbortCriteraEnabled = std::isfinite(terminatorMaxTimePostRupture);
+      "terminatormaxtimepostrupture", std::numeric_limits<double>::max());
+  // the terminator is off by default, i.e. with the largest double, which is finite
+  const bool isCheckAbortCriteraEnabled =
+      terminatorMaxTimePostRupture < std::numeric_limits<double>::max();
 
   const double etaDamp = [&]() {
     const auto dampRead1 = reader->read<double>("etadamp");

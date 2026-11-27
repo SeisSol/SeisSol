@@ -11,6 +11,7 @@
 #include "Alignment.h"
 #include "Common/Constants.h"
 #include "Common/Executor.h"
+#include "Equations/Datastructures.h"
 #include "GeneratedCode/init.h"
 #include "GeneratedCode/kernel.h"
 #include "GeneratedCode/tensor.h"
@@ -31,6 +32,7 @@
 #include "Solver/MultipleSimulations.h"
 
 #include <Eigen/Core>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <memory>
@@ -130,6 +132,9 @@ double ReceiverCluster::calcReceivers(double time,
       runtime.eventSync(extraRuntime_->eventRecord());
     }
     deviceCollector_->gatherToHost(runtime.stream());
+    if constexpr (kernels::size<tensor::Qane>() > 0) {
+      deviceCollectorAne_->gatherToHost(runtime.stream());
+    }
     if (extraRuntime_.has_value()) {
       extraRuntime_->eventSync(runtime.eventRecord());
     }
@@ -171,6 +176,11 @@ double ReceiverCluster::calcReceivers(double time,
         tmpReceiverData.setPointer<LTS::Dofs>(
             reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::Dofs>())>(
                 deviceCollector_->get(deviceIndices_[i])));
+        if constexpr (kernels::size<tensor::Qane>() > 0) {
+          tmpReceiverData.setPointer<LTS::DofsAne>(
+              reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::DofsAne>())>(
+                  deviceCollectorAne_->get(deviceIndices_[i])));
+        }
       }
 
       const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
@@ -227,6 +237,8 @@ void ReceiverCluster::allocateData() {
     // make sure to only transfer the related data once (hence, we use the `indexMap` here)
     deviceIndices_.resize(receivers_.size());
     std::vector<real*> dofs;
+    // the anelastic DOFs of the same cells, in the same order
+    std::vector<real*> dofsAne;
     std::unordered_map<real*, size_t> indexMap;
     for (size_t i = 0; i < receivers_.size(); ++i) {
       // NOLINTNEXTLINE(misc-const-correctness)
@@ -235,6 +247,9 @@ void ReceiverCluster::allocateData() {
         // point to the current array end
         indexMap[currentDofs] = dofs.size();
         dofs.push_back(currentDofs);
+        if constexpr (kernels::size<tensor::Qane>() > 0) {
+          dofsAne.push_back(receivers_[i].dataDevice.get<LTS::DofsAne>());
+        }
       }
       deviceIndices_[i] = indexMap.at(currentDofs);
     }
@@ -242,11 +257,28 @@ void ReceiverCluster::allocateData() {
     const bool hostAccessible = useUSM() && !extraRuntime_.has_value();
     deviceCollector_ = std::make_unique<seissol::parallel::DataCollector<real>>(
         dofs, tensor::Q::size(), hostAccessible);
+    if constexpr (kernels::size<tensor::Qane>() > 0) {
+      deviceCollectorAne_ = std::make_unique<seissol::parallel::DataCollector<real>>(
+          dofsAne, kernels::size<tensor::Qane>(), hostAccessible);
+    }
   }
 }
 void ReceiverCluster::freeData() {
+  // a handler still running would read the collector and write the outputs
+  waitForSamples();
   deviceCollector_.reset(nullptr);
+  deviceCollectorAne_.reset(nullptr);
   extraRuntime_.reset();
+}
+
+void ReceiverCluster::waitForSamples() {
+  // On CUDA and SYCL, calcReceivers leaves the sampling of a device cluster to a host function on a
+  // stream, which appends to the output of the receivers once the gathered DOFs are there. Nothing
+  // in the time stepping waits for the one enqueued last before a synchronization point, so whoever
+  // reads the output has to.
+  if (extraRuntime_.has_value()) {
+    extraRuntime_->wait();
+  }
 }
 
 size_t ReceiverCluster::ncols() const {
@@ -258,17 +290,38 @@ size_t ReceiverCluster::ncols() const {
   return 1 + ncols;
 }
 
+namespace {
+// The derived quantities differentiate the particle velocity. Where it sits among the quantities
+// depends on the material: behind the six stresses for the solids (the solid velocity, for
+// poroelastic ones), right behind the pressure for the acoustic ones.
+static_assert(seissol::model::MaterialT::TractionQuantities + Cell::Dim <=
+                  tensor::QDerivativeAtPoint::Shape[seissol::multisim::BasisFunctionDimension],
+              "The velocity has to lie within the point derivatives.");
+
+/// The velocity gradient of one simulation at the point, gradient[i][j] = d_j v_i.
+std::array<std::array<real, Cell::Dim>, Cell::Dim>
+    velocityGradient(const seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint,
+                     std::size_t sim) {
+  std::array<std::array<real, Cell::Dim>, Cell::Dim> gradient{};
+  for (std::size_t i = 0; i < Cell::Dim; ++i) {
+    for (std::size_t j = 0; j < Cell::Dim; ++j) {
+      gradient[i][j] = seissol::multisim::multisimWrap(
+          qDerivativeAtPoint, sim, seissol::model::MaterialT::TractionQuantities + i, j);
+    }
+  }
+  return gradient;
+}
+} // namespace
+
 std::vector<std::string> ReceiverRotation::quantities() const { return {"rot1", "rot2", "rot3"}; }
 void ReceiverRotation::compute(size_t sim,
                                std::vector<real>& output,
                                seissol::init::QAtPoint::view::type& /*qAtPoint*/,
                                seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
-  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 1) -
-                   seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 2));
-  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 2) -
-                   seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 0));
-  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 0) -
-                   seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 1));
+  const auto gradient = velocityGradient(qDerivativeAtPoint, sim);
+  output.push_back(gradient[2][1] - gradient[1][2]);
+  output.push_back(gradient[0][2] - gradient[2][0]);
+  output.push_back(gradient[1][0] - gradient[0][1]);
 }
 
 std::vector<std::string> ReceiverStrain::quantities() const {
@@ -279,19 +332,13 @@ void ReceiverStrain::compute(size_t sim,
                              seissol::init::QAtPoint::view::type& /*qAtPoint*/,
                              seissol::init::QDerivativeAtPoint::view::type& qDerivativeAtPoint) {
   // actually 9 quantities; 3 removed due to symmetry
-
-  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 0));
-  output.push_back((seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 1) +
-                    seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 0)) /
-                   2);
-  output.push_back((seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 6, 2) +
-                    seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 0)) /
-                   2);
-  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 1));
-  output.push_back((seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 7, 2) +
-                    seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 1)) /
-                   2);
-  output.push_back(seissol::multisim::multisimWrap(qDerivativeAtPoint, sim, 8, 2));
+  const auto gradient = velocityGradient(qDerivativeAtPoint, sim);
+  output.push_back(gradient[0][0]);
+  output.push_back((gradient[0][1] + gradient[1][0]) / 2);
+  output.push_back((gradient[0][2] + gradient[2][0]) / 2);
+  output.push_back(gradient[1][1]);
+  output.push_back((gradient[1][2] + gradient[2][1]) / 2);
+  output.push_back(gradient[2][2]);
 }
 
 } // namespace seissol::kernels

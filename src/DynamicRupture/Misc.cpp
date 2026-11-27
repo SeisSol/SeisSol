@@ -16,10 +16,18 @@
 
 namespace seissol::dr::misc {
 void computeStrikeAndDipVectors(const VrtxCoords normal, VrtxCoords strike, VrtxCoords dip) {
-  // compute normalized strike vector
-  const auto strikeInvLength = 1.0 / std::sqrt(normal[0] * normal[0] + normal[1] * normal[1]);
-  strike[0] = normal[1] * strikeInvLength;
-  strike[1] = -normal[0] * strikeInvLength;
+  // compute normalized strike vector; std::hypot, as the squares of tiny components underflow
+  const auto horizontalLength = std::hypot(normal[0], normal[1]);
+  if (horizontalLength > 0.0) {
+    strike[0] = normal[1] / horizontalLength;
+    strike[1] = -normal[0] / horizontalLength;
+  } else {
+    // a horizontal fault leaves the strike open; it is taken as the limit of a fault that strikes
+    // along x and dips towards y by a vanishing angle, which turns the strike around with the
+    // normal, as everywhere else (see docs/left-lateral-right-lateral-normal-reverse.rst)
+    strike[0] = normal[2] > 0.0 ? 1.0 : -1.0;
+    strike[1] = 0.0;
+  }
   strike[2] = 0.0;
 
   // compute normalized dip vector

@@ -189,9 +189,9 @@ void BaseDRInitializer::initializeFault(DynamicRupture::Storage& drStorage) {
     // read initial stress and nucleation stress
     auto addStressesToStorageMap =
         [&parameterToStorageMap, &layer, this](StressTensor& initialStress, int readNucleation) {
-          // return pointer to first element
+          // return pointer to first element, which a layer without faces does not have
           auto getRawData = [](StressTensor::VectorOfArraysT& vectorOfArrays) {
-            return vectorOfArrays.data()->data();
+            return vectorOfArrays.empty() ? nullptr : vectorOfArrays.front().data();
           };
           // fault can be either initialized by traction or by cartesian stress
           // this method reads either the nucleation stress or the initial stress
@@ -435,12 +435,13 @@ std::pair<std::vector<std::string>, BaseDRInitializer::Parametrization>
   } else if (allTractionParametersSupplied && !anyCartesianParametersSupplied) {
     return {tractionNames, Parametrization::Traction};
   } else {
-    logError() << "Please specify a correct parametrization of the "
-               << (readNucleation > 0
-                       ? "nucleation stress " + std::to_string(readNucleation + 1) + "."
-                       : "initial stress.")
-               << "You have either not specified all parameters or an uncommom mixture of "
-                  "parameters. Give either all of "
+    // readNucleation numbers the nucleations as the documentation does: 1 for nuc_*, 2 for nuc2_*
+    const std::string stress = readNucleation > 0
+                                   ? "nucleation stress " + std::to_string(readNucleation) + "."
+                                   : std::string("initial stress.");
+    logError() << "Please specify a correct parametrization of the" << stress.c_str()
+               << "You have either not specified all parameters or an uncommon mixture of "
+                  "parameters. Give either all of"
                << cartesianNames << "or all of" << tractionNames << ", but not a mixture of them.";
     return {};
   }

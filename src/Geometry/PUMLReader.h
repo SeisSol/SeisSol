@@ -25,19 +25,21 @@ namespace seissol::geometry {
 constexpr PUML::TopoType PumlTopology = PUML::TETRAHEDRON;
 using PumlMesh = PUML::PUML<PumlTopology>;
 
+/**
+ * The boundary condition tag of a face, from the tags as PUMLReader reads them: as 64-bit integers
+ * with the bits they have in the file, in all formats.
+ */
 inline uint32_t decodeBoundary(const void* data,
                                size_t cell,
                                uint8_t face,
                                seissol::initializer::parameters::BoundaryFormat format) {
+  const auto* dataCasted = reinterpret_cast<const uint64_t*>(data);
   if (format == seissol::initializer::parameters::BoundaryFormat::I32) {
-    const auto* dataCasted = reinterpret_cast<const uint32_t*>(data);
     return (dataCasted[cell] >> (8 * face)) & 0xff;
   } else if (format == seissol::initializer::parameters::BoundaryFormat::I64) {
-    const auto* dataCasted = reinterpret_cast<const uint64_t*>(data);
     return (dataCasted[cell] >> (16 * face)) & 0xffff;
   } else if (format == seissol::initializer::parameters::BoundaryFormat::I32x4) {
-    const auto* dataCasted = reinterpret_cast<const int*>(data);
-    return dataCasted[cell * Cell::NumFaces + face];
+    return static_cast<uint32_t>(dataCasted[cell * Cell::NumFaces + face]);
   } else {
     logError() << "Unknown boundary format:" << static_cast<uint32_t>(format);
     return 0;

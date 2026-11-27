@@ -108,9 +108,14 @@ class ReceiverCluster {
   void allocateData();
   void freeData();
 
+  //! @brief Waits for the samples taken so far to be in the output of the receivers.
+  void waitForSamples();
+
   private:
   std::optional<parallel::runtime::StreamRuntime> extraRuntime_;
   std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollector_{nullptr};
+  // the anelastic DOFs of the receiver cells (anelastic builds only)
+  std::unique_ptr<seissol::parallel::DataCollector<real>> deviceCollectorAne_{nullptr};
   std::vector<size_t> deviceIndices_;
   std::vector<Receiver> receivers_;
   seissol::kernels::Spacetime spacetimeKernel_;

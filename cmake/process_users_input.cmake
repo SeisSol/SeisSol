@@ -72,9 +72,9 @@ set(DEVICE_ARCH "auto" CACHE STRING "Type of GPU architecture")
 # TODO: add vendor name here
 # (NOTE: bdw,skl,pvc as labels are kept for legacy reasons; prefer 8_0_0, 9_0_9, 12_60_7 resp.)
 set(DEVICE_ARCH_OPTIONS none auto generic
-        sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90 sm_100 sm_101 sm_103 sm_110 sm_120 sm_121 # Nvidia
-        gfx900 gfx906 gfx908 gfx90a gfx942 gfx950 gfx1010 gfx1030 gfx1100 gfx1101 gfx1102 gfx1103 gfx1200 gfx1201   # AMD
-        8_0_0 9_0_9 12_10_0 12_55_8 12_56_5 12_57_0 12_60_7 12_61_7 20_1_4 20_2_0 bdw skl pvc)                      # Intel
+        sm_60 sm_61 sm_62 sm_70 sm_71 sm_75 sm_80 sm_86 sm_87 sm_89 sm_90 sm_100 sm_101 sm_103 sm_110 sm_120 sm_121                 # Nvidia
+        gfx900 gfx906 gfx908 gfx90a gfx942 gfx950 gfx1010 gfx1030 gfx1100 gfx1101 gfx1102 gfx1103 gfx1200 gfx1201 gfx1250 gfx1251   # AMD
+        8_0_0 9_0_9 12_10_0 12_55_8 12_56_5 12_57_0 12_60_7 12_61_7 20_1_4 20_2_0 bdw skl pvc)                                      # Intel
 set_property(CACHE DEVICE_ARCH PROPERTY STRINGS ${DEVICE_ARCH_OPTIONS})
 
 set(PRECISION "double" CACHE STRING "Type of floating point precision, namely: double/single")
@@ -435,12 +435,27 @@ endif()
 
 
 # check NUMBER_OF_FUSED_SIMULATIONS
-math(EXPR IS_ALIGNED_MULT_SIMULATIONS
-        "${NUMBER_OF_FUSED_SIMULATIONS} % (${ALIGNMENT} / ${REAL_SIZE_IN_BYTES})")
-
-if (NOT ${NUMBER_OF_FUSED_SIMULATIONS} EQUAL 1 AND NOT ${IS_ALIGNED_MULT_SIMULATIONS} EQUAL 0)
-    math(EXPR FACTOR "${ALIGNMENT} / ${REAL_SIZE_IN_BYTES}")
-    message(WARNING "a number of fused simulations should be multiple of ${FACTOR}. Expect code generation errors and/or degraded performance when continuing.")
+# The simulation index is the leading dimension of all fused tensors, and the code generator pads a
+# leading dimension to the vector size. Padded simulation lanes would only cost memory and work, and
+# the hand-written parts of SeisSol index the fused tensors with NumSimulations as the stride. So
+# reduce the vector size to the largest power of two that divides the fused simulations, in bytes
+# (e.g. to 32 B for 8 single precision simulations on a 64 B architecture). The memory alignment
+# may stay larger.
+set(CODEGEN_VECTORSIZE ${OVERRIDE_VECTORSIZE})
+if (NUMBER_OF_FUSED_SIMULATIONS GREATER 1)
+    math(EXPR FUSED_SIMULATIONS_BYTES "${NUMBER_OF_FUSED_SIMULATIONS} * ${REAL_SIZE_IN_BYTES}")
+    set(FUSED_VECTORSIZE ${VECTORSIZE})
+    math(EXPR FUSED_REMAINDER "${FUSED_SIMULATIONS_BYTES} % ${FUSED_VECTORSIZE}")
+    while (NOT FUSED_REMAINDER EQUAL 0)
+        math(EXPR FUSED_VECTORSIZE "${FUSED_VECTORSIZE} / 2")
+        math(EXPR FUSED_REMAINDER "${FUSED_SIMULATIONS_BYTES} % ${FUSED_VECTORSIZE}")
+    endwhile()
+    if (NOT FUSED_VECTORSIZE EQUAL VECTORSIZE)
+        message(STATUS "Reducing the vector size from ${VECTORSIZE} B to ${FUSED_VECTORSIZE} B, "
+                       "so that the ${NUMBER_OF_FUSED_SIMULATIONS} fused simulations are not padded.")
+        set(VECTORSIZE ${FUSED_VECTORSIZE})
+        set(CODEGEN_VECTORSIZE ${FUSED_VECTORSIZE})
+    endif()
 endif()
 
 #-------------------------------------------------------------------------------

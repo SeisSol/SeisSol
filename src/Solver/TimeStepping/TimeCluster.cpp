@@ -472,8 +472,9 @@ void TimeCluster::computeLocalIntegrationDevice(SEISSOL_GPU_PARAM bool resetBuff
           const ConditionalKey key(*KernelNames::FaceDisplacements, *ComputationKind::None, face);
           if (dataTable.find(key) != dataTable.end()) {
             auto& entry = dataTable[key];
-            // NOTE: integrated velocities have been computed implicitly, i.e
-            // it is 6th, 7the and 8th columns of integrated dofs
+            // NOTE: the integrated velocities are not stored separately; the recorded pointers
+            // point into the integrated dofs, at the first velocity column
+            // (model::MaterialT::TractionQuantities).
 
             kernel::gpu_addVelocity displacementKrnl;
             displacementKrnl.faceDisplacement =
@@ -565,6 +566,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
         clusterData_->var<LTS::Plasticity>(seissol::initializer::AllocationPlace::Device);
     auto* isAdjustableVector =
         clusterData_->var<LTS::FlagScratch>(seissol::initializer::AllocationPlace::Device);
+    auto& indicesTable = clusterData_->getConditionalTable<inner_keys::Indices>();
     streamRuntime_.runGraph(plasticityGraphKey,
                             *clusterData_,
                             [&](seissol::parallel::runtime::StreamRuntime& streamRuntime) {
@@ -573,6 +575,7 @@ void TimeCluster::computeNeighboringIntegrationDevice(SEISSOL_GPU_PARAM double s
                                   seissolInstance_.getSeisSolParameters().model.tv,
                                   globalDataOnDevice_,
                                   table,
+                                  indicesTable,
                                   plasticity,
                                   conditionalCounterDevice_.data(),
                                   isAdjustableVector,
@@ -753,7 +756,9 @@ void TimeCluster::handleDynamicRupture(DynamicRupture::Layer& layerData) {
     const auto trueDt = trueTime - oldTime;
     faultOutputManager_->writePickpointOutput(
         layerData.id(), trueTime, trueDt, meshDt, 0, streamRuntime_);
-  } while (time * (1 + 1e-8) < ct_.correctionTime + ct_.maxTimeStepSize);
+
+    // write until we've completed the current copy interval, or if we've hit a sync point
+  } while (time * (1 + 1e-8) < ct_.correctionTime + ct_.maxTimeStepSize && time < syncTime_);
 
   // TODO(David): restrict to copy/interior of same cluster type
   if (hasDifferentExecutorNeighbor()) {

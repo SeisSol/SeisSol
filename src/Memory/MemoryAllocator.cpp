@@ -140,6 +140,11 @@ void free(void* pointer, Memkind memkind) {
 }
 
 void memcopy(void* dst, const void* src, std::size_t size, Memkind dstMemkind, Memkind srcMemkind) {
+  // nothing to copy, e.g. from an empty array, whose pointer may be null, which std::memcpy must
+  // not get even then
+  if (size == 0) {
+    return;
+  }
   if (dstMemkind == Memkind::DeviceGlobalMemory && srcMemkind != Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
     device::DeviceInstance::getInstance().api->copyTo(dst, src, size);
@@ -160,6 +165,10 @@ void memcopy(void* dst, const void* src, std::size_t size, Memkind dstMemkind, M
 }
 
 void memzero(void* dst, std::size_t size, enum Memkind memkind) {
+  // (as for memcopy)
+  if (size == 0) {
+    return;
+  }
   if (memkind == Memkind::DeviceGlobalMemory) {
 #ifdef ACL_DEVICE
     auto* defaultStream = device::DeviceInstance::getInstance().api->getDefaultStream();

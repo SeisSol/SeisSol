@@ -7,8 +7,14 @@
 
 #include "InitMesh.h"
 
+#include "Common/Constants.h"
+#include "Common/Typedefs.h"
+#include "Config.h"
 #include "Geometry/CubeGenerator.h"
 #include "Geometry/MeshDefinition.h"
+#include "Geometry/MeshReader.h"
+#include "Initializer/BasicTypedefs.h"
+#include "Initializer/Parameters/InitializationParameters.h"
 #include "Initializer/Parameters/MeshParameters.h"
 #include "Initializer/Parameters/SeisSolParameters.h"
 #include "Initializer/TimeStepping/LtsWeights/LtsWeights.h"
@@ -18,6 +24,7 @@
 #include <Eigen/Dense>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <math.h>
 #include <mpi.h>
@@ -53,6 +60,72 @@ TT _checkH5Err(TT&& status, const char* file, int line) {
 
 #define _eh(status) _checkH5Err(status, __FILE__, __LINE__)
 
+const char* faceTypeName(FaceType faceType) {
+  switch (faceType) {
+  case FaceType::Regular:
+    return "regular";
+  case FaceType::FreeSurface:
+    return "free surface";
+  case FaceType::FreeSurfaceGravity:
+    return "free surface with gravity";
+  case FaceType::DynamicRupture:
+    return "dynamic rupture";
+  case FaceType::Dirichlet:
+    return "Dirichlet";
+  case FaceType::Outflow:
+    return "outflow";
+  case FaceType::Analytical:
+    return "analytical";
+  }
+  return "unknown";
+}
+
+// the boundary conditions that the local kernels apply with a nodal flux
+constexpr bool requiresNodalFlux(FaceType faceType) {
+  return faceType == FaceType::FreeSurfaceGravity || faceType == FaceType::Dirichlet ||
+         faceType == FaceType::Analytical;
+}
+
+// Rejects the faces whose boundary condition this build or the initial condition does not apply;
+// they would silently act as a different boundary condition otherwise.
+void checkBoundaryConditions(
+    const seissol::geometry::MeshReader& meshReader,
+    const seissol::initializer::parameters::InitializationParameters& initialization) {
+  for (const auto& element : meshReader.getElements()) {
+    for (std::size_t side = 0; side < Cell::NumFaces; ++side) {
+      const auto faceType = element.boundaries[side];
+      const char* unsupportedBy = nullptr;
+      if constexpr (Config::MaterialType == model::MaterialType::Viscoelastic &&
+                    Config::ViscoMode == ViscoImplementation::AnelasticTensor) {
+        // the local kernel of the anelastic solver applies no boundary condition with a nodal flux
+        // (Kernels/LinearCKAnelastic/Local.cpp); such faces would act as absorbing ones
+        if (requiresNodalFlux(faceType)) {
+          unsupportedBy = "the anelastic solver (viscoelastic2)";
+        }
+      }
+      if constexpr (Config::MaterialType == model::MaterialType::Poroelastic) {
+        // the space-time predictor does not integrate the displacement which the free surface
+        // with gravity needs (Kernels/STP/Time.cpp)
+        if (faceType == FaceType::FreeSurfaceGravity) {
+          unsupportedBy = "the space-time predictor of the poroelastic equations";
+        }
+      }
+      // the analytical boundary evaluates the hard-coded initial condition; with easi, there is
+      // none (initInitialCondition sets no initial conditions then)
+      if (initialization.type == seissol::initializer::parameters::InitializationType::Easi &&
+          faceType == FaceType::Analytical) {
+        unsupportedBy = "the easi initial condition (cICType = 'easi')";
+      }
+      if (unsupportedBy != nullptr) {
+        logError() << utils::nospace << "A face of the element " << element.globalId << " has the "
+                   << faceTypeName(faceType) << " boundary condition (face tag "
+                   << element.faultTags[side] << "), which " << unsupportedBy
+                   << " does not support.";
+      }
+    }
+  }
+}
+
 void postMeshread(seissol::geometry::MeshReader& meshReader,
                   const Eigen::Vector3d& displacement,
                   const Eigen::Matrix3d& scalingMatrix,
@@ -87,6 +160,9 @@ void postMeshread(seissol::geometry::MeshReader& meshReader,
 
   logInfo() << "Check the mesh for geometric errors.";
   meshReader.verifyMeshOrientation();
+
+  logInfo() << "Check the boundary conditions of the mesh.";
+  checkBoundaryConditions(meshReader, seissolInstance.getSeisSolParameters().initialization);
 
   double maxPointValue[3]{-INFINITY, -INFINITY, -INFINITY};
   double minPointValue[3]{INFINITY, INFINITY, INFINITY};
@@ -280,8 +356,7 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
   const auto faceMap = [&]() {
     const auto faceMapFile = seissolParams.mesh.faceMapFile;
     if (faceMapFile.has_value()) {
-      const auto yamlNode = YAML::Load(faceMapFile.value());
-      return parseFaceMap(yamlNode);
+      return readFaceMap(faceMapFile.value());
     } else {
       return defaultFaceMap();
     }
@@ -293,7 +368,8 @@ void readMeshPUML(const seissol::initializer::parameters::SeisSolParameters& sei
       seissolParams.timeStepping.lts.getRate(),
       seissolParams.timeStepping.vertexWeight.weightElement,
       seissolParams.timeStepping.vertexWeight.weightDynamicRupture,
-      seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity};
+      seissolParams.timeStepping.vertexWeight.weightFreeSurfaceWithGravity,
+      &faceMap};
 
   auto ltsWeights = getLtsWeightsImplementation(
       seissolParams.timeStepping.lts.getLtsWeightsType(), config, seissolInstance);

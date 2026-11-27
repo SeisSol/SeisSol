@@ -34,7 +34,6 @@
 #include "Memory/MemoryAllocator.h"
 #include "Memory/Tree/Layer.h"
 #include "SeisSol.h"
-#include "Solver/MultipleSimulations.h"
 
 #include <algorithm>
 #include <array>
@@ -166,6 +165,9 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
         ++derivativesCounter;
       }
       ++integratedDofsCounter;
+      if (cellInformation[cell].plasticityEnabled) {
+        ++numPlasticCells;
+      }
 
       // include data provided by ghost layers
       for (std::size_t face = 0; face < Cell::NumFaces; ++face) {
@@ -202,10 +204,6 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
 
         if (cellInformation[cell].faceTypes[face] == FaceType::Dirichlet) {
           ++dirichletPerFace[face];
-        }
-
-        if (cellInformation[cell].plasticityEnabled) {
-          ++numPlasticCells;
         }
       }
     }
@@ -250,9 +248,8 @@ void MemoryManager::deriveRequiredScratchpadMemoryForWp(bool plasticity, LTS::St
                                                             init::rotatedFaceDisplacement::Size);
     layer.setEntrySize<LTS::DofsFaceNodalScratch>(sizeof(real) * freeSurfaceCount *
                                                   tensor::INodal::size());
-    layer.setEntrySize<LTS::PrevCoefficientsScratch>(
-        sizeof(real) * freeSurfaceCount *
-        nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension]);
+    layer.setEntrySize<LTS::PrevCoefficientsScratch>(sizeof(real) * freeSurfaceCount *
+                                                     NodalDisplacementsSize);
   }
 }
 

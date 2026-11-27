@@ -58,6 +58,10 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
 
     const real initialSlipRate =
         misc::magnitude(drParameters_->rsInitialSlipRate1, drParameters_->rsInitialSlipRate2);
+    // the friction law acts on the effective normal stress, from which thermal pressurization
+    // takes the pore pressure; it starts at tp_iniPressure
+    const double initialPorePressure =
+        drParameters_->isThermalPressureOn ? drParameters_->initialPressure : 0.0;
 
     using namespace dr::misc::quantity_indices;
     for (std::size_t ltsFace = 0; ltsFace < layer.size(); ++ltsFace) {
@@ -77,16 +81,16 @@ void RateAndStateInitializer::initializeFault(DynamicRupture::Storage& drStorage
         }
 
         // compute initial friction and state
-        const auto stateAndFriction =
-            computeInitialStateAndFriction(initialStressInFaultCS[ltsFace][XY][pointIndex],
-                                           initialStressInFaultCS[ltsFace][XZ][pointIndex],
-                                           initialStressInFaultCS[ltsFace][XX][pointIndex],
-                                           rsA[ltsFace][pointIndex],
-                                           rsB[ltsFace][pointIndex],
-                                           rsSl0[ltsFace][pointIndex],
-                                           drParameters_->rsSr0,
-                                           rsF0[ltsFace][pointIndex],
-                                           initialSlipRate);
+        const auto stateAndFriction = computeInitialStateAndFriction(
+            initialStressInFaultCS[ltsFace][XY][pointIndex],
+            initialStressInFaultCS[ltsFace][XZ][pointIndex],
+            initialStressInFaultCS[ltsFace][XX][pointIndex] - initialPorePressure,
+            rsA[ltsFace][pointIndex],
+            rsB[ltsFace][pointIndex],
+            rsSl0[ltsFace][pointIndex],
+            drParameters_->rsSr0,
+            rsF0[ltsFace][pointIndex],
+            initialSlipRate);
         stateVariable[ltsFace][pointIndex] = stateAndFriction.stateVariable;
         mu[ltsFace][pointIndex] = stateAndFriction.frictionCoefficient;
       }

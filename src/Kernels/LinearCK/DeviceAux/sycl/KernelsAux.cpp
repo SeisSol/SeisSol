@@ -12,6 +12,7 @@
 #include "Kernels/Precision.h"
 #include "Solver/MultipleSimulations.h"
 
+#include <array>
 #include <cstdio>
 #include <sycl/sycl.hpp>
 #include <yateto.h>
@@ -114,8 +115,8 @@ template <std::size_t SourceQuantities,
 static void taylorSumInternal(std::size_t count,
                               TargetRealT** targetBatch,
                               const SourceRealT** sourceBatch,
-                              void* stream,
                               const TargetRealT* coeffs,
+                              void* stream,
                               std::index_sequence<Indices...> indices) {
   constexpr std::size_t Quantities = std::min(SourceQuantities, TargetQuantities);
   constexpr std::size_t TargetStride =
@@ -124,6 +125,10 @@ static void taylorSumInternal(std::size_t count,
   sycl::nd_range rng{{count * Blocksize}, {Blocksize}};
 
   auto queue = reinterpret_cast<sycl::queue*>(stream);
+
+  // the coefficients lie in host memory: the kernel takes their values, as the CUDA/HIP kernel
+  // takes them as its arguments, instead of reading them through the pointer on the device
+  const std::array<TargetRealT, sizeof...(Indices)> coeffValues{coeffs[Indices]...};
 
   queue->submit([&](sycl::handler& cgh) {
     sycl::local_accessor<SourceRealT> shmem(
@@ -141,7 +146,7 @@ static void taylorSumInternal(std::size_t count,
       TargetRealT* const __restrict__ target = targetBatch[batchId];
 
       taylorSumInner<Quantities, 0, SourceRealT, TargetRealT, SourceOrder, TargetOrder, 0, 0>(
-          item, target, source, shmem.get_pointer(), reg, coeffs[Indices]...);
+          item, target, source, shmem.get_pointer(), reg, coeffValues[Indices]...);
 
       constexpr std::size_t TargetStride =
           seissol::kernels::getNumberOfAlignedBasisFunctions<TargetRealT>(TargetOrder);
@@ -174,24 +179,6 @@ void taylorSum(
 namespace {
 using namespace seissol::multisim;
 
-template <typename Tensor>
-constexpr size_t leadDim() {
-  if constexpr (MultisimEnabled) {
-    return Tensor::Stop[1] - Tensor::Start[1];
-  } else {
-    return Tensor::Stop[0] - Tensor::Start[0];
-  }
-}
-
-template <typename Tensor>
-constexpr size_t linearDim() {
-  if constexpr (MultisimEnabled) {
-    return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
-  } else {
-    return Tensor::Stop[0] - Tensor::Start[0];
-  }
-}
-
 auto getrange(std::size_t size, std::size_t numElements) {
   if constexpr (MultisimEnabled) {
     return sycl::nd_range<1>({numElements * NumSimulations * size}, {NumSimulations * size});
@@ -211,7 +198,7 @@ void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
                               void* deviceStream) {
 
   auto queue = reinterpret_cast<sycl::queue*>(deviceStream);
-  const size_t workGroupSize = leadDim<seissol::nodal::init::nodes2D>();
+  const size_t workGroupSize = leadDim<seissol::init::averageNormalDisplacement>();
   auto rng = getrange(workGroupSize, numElements);
 
   queue->parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -222,7 +209,7 @@ void launchFreeSurfaceGravity(real** dofsFaceBoundaryNodalPtrs,
       real* elementBoundaryDofs = dofsFaceBoundaryNodalPtrs[elementId];
       real* elementDisplacement = displacementDataPtrs[elementId];
 
-      constexpr auto numNodes = linearDim<seissol::nodal::init::nodes2D>();
+      constexpr auto numNodes = linearDim<seissol::init::averageNormalDisplacement>();
       if (tid < numNodes) {
         constexpr auto ldINodal = linearDim<seissol::init::INodal>();
 
@@ -356,8 +343,10 @@ void extractRotationMatrices(real** displacementToFaceNormalPtrs,
       const int i = item.get_local_id(0) % 3;
       const int j = item.get_local_id(0) / 3;
 
-      displacementToFaceNormal[i + j * ldDisplacement] = Tinv[(i + 6) + (j + 6) * ldTinv];
-      displacementToGlobalData[i + j * ldDisplacement] = T[(i + 6) + (j + 6) * ldT];
+      // the velocity block of T and Tinv, as on the host (GravitationalFreeSurfaceBC.h)
+      constexpr int uIdx = model::MaterialT::TractionQuantities;
+      displacementToFaceNormal[i + j * ldDisplacement] = Tinv[(i + uIdx) + (j + uIdx) * ldTinv];
+      displacementToGlobalData[i + j * ldDisplacement] = T[(i + uIdx) + (j + uIdx) * ldT];
     }
   });
 }
@@ -370,7 +359,7 @@ void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
                                                     void* deviceStream) {
 
   auto queue = reinterpret_cast<sycl::queue*>(deviceStream);
-  const size_t workGroupSize = leadDim<seissol::nodal::init::nodes2D>();
+  const size_t workGroupSize = leadDim<seissol::init::averageNormalDisplacement>();
   auto rng = getrange(workGroupSize, numElements);
 
   queue->parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -380,11 +369,11 @@ void initializeTaylorSeriesForGravitationalBoundary(real** prevCoefficientsPtrs,
       auto* integratedDisplacementNodal = integratedDisplacementNodalPtrs[elementId];
       const auto* rotatedFaceDisplacement = rotatedFaceDisplacementPtrs[elementId];
 
-      assert(linearDim<seissol::nodal::init::nodes2D>() <=
+      assert(linearDim<seissol::init::averageNormalDisplacement>() <=
              linearDim<seissol::init::rotatedFaceDisplacement>());
 
       const int tid = item.get_local_id(0);
-      constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D>();
+      constexpr auto num2dNodes = linearDim<seissol::init::averageNormalDisplacement>();
       if (tid < num2dNodes) {
         prevCoefficients[tid] = rotatedFaceDisplacement[tid];
         integratedDisplacementNodal[tid] = deltaTInt * rotatedFaceDisplacement[tid];
@@ -419,7 +408,7 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
                                    void* deviceStream) {
 
   auto queue = reinterpret_cast<sycl::queue*>(deviceStream);
-  const size_t workGroupSize = leadDim<seissol::nodal::init::nodes2D>();
+  const size_t workGroupSize = leadDim<seissol::init::averageNormalDisplacement>();
   auto rng = getrange(workGroupSize, numElements);
 
   queue->parallel_for(rng, [=](sycl::nd_item<1> item) {
@@ -427,7 +416,7 @@ void updateRotatedFaceDisplacement(real** rotatedFaceDisplacementPtrs,
     if (elementId < numElements) {
       constexpr int pIdx = 0;
       constexpr int uIdx = model::MaterialT::TractionQuantities;
-      constexpr auto num2dNodes = linearDim<seissol::nodal::init::nodes2D>();
+      constexpr auto num2dNodes = linearDim<seissol::init::averageNormalDisplacement>();
 
       const int tid = item.get_local_id(0);
       if (tid < num2dNodes) {

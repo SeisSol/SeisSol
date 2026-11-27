@@ -10,6 +10,10 @@ on:
   - push
 
 env:
+  # The release branch pins its containers by digest (they are the tags
+  # davschneller-gpu-image of 2025-01-28, which master may update),
+  # and TensorForge to the revision the CI of the release base used
+  tensorforge-hash: da7b272c475c8a439476967a442b154233ff3fdc
   precomputed-hash: 4cc0993d4ba3b8f0aabc84af78e405af9d98f902
 
 jobs:
@@ -60,7 +64,7 @@ jobs:
             cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
-            container: seissol/gha-gpu-nv:davschneller-gpu-image
+            container: seissol/gha-gpu-nv@sha256:9deb639a7370ca62f7b9556405a18badcb565d10ebaa2f7164305cc37b0bdea4
             runner: ubuntu-24.04
             pythonbreak: true
           - arch: sm_60
@@ -68,7 +72,7 @@ jobs:
             cc: clang-18
             cxx: clang++-18
             fc: gfortran-13 # TODO?
-            container: seissol/gha-gpu-nv:davschneller-gpu-image
+            container: seissol/gha-gpu-nv@sha256:9deb639a7370ca62f7b9556405a18badcb565d10ebaa2f7164305cc37b0bdea4
             runner: ubuntu-24.04
             pythonbreak: true
           # TODO: needs a working GPU runner
@@ -77,7 +81,7 @@ jobs:
           #  cc: nvc
           #  cxx: nvc++
           #  fc: nvfortran
-          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+          #  container: seissol/gha-gpu-nvhpc@sha256:b5d1688647ac33f0806439327887d6e20bb4a70bddd22dc8fe0e02c5066ccfe8
           #  runner: sccs-ci-nv-sm60
           #  pythonbreak: true
           - arch: gfx906
@@ -85,7 +89,7 @@ jobs:
             cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
-            container: seissol/gha-gpu-amd:davschneller-gpu-image
+            container: seissol/gha-gpu-amd@sha256:38248ad4947da70f4ef28db3d2c938eae44907c5849739d4c001831593eedd2c
             runner: ubuntu-24.04
             pythonbreak: true
           - arch: gfx906
@@ -93,7 +97,7 @@ jobs:
             cc: clang-18
             cxx: clang++-18
             fc: gfortran-13 # TODO?
-            container: seissol/gha-gpu-amd:davschneller-gpu-image
+            container: seissol/gha-gpu-amd@sha256:38248ad4947da70f4ef28db3d2c938eae44907c5849739d4c001831593eedd2c
             runner: ubuntu-24.04
             pythonbreak: true
           - arch: skl
@@ -101,7 +105,7 @@ jobs:
             cc: icx
             cxx: icpx
             fc: ifx
-            container: seissol/gha-gpu-intel:davschneller-gpu-image
+            container: seissol/gha-gpu-intel@sha256:9e9a5dfbc76c6e81ccc5a90ba51cbfe0a1b150db315300d92ee30329881139ec
             runner: ubuntu-24.04
             pythonbreak: false
     steps:
@@ -118,10 +122,11 @@ jobs:
                   # the Intel image still works with an older Python version. Hence, use the following hack.
                   pip3 install pyyaml
                   git clone https://github.com/seissol/tensorforge.git
+                  git -C tensorforge checkout ${{env.tensorforge-hash}}
                   export PYTHONPATH=$(pwd)/tensorforge:$PYTHONPATH
                   export CMAKE_PREFIX_PATH=$(python3 -c 'import tensorforge; tensorforge.print_cmake_path()'):$CMAKE_PREFIX_PATH
               else
-                  pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git
+                  pip3 install --break-system-packages git+https://github.com/seissol/tensorforge.git@${{env.tensorforge-hash}}
               fi
               DEVICE_CODEGEN=tensorforge
           else
@@ -188,7 +193,7 @@ jobs:
   seissol-cache-precomputed:
     name: seissol-cache-precomputed
     runs-on: sccs-ci-nv-sm60
-    container: seissol/gha-cpu:davschneller-gpu-image
+    container: seissol/gha-cpu@sha256:e2a2ae820cdd22f04cd7d103fcd008c61125956de91a482e8035463069e03399
     if: ${{ github.repository == 'SeisSol/SeisSol' && false }}
     steps:
       - id: cache-precomputed-solutions
@@ -394,7 +399,7 @@ jobs:
             cc: gcc-13
             cxx: g++-13
             fc: gfortran-13
-            container: seissol/gha-gpu-nv:davschneller-gpu-image
+            container: seissol/gha-gpu-nv@sha256:9deb639a7370ca62f7b9556405a18badcb565d10ebaa2f7164305cc37b0bdea4
             pythonbreak: true
             mpi: openmpi
           - arch: sm_60
@@ -402,7 +407,7 @@ jobs:
             cc: clang-18
             cxx: clang++-18
             fc: gfortran-13 # TODO?
-            container: seissol/gha-gpu-nv:davschneller-gpu-image
+            container: seissol/gha-gpu-nv@sha256:9deb639a7370ca62f7b9556405a18badcb565d10ebaa2f7164305cc37b0bdea4
             pythonbreak: true
             mpi: openmpi
           # TODO: needs a working GPU runner
@@ -411,7 +416,7 @@ jobs:
           #  cc: nvc
           #  cxx: nvc++
           #  fc: nvfortran
-          #  container: seissol/gha-gpu-nvhpc:davschneller-gpu-image
+          #  container: seissol/gha-gpu-nvhpc@sha256:b5d1688647ac33f0806439327887d6e20bb4a70bddd22dc8fe0e02c5066ccfe8
           #  pythonbreak: true
           #  mpi: openmpi
         parallel:

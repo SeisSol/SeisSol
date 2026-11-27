@@ -130,7 +130,7 @@ void Pinning::checkEnvVariables() {
 
         isMaskGood = false;
       } else {
-        const auto maxCpuId = get_nprocs();
+        const auto maxCpuId = get_nprocs() - 1;
         for (auto localProcessId = 0; localProcessId < static_cast<int>(parsedFreeCPUsMask_.size());
              ++localProcessId) {
           for (auto cpu : parsedFreeCPUsMask_[localProcessId]) {
@@ -228,7 +228,7 @@ CpuMask Pinning::getFreeCPUsMask() const {
   // Note that pinning of the communication thread is then not Numa-aware if there's more than one
   // rank per node!
   for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
-    const bool isOnline = CPU_ISSET(cpu, &onlineMask.set);
+    const bool isOnline = CPU_ISSET(cpu, &onlineMask_.set);
     const bool isFree = !CPU_ISSET(cpu, &nodeOpenMpMask.set);
     if (isOnline && isFree) {
       CPU_SET(cpu, &freeMask);
@@ -248,6 +248,18 @@ bool Pinning::freeCPUsMaskEmpty(const CpuMask& mask) {
 #else
   return false;
 #endif // __APPLE__
+}
+
+std::optional<int> Pinning::firstCpu(const CpuMask& mask) {
+#ifndef __APPLE__
+  // the ids in a mask range up to CPU_SETSIZE; CPU_COUNT is how many of them are set
+  for (int cpu = 0; cpu < CPU_SETSIZE; ++cpu) {
+    if (CPU_ISSET(cpu, &mask.set) != 0) {
+      return cpu;
+    }
+  }
+#endif // __APPLE__
+  return {};
 }
 
 CpuMask Pinning::getOnlineMask() const { return onlineMask_; }
@@ -333,8 +345,9 @@ CpuMask Pinning::getNodeMask() {
 #ifndef __APPLE__
   const auto workerMask = getWorkerUnionMask().set;
 
-  // We have to use this due to the insanity of std::vector<bool>
-  auto workerMaskArray = std::vector<char>(get_nprocs_conf(), 0);
+  // We have to use this due to the insanity of std::vector<bool>; and unsigned char rather than
+  // char, as MPI defines the bitwise reductions for integer types only, of which char is none
+  auto workerMaskArray = std::vector<unsigned char>(get_nprocs_conf(), 0);
   for (int cpu = 0; cpu < get_nprocs_conf(); ++cpu) {
     workerMaskArray[cpu] = CPU_ISSET(cpu, &workerMask);
   }
@@ -342,7 +355,7 @@ CpuMask Pinning::getNodeMask() {
   MPI_Allreduce(MPI_IN_PLACE,
                 workerMaskArray.data(),
                 workerMaskArray.size(),
-                MPI_CHAR,
+                MPI_UNSIGNED_CHAR,
                 MPI_BOR,
                 Mpi::mpi.sharedMemComm());
 

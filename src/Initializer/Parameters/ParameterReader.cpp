@@ -22,6 +22,10 @@ ParameterReader::ParameterReader(const YAML::Node& node, const std::string& root
 
 std::optional<std::string> ParameterReader::readPath(const std::string& field) {
   const auto fileName = read<std::string>(field);
+  if (fileName.has_value() && fileName->empty()) {
+    // no file; relative to the directory of the parameter file, it would name that directory
+    return fileName;
+  }
   if (fileName.has_value()) {
     const auto lastPath = filesystem::path(rootPath_);
     auto nextPath = filesystem::path(fileName.value());

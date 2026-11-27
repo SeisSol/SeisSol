@@ -11,6 +11,7 @@
 #define SEISSOL_SRC_INITIALIZER_TIMESTEPPING_LTSWEIGHTS_LTSWEIGHTS_H_
 
 #include "Geometry/PUMLReader.h"
+#include "Initializer/FaceMap.h"
 #include "Initializer/TimeStepping/GlobalTimestep.h"
 
 #include <limits>
@@ -28,6 +29,8 @@ struct LtsWeightsConfig {
   int vertexWeightElement{};
   int vertexWeightDynamicRupture{};
   int vertexWeightFreeSurfaceWithGravity{};
+  // the face types of the boundary tags of the mesh (the default ones if not given)
+  const FaceMap* faceMap{nullptr};
 };
 
 double computeLocalCostOfClustering(const std::vector<int>& clusterIds,
@@ -107,6 +110,7 @@ class LtsWeights {
   std::map<double, decltype(clusterIds_), std::greater<>>
       clusteringCache_; // Maps wiggle factor to clustering
   seissol::initializer::parameters::BoundaryFormat boundaryFormat_;
+  const FaceMap* faceMap_{nullptr};
   struct ComputeWiggleFactorResult {
     int maxClusterId;
     double wiggleFactor;

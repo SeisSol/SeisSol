@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
         "phenomena and earthquake dynamics.");
     args.addAdditionalOption("file", "The parameter file", false);
     args.addOption(
-        "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Optional, false);
+        "checkpoint", 'c', "The checkpoint file to restart from", utils::Args::Required, false);
     switch (args.parse(argc, argv)) {
     case utils::Args::Help: {
       [[fallthrough]];
@@ -166,6 +166,9 @@ int main(int argc, char* argv[]) {
     {
       // Initialize SeisSol
       seissol::SeisSol seissolInstance(parameters, env);
+#ifdef USE_ASAGI
+      seissol::asagi::AsagiModule::getInstance().setPinning(seissolInstance.getPinning());
+#endif
 
       if (args.isSet("checkpoint")) {
         const auto* checkpointFile = args.getArgument<const char*>("checkpoint");

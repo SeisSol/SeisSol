@@ -266,13 +266,16 @@ struct CellDRMapping {
   real* fluxSolver{nullptr};
 };
 
+// The tensors start aligned, as the generated kernels may read them: easiBoundaryConstant, for one,
+// with the fused simulations first, which a kernel of libxsmm loads aligned.
 struct BoundaryFaceInformation {
   // nodes is an array of 3d-points in global coordinates.
-  real nodes[seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] * 3]{};
-  real dataT[seissol::tensor::T::size()]{};
-  real dataTinv[seissol::tensor::Tinv::size()]{};
-  real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()]{};
-  real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()]{};
+  alignas(Alignment)
+      real nodes[seissol::nodal::tensor::nodes2D::Shape[multisim::BasisFunctionDimension] * 3]{};
+  alignas(Alignment) real dataT[seissol::tensor::T::size()]{};
+  alignas(Alignment) real dataTinv[seissol::tensor::Tinv::size()]{};
+  alignas(Alignment) real easiBoundaryConstant[seissol::tensor::easiBoundaryConstant::size()]{};
+  alignas(Alignment) real easiBoundaryMap[seissol::tensor::easiBoundaryMap::size()]{};
 };
 
 struct CellBoundaryMapping {

@@ -34,7 +34,8 @@ class GenericTableEntry {
     return deviceArray_.data();
   }
 
-  std::vector<Type> getHostData() { return hostVector_; }
+  // a reference also for non-const entries: e.g. a host function enqueued on a stream still reads
+  // the data after its caller has returned
   [[nodiscard]] const std::vector<Type>& getHostData() const { return hostVector_; }
 
   size_t getSize() { return hostVector_.size(); }

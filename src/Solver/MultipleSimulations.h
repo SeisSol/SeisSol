@@ -67,6 +67,13 @@ struct MultisimHelperWrapper {
   constexpr static unsigned int NumSimulations = NumSimulationsT;
   constexpr static unsigned int BasisFunctionDimension = 1;
 
+  // The simulation index is the leading dimension of the fused tensors, and the hand-written parts
+  // of SeisSol step through it with NumSimulations as the stride. So the code generator must not
+  // pad it; process_users_input.cmake chooses the vector size accordingly.
+  static_assert(init::Q::Stop[0] - init::Q::Start[0] == NumSimulationsT,
+                "The simulation dimension of the fused tensors is padded. Choose a vector size "
+                "that divides the fused simulations (in bytes).");
+
 #ifndef SEISSOL_NO_OMPSIMD
 #pragma omp declare simd
 #endif
@@ -179,6 +186,24 @@ decltype(auto) simtensor(TensorViewT& tensor, int sim) {
 constexpr size_t MultisimStart = MultisimHelper::MultisimStart;
 constexpr size_t MultisimEnd = MultisimHelper::MultisimEnd;
 constexpr bool MultisimEnabled = MultisimHelper::MultisimEnabled;
+
+template <typename Tensor>
+constexpr size_t leadDim() {
+  if constexpr (MultisimEnabled) {
+    return Tensor::Stop[1] - Tensor::Start[1];
+  } else {
+    return Tensor::Stop[0] - Tensor::Start[0];
+  }
+}
+
+template <typename Tensor>
+constexpr size_t linearDim() {
+  if constexpr (MultisimEnabled) {
+    return (Tensor::Stop[1] - Tensor::Start[1]) * (Tensor::Stop[0] - Tensor::Start[0]);
+  } else {
+    return Tensor::Stop[0] - Tensor::Start[0];
+  }
+}
 
 } // namespace seissol::multisim
 

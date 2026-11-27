@@ -103,6 +103,20 @@ def compare_receiver_columns(
     Returns a dict mapping column name -> relative L2 error (or absolute if ref is ~zero).
     """
     time = ref_receiver["Time"].values
+    norms = {
+        col: np.sqrt(trapz_func(ref_receiver[col].values ** 2, x=time))
+        for col in ref_receiver.columns
+        if col != "Time"
+    }
+    # A component of the stress, the velocity or the strain is measured against the largest
+    # norm of its tensor or vector: where the material has no shear modulus, as on the acoustic
+    # side of an interface, the shear stresses are round-off, and relative to themselves they
+    # would differ by their whole size between two builds.
+    scales = {}
+    for col in norms:
+        group = _component_group(col)
+        if group is not None:
+            scales[group] = max(scales.get(group, 0.0), norms[col])
     errors = {}
     for col in ref_receiver.columns:
         if col == "Time":
@@ -113,10 +127,27 @@ def compare_receiver_columns(
             continue
         ref_col = ref_receiver[col].values
         diff_col = sim_receiver[col].values - ref_col
-        ref_norm = np.sqrt(trapz_func(ref_col**2, x=time))
+        group = _component_group(col)
+        ref_norm = scales[group] if group is not None else norms[col]
         diff_norm = np.sqrt(trapz_func(diff_col**2, x=time))
         errors[col] = float(diff_norm / ref_norm) if ref_norm > 1e-10 else float(diff_norm)
     return errors
+
+
+_COMPONENT_GROUPS = [
+    re.compile(r"^(s)_(?:xx|yy|zz|xy|xz|yz)(\d*)$"),
+    re.compile(r"^(eps)(?:xx|yy|zz|xy|xz|yz)(\d*)$"),
+    re.compile(r"^(v)[123](\d*)$"),
+]
+
+
+def _component_group(col: str):
+    """The tensor or vector a column is a component of (with its simulation index), or None."""
+    for pattern in _COMPONENT_GROUPS:
+        match = pattern.match(col)
+        if match:
+            return match.groups()
+    return None
 
 
 def receiver_diff(args: argparse.Namespace, index: int, file_type: str = "receiver") -> dict[str, float]:

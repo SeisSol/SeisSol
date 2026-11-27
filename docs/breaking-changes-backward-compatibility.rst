@@ -109,3 +109,35 @@ The adjustment was propagated to the GPU implementation after 1.3.0.
 The respective `commit <https://github.com/SeisSol/SeisSol/commit/73b284b7a8a2323170766f3ab594312a31f514c1>`_
 updated the CPU implementation; the GPU implementation was updated by
 `#1288 <https://github.com/SeisSol/SeisSol/pull/1288>`_.
+
+Potency and Seismic Moment Quadrature
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(since before 0.9.0, `#527 <https://github.com/SeisSol/SeisSol/pull/527>`_, April 2022)
+
+The potency and the seismic moment were computed by averaging the value over all points.
+Now, to make the integration more exact, they are instead weighed by the quadrature rule
+the underlying DR implementation uses. As a result, the computed seismic moment and magnitude
+may slightly change compared to before.
+
+Free-surface displacement in checkpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+(since 2.0.0)
+
+A checkpoint identified the faces of the free surface by the cell number local to
+the rank that wrote it, which names different cells on different ranks. On a
+restart, faces could therefore receive the displacement of another face; with
+the partitioning unchanged this affected a few faces at the rank boundaries,
+with a different one most of them. The faces are now identified by the global
+cell id, and a restart reproduces the displacement exactly. Checkpoints written
+before cannot restore it correctly.
+
+Plastic strain in checkpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(since 2.0.0, `#1658 <https://github.com/SeisSol/SeisSol/pull/1658>`_)
+
+With plasticity, the checkpoint record ``pstrain`` held the plasticity parameters of the cells
+instead of their plastic strain, so a restarted run continued with the plastic strain and
+:math:`\eta` reset to zero. The record now holds the plastic strain.
+Checkpoints of simulations with plasticity written before this change cannot be restored.
