@@ -54,7 +54,7 @@ GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
     }
 
     if (persistent) {
-      MPI_Send_init(this->meshStructure_.copy[region].data,
+      MPI_Send_init(duplicatedCopyRegions_[region],
                     static_cast<int>(this->meshStructure_.copy[region].size),
                     Mpi::precisionToMpiType(this->meshStructure_.copy[region].datatype),
                     this->meshStructure_.copy[region].rank,
@@ -73,7 +73,7 @@ GhostTimeClusterWithCopy<CommType>::GhostTimeClusterWithCopy(
     }
 
     if (persistent) {
-      MPI_Recv_init(this->meshStructure_.ghost[region].data,
+      MPI_Recv_init(duplicatedGhostRegions_[region],
                     static_cast<int>(this->meshStructure_.ghost[region].size),
                     Mpi::precisionToMpiType(this->meshStructure_.ghost[region].datatype),
                     this->meshStructure_.ghost[region].rank,
@@ -127,7 +127,7 @@ void GhostTimeClusterWithCopy<CommType>::sendCopyLayer() {
         if (persistent_) {
           MPI_Start(sendRequests_.data() + (*region));
         } else {
-          MPI_Isend(this->meshStructure_.copy[*region].data,
+          MPI_Isend(duplicatedCopyRegions_[*region],
                     static_cast<int>(this->meshStructure_.copy[*region].size),
                     Mpi::precisionToMpiType(this->meshStructure_.copy[*region].datatype),
                     this->meshStructure_.copy[*region].rank,
@@ -153,7 +153,7 @@ void GhostTimeClusterWithCopy<CommType>::receiveGhostLayer() {
   }
   for (std::size_t region = 0; region < recvRequests_.size(); ++region) {
     if (!persistent_) {
-      MPI_Irecv(this->meshStructure_.ghost[region].data,
+      MPI_Irecv(duplicatedGhostRegions_[region],
                 static_cast<int>(this->meshStructure_.ghost[region].size),
                 Mpi::precisionToMpiType(this->meshStructure_.ghost[region].datatype),
                 this->meshStructure_.ghost[region].rank,
