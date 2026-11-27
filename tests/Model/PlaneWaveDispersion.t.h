@@ -115,8 +115,12 @@ TEST_CASE_TEMPLATE_DEFINE("The plane waves of a viscoelastic material run at the
   physics::fitAttenuation(material, FreqCentral, FreqRatio);
 
   const double central = 2 * std::numbers::pi * FreqCentral;
-  for (const auto& [speed, quality] :
+  // (not as a structured binding: CAPTURE takes the speed into a lambda, which clang 18 does not
+  // allow for a structured binding under OpenMP)
+  for (const auto& mode :
        {std::pair{std::sqrt((Lambda + 2 * Mu) / Rho), Qp}, std::pair{std::sqrt(Mu / Rho), Qs}}) {
+    const double speed = mode.first;
+    const double quality = mode.second;
     CAPTURE(speed);
     const auto omegas = frequencies<Cfg>(material, central / speed);
 
