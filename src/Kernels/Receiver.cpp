@@ -130,6 +130,9 @@ double ReceiverCluster::calcReceivers(double time,
       runtime.eventSync(extraRuntime_->eventRecord());
     }
     deviceCollector_->gatherToHost(runtime.stream());
+    if constexpr (kernels::size<tensor::Qane>() > 0) {
+      deviceCollectorAne_->gatherToHost(runtime.stream());
+    }
     if (extraRuntime_.has_value()) {
       extraRuntime_->eventSync(runtime.eventRecord());
     }
@@ -171,6 +174,11 @@ double ReceiverCluster::calcReceivers(double time,
         tmpReceiverData.setPointer<LTS::Dofs>(
             reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::Dofs>())>(
                 deviceCollector_->get(deviceIndices_[i])));
+        if constexpr (kernels::size<tensor::Qane>() > 0) {
+          tmpReceiverData.setPointer<LTS::DofsAne>(
+              reinterpret_cast<decltype(tmpReceiverData.getPointer<LTS::DofsAne>())>(
+                  deviceCollectorAne_->get(deviceIndices_[i])));
+        }
       }
 
       const auto integrationCoeffs = timeBasis.integrate(0, timeStepWidth, timeStepWidth);
@@ -227,6 +235,8 @@ void ReceiverCluster::allocateData() {
     // make sure to only transfer the related data once (hence, we use the `indexMap` here)
     deviceIndices_.resize(receivers_.size());
     std::vector<real*> dofs;
+    // the anelastic DOFs of the same cells, in the same order
+    std::vector<real*> dofsAne;
     std::unordered_map<real*, size_t> indexMap;
     for (size_t i = 0; i < receivers_.size(); ++i) {
       // NOLINTNEXTLINE(misc-const-correctness)
@@ -235,6 +245,9 @@ void ReceiverCluster::allocateData() {
         // point to the current array end
         indexMap[currentDofs] = dofs.size();
         dofs.push_back(currentDofs);
+        if constexpr (kernels::size<tensor::Qane>() > 0) {
+          dofsAne.push_back(receivers_[i].dataDevice.get<LTS::DofsAne>());
+        }
       }
       deviceIndices_[i] = indexMap.at(currentDofs);
     }
@@ -242,10 +255,15 @@ void ReceiverCluster::allocateData() {
     const bool hostAccessible = useUSM() && !extraRuntime_.has_value();
     deviceCollector_ = std::make_unique<seissol::parallel::DataCollector<real>>(
         dofs, tensor::Q::size(), hostAccessible);
+    if constexpr (kernels::size<tensor::Qane>() > 0) {
+      deviceCollectorAne_ = std::make_unique<seissol::parallel::DataCollector<real>>(
+          dofsAne, kernels::size<tensor::Qane>(), hostAccessible);
+    }
   }
 }
 void ReceiverCluster::freeData() {
   deviceCollector_.reset(nullptr);
+  deviceCollectorAne_.reset(nullptr);
   extraRuntime_.reset();
 }
 
