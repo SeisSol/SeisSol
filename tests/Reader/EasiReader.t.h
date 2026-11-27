@@ -22,7 +22,9 @@ namespace seissol::unit_test {
 
 TEST_CASE("EasiReader: a model may supply more than the table asks for" *
           doctest::test_suite("reader")) {
-  // the material and the plasticity in one file, of which a table asks for the material only
+  // the material and the plasticity in one file, of which a table asks for the material only; in
+  // components that every build of easi has (a FunctionMap needs Lua or ImpalaJIT): the
+  // coefficients of a PolynomialMap go from the highest power down
   const auto path = std::filesystem::temp_directory_path() / "seissol-easireader-more.yaml";
   {
     std::ofstream file(path);
@@ -31,12 +33,12 @@ TEST_CASE("EasiReader: a model may supply more than the table asks for" *
             "  xi: [1.0, 0.0, 0.0]\n"
             "translation:\n"
             "  xi: 0.0\n"
-            "components: !FunctionMap\n"
+            "components: !PolynomialMap\n"
             "  map:\n"
-            "    rho: return 2700.0 + xi;\n"
-            "    mu: return 30000000000.0;\n"
-            "    plastCo: return 1000000.0;\n"
-            "    bulkFriction: return 0.6;\n";
+            "    rho: [1.0, 2700.0]\n"
+            "    mu: [0.0, 30000000000.0]\n"
+            "    plastCo: [0.0, 1000000.0]\n"
+            "    bulkFriction: [0.0, 0.6]\n";
   }
 
   data::EasiReader reader(path.string(), {"x", "y", "z"}, data::EasiContext{});

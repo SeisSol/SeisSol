@@ -41,6 +41,12 @@ class AsagiReader {};
 } // namespace easi
 #endif
 
+// From easi 1.5.0 on, the dimensions of a model have names, and a model may depend on the time
+// (see Features/InitialConditions/EasiFields.cpp); before, they are the three x, y, z.
+#if defined(EASI_VERSION_MAJOR) && (EASI_VERSION_MAJOR > 1 || EASI_VERSION_MINOR >= 5)
+#define SEISSOL_EASI_NAMED_DIMENSIONS
+#endif
+
 namespace seissol::data {
 
 namespace {
@@ -163,7 +169,15 @@ EasiReader::EasiReader(const std::string& script,
     : asagiReader_(makeAsagiReader(context)), script_(script) {
   const auto dimensionNames = std::set<std::string>(inVars.begin(), inVars.end());
   inVars_ = std::vector<std::string>(dimensionNames.begin(), dimensionNames.end());
+#ifdef SEISSOL_EASI_NAMED_DIMENSIONS
   parser_ = std::make_unique<easi::YAMLParser>(dimensionNames, asagiReader_.get());
+#else
+  if (dimensionNames != std::set<std::string>{"x", "y", "z"}) {
+    logError() << "The easi model" << script << "needs other dimensions than x, y, z, which easi"
+               << "supports from version 1.5.0 on.";
+  }
+  parser_ = std::make_unique<easi::YAMLParser>(3, asagiReader_.get(), 'x');
+#endif
 
   try {
     components_ = std::unique_ptr<easi::Component>(parser_->parse(script));
