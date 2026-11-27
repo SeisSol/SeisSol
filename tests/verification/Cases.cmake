@@ -88,8 +88,10 @@ seissol_add_plastic_relaxation(NAME plasticity-relaxation-instant STEPS 8
 # A planar wave through Drucker-Prager parameters without a yield relaxes as in
 # a Maxwell body, with Tv a quarter of the period of its S wave; its stresses
 # fall to a seventh over the 512 steps, and the split of the steps leaves them
-# by 0.3 per cent
-seissol_add_plastic_wave(NAME plasticity-wave TV 7.8125e-03)
+# by 0.3 per cent. The 512 steps take minutes in the unoptimized build of the
+# coverage job and in the emulated ones, as those of the label convergence do,
+# which they leave out; the CPU CI runs them.
+seissol_add_plastic_wave(NAME plasticity-wave TV 7.8125e-03 LABELS convergence)
 
 # without a fault file, the rupture is off, and the faces of the fault are
 # faces as any other
