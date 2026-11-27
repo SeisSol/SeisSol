@@ -143,7 +143,8 @@ jobs:
           RETVAL_PROXY=$?
           set -e
 
-          if [ $RETVAL_EXE -ne 133 ]; then
+          # a fatal error ends with the abort (SIGABRT), see submodules/utils
+          if [ $RETVAL_EXE -ne 134 ]; then
             echo "Unexpected exit code for SeisSol: ${RETVAL_EXE}"
             exit 1
           fi
