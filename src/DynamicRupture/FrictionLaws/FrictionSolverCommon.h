@@ -661,6 +661,34 @@ SEISSOL_HOSTDEVICE inline void
   }
 }
 /**
+ * Adds the slip of a point in time of the time step to the accumulated slip of the energy output:
+ * the slip rate magnitude that the friction law computed for it, times its time weight. Where the
+ * energy output takes the slip from the jump of the velocities across the fault instead, see
+ * computeFrictionEnergy.
+ *
+ * @param[in, out] energyData
+ * @param[in] slipRateMagnitude
+ * @param[in] timeWeight
+ */
+template <typename Cfg, RangeType Type = RangeType::CPU>
+SEISSOL_HOSTDEVICE inline void
+    accumulateSlipForEnergy(DREnergyOutput<Cfg>& __restrict energyData,
+                            const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],
+                            Real<Cfg> timeWeight,
+                            uint32_t startIndex = 0) {
+
+  using Range = NumPoints<Cfg, Type>::Range;
+
+#ifndef ACL_DEVICE
+#pragma omp simd
+#endif
+  for (auto index = Range::Start; index < Range::End; index += Range::Step) {
+    const auto pointIndex{startIndex + index};
+    energyData.accumulatedSlip[pointIndex] += timeWeight * slipRateMagnitude[pointIndex];
+  }
+}
+
+/**
  * update timeSinceSlipRateBelowThreshold (used in Abort Criteria)
  *
  * param[in] slipRateMagnitude
@@ -705,7 +733,6 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
     const Real<Cfg> timeWeights[misc::TimeSteps<Cfg>],
     const Real<Cfg> spaceWeights[seissol::kernels::NumSpaceQuadraturePoints<Cfg>],
     const DRGodunovData<Cfg>& __restrict godunovData,
-    const Real<Cfg> slipRateMagnitude[misc::NumPaddedPoints<Cfg>],
     const bool energiesFromAcrossFaultVelocities,
     size_t startIndex = 0) {
 
@@ -794,19 +821,18 @@ SEISSOL_HOSTDEVICE inline void computeFrictionEnergy(
       const Real<Cfg> interpolatedSlipRate2 = qIMinus[o][V][i] - qIPlus[o][V][i];
       const Real<Cfg> interpolatedSlipRate3 = qIMinus[o][W][i] - qIPlus[o][W][i];
 
+      // otherwise, the slip rate magnitude of the friction law (computed from slipRate1 and
+      // slipRate2) at each point in time, which accumulateSlipForEnergy adds while the friction
+      // law steps through them, instead of the magnitude of the differences in velocities
+      // calculated above. The moment magnitude based on the latter is typically non zero at the
+      // end of the earthquake (probably because it incorporates the velocity discontinuities
+      // inherent of DG methods, including the contributions of fault normal velocity
+      // discontinuity)
       if (energiesFromAcrossFaultVelocities) {
         const Real<Cfg> interpolatedSlipRateMagnitude =
             misc::magnitude(interpolatedSlipRate1, interpolatedSlipRate2, interpolatedSlipRate3);
 
         localAccumulatedSlip[index] += timeWeight * interpolatedSlipRateMagnitude;
-      } else {
-        // we use slipRateMagnitude (computed from slipRate1 and slipRate2 in the friction law)
-        // instead of computing the slip rate magnitude from the differences in velocities
-        // calculated above (magnitude of the vector (slipRateMagnitudei)). The moment magnitude
-        // based on (slipRateMagnitudei) is typically non zero at the end of the earthquake
-        // (probably because it incorporates the velocity discontinuities inherent of DG methods,
-        // including the contributions of fault normal velocity discontinuity)
-        localAccumulatedSlip[index] += timeWeight * slipRateMagnitude[i];
       }
 
       localSlip[0][index] += timeWeight * interpolatedSlipRate1;

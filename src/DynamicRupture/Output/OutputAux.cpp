@@ -29,6 +29,7 @@
 #include <cstddef>
 #include <limits>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -147,16 +148,40 @@ std::pair<int, double> getNearestFacePoint(const double targetPoint[2],
 }
 
 template <typename Cfg>
-void assignNearestGaussianPoint(Receiver& geoPoint) {
+void assignNearestGaussianPoint(Receiver& geoPoint, const geometry::CellTransform& transform) {
   static auto quadratureData = generateTriangleQuadrature<Cfg>();
   const double (*trianglePoints2D)[2] = unsafeReshape<2>(quadratureData.points.data());
 
-  const auto targetPoint2D =
-      geometry::ReferenceFaceMap(geoPoint.localFaceSideId.value())
-          .cellToFace(geometry::CellTransform::VectorEigenT(geoPoint.reference.data()));
+  // The distance is the one in space. The reference face maps to the face by an affine map that
+  // is not conformal, and which corner of the face it maps the origin to follows the numbering of
+  // the vertices of the cell (see PUMLReader's canonicalVertexOrder): the point nearest to the
+  // receiver in the reference face would depend on that numbering, even where the points of a
+  // fully symmetric rule are the same in space.
+  const geometry::ReferenceFaceMap faceMap(geoPoint.localFaceSideId.value());
+  const auto target =
+      transform.refToSpace(geometry::CellTransform::VectorEigenT(geoPoint.reference.data()));
 
-  const auto [nearestPoint, shortestDistance] = getNearestFacePoint(
-      targetPoint2D.data(), trianglePoints2D, seissol::dr::TriangleQuadratureData<Cfg>::Size);
+  int nearestPoint = -1;
+  double shortestDistance = std::numeric_limits<double>::max();
+  geometry::CellTransform::VectorEigenT nearestPosition;
+  for (std::size_t index = 0; index < seissol::dr::TriangleQuadratureData<Cfg>::Size; ++index) {
+    const auto position =
+        transform.refToSpace(faceMap.faceToCell(geometry::ReferenceFaceMap::FaceVectorT(
+            trianglePoints2D[index][0], trianglePoints2D[index][1])));
+    const double distance = (position - target).norm();
+    // of points that are as near, the one first by its coordinates, which the numbering of the
+    // vertices does not change either
+    const double tolerance = 1e-12 * std::max(distance, shortestDistance);
+    const bool nearer = distance < shortestDistance - tolerance;
+    const bool asNear = !nearer && distance <= shortestDistance + tolerance;
+    if (nearestPoint < 0 || nearer ||
+        (asNear && std::tie(position(0), position(1), position(2)) <
+                       std::tie(nearestPosition(0), nearestPosition(1), nearestPosition(2)))) {
+      nearestPoint = static_cast<int>(index);
+      shortestDistance = std::min(distance, shortestDistance);
+      nearestPosition = position;
+    }
+  }
   geoPoint.nearestGpIndex = nearestPoint;
 }
 
@@ -300,7 +325,8 @@ std::size_t globalFaceIdOfCell(const Receivers& receivers,
 }
 #define SEISSOL_INSTANTIATE(Cfg)                                                                   \
   template TriangleQuadratureData<Cfg> generateTriangleQuadrature<Cfg>();                          \
-  template void assignNearestGaussianPoint<Cfg>(Receiver & geoPoint);                              \
+  template void assignNearestGaussianPoint<Cfg>(Receiver & geoPoint,                               \
+                                                const geometry::CellTransform& transform);         \
   template PlusMinusBasisFunctions<Cfg> getPlusMinusBasisFunctions<Cfg>(                           \
       const CoordinateT& pointCoords,                                                              \
       const geometry::CellTransform& plusTransform,                                                \

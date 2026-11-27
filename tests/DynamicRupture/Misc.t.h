@@ -176,15 +176,62 @@ TEST_CASE("DR Misc computeStrikeAndDipVectors" * doctest::test_suite("dynamicrup
     CHECK(dotProduct(strike, dip) == doctest::Approx(0.0).epsilon(Eps));
   }
 
-  SUBCASE("Vertical normal [0,0,1]") {
-    const CoordinateT normal{0.0, 0.0, 1.0};
+  SUBCASE("Horizontal fault, normal [0,0,1] and [0,0,-1]") {
+    // the limit of a fault that strikes along x and dips towards y
+    for (const double side : {1.0, -1.0}) {
+      const CoordinateT normal{0.0, 0.0, side};
+      CoordinateT strike{};
+      CoordinateT dip{};
+
+      computeStrikeAndDipVectors(normal, strike, dip);
+
+      CHECK(strike[0] == side);
+      CHECK(strike[1] == 0.0);
+      CHECK(strike[2] == 0.0);
+      CHECK(dip[0] == 0.0);
+      CHECK(dip[1] == 1.0);
+      CHECK(dip[2] == 0.0);
+
+      const CoordinateT tilted{0.0, side * 1e-6, side * std::sqrt(1.0 - 1e-12)};
+      CoordinateT tiltedStrike{};
+      CoordinateT tiltedDip{};
+      computeStrikeAndDipVectors(tilted, tiltedStrike, tiltedDip);
+      for (std::size_t i = 0; i < 3; ++i) {
+        CHECK(tiltedStrike[i] == doctest::Approx(strike[i]).epsilon(Eps));
+        // the dip leaves the plane by the angle of the tilt
+        CHECK(tiltedDip[i] == doctest::Approx(dip[i]).epsilon(1e-5));
+      }
+    }
+  }
+
+  SUBCASE("Nearly horizontal fault, with components whose squares underflow") {
+    const CoordinateT normal{3e-170, 4e-170, 1.0};
     CoordinateT strike{};
     CoordinateT dip{};
 
     computeStrikeAndDipVectors(normal, strike, dip);
 
-    CHECK(std::isnan(vecLength(strike)));
-    CHECK(std::isnan(vecLength(dip)));
+    CHECK(strike[0] == doctest::Approx(0.8).epsilon(Eps));
+    CHECK(strike[1] == doctest::Approx(-0.6).epsilon(Eps));
+    CHECK(vecLength(dip) == doctest::Approx(1.0).epsilon(Eps));
+    CHECK(dotProduct(strike, dip) == doctest::Approx(0.0).epsilon(Eps));
+  }
+
+  SUBCASE("The other side of the fault turns the strike around, but not the dip") {
+    const CoordinateT normal{0.3, -0.4, std::sqrt(0.75)};
+    const CoordinateT opposite{-normal[0], -normal[1], -normal[2]};
+    CoordinateT strike{};
+    CoordinateT dip{};
+    CoordinateT oppositeStrike{};
+    CoordinateT oppositeDip{};
+
+    computeStrikeAndDipVectors(normal, strike, dip);
+    computeStrikeAndDipVectors(opposite, oppositeStrike, oppositeDip);
+
+    for (std::size_t i = 0; i < 3; ++i) {
+      CHECK(oppositeStrike[i] == doctest::Approx(-strike[i]).epsilon(Eps));
+      CHECK(oppositeDip[i] == doctest::Approx(dip[i]).epsilon(Eps));
+    }
   }
 }
 

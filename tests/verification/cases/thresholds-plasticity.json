@@ -1,0 +1,27 @@
+{
+  "comment": [
+    "Thresholds for the deviation of the planar wave through a Drucker-Prager",
+    "material without yield, a Maxwell body in shear, from its exact solution",
+    "as SeisSol splits its steps (see run_case.plastic_wave and",
+    "seissol_add_plastic_wave), keyed by case and build configuration. The",
+    "stress and the velocity at the receivers are relative to the amplitude of",
+    "the initial wave, the energies (energy-) and the plastic moment relative",
+    "to the largest value of their exact series."
+  ],
+  "entries": {
+    "plasticity-wave/elastic/o6/double": {
+      "energy-kinetic": 1.1e-06,
+      "energy-strain": 1.1e-06,
+      "plastic-moment": 6.5e-05,
+      "stress": 5.4e-05,
+      "velocity": 3e-05
+    },
+    "plasticity-wave/elastic/o6/single": {
+      "energy-kinetic": 1.1e-06,
+      "energy-strain": 1.2e-06,
+      "plastic-moment": 6.4e-05,
+      "stress": 5.4e-05,
+      "velocity": 3e-05
+    }
+  }
+}

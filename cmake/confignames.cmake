@@ -19,9 +19,12 @@ set(SEISSOL_MATERIALS elastic anisotropic viscoelastic poroelastic acoustic visc
 # configurations of each.
 #
 # ci-cpu: what the CPU CI builds, on Linux and on macOS, in both precisions: the six materials in
-# order 6, viscoelastic and viscoacoustic with 3 mechanisms, and elastic with 8 fused simulations in
-# order 3, the order of the fused cases of precomputed-seissol. Building it into one executable takes
-# a host architecture whose vectors the 8 fused simulations fill in both precisions, e.g. hsw or neon.
+# order 6, viscoelastic and viscoacoustic with 3 mechanisms, elastic in orders 4 and 5, whose
+# kernels, quadratures and padding differ from those of order 6 and which the verification cases run
+# as well, and elastic with 8 fused simulations in order 3, the order of the fused cases of
+# precomputed-seissol. Building it into one executable takes a host architecture whose vectors the 8
+# fused simulations fill in both precisions, e.g. hsw or neon. The two orders add about a tenth to
+# the time of a build of elastic in order 6 alone.
 #
 # ci-gpu: what the GPU CI builds with TensorForge, in both precisions: the six materials in order 6,
 # viscoelastic and viscoacoustic with 3 mechanisms, and elastic with 32 fused simulations in order 3.
@@ -52,6 +55,8 @@ set(SEISSOL_CONFIG_SET_ci-cpu)
 foreach(_precision f64 f32)
   list(APPEND SEISSOL_CONFIG_SET_ci-cpu
     elastic-o6-${_precision}
+    elastic-o5-${_precision}
+    elastic-o4-${_precision}
     acoustic-o6-${_precision}
     anisotropic-o6-${_precision}
     poroelastic-o6-${_precision}

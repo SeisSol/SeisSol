@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 SeisSol Group
+#
+# SPDX-License-Identifier: BSD-3-Clause
+# SPDX-LicenseComments: Full text under /LICENSE and /LICENSES/
+#
+# SPDX-FileContributor: Author lists in /AUTHORS and /CITATION.cff
+
+# Writes suite.json of an installation (see run_suite.py): what CTest knows of
+# the verification tests of the build, and the places of the build they name,
+# which run_suite.py replaces with those of the installation.
+execute_process(
+    COMMAND "@CMAKE_CTEST_COMMAND@" --show-only=json-v1 -L verification
+    WORKING_DIRECTORY "@PROJECT_BINARY_DIR@"
+    OUTPUT_VARIABLE tests
+    RESULT_VARIABLE status)
+if (NOT status EQUAL 0)
+  message(FATAL_ERROR "ctest could not describe the verification tests")
+endif()
+file(READ "@CMAKE_CURRENT_BINARY_DIR@/suite-origin.json" origin)
+set(target "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/@SEISSOL_SUITE_DESTINATION@/suite.json")
+message(STATUS "Installing: ${target}")
+file(WRITE "${target}" "{\"origin\": ${origin}, \"ctest\": ${tests}}\n")

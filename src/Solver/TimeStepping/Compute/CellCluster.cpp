@@ -905,8 +905,6 @@ void CellCluster<Cfg>::computeNeighboringIntegrationImplementation(const StepPar
         if (data.template get<LTS::CellInformation>().plasticityEnabled) {
           yielding +=
               seissol::kernels::Plasticity<Cfg>::computePlasticity(oneMinusIntegratingFactor,
-                                                                   timestep,
-                                                                   tV,
                                                                    globalData_.onHost,
                                                                    &plasticity[cell],
                                                                    data.template get<LTS::Dofs>(),
