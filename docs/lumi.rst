@@ -112,7 +112,7 @@ Next, we also start up our Python installation. The virtual environment sets add
     pip install git+https://github.com/SeisSol/PSpaMM.git
     pip install git+https://github.com/SeisSol/gemmforge.git
     pip install git+https://github.com/SeisSol/chainforge.git
-    pip install git+https://github.com/SeisSol/TensorForge.git
+    pip install git+https://github.com/SeisSol/TensorForge.git@da7b272c475c8a439476967a442b154233ff3fdc
 
 Then, we can start installing the modules.
 The required packages can be installed as described in the dependency installing guide itself.

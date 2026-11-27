@@ -331,7 +331,11 @@ You may install it as a Python package; by running
 
 .. code-block:: bash
 
-   pip3 install git+https://github.com/SeisSol/TensorForge.git
+   pip3 install git+https://github.com/SeisSol/TensorForge.git@da7b272c475c8a439476967a442b154233ff3fdc
+
+This is the revision of TensorForge that the CI of SeisSol 2.0 builds with. Later revisions
+follow the development of SeisSol and no longer generate all kernels of this release (e.g. the
+local integral of viscoelasticity).
 
 Installing Tiny Tensor Compiler
 """""""""""""""""""""""""""""""
