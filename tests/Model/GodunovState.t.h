@@ -231,6 +231,22 @@ TEST_CASE_TEMPLATE("Scaling the upwind damping of the Godunov state scales only 
   auto refLocal = init::QgodLocal<Cfg>::view::create(localReference);
   auto refNeighbor = init::QgodNeighbor<Cfg>::view::create(neighborReference);
 
+  const auto slot = [&](std::size_t index, bool tractionJumps) {
+    return model::dampingSlot(model::faceComponentOf(Groups, index),
+                              model::isExtraComponent(Groups, index),
+                              tractionJumps);
+  };
+  // the pressure and the normal velocity of a fluid have shares of their own; its tangential
+  // velocity, without a partner in its pair, takes the one of the material
+  constexpr auto PressureOffset = model::roleOffset(Groups, model::FaceRole::ExtraTraction);
+  if constexpr (PressureOffset < Count) {
+    constexpr auto FluidOffset = model::roleOffset(Groups, model::FaceRole::ExtraVelocity);
+    REQUIRE(slot(PressureOffset, true) == 5);
+    REQUIRE(slot(FluidOffset, false) == 4);
+    REQUIRE(slot(FluidOffset + 1, true) == 3);
+    REQUIRE(slot(FluidOffset + 2, false) == 1);
+  }
+
   for (const bool heterogeneous : {false, true}) {
     CAPTURE(heterogeneous);
     const MaterialT local(SolutionData<MaterialT>::MaterialVal1);
@@ -244,7 +260,7 @@ TEST_CASE_TEMPLATE("Scaling the upwind damping of the Godunov state scales only 
     };
 
     SUBCASE("Full damping leaves the state as it is") {
-      compute({1, 1, 1, 1});
+      compute(model::UpwindDamping);
       for (std::size_t i = 0; i < Quantities; ++i) {
         for (std::size_t j = 0; j < Quantities; ++j) {
           if (qgodLocal.isInRange(i, j)) {
@@ -258,21 +274,18 @@ TEST_CASE_TEMPLATE("Scaling the upwind damping of the Godunov state scales only 
     }
 
     SUBCASE("Partial damping scales the damping blocks symmetrically and keeps the identity") {
-      const model::DampingShares shares{0.3, 0.7, 0.5, 0.0};
+      const model::DampingShares shares{0.3, 0.7, 0.5, 0.0, 0.9, 0.2};
       compute(shares);
       testConsistency(qgodLocal, qgodNeighbor, Quantities, StructuralEpsilon);
-      const auto share = [&](model::FaceComponent component, bool tractionJumps) {
-        return shares[(tractionJumps ? 2 : 0) + (model::isNormal(component) ? 0 : 1)];
-      };
       for (std::size_t i = 0; i < Count; ++i) {
         const auto quantity = model::faceComponentOf(Groups, i);
         for (std::size_t j = 0; j < Count; ++j) {
           const auto state = model::faceComponentOf(Groups, j);
           double factor = 1.0;
           if (model::isTraction(state) && model::isVelocity(quantity)) {
-            factor = std::sqrt(share(state, false) * share(quantity, false));
+            factor = std::sqrt(shares[slot(j, false)] * shares[slot(i, false)]);
           } else if (model::isVelocity(state) && model::isTraction(quantity)) {
-            factor = std::sqrt(share(state, true) * share(quantity, true));
+            factor = std::sqrt(shares[slot(j, true)] * shares[slot(i, true)]);
           }
           if (qgodLocal.isInRange(i, j)) {
             const double expected = factor * castReal(refLocal(i, j));
@@ -285,9 +298,9 @@ TEST_CASE_TEMPLATE("Scaling the upwind damping of the Godunov state scales only 
                     doctest::Approx(expected).epsilon(StructuralEpsilon));
           }
           // no damping of the tangential traction jumps: the velocity of the state takes nothing
-          // from the tractions through a tangential component
+          // from the tractions through a component of that share
           if (model::isVelocity(state) && model::isTraction(quantity) &&
-              (!model::isNormal(state) || !model::isNormal(quantity))) {
+              (slot(j, true) == 3 || slot(i, true) == 3)) {
             if (qgodLocal.isInRange(i, j)) {
               REQUIRE(qgodLocal(i, j) == 0);
             }

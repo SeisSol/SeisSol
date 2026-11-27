@@ -77,6 +77,24 @@ constexpr FaceComponent faceComponentOf(const std::array<QuantityGroup, N>& grou
   return FaceComponent::None;
 }
 
+/**
+ * Whether a component of the face-aligned quantity vector belongs to the extra pair of the Riemann
+ * problem (FaceRole::ExtraTraction and FaceRole::ExtraVelocity: the pressure and the velocity of
+ * the fluid of a poroelastic solid) rather than to the traction and velocity of the material
+ * itself.
+ */
+template <std::size_t N>
+constexpr bool isExtraComponent(const std::array<QuantityGroup, N>& groups, std::size_t index) {
+  std::size_t offset = 0;
+  for (const auto& group : groups) {
+    if (index < offset + group.extent()) {
+      return group.role == FaceRole::ExtraTraction || group.role == FaceRole::ExtraVelocity;
+    }
+    offset += group.extent();
+  }
+  return false;
+}
+
 constexpr bool isTraction(FaceComponent component) {
   return component == FaceComponent::TractionNormal ||
          component == FaceComponent::TractionTangential;
@@ -92,15 +110,36 @@ constexpr bool isNormal(FaceComponent component) {
 }
 
 /**
- * The shares of the upwind damping in a numerical flux (fluxdamping): of the velocity jumps
- * (normal, tangential), which act through the traction of the Riemann state, and of the traction
- * jumps (normal, tangential), which act through its velocity. All 1 is the Godunov flux, all 0 its
- * part without damping (on a face within one material the centered flux).
+ * The shares of the upwind damping in a numerical flux (fluxdamping), one per pair of the Riemann
+ * problem, kind of jump and direction: of the velocity jumps of the material (normal, tangential),
+ * which act through the traction of the Riemann state, of its traction jumps (normal, tangential),
+ * which act through its velocity, and of the jumps of the extra pair (the fluid of a poroelastic
+ * solid), which has a normal direction only: of its velocity and of its traction (the pressure).
+ * A component without a partner of its own direction in its pair (the tangential velocity of the
+ * fluid) takes the share of that direction in the pair of the material. All 1 is the Godunov flux,
+ * all 0 its part without damping (on a face within one material the centered flux).
  */
-using DampingShares = std::array<double, 4>;
+using DampingShares = std::array<double, 6>;
+
+/// The shares of the Godunov flux itself.
+inline constexpr DampingShares UpwindDamping{1, 1, 1, 1, 1, 1};
 
 constexpr bool isUpwindDamping(const DampingShares& shares) {
-  return shares[0] == 1.0 && shares[1] == 1.0 && shares[2] == 1.0 && shares[3] == 1.0;
+  for (const auto share : shares) {
+    if (share != 1.0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/// The index in DampingShares of the share of a component of the jumps of the velocity
+/// (tractionJumps = false) or of the traction.
+constexpr std::size_t dampingSlot(FaceComponent component, bool extra, bool tractionJumps) {
+  if (extra && isNormal(component)) {
+    return tractionJumps ? 5 : 4;
+  }
+  return (tractionJumps ? 2 : 0) + (isNormal(component) ? 0 : 1);
 }
 
 /**
@@ -109,10 +148,10 @@ constexpr bool isUpwindDamping(const DampingShares& shares) {
  * the part of the traction of the state that depends on the velocities, the damping of the traction
  * jumps the part of its velocity that depends on the tractions; both are symmetric positive
  * semi-definite operators on the face components (also with a material contrast). Each is scaled
- * symmetrically, entry (a, b) by sqrt(s_a s_b) with the shares of the normal or tangential
- * component a of the state and b of the quantity, so that it stays positive semi-definite where
- * normal and tangential components couple (anisotropic or poroelastic solids). What the state takes
- * from the same kind of quantity, the (impedance-weighted) averages, is kept. The scaled entries
+ * symmetrically, entry (a, b) by sqrt(s_a s_b) with the shares (dampingSlot) of the component a of
+ * the state and b of the quantity, so that it stays positive semi-definite where components of
+ * other directions or pairs couple (anisotropic or poroelastic solids). What the state takes from
+ * the same kind of quantity, the (impedance-weighted) averages, is kept. The scaled entries
  * cancel in qGodLocal + qGodNeighbor, which therefore stays the identity.
  */
 template <typename MaterialT, typename LocalViewT, typename NeighborViewT>
@@ -121,8 +160,9 @@ void scaleRiemannDamping(LocalViewT& qGodLocal,
                          const DampingShares& shares) {
   constexpr auto Groups = MaterialT::PrimaryGroups;
   constexpr std::size_t Count = totalExtent(Groups);
-  const auto share = [&](FaceComponent component, bool tractionJumps) {
-    return shares[(tractionJumps ? 2 : 0) + (isNormal(component) ? 0 : 1)];
+  const auto share = [&](std::size_t index, bool tractionJumps) {
+    return shares[dampingSlot(
+        faceComponentOf(Groups, index), isExtraComponent(Groups, index), tractionJumps)];
   };
   for (std::size_t from = 0; from < Count; ++from) {
     const auto quantity = faceComponentOf(Groups, from);
@@ -130,9 +170,9 @@ void scaleRiemannDamping(LocalViewT& qGodLocal,
       const auto state = faceComponentOf(Groups, to);
       double factor = 1.0;
       if (isTraction(state) && isVelocity(quantity)) {
-        factor = std::sqrt(share(state, false) * share(quantity, false));
+        factor = std::sqrt(share(to, false) * share(from, false));
       } else if (isVelocity(state) && isTraction(quantity)) {
-        factor = std::sqrt(share(state, true) * share(quantity, true));
+        factor = std::sqrt(share(to, true) * share(from, true));
       } else {
         continue;
       }

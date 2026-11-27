@@ -14,6 +14,7 @@
 #include "Initializer/Parameters/SimulationFiles.h"
 #include "TestHelper.h"
 
+#include <array>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -225,6 +226,30 @@ TEST_CASE("readModelParameters defaults" * doctest::test_suite("initializer")) {
   CHECK(params.tv == doctest::Approx(0.1));
   CHECK(params.flux == NumericalFlux::Godunov);
   CHECK(params.fluxNearFault == NumericalFlux::Godunov);
+  CHECK(params.fluxDamping == std::array<double, 6>{1, 1, 1, 1, 1, 1});
+  CHECK(params.fluxNearFaultDamping == std::array<double, 6>{1, 1, 1, 1, 1, 1});
+}
+
+TEST_CASE("readModelParameters reads the flux and the shares of its damping" *
+          doctest::test_suite("initializer")) {
+  const YAML::Node node = YAML::Load(R"(
+    equations:
+      materialfilename: mat.yaml
+      freqcentral: 1
+      freqratio: 1
+      numflux: upwind
+      numfluxnearfault: godunov
+      fluxdamping: 1 0.5 1 0
+      fluxdampingnearfault: 1 1 1 0 0.25 0.75
+  )");
+  ParameterReader reader(node, "", false);
+  const auto params = readModelParameters(&reader, defaultConfig(), {});
+
+  CHECK(params.flux == NumericalFlux::Godunov);
+  CHECK(params.fluxNearFault == NumericalFlux::Godunov);
+  // with four shares, the fluid takes the normal ones
+  CHECK(params.fluxDamping == std::array<double, 6>{1, 0.5, 1, 0, 1, 1});
+  CHECK(params.fluxNearFaultDamping == std::array<double, 6>{1, 1, 1, 0, 0.25, 0.75});
 }
 
 TEST_CASE("readModelParameters simulation count" * doctest::test_suite("initializer")) {

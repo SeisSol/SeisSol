@@ -9,12 +9,13 @@
 
 #include "Common/ConfigRegistry.h"
 #include "Common/ConfigValue.h"
-#include "Initializer/InputAux.h"
 #include "Initializer/Parameters/ParameterReader.h"
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <cstddef>
+#include <sstream>
 #include <string>
 #include <system_error>
 #include <unordered_map>
@@ -260,6 +261,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
                                                        "godunov",
                                                        {
                                                            {"godunov", NumericalFlux::Godunov},
+                                                           {"upwind", NumericalFlux::Godunov},
                                                            {"rusanov", NumericalFlux::Rusanov},
                                                            {"centered", NumericalFlux::Centered},
                                                            {"mixed", NumericalFlux::Mixed},
@@ -270,6 +272,7 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
                                                        "godunov",
                                                        {
                                                            {"godunov", NumericalFlux::Godunov},
+                                                           {"upwind", NumericalFlux::Godunov},
                                                            {"rusanov", NumericalFlux::Rusanov},
                                                            {"centered", NumericalFlux::Centered},
                                                            {"mixed", NumericalFlux::Mixed},
@@ -280,9 +283,26 @@ ModelParameters readModelParameters(ParameterReader* baseReader,
   const auto fluxGPart = reader->readWithDefault("fluxgpart", 0.0);
   const auto fluxGPartNearFault = reader->readWithDefault("fluxgpartnearfault", 0.0);
 
+  // four shares (vn vt tn tt), or six with those of a fluid (its normal velocity, its pressure),
+  // which take vn and tn if not given
   const auto readDamping = [&](const std::string& name) {
-    const auto shares = seissol::initializer::convertStringToArray<double, 4>(
-        reader->readWithDefault(name, std::string("1 1 1 1")));
+    const auto text = reader->readWithDefault(name, std::string("1 1 1 1"));
+    std::istringstream stream(text);
+    std::vector<double> values;
+    double value = 0;
+    while (stream >> value) {
+      values.push_back(value);
+    }
+    if (!stream.eof() || (values.size() != 4 && values.size() != 6)) {
+      logError() << name << "takes four shares (vn vt tn tt) or six (vn vt tn tt vf p), not"
+                 << text;
+    }
+    std::array<double, 6> shares{};
+    std::copy(values.begin(), values.end(), shares.begin());
+    if (values.size() == 4) {
+      shares[4] = shares[0];
+      shares[5] = shares[2];
+    }
     for (const auto share : shares) {
       if (!(share >= 0.0)) {
         logError() << "The shares of" << name << "have to be at least 0.";
