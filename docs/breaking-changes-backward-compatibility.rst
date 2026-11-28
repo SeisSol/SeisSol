@@ -285,6 +285,7 @@ the writer. It is ``wavefieldprojection`` for the wavefield and ``surfaceproject
 surface (see :ref:`wave_field_output` and :ref:`free_surface_output`). The defaults reproduce what
 each output did before -- ``pointwise`` for the wavefield, ``l2`` for the free surface -- so no
 parameter file needs to change; the option exists to make the two comparable when that is wanted.
+
 Free-surface displacement in checkpoints
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 (since the unification of the output modules)
@@ -296,6 +297,16 @@ the partitioning unchanged this affected a few faces at the rank boundaries,
 with a different one most of them. The faces are now identified by the global
 cell id, and a restart reproduces the displacement exactly. Checkpoints written
 before cannot restore it correctly.
+
+Plastic strain in checkpoints
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(after 1.3.2, `#1658 <https://github.com/SeisSol/SeisSol/pull/1658>`_, October 2026)
+
+With plasticity, the checkpoint record ``pstrain`` held the plasticity parameters of the cells
+instead of their plastic strain, so a restarted run continued with the plastic strain and
+:math:`\eta` reset to zero. The record now holds the plastic strain.
+Checkpoints of simulations with plasticity written before this change cannot be restored.
 
 Dynamic rupture checkpoints
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
